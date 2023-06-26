@@ -1,0 +1,12 @@
+includes:
+  - rngstate4p4t.msp
+
+configuration:
+  logging:
+    parallel: true
+
+simulation:
+  - check_random_engine:
+      samples: 30
+      cycles: 10
+

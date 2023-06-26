@@ -1,0 +1,14 @@
+# no-seq
+includes:
+  - periodic.cfg
+
+input_data:
+  - read_xyz_file:
+     file: chaine3.xyz
+     bounds_mode: COMPUTED
+     enlarge_bounds: 1.0 ang
+  - shift_v: [ 1.201 ang , 1.031 ang , 1.33 ang ]
+
+global:
+  simulation_end_iteration: 1000
+

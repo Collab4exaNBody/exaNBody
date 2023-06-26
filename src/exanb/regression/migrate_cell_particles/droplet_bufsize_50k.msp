@@ -1,0 +1,7 @@
+# no-seq no-mt
+
+includes: [droplet_bufsize_10k.msp]
+
+migrate_cell_particles:
+  buffer_size: 50000
+

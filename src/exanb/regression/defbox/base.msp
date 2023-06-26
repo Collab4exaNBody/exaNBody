@@ -1,0 +1,44 @@
+# no-seq
+
+# define potential we'll reuse later
+lj_compute_force:
+  parameters: { epsilon: 9.340E-20 J , sigma: 0.227E-09 m }
+  rcut: 5.68 ang
+
+compute_force: lj_compute_force
+
+# atoms descriptions
+species:
+  - Copper:
+      mass: 105.486E-27 kg
+      z: 29
+      charge: 0 e-
+
+grid_flavor: grid_flavor_multimat
+
+# FIXME: thermodynamic_state operator need to take xform into account
+
+input_data:
+  - read_stamp_v3:
+      file: small_lattice.mpio
+      bounds_mode: COMPUTED
+      enlarge_bounds: 10.0 ang
+      pbc_adjust_xform: true
+
+simulation_epilog:
+  - check_values:
+      file: mytest.dat
+      samples: 128
+      acc_threshold: 2.5e-10
+      pos_threshold: 1.e-12
+
+domain:
+  cell_size: 8.0 ang
+  periodic: [true,false,false]
+
+global:
+  simulation_end_iteration: 20
+  simulation_log_frequency: 1
+  simulation_dump_frequency: 1
+
+

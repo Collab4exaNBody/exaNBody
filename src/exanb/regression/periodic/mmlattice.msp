@@ -1,0 +1,16 @@
+# no-seq
+includes:
+  - periodic.cfg
+
+domain:
+  grid_dims: [4,4,4]
+
+input_data:
+  - read_stamp_v3:
+      file: multimat.mpio
+      bounds_mode: FILE
+  - shift_v: [ 1.201 ang , 1.031 ang , 1.33 ang ]
+
+global:
+  simulation_end_iteration: 1000
+

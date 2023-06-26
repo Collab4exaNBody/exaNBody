@@ -1,0 +1,66 @@
+# no-seq
+
+# define potential we'll reuse later
+compute_force: lj_compute_force
+
+lj_compute_force:
+  parameters: { epsilon: 9.340E-20 J , sigma: 0.227E-09 m }
+  rcut: 5.68 ang
+
+# atoms descriptions
+species:
+  - Copper:
+      mass: 105.486E-27 kg
+      z: 29
+      charge: 0 e-
+
+grid_flavor: grid_flavor_full
+
+input_data:
+  - read_stamp_v3:
+      file: small_lattice.mpio
+      bounds_mode: FILE
+
+domain:
+  grid_dims: [12,12,12]
+  periodic: [true,true,true]
+
+global:
+  dt: 4.0e-3 ps
+  simulation_end_iteration: 30
+  simulation_log_frequency: 1
+
+######## simulation program description #################
+simulation:
+  - print_logo_banner
+  - init_prolog
+  - make_empty_grid
+  - global
+  - domain
+  - species
+  - grid_flavor
+  - input_data
+  - init_rcut_max
+  - first_iteration
+  - init_epilog
+  - compute_loop:
+      loop: true
+      condition: compute_loop_continue
+      body:
+        - copy_grid
+        - parallel_compute_insitu:
+            parallel: true
+            cores: [ 0.25 , 0.75 ]
+            body:
+              - simulation_compute:
+                  - message: "I start computing"
+                  - numerical_scheme
+                  - end_iteration
+                  - compute_loop_stop
+                  - message: "I'm done computing"
+              - insitu_analytics:
+                  rebind: { grid: grid_copy }
+                  body:
+                    - message: "I'm processing insitu"
+  - simulation_epilog
+

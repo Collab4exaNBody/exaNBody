@@ -1,0 +1,49 @@
+# no-seq
+
+configuration:
+  logging:
+    debug: false
+  +plugins:
+    - microStampDebug
+  debug:
+    graph: false
+    graph_lod: 0
+#  num_threads: { 1: [".*\\.lj_compute_force_symetric_xform"] }
+
+# define potential we'll reuse later
+lj_compute_force:
+  parameters: { epsilon: 9.340E-20 J , sigma: 0.227E-09 m }
+  rcut: 5.68 ang
+
+compute_force: lj_compute_force
+
+# atoms descriptions
+species:
+  - Copper:
+      mass: 105.486E-27 kg
+      z: 29
+      charge: 0 e-
+
+grid_flavor: grid_flavor_multimat
+
+input_data:
+  - read_stamp_v3:
+      file: small_lattice.mpio
+      bounds_mode: DOMAIN
+
+simulation_epilog:
+  - check_values:
+      file: defbox_pbc_adjust_xform.dat
+      samples: 128
+      acc_threshold: 2.5e-10
+      pos_threshold: 1.e-12
+
+domain:
+  bounds: [ [-1. ang , -1. ang , -1. ang ] , [ 42. ang , 43. ang , 44. ang ] ]
+  periodic: [true,true,true]
+
+global:
+  simulation_end_iteration: 20
+  simulation_log_frequency: 1
+  pbc_adjust_xform: true
+

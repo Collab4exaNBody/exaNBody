@@ -1,0 +1,7 @@
+# no-seq
+includes:
+  - extend_domain.cfg
+
+domain:
+  periodic: [false,true,true]
+

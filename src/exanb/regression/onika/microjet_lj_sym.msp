@@ -1,0 +1,55 @@
+# no-seq enable-if-EXASTAMP_ENABLE_PERF_TESTS nthreads=max
+
+includes:
+  - config_speculative_verlet.msp
+  - config_coscheduling.msp
+
+configuration:
+  profiling:
+    summary: true
+    vite: trace.vite
+
+grid_flavor: grid_flavor_multimat
+
+species:
+  - Copper:
+      mass: 105.486E-27 kg
+      z: 29
+      charge: 0 e-
+
+input_data:
+  - read_stamp_v3:
+#      file: microjet.mpio
+      file: droplet.mpio
+      bounds_mode: FILE
+
+domain:
+  cell_size: 20.0 ang
+  periodic: [true,true,true]
+
+global:
+  dt: 4.0e-3 ps
+  simulation_end_iteration: 600010
+  simulation_log_frequency: 5
+  rcut_inc: 0.3 ang
+  chunk_size: 4
+  #amr_z_curve: false
+
+#grid_post_processing:
+#  - grid_memory_compact: { ghost: true , alloc_policy: CUDA_HOST }
+
+# define potential we'll reuse later
+compute_force: lj_compute_force_symetric
+
+lj_compute_force_symetric:
+  parameters: { epsilon: 9.340E-20 J , sigma: 0.227E-09 m }
+  rcut: 5.68 ang
+
+final_dump: nop
+
+simulation_epilog:
+  - memory_stats
+  - check_values:
+      file: microjet.dat
+      threshold: 1.e-10
+

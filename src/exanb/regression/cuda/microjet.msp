@@ -1,0 +1,58 @@
+# no-seq enable-if-EXASTAMP_ENABLE_PERF_TESTS nthreads=max
+
+configuration:
+  profiling:
+    summary: true
+
+grid_flavor: grid_flavor_minimal
+
+species:
+  - Copper:
+      mass: 105.486E-27 kg
+      z: 29
+      charge: 0 e-
+
+input_data:
+  - read_stamp_v3:
+      file: microjet.mpio
+      bounds_mode: FILE
+      enlarge_bounds: 30.0 ang
+  - replicate_domain: [ 1 , 2 , 2 ]
+  - deformation_xform:
+      update_mode: PREMULTIPLY
+      defbox:
+        extension: [ 1.01 , 1.01 , 1.01 ]
+  - compensate_xform:
+      rebind: { xform: inv_xform }
+      body: [ apply_xform ]
+
+domain:
+  cell_size: 80.0 ang
+#  cell_size: 20.0 ang
+  periodic: [true,true,true]
+
+global:
+  dt: 1.0e-3 ps
+  simulation_end_iteration: 600010
+#  simulation_end_iteration: 16
+  simulation_log_frequency: 1
+  rcut_inc: 1.0 ang
+
+# define potential we'll reuse later
+compute_force:
+  - lj_compute_force
+
+#compute_loop: nop
+
+#+parallel_update_particles:
+#  - simple_cost_model: { ccost: 1.0 , pdens: 4.0 , pdens2:0.0 , pdens3:0.003 }  # for test
+#  - cuda_load_balance_rcb: { number_of_blocks: 1 }
+
+lj_compute_force:
+  parameters: { epsilon: 9.340E-20 J , sigma: 0.227E-09 m }
+  rcut: 5.68 ang
+
+simulation_epilog:
+  - memory_stats
+  - grid_clear
+

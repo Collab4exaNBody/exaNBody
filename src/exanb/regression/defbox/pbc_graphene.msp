@@ -1,0 +1,70 @@
+# enable-if-EXASTAMP_BUILD_LCHBOP
+
+## Careful : order is important
+configuration:
+  logging:
+    parallel: false
+    profiling: false
+    debug: false
+#  debug:
+#    filter: [ ".*\\.update_force_energy_from_ghost" , ".*\\.ghost_comm_scheme" ]
+  profiling:
+    operator: false
+    operator_exectime: false
+    operator_summary: true
+  debug:
+    plugins: false
+    config: false
+    graph: true
+    graph_lod: 0
+
+global:
+  dt: 1.0e-4 ps
+  rcut_max: 8.8 ang
+  rcut_inc: 0.0 ang   # additional distance so that we don't have to rebuild neighbor list each time step
+  ghost_dist: 8.8 ang 
+  timestep: 0
+  simulation_end_iteration: 1000
+  simulation_log_frequency: 10
+  simulation_dump_frequency: 10000
+  init_temperature: 0 K
+  pbc_adjust_xform: true
+
+
+# define potential we'll reuse later
+sutton_chen_force:
+  rcut: 7.29 ang
+  parameters:
+    c: 3.317E+01
+    epsilon: 3.605E-21 J
+    a0: 0.327E-09 m
+    n: 9.050E+00
+    m: 5.005E+00
+
+# atoms descriptions
+species:
+  - C:
+     z: 12
+     mass: 12.0107 Da
+     charge: 0.0 e-
+  - H:
+     z: 1
+     mass: 1.00794 Da
+     charge: -0.4680 e-
+
+grid_flavor: grid_flavor_multimat
+
+input_data:
+  - read_xyz_file:
+     bounds_mode: FILE       # read from file
+     file: Grn1008_test.xyz
+
+domain:
+   periodic: [true,true,false]
+   cell_size: 2.2 ang
+
+dump_data:
+  - write_vtk: {is_binary: false}
+
+compute_force: sutton_chen_force
+

@@ -1,0 +1,8 @@
+# no-seq
+includes:
+  - base.msp
+
+deformation_xform:
+  defbox:
+    extension: [0.75 , 0.75, 0.75]
+

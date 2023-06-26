@@ -1,0 +1,47 @@
+# no-seq no-mt
+
+configuration:
+  profiling:
+    summary: true
+
+grid_flavor: grid_flavor_multimat
+
+species:
+  - Copper:
+      mass: 105.486E-27 kg
+      z: 29
+      charge: 0 e-
+
+input_data:
+  - read_stamp_v3:
+      file: droplet.mpio
+      bounds_mode: FILE
+
+init_epilog:
+  - grid_stats
+
+domain:
+  cell_size: 80.0 ang
+  periodic: [true,true,true]
+
+global:
+  dt: 4.0e-3 ps
+  simulation_end_iteration: 3
+  simulation_log_frequency: 1
+  rcut_inc: 0.3 ang
+
+migrate_cell_particles:
+  buffer_size: 10000
+
+# define potential we'll reuse later
+compute_force: lj_compute_force
+
+lj_compute_force:
+  parameters: { epsilon: 9.340E-20 J , sigma: 0.227E-09 m }
+  rcut: 5.68 ang
+
+simulation_epilog:
+  - check_values:
+      file: droplet_lj_mcp.dat
+      threshold: 1.e-10
+

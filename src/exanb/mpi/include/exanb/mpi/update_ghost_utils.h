@@ -1,0 +1,39 @@
+#pragma once
+
+#include <onika/soatl/field_tuple.h>
+#include <exanb/field_sets.h>
+
+namespace exanb
+{
+  
+
+  namespace UpdateGhostsUtils
+  {
+    template<typename FieldSetT> struct FieldSetToParticleTuple;
+    template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
+    template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
+
+    template<typename TupleT, class fid, class T> static inline void apply_field_shift( TupleT& t , onika::soatl::FieldId<fid> f, T x )
+    {
+      if constexpr ( TupleT::has_field(f) ) { t[ f ] += x; }
+    }
+    
+    template<typename TupleT>
+    static inline void apply_r_shift( TupleT& t , double x, double y, double z )
+    {
+      apply_field_shift( t , field::rx , x );
+      apply_field_shift( t , field::ry , y );
+      apply_field_shift( t , field::rz , z );
+
+      if constexpr ( HAS_POSITION_BACKUP_FIELDS )
+      {
+        apply_field_shift( t , PositionBackupFieldX , x );
+        apply_field_shift( t , PositionBackupFieldY , y );
+        apply_field_shift( t , PositionBackupFieldZ , z );
+      }
+    }
+    
+  } // template utilities used only inside UpdateGhostsNode
+
+}
+
