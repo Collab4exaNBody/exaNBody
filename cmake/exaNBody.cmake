@@ -1,3 +1,21 @@
+# =============================
+# === Application branding  ===
+# =============================
+set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
+set(XNB_APP_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include)
+set(XNB_FIELD_SETS_HDR ${PROJECT_SOURCE_DIR}/include/exanb/field_sets.h)
+if(XNB_PRODUCT_VARIANT)
+  include(${PROJECT_SOURCE_DIR}/addons/${XNB_PRODUCT_VARIANT}.cmake)
+endif()
+
+set(XNB_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/exaNBody)
+set(USTAMP_APPS_DIR ${CMAKE_CURRENT_BINARY_DIR})
+
+message(STATUS "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
+message(STATUS "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}")
+message(STATUS "XNB_BINARY_DIR=${XNB_BINARY_DIR}")
+message(STATUS "XNB_APP_NAME=${XNB_APP_NAME}")
+message(STATUS "USTAMP_APPS_DIR=${USTAMP_APPS_DIR}")
 
 # ========================================
 # === Compiler toolchain configuration ===
@@ -31,12 +49,6 @@ SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 # =================================
 # === CMake customization       ===
 # =================================
-option(XSTAMP_VERBOSE_CMAKE "Increase cmake verbosity" OFF)
-function(xstamp_message str)
-  if(XSTAMP_VERBOSE_CMAKE)
-    message(STATUS "${str}")
-  endif()  
-endfunction()
 if(NOT CCMAKE_COMMAND)
   get_filename_component(CCMAKE_BIN_DIR ${CMAKE_COMMAND} DIRECTORY)
   find_program(CCMAKE_COMMAND ccmake HINTS ${CCMAKE_BIN_DIR})
@@ -59,6 +71,14 @@ if(NOT HOST_HW_CORES)
   set(HOST_HW_CORES 1 CACHE STRING "Host number of physical cores")
 endif()
 
+if(NOT HOST_HW_PARTITION)
+  set(HOST_HW_PARTITION localhost)
+endif()
+
+# CPU cores detection
+message(STATUS "Host hardware : partition ${HOST_HW_PARTITION} has ${HOST_HW_CORES} core(s) and ${HOST_HW_THREADS} thread(s)")
+
+
 # =======================================
 # === Third party tools and libraries ===
 # =======================================
@@ -73,9 +93,9 @@ if(XSTAMP_THIRD_PARTY_TOOLS_ROOT)
 endif()
 
 if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES)
-  xstamp_message("skip find_package(MPI REQUIRED)")
-  xstamp_message("MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}")
-  xstamp_message("MPI_CXX_LIBRARIES    = ${MPI_CXX_LIBRARIES}")
+  message(STATUS "skip find_package(MPI REQUIRED)")
+  message(STATUS "MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}")
+  message(STATUS "MPI_CXX_LIBRARIES    = ${MPI_CXX_LIBRARIES}")
   set(MPI_CXX_FOUND ON)
 else()
   find_package(MPI REQUIRED)
@@ -207,10 +227,10 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh "${PROJECT_SETUP_ENV_COMMAND
 #export LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH
 file(READ ${PROJECT_SOURCE_DIR}/scripts/patch_library_path.sh PATCH_LIBRARY_PATH)
 set(APP_SETUP_PLUGIN_PATH "PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib\n${PATCH_LIBRARY_PATH}")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP}-env.sh "${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n")
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP}-run.sh "#!/bin/bash\n${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n${CMAKE_INSTALL_PREFIX}/bin/${XNB_APP} \$*\n")
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP}-run.sh DESTINATION bin)
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP}-env.sh DESTINATION bin)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-env.sh "${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-run.sh "#!/bin/bash\n${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n${CMAKE_INSTALL_PREFIX}/bin/${XNB_APP_NAME} \$*\n")
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-run.sh DESTINATION bin)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-env.sh DESTINATION bin)
 
 # =================================
 # === Application configuration ===
@@ -218,8 +238,8 @@ install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP}-env.sh DESTINATION bin)
 
 # global settings
 set(USTAMP_PLUGIN_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-set(XNB_DEFAULT_CONFIG_FILE "config_${XNB_APP}.msp")
-set(XNB_LOCAL_CONFIG_FILE "${XNB_APP}_build.msp")
+set(XNB_DEFAULT_CONFIG_FILE "config_${XNB_APP_NAME}.msp")
+set(XNB_LOCAL_CONFIG_FILE "${XNB_APP_NAME}_build.msp")
 set(XNB_CONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/config")
 
 # set default maximum number of particle neighbors
@@ -276,14 +296,16 @@ set(USTAMP_CORE_LIBRARIES
     tinyexpr)
 
 # build components, plugins and builtin tests
-add_subdirectory(${XNB_ROOT_DIR}/src)
+add_subdirectory(${XNB_ROOT_DIR}/src ${XNB_BINARY_DIR})
 
 # install various files to install dir
 #install(DIRECTORY include/ustamp DESTINATION include)
 install(FILES ${EXANB_APP_CONFIG_FILES} DESTINATION share/config)
 
 # ================ Plugin data base generation ================
-xstamp_generate_all_plugins_input()
-xstamp_generate_plugin_database()
-xstamp_add_unit_tests()
+macro(exaNBodyFinalizeApplication)
+  xstamp_generate_all_plugins_input()
+  xstamp_generate_plugin_database()
+  xstamp_add_unit_tests()
+endmacro()
 

@@ -7,15 +7,6 @@ add_subdirectory(onika)
 # N-Body common library
 add_subdirectory(exanb)
 
-# exaStamp (DM)
-xstamp_optional_package(exaStamp exaStamp)
-
-# DEM app
-xstamp_optional_package(exaDEM exaDEM)
-
-# SPH plugins
-xstamp_optional_package(exaSPH exaSPH)
-
 # shared main
 add_subdirectory(appmain)
 
