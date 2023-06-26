@@ -31,7 +31,10 @@ endif()
 # ===========================
 # === CMake customization ===
 # ===========================
-set(XNB_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
+#set(XNB_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/..)
+get_filename_component(XNB_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}" DIRECTORY)
+message(STATUS "XNB_ROOT_DIR=${XNB_ROOT_DIR}")
+
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
 include(CMakeDependentOption)
 include(RunCommand)

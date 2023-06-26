@@ -1,18 +1,5 @@
 set_property(GLOBAL PROPERTY GLOBAL_XSTAMP_BUILT_PLUGINS "")
 
-macro(xstamp_optional_package PkgName)
-  set(${PkgName}_Enabled OFF)
-  foreach(enapp ${ARGV})
-    if("${enapp}" STREQUAL "${XNB_APP_NAME}")
-      set(${PkgName}_Enabled ON)
-    endif()
-  endforeach()
-  if(${PkgName}_Enabled)
-    message(STATUS "Package ${PkgName} enabled") #  for app ${XNB_APP_NAME}
-    add_subdirectory(${PkgName})
-  endif()
-endmacro()
-
 function(xstamp_register_plugin PluginName)
   get_property(XSTAMP_BUILT_PLUGINS GLOBAL PROPERTY GLOBAL_XSTAMP_BUILT_PLUGINS)
   list(APPEND XSTAMP_BUILT_PLUGINS "${PluginName}")
