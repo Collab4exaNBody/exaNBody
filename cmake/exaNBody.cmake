@@ -127,8 +127,9 @@ if(EXASTAMP_USE_ZOLTAN)
 endif()
 
 # embedded third party tools
-set(EXASTAMP_THIRDPARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
-set(TKSPLINE_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/tkspline)
+set(EXASTAMP_THIRDPARTY_DIR ${XNB_ROOT_DIR}/thirdparty)
+find_path(TKSPLINE_INCLUDE_DIRS tk/spline.h)
+
 set(BASEN_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/base-n/include)
 set(TINYEXPR_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr)
 add_library(tinyexpr STATIC ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr/tinyexpr.c)
