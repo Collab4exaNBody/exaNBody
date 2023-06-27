@@ -4,10 +4,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(exaNBody LANGUAGES C CXX)
 
-set(XNB_ROOT_DIR ${CMAKE_SOURCE_DIR})
-list(APPEND CMAKE_MODULE_PATH "${XNB_ROOT_DIR}/cmake")
-include(exaNBody)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake "set(exaNBody_DIR ${CMAKE_INSTALL_PREFIX})\nlist(APPEND CMAKE_MODULE_PATH \"${CMAKE_INSTALL_PREFIX}/cmake\")\ninclude(exaNBody)\n")
 
-# install ...
-
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
+install(DIRECTORY src cmake thirdparty DESTINATION ${CMAKE_INSTALL_PREFIX})
 
