@@ -33,7 +33,7 @@ macro(exaNBodyStartApplication)
   # ===========================
   # === CMake customization ===
   # ===========================
-  set(XNB_ROOT_DIR ${exaNBody_DIR})
+  get_filename_component(XNB_ROOT_DIR ${exaNBody_DIR} ABSOLUTE)
   message(STATUS "XNB_ROOT_DIR=${XNB_ROOT_DIR}")
 
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
