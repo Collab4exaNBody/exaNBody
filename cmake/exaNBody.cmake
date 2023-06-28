@@ -154,6 +154,7 @@ macro(exaNBodyStartApplication)
   set(EXASTAMP_THIRDPARTY_DIR ${XNB_ROOT_DIR}/thirdparty)
   find_path(TKSPLINE_INCLUDE_DIRS tk/spline.h)
 
+  set(NAIVEMATRIX_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR})
   set(BASEN_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/base-n/include)
   set(TINYEXPR_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr)
   add_library(tinyexpr STATIC ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr/tinyexpr.c)
@@ -229,7 +230,7 @@ macro(exaNBodyStartApplication)
 
   # run script installation
   #export LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH
-  file(READ ${PROJECT_SOURCE_DIR}/scripts/patch_library_path.sh PATCH_LIBRARY_PATH)
+  file(READ ${XNB_ROOT_DIR}/scripts/patch_library_path.sh PATCH_LIBRARY_PATH)
   set(APP_SETUP_PLUGIN_PATH "PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib\n${PATCH_LIBRARY_PATH}")
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-env.sh "${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n")
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-run.sh "#!/bin/bash\n${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n${CMAKE_INSTALL_PREFIX}/bin/${XNB_APP_NAME} \$*\n")
@@ -288,6 +289,7 @@ macro(exaNBodyStartApplication)
     ${MPI_CXX_INCLUDE_PATH}
     ${TKSPLINE_INCLUDE_DIRS}
     ${TINYEXPR_INCLUDE_DIRS}
+    ${NAIVEMATRIX_INCLUDE_DIRS}
     )
 
   set(USTAMP_CXX_FLAGS -Wall ${OpenMP_CXX_FLAGS})

@@ -2,6 +2,6 @@
 # === micro-stamp pair potential compute operator library library  ===
 # ====================================================================
 
-set(exanbCompute_LINK_LIBRARIES exanbGridCellParticles)
+set(exanbCompute_LINK_LIBRARIES exanbGridCellParticles exanbParticleNeighbors)
 xstamp_add_plugin(exanbCompute ${CMAKE_CURRENT_SOURCE_DIR})
 
