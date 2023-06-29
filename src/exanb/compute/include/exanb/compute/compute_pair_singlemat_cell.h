@@ -86,7 +86,7 @@ namespace exanb
     const ComputePairBufferFactoryT& cpbuf_factory,
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
-    CST CS,
+    CST CS /*nbh_chunk_size*/,
     std::integral_constant<bool,Symetric> ,
     FieldSet< field_ids... > ,
     PosFieldsT = PosFieldsT{} ,
@@ -130,6 +130,8 @@ namespace exanb
     {
       if( ! optional.cell_filter(cell_a,loc_a) ) return;
     }
+
+//    const unsigned int CS = nbh_chunk_size;
 
     const unsigned int cell_a_particles = cells[cell_a].size();
     const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
