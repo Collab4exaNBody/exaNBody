@@ -120,12 +120,10 @@ namespace onika
 
       // read only fields of tuple at position i that exist in this field array. other fields of tuple passed as argument are unchanged.
       template<typename... otherIds>
-      inline void read_tuple( size_t i, FieldTuple<otherIds...>& tp ) const
+      ONIKA_HOST_DEVICE_FUNC inline void read_tuple( size_t i, FieldTuple<otherIds...>& tp ) const
       {
         assert( i < capacity() );
-        TEMPLATE_LIST_BEGIN
-          tp[ FieldId<otherIds>() ] = (*this)[FieldId<otherIds>()][i]
-        TEMPLATE_LIST_END
+        ( ... , ( tp[ FieldId<otherIds>() ] = (*this)[FieldId<otherIds>()][i] ) );
       }
 
       // write only fields of argument tuple that exist in this field array. other fields are unchanged.

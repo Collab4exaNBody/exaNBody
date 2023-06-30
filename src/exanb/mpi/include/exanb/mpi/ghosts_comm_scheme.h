@@ -6,6 +6,7 @@
 
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/basic_types.h>
+#include <onika/memory/allocator.h> // for DEFAULT_ALIGNMENT
 
 #include <mpi.h>
 
@@ -17,10 +18,11 @@ namespace exanb
   {
     size_t m_cell_i;  // sender's cell index
     size_t m_partner_cell_i;  // partner's cell index
+    ssize_t m_send_buffer_offset = -1;
     double m_x_shift;
     double m_y_shift;
     double m_z_shift;
-    std::vector<uint32_t> m_particle_i; // sender's particle index
+    onika::memory::CudaMMVector<uint32_t> m_particle_i; // sender's particle index
 
     GhostCellSendScheme() = default;
     GhostCellSendScheme(const GhostCellSendScheme&) = default;
@@ -94,8 +96,9 @@ namespace exanb
 
   struct GhostPartnerCommunicationScheme
   {
-    std::vector< GhostCellSendScheme > m_sends;
+    onika::memory::CudaMMVector< GhostCellSendScheme > m_sends;
     std::vector< GhostCellReceiveScheme > m_receives;
+    
   };
 
   struct GhostCommunicationScheme
@@ -104,6 +107,7 @@ namespace exanb
     size_t m_particle_bytes = 0;
     size_t m_cell_bytes = 0;
     std::vector< GhostPartnerCommunicationScheme > m_partner;
+    bool m_update_buffer_offset = true;
   };
 
   template<class StreamT>

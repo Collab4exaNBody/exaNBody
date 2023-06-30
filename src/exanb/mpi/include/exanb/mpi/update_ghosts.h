@@ -25,10 +25,64 @@
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/mpi/data_types.h>
 
+#include <exanb/compute/block_parallel_for.h>
+#include <onika/cuda/stl_adaptors.h>
+
 namespace exanb
 {
-  
   using namespace UpdateGhostsUtils;
+
+  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
+  struct GhostSendPackFunctor
+  {
+    const GhostCellSendScheme * const __restrict__ m_sends = nullptr;
+    const CellParticles * const __restrict__ m_cells = nullptr;
+    const GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
+    const size_t m_cell_scalar_components = 0;
+    uint8_t* m_data_ptr_base = nullptr;
+
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+    {
+      uint8_t* data_ptr = m_data_ptr_base + m_sends[i].m_send_buffer_offset;
+      CellParticlesUpdateData* data = (CellParticlesUpdateData*) data_ptr;
+      size_t data_cur = 0;
+
+      if( ONIKA_CU_THREAD_IDX == 0 )
+      {
+        data->m_cell_i = m_sends[i].m_partner_cell_i;
+      }        
+      const size_t cell_i = m_sends[i].m_cell_i;
+      const double rx_shift = m_sends[i].m_x_shift;
+      const double ry_shift = m_sends[i].m_y_shift;
+      const double rz_shift = m_sends[i].m_z_shift;
+      const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
+      const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
+      ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
+      {
+        assert( particle_index[j]>=0 && particle_index[j] < m_cells[cell_i].size() );
+        m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
+        apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
+      }
+      data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+      if( m_cell_scalars != nullptr )
+      {
+        GridCellValueType* gcv = reinterpret_cast<GridCellValueType*>( data_ptr + data_cur );
+        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
+        {
+          gcv[c]  = m_cell_scalars[cell_i*m_cell_scalar_components+c];
+        }
+        //data_cur += sizeof(GridCellValueType) * m_cell_scalar_components;
+      }
+      //data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
+    }
+  };
+
+  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
+  struct BlockParallelForFunctorTraits< GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+  {
+    static inline constexpr bool CudaCompatible = true;
+  };
+
 
   template<
     class GridT,
@@ -41,6 +95,7 @@ namespace exanb
     using CellParticles = typename GridT::CellParticles;
     using ParticleFullTuple = typename CellParticles::TupleValueType;
     using ParticleTuple = typename FieldSetToParticleTuple< AddDefaultFields<FieldSetT> >::type;
+    using GridCellValueType = typename GridCellValues::GridCellValueType;
     
     static_assert( ParticleTuple::has_field(field::rx) , "ParticleTuple must contain field::rx" );
     static_assert( ParticleTuple::has_field(field::ry) , "ParticleTuple must contain field::ry" );
@@ -58,15 +113,13 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------
     ADD_SLOT( MPI_Comm                 , mpi               , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
+    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , REQUIRED );
     ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
 
     inline void execute () override final
-    {
-      using GridCellValueType = typename GridCellValues::GridCellValueType;
-      
+    {      
       // prerequisites
 
       MPI_Comm comm = *mpi;
@@ -91,16 +144,50 @@ namespace exanb
         ldbg << "update ghost cell values with "<< cell_scalar_components << " components"<<std::endl;
       }
 
-#     ifndef NDEBUG
-      const size_t n_cells = grid->number_of_cells();
-#     endif      
-      
       int comm_tag = *mpi_tag;
       int nprocs = 1;
       int rank = 0;
       MPI_Comm_size(comm,&nprocs);
       MPI_Comm_rank(comm,&rank);
 
+
+      // FIXME:
+      /*********************** shall be in a separate operator **********************/
+      //std::cout<<"cell bytes = "<<comm_scheme.m_cell_bytes<<" , scalar components = "<<cell_scalar_components<< " , particle_bytes = "<< comm_scheme.m_particle_bytes<<" , sizeof(ParticleTuple)="<<sizeof(ParticleTuple)<< std::endl;
+      if( comm_scheme.m_cell_bytes != cell_scalar_components*sizeof(GridCellValueType) || comm_scheme.m_particle_bytes != sizeof(ParticleTuple) )
+      {
+        //std::cout<<"recalcul offsets"<<std::endl;
+        for(int p=0;p<nprocs;p++)
+        {
+          size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
+          if( cells_to_send > 0 )
+          {
+            size_t data_cur = 0;
+            for(size_t i=0;i<cells_to_send;i++)
+            {
+              comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset = data_cur; 
+              size_t n_particles = comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+              //std::cout<<"A: p="<<p<<", i="<<i<<" data_cur1="<<data_cur<<" cell#"<<comm_scheme.m_partner[p].m_sends[i].m_cell_i<<" npart="<<n_particles;
+              data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+              //std::cout<<" data_cur2="<<data_cur;
+              if( cell_scalars != nullptr )
+              {
+                data_cur += sizeof(GridCellValueType) * cell_scalar_components;
+              }
+              //std::cout<<" data_cur3="<<data_cur<<std::endl;
+            }
+          }
+        }
+        comm_scheme.m_cell_bytes = cell_scalar_components*sizeof(GridCellValueType);
+        comm_scheme.m_particle_bytes = sizeof(ParticleTuple);
+      }
+      /********************************************************************/
+      
+
+#     ifndef NDEBUG
+      const size_t n_cells = grid->number_of_cells();
+#     endif      
+      
       // initialize MPI requests for both sends and receives
       size_t total_requests = 2 * nprocs;
       std::vector< MPI_Request > requests( total_requests );
@@ -151,11 +238,24 @@ namespace exanb
             send_buffer_size += cells_to_send * sizeof(GridCellValueType) * cell_scalar_components;
           }
           send_buffer[p].resize( send_buffer_size );
-          uint8_t* data_ptr = send_buffer[p].data();
-          size_t data_cur = 0;
-          CellParticlesUpdateData* data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr+data_cur );
+
+          uint8_t* data_ptr_base = send_buffer[p].data();
+          //uint8_t* data_ptr = send_buffer[p].data();
+          //size_t data_cur = 0;
+
+          GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> pack_ghost = { comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , data_ptr_base };
+          block_parallel_for( cells_to_send, pack_ghost, gpu_execution_context() , gpu_time_account_func() );
+#if 0
+#         pragma omp parallel for schedule(dynamic)
           for(size_t i=0;i<cells_to_send;i++)
           {
+            uint8_t* data_ptr = data_ptr_base + comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset;
+            size_t data_cur = 0;
+            CellParticlesUpdateData* data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
+            //assert( data_cur == comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset );
+            const size_t n_particles = comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+            //std::cout<<"B: p="<<p<<", i="<<i<<" data_cur1="<<data_cur<<" cell#"<<comm_scheme.m_partner[p].m_sends[i].m_cell_i<<" npart="<<n_particles<<" ";
+
             assert(data_cur < send_buffer[p].size() );
             data->m_cell_i = comm_scheme.m_partner[p].m_sends[i].m_partner_cell_i;
             const size_t cell_i = comm_scheme.m_partner[p].m_sends[i].m_cell_i;
@@ -164,23 +264,26 @@ namespace exanb
             const double rz_shift = comm_scheme.m_partner[p].m_sends[i].m_z_shift;
             assert( cell_i>=0 && cell_i<n_cells );
             uint32_t const * particle_index = comm_scheme.m_partner[p].m_sends[i].m_particle_i.data();
-            size_t n_particles = comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
             for(size_t j=0;j<n_particles;j++)
             {
               assert( particle_index[j]>=0 && particle_index[j] < cells[cell_i].size() );
               cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
               apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
             }
+            
             data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+            //std::cout<<" data_cur2="<<data_cur;
             if( cell_scalars != nullptr )
             {
               GridCellValueType* gcv = reinterpret_cast<GridCellValueType*>( data_ptr + data_cur );
               for(unsigned int c=0;c<cell_scalar_components;c++) gcv[c]  = cell_scalars[cell_i*cell_scalar_components+c];
               data_cur += sizeof(GridCellValueType) * cell_scalar_components;
             }
-            data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
+            //std::cout<<" data_cur3="<<data_cur<<std::endl;
           }
           assert(data_cur == send_buffer[p].size() );
+#endif
+
           //ldbg << "sending "<<send_buffer_size<<" bytes to P"<<p<<std::endl;
           ++ active_sends;
           MPI_Isend( (char*) send_buffer[p].data() , send_buffer_size, MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
@@ -221,13 +324,13 @@ namespace exanb
               const auto cell_input = ghost_cell_receive_info(cell_input_it);
               assert( data_cur < receive_buffer[p].size() );
               size_t cell_i = cell_input.m_cell_i;
-	      /// std::cout << " cells[cell_i].size() " << cells[cell_i].size() << " pour cell_i = " << cell_i << std::endl;
+      	      /// std::cout << " cells[cell_i].size() " << cells[cell_i].size() << " pour cell_i = " << cell_i << std::endl;
               assert( cell_i == data->m_cell_i );
               assert( cell_i>=0 && cell_i<n_cells );
               size_t n_particles = cell_input.m_n_particles;
               ghost_particles_recv += n_particles;
-	      // std::cout << " n_particles " << n_particles << " avec CreateParticles " << CreateParticles << std::endl;
-	      if( CreateParticles )
+	            // std::cout << " n_particles " << n_particles << " avec CreateParticles " << CreateParticles << std::endl;
+	            if( CreateParticles )
               {
                 //assert( cells[cell_i].size() == 0 );
                 cells[cell_i].resize( n_particles , grid->cell_allocator() );
