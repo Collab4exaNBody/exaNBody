@@ -80,7 +80,7 @@ namespace exanb
   template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
   struct BlockParallelForFunctorTraits< GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
   {
-    static inline constexpr bool CudaCompatible = true;
+    static inline constexpr bool CudaCompatible = false;
   };
 
 
@@ -194,7 +194,7 @@ namespace exanb
       for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
       // send and receive buffers
-      std::vector< std::vector<uint8_t> > send_buffer(nprocs);
+      std::vector< onika::memory::CudaMMVector<uint8_t> > send_buffer(nprocs);
       std::vector< std::vector<uint8_t> > receive_buffer(nprocs);
 
       size_t active_sends = 0;

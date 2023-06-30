@@ -8,6 +8,7 @@
 #include <onika/soatl/constants.h>
 #include <onika/variadic_template_utils.h>
 #include <onika/flat_tuple.h>
+#include <onika/cuda/cuda.h>
 
 namespace onika { namespace soatl
 {
@@ -90,6 +91,7 @@ struct FieldTuple
   }
   
   template<typename _id>
+  ONIKA_HOST_DEVICE_FUNC
   inline typename FieldId<_id>::value_type operator [] ( FieldId<_id> ) const
   {
       static constexpr int index = find_index_of_id<_id,ids...>::index;
@@ -97,6 +99,7 @@ struct FieldTuple
   }
 
   template<typename _id>
+  ONIKA_HOST_DEVICE_FUNC
   inline typename FieldId<_id>::value_type & operator [] ( FieldId<_id> )
   {
       static constexpr int index = find_index_of_id<_id,ids...>::index;
@@ -177,6 +180,8 @@ make_field_tuple(const FieldId<ids>& ...)
 {
 	return FieldTuple<ids...>();
 }
+
+template<class TupleT,class field_id> static inline constexpr bool field_tuple_has_field_v = TupleT:: template HasField <field_id> ::value;
 
 
 } // namespace soatl
