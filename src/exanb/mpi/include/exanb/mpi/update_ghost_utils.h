@@ -2,6 +2,7 @@
 
 #include <onika/soatl/field_tuple.h>
 #include <exanb/field_sets.h>
+#include <onika/cuda/cuda.h>
 
 namespace exanb
 {
@@ -13,12 +14,15 @@ namespace exanb
     template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
     template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
 
-    template<typename TupleT, class fid, class T> static inline void apply_field_shift( TupleT& t , onika::soatl::FieldId<fid> f, T x )
+    template<typename TupleT, class fid, class T>
+    ONIKA_HOST_DEVICE_FUNC
+    static inline void apply_field_shift( TupleT& t , onika::soatl::FieldId<fid> f, T x )
     {
       if constexpr ( TupleT::has_field(f) ) { t[ f ] += x; }
     }
     
     template<typename TupleT>
+    ONIKA_HOST_DEVICE_FUNC
     static inline void apply_r_shift( TupleT& t , double x, double y, double z )
     {
       apply_field_shift( t , field::rx , x );

@@ -102,12 +102,11 @@ namespace onika
       }
 
       // writes ith tuple
+      ONIKA_HOST_DEVICE_FUNC
       inline void set_tuple ( size_t i, const FieldTuple<ids...>& value )
       {
         assert( i < capacity() );
-        TEMPLATE_LIST_BEGIN
-          (*this)[FieldId<ids>()][i] = value[FieldId<ids>()]
-        TEMPLATE_LIST_END
+        ( ... , ( (*this)[FieldId<ids>()][i] = value[FieldId<ids>()] ) );
       }
       inline void set_tuple ( size_t i, const typename FieldId<ids>::value_type& ... args )
       {
@@ -120,12 +119,11 @@ namespace onika
 
       // read only fields of tuple at position i that exist in this field array. other fields of tuple passed as argument are unchanged.
       template<typename... otherIds>
+      ONIKA_HOST_DEVICE_FUNC
       inline void read_tuple( size_t i, FieldTuple<otherIds...>& tp ) const
       {
         assert( i < capacity() );
-        TEMPLATE_LIST_BEGIN
-          tp[ FieldId<otherIds>() ] = (*this)[FieldId<otherIds>()][i]
-        TEMPLATE_LIST_END
+        ( ... , ( tp[ FieldId<otherIds>() ] = (*this)[FieldId<otherIds>()][i] ) );
       }
 
       // write only fields of argument tuple that exist in this field array. other fields are unchanged.
@@ -191,6 +189,7 @@ namespace onika
       }
 
       // minimal capacity to hold size() items with respect to constraints (chunk size)
+      ONIKA_HOST_DEVICE_FUNC
 	    inline size_t minimal_capacity()
 	    {
 	      return ( (size()+chunksize()-1)/chunksize() ) * chunksize();
@@ -209,6 +208,7 @@ namespace onika
       }
 
       // how many usefull bytes among those allocated
+      ONIKA_HOST_DEVICE_FUNC
       inline size_t payload_bytes() const
       {
         size_t n = 0;
