@@ -23,20 +23,24 @@ namespace onika { namespace soatl
     template<typename T>
     struct ZeroHelper<T,true,false,true>
     {
+      ONIKA_HOST_DEVICE_FUNC
       static inline void zero(T& x) { x = 0; }
     };
     template<typename T>
     struct ZeroHelper<T,false,true,true>
     {
+      ONIKA_HOST_DEVICE_FUNC
       static inline void zero(T& x) { x = nullptr; }
     };
     template<typename T>
     struct ZeroHelper<T,false,false,true>
     {
+      ONIKA_HOST_DEVICE_FUNC
       static inline void zero(T& x) { x = T(); }
     };
 
     template<typename T>
+    ONIKA_HOST_DEVICE_FUNC
     static inline void zero_data(T& x)
     {
       ZeroHelper<T>::zero(x);
@@ -65,19 +69,18 @@ struct FieldTuple
   FieldTuple( const FieldTuple & rhs ) = default;
   FieldTuple& operator = ( const FieldTuple & rhs ) = default;
 
-
   //! partial copy existing fields in rhs and zero others
   template<typename... other_ids>
+  ONIKA_HOST_DEVICE_FUNC
   inline FieldTuple( const FieldTuple<other_ids...> & rhs )
   {
     copy_or_zero_fields( rhs );
   }
 
+  ONIKA_HOST_DEVICE_FUNC
   inline FieldTuple( const typename FieldId<ids>::value_type & ... rhs )
   { 
-    TEMPLATE_LIST_BEGIN
-      (*this)[ FieldId<ids>() ] = rhs
-    TEMPLATE_LIST_END
+    ( ... , ( (*this)[ FieldId<ids>() ] = rhs ) );
   }
 
   // constructor, initialized with a std::tuple
@@ -107,35 +110,39 @@ struct FieldTuple
   }
 
   template<typename... idsRHS>
+  ONIKA_HOST_DEVICE_FUNC
   inline void copy_or_zero_fields( const FieldTuple<idsRHS...> & rhs )
   { 
-    TEMPLATE_LIST_BEGIN
+    ( ... , (
       copy_tuple_element_or_zero( rhs.m_data, cst::at<find_index_of_id<ids,ids...>::index>() , cst::at<find_index_of_id<ids,idsRHS...>::index>() )
-    TEMPLATE_LIST_END      
+    ) );
   }
 
   template<typename... idsRHS>
+  ONIKA_HOST_DEVICE_FUNC
   inline void copy_existing_fields( const FieldTuple<idsRHS...> & rhs )
   { 
-    TEMPLATE_LIST_BEGIN
+    ( ... , (
       copy_existing_tuple_element( rhs.m_data, cst::at<find_index_of_id<ids,ids...>::index>() , cst::at<find_index_of_id<ids,idsRHS...>::index>() )
-    TEMPLATE_LIST_END      
+    ) );
   }  
   
+  ONIKA_HOST_DEVICE_FUNC
   inline void zero()
   {
-    TEMPLATE_LIST_BEGIN
+    ( ... , (
       details::zero_data( (*this)[ FieldId<ids>() ] )
-    TEMPLATE_LIST_END
+    ) );
   }
 
   //! partial copy existing fields in rhs and zero others
+  ONIKA_HOST_DEVICE_FUNC
   inline bool operator == ( const FieldTuple & rhs ) const
   {
     bool is_equal = true;
-    TEMPLATE_LIST_BEGIN
+    ( ... , (
       is_equal = is_equal && ( (*this)[FieldId<ids>()] == rhs[FieldId<ids>()] )
-    TEMPLATE_LIST_END
+    ) );
     return is_equal;
   }
   inline bool operator != ( const FieldTuple & rhs ) const { return ! ( *this == rhs ); }
@@ -143,21 +150,25 @@ struct FieldTuple
 //private:
   
   template<size_t index, size_t rhs_index, typename rhs_tuple>
+  ONIKA_HOST_DEVICE_FUNC
   inline void copy_existing_tuple_element( const rhs_tuple& rhs, cst::at<index>, cst::at<rhs_index> )
   {
       m_data.get(tuple_index<index>) = rhs.get(tuple_index<rhs_index>); //std::get<rhs_index>( rhs );
   }
   
   template<size_t index, typename rhs_tuple>
+  ONIKA_HOST_DEVICE_FUNC
   inline void copy_existing_tuple_element( const rhs_tuple& rhs, cst::at<index>, cst::at<bad_field_index> ) {}
 
   template<size_t index, size_t rhs_index, typename rhs_tuple>
+  ONIKA_HOST_DEVICE_FUNC
   inline void copy_tuple_element_or_zero( const rhs_tuple& rhs, cst::at<index>, cst::at<rhs_index> )
   {
       m_data.get(tuple_index<index>) = rhs.get(tuple_index<rhs_index>); //std::get<rhs_index>( rhs );
   }
   
   template<size_t index, typename rhs_tuple>
+  ONIKA_HOST_DEVICE_FUNC
   inline void copy_tuple_element_or_zero( const rhs_tuple& rhs, cst::at<index>, cst::at<bad_field_index> )
   {
     details::zero_data(  m_data.get(tuple_index<index>) );

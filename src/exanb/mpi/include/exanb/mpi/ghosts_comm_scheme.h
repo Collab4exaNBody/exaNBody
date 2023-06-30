@@ -6,7 +6,8 @@
 
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/basic_types.h>
-#include <onika/memory/allocator.h> // for DEFAULT_ALIGNMENT
+#include <onika/memory/allocator.h> 
+#include <onika/cuda/cuda.h> 
 
 #include <mpi.h>
 
@@ -55,6 +56,7 @@ namespace exanb
 
   using GhostCellReceiveScheme = uint64_t;
   
+  ONIKA_HOST_DEVICE_FUNC
   static inline GhostCellReceiveSchemeDetail ghost_cell_receive_info( uint64_t r )
   {
     size_t cell_i=0;
@@ -97,8 +99,8 @@ namespace exanb
   struct GhostPartnerCommunicationScheme
   {
     onika::memory::CudaMMVector< GhostCellSendScheme > m_sends;
-    std::vector< GhostCellReceiveScheme > m_receives;
-    
+    onika::memory::CudaMMVector< GhostCellReceiveScheme > m_receives;
+    onika::memory::CudaMMVector< uint64_t > m_receive_offset;
   };
 
   struct GhostCommunicationScheme

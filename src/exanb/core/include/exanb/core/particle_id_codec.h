@@ -4,6 +4,8 @@
 #include <cassert>
 #include <cstdint>
 
+#include <onika/cuda/cuda.h> 
+
 namespace exanb
 {
   
@@ -39,6 +41,7 @@ namespace exanb
   }
   
   // decode particle cell index, particle in cell index, and type from its encoded id
+  ONIKA_HOST_DEVICE_FUNC
   inline void decode_cell_particle(uint64_t id, size_t& cell_i, size_t& particle_i, unsigned int& particle_type)
   {
     using namespace particle_id_codec;
@@ -53,6 +56,7 @@ namespace exanb
     assert( particle_type <= MAX_PARTICLE_TYPE );
   }
 
+  ONIKA_HOST_DEVICE_FUNC
   inline void decode_cell_particle(uint64_t id, size_t& cell_i, size_t& particle_i)
   {
     unsigned int particle_type = 0;

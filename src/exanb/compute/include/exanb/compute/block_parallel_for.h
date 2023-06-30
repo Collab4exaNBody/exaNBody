@@ -63,8 +63,21 @@ namespace exanb
     }
   }
 
+  struct AsyncParallelExecution
+  {
+    cudaStream_t m_cu_stream;
+    bool m_async = false;
+    inline void wait()
+    {
+      if( m_async )
+      {
+        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(m_cu_stream) );
+      }
+    }
+  };
+
   template< class FuncT, class GPUAccountFuncT = ProfilingAccountTimeNullFunc>
-  static inline void block_parallel_for( uint64_t N, const FuncT& func, GPUKernelExecutionContext * exec_ctx = nullptr, GPUAccountFuncT gpu_account_func = {} )
+  static inline AsyncParallelExecution block_parallel_for( uint64_t N, const FuncT& func, bool async = false , GPUKernelExecutionContext * exec_ctx = nullptr, GPUAccountFuncT gpu_account_func = {} )
   {
     if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
     {
@@ -82,6 +95,7 @@ namespace exanb
 
         //grid.check_cells_are_gpu_addressable();
 
+        // FIXME: profiling timer should run inside of the GPU kernel, so that it is accurate even if execution is asynchronous
         ProfilingTimer timer;
         if constexpr ( ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ) profiling_timer_start(timer);
 
@@ -89,14 +103,17 @@ namespace exanb
         auto * scratch = exec_ctx->m_cuda_scratch.get();
 
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel, N, func, scratch );
+
+        if( ! async ) { checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(custream) ); }
         
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(custream) );
         if constexpr ( ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ) gpu_account_func( profiling_timer_elapsed_restart(timer) );
-        return;
+        
+        return { custream , async } ;
       }
     }
 
     block_parallel_for_omp_kernel(N, func);
+    return {};
   }
 
 }

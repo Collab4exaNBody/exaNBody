@@ -108,10 +108,14 @@ namespace onika
         assert( i < capacity() );
         ( ... , ( (*this)[FieldId<ids>()][i] = value[FieldId<ids>()] ) );
       }
+      
+      ONIKA_HOST_DEVICE_FUNC
       inline void set_tuple ( size_t i, const typename FieldId<ids>::value_type& ... args )
       {
         set_tuple( i, FieldTuple<ids...>(args...) );
       }
+      
+      ONIKA_HOST_DEVICE_FUNC
       inline void set_tuple ( size_t i, const std::tuple< typename FieldId<ids>::value_type ... > & value )
       {
         set_tuple( i, FieldTuple<ids...>(value) );
@@ -128,6 +132,7 @@ namespace onika
 
       // write only fields of argument tuple that exist in this field array. other fields are unchanged.
       template<typename... otherIds>
+      ONIKA_HOST_DEVICE_FUNC
       inline void write_tuple( size_t i, const FieldTuple<otherIds...>& tp ) const
       {
         assert( i < capacity() );

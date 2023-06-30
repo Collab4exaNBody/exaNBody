@@ -39,7 +39,7 @@ namespace exanb
     const CellParticles * const __restrict__ m_cells = nullptr;
     const GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
     const size_t m_cell_scalar_components = 0;
-    uint8_t* m_data_ptr_base = nullptr;
+    uint8_t* __restrict__ m_data_ptr_base = nullptr;
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
@@ -80,7 +80,61 @@ namespace exanb
   template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
   struct BlockParallelForFunctorTraits< GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
   {
-    static inline constexpr bool CudaCompatible = false;
+    static inline constexpr bool CudaCompatible = true;
+  };
+
+
+  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
+  struct GhostReceiveUnpackFunctor
+  {
+  
+    const GhostCellReceiveScheme * const __restrict__ m_receives = nullptr;
+    const uint64_t * const __restrict__ m_cell_offset = nullptr;
+    const uint8_t * const __restrict__ m_data_ptr_base = nullptr;
+
+    CellParticles * const __restrict__ m_cells = nullptr;
+    const size_t m_cell_scalar_components = 0;
+    GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
+
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+    {
+      const uint8_t * const __restrict__ data_ptr = m_data_ptr_base + m_cell_offset[i];
+      const CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
+      //size_t data_cur = 0;
+
+      const auto cell_input_it = m_receives[i];
+      const auto cell_input = ghost_cell_receive_info(cell_input_it);
+
+      //assert( data_cur < receive_buffer[p].size() );
+      const size_t cell_i = cell_input.m_cell_i;
+      assert( cell_i == data->m_cell_i );
+      assert( cell_i>=0 && cell_i<n_cells );
+      
+      const size_t n_particles = cell_input.m_n_particles;
+      ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
+      {
+        if constexpr (   CreateParticles ) { m_cells[cell_i].set_tuple  ( j, ParticleFullTuple( data->m_particles[j] ) ); }
+        if constexpr ( ! CreateParticles ) { m_cells[cell_i].write_tuple( j, data->m_particles[j]                      ); }
+      }
+      
+      const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+      if( m_cell_scalars != nullptr )
+      {
+        const GridCellValueType* gcv = reinterpret_cast<const GridCellValueType*>( data_ptr + data_cur );
+        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
+        {
+          m_cell_scalars[cell_i*m_cell_scalar_components+c] = gcv[c];
+        }
+        //data_cur += sizeof(GridCellValueType) * m_cell_scalar_components;
+      }              
+      //data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
+    }
+  };
+
+  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
+  struct BlockParallelForFunctorTraits< GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles> >
+  {
+    static inline constexpr bool CudaCompatible = true;
   };
 
 
@@ -119,7 +173,10 @@ namespace exanb
     ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
 
     inline void execute () override final
-    {      
+    {
+      using PackGhostFunctor = GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
+      using UnpackGhostFunctor = GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles>;
+          
       // prerequisites
 
       MPI_Comm comm = *mpi;
@@ -177,7 +234,27 @@ namespace exanb
               //std::cout<<" data_cur3="<<data_cur<<std::endl;
             }
           }
+          
+          size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
+          comm_scheme.m_partner[p].m_receive_offset.assign( cells_to_receive , 0 );
+          size_t buffer_offset = 0;
+          for(size_t i=0;i<cells_to_receive;i++)
+          {
+            const auto cell_input_it = comm_scheme.m_partner[p].m_receives[i];
+            const auto cell_input = ghost_cell_receive_info(cell_input_it);
+            //const size_t cell_i = cell_input.m_cell_i;
+            //assert( cell_i>=0 && cell_i<n_cells );
+            size_t n_particles = cell_input.m_n_particles;
+            size_t bytes_to_receive = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+            if( cell_scalars != nullptr )
+            {
+              bytes_to_receive += sizeof(GridCellValueType) * cell_scalar_components;
+            }
+            comm_scheme.m_partner[p].m_receive_offset[i] = buffer_offset;
+            buffer_offset += bytes_to_receive;
+          }
         }
+        
         comm_scheme.m_cell_bytes = cell_scalar_components*sizeof(GridCellValueType);
         comm_scheme.m_particle_bytes = sizeof(ParticleTuple);
       }
@@ -195,7 +272,9 @@ namespace exanb
 
       // send and receive buffers
       std::vector< onika::memory::CudaMMVector<uint8_t> > send_buffer(nprocs);
-      std::vector< std::vector<uint8_t> > receive_buffer(nprocs);
+      std::vector< onika::memory::CudaMMVector<uint8_t> > receive_buffer(nprocs);
+      std::vector< AsyncParallelExecution > send_pack_async(nprocs , AsyncParallelExecution{} );
+      std::vector< AsyncParallelExecution > recv_unpack_async(nprocs , AsyncParallelExecution{} );
 
       size_t active_sends = 0;
       size_t active_recvs = 0;
@@ -240,49 +319,16 @@ namespace exanb
           send_buffer[p].resize( send_buffer_size );
 
           uint8_t* data_ptr_base = send_buffer[p].data();
-          //uint8_t* data_ptr = send_buffer[p].data();
-          //size_t data_cur = 0;
 
-          GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> pack_ghost = { comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , data_ptr_base };
-          block_parallel_for( cells_to_send, pack_ghost, gpu_execution_context() , gpu_time_account_func() );
-#if 0
-#         pragma omp parallel for schedule(dynamic)
-          for(size_t i=0;i<cells_to_send;i++)
+          PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , data_ptr_base };
+          if( CreateParticles )
           {
-            uint8_t* data_ptr = data_ptr_base + comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset;
-            size_t data_cur = 0;
-            CellParticlesUpdateData* data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
-            //assert( data_cur == comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset );
-            const size_t n_particles = comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
-            //std::cout<<"B: p="<<p<<", i="<<i<<" data_cur1="<<data_cur<<" cell#"<<comm_scheme.m_partner[p].m_sends[i].m_cell_i<<" npart="<<n_particles<<" ";
-
-            assert(data_cur < send_buffer[p].size() );
-            data->m_cell_i = comm_scheme.m_partner[p].m_sends[i].m_partner_cell_i;
-            const size_t cell_i = comm_scheme.m_partner[p].m_sends[i].m_cell_i;
-            const double rx_shift = comm_scheme.m_partner[p].m_sends[i].m_x_shift;
-            const double ry_shift = comm_scheme.m_partner[p].m_sends[i].m_y_shift;
-            const double rz_shift = comm_scheme.m_partner[p].m_sends[i].m_z_shift;
-            assert( cell_i>=0 && cell_i<n_cells );
-            uint32_t const * particle_index = comm_scheme.m_partner[p].m_sends[i].m_particle_i.data();
-            for(size_t j=0;j<n_particles;j++)
-            {
-              assert( particle_index[j]>=0 && particle_index[j] < cells[cell_i].size() );
-              cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
-              apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
-            }
-            
-            data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
-            //std::cout<<" data_cur2="<<data_cur;
-            if( cell_scalars != nullptr )
-            {
-              GridCellValueType* gcv = reinterpret_cast<GridCellValueType*>( data_ptr + data_cur );
-              for(unsigned int c=0;c<cell_scalar_components;c++) gcv[c]  = cell_scalars[cell_i*cell_scalar_components+c];
-              data_cur += sizeof(GridCellValueType) * cell_scalar_components;
-            }
-            //std::cout<<" data_cur3="<<data_cur<<std::endl;
+            send_pack_async[p] = block_parallel_for( cells_to_send, pack_ghost, false );
           }
-          assert(data_cur == send_buffer[p].size() );
-#endif
+          else
+          {
+            send_pack_async[p] = block_parallel_for( cells_to_send, pack_ghost, false, gpu_execution_context() , gpu_time_account_func() );
+          }
 
           //ldbg << "sending "<<send_buffer_size<<" bytes to P"<<p<<std::endl;
           ++ active_sends;
@@ -301,9 +347,9 @@ namespace exanb
           if( reqidx < nprocs ) // it's a receive
           {
             int p = reqidx;
+            const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
 
 #           ifndef NDEBUG
-            size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
             size_t particles_to_receive = 0;
             for(size_t i=0;i<cells_to_receive;i++) { particles_to_receive += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles; }
             ssize_t receive_size = ( cells_to_receive * sizeof(CellParticlesUpdateData) ) + ( particles_to_receive * sizeof(ParticleTuple) );
@@ -315,68 +361,56 @@ namespace exanb
             MPI_Get_count(&status,MPI_CHAR,&status_count);
             assert( receive_size == status_count );
 #           endif
-
-            uint8_t* data_ptr = receive_buffer[p].data();
-            size_t data_cur = 0;
-            CellParticlesUpdateData* data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
-            for( auto cell_input_it : comm_scheme.m_partner[p].m_receives )
+            
+            // re-allocate cells before they receive particles
+            if( CreateParticles )
             {
-              const auto cell_input = ghost_cell_receive_info(cell_input_it);
-              assert( data_cur < receive_buffer[p].size() );
-              size_t cell_i = cell_input.m_cell_i;
-      	      /// std::cout << " cells[cell_i].size() " << cells[cell_i].size() << " pour cell_i = " << cell_i << std::endl;
-              assert( cell_i == data->m_cell_i );
-              assert( cell_i>=0 && cell_i<n_cells );
-              size_t n_particles = cell_input.m_n_particles;
-              ghost_particles_recv += n_particles;
-	            // std::cout << " n_particles " << n_particles << " avec CreateParticles " << CreateParticles << std::endl;
-	            if( CreateParticles )
+              for( auto cell_input_it : comm_scheme.m_partner[p].m_receives )
               {
-                //assert( cells[cell_i].size() == 0 );
+                const auto cell_input = ghost_cell_receive_info(cell_input_it);
+                const size_t n_particles = cell_input.m_n_particles;
+                const size_t cell_i = cell_input.m_cell_i;
+                assert( cell_i>=0 && cell_i<n_cells );
                 cells[cell_i].resize( n_particles , grid->cell_allocator() );
               }
-              else
-              {
-                assert( n_particles == cells[cell_i].size() );
-              }
-              for(size_t i=0;i<n_particles;i++)
-              {
-                if( CreateParticles )
-                {
-                  // the difference here is fields not in data->m_particles[i] are zeroed in cells[cell_i]
-                  cells[cell_i].set_tuple( i, ParticleFullTuple( data->m_particles[i] ) );
-                }
-                else
-                {
-                  // while here, only fields in data->m_particles[i] are written to cells[cell_i], others are left unchanged
-                  cells[cell_i].write_tuple( i, data->m_particles[i] );
-                }
-              }
-              data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
-              if( cell_scalars != nullptr )
-              {
-                const GridCellValueType* gcv = reinterpret_cast<const GridCellValueType*>( data_ptr + data_cur );
-                for(unsigned int c=0;c<cell_scalar_components;c++) cell_scalars[cell_i*cell_scalar_components+c] = gcv[c];
-                data_cur += sizeof(GridCellValueType) * cell_scalar_components;
-              }              
-              data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
             }
-            assert( data_cur == receive_buffer[p].size() );
-            receive_buffer[p].clear();
-            receive_buffer[p].shrink_to_fit();
+
+            UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_receives.data() , comm_scheme.m_partner[p].m_receive_offset.data() , receive_buffer[p].data() , cells , cell_scalar_components , cell_scalars };
+            if( CreateParticles )
+            {
+              recv_unpack_async[p] = block_parallel_for( cells_to_receive, unpack_ghost, false );
+            }
+            else
+            {
+              recv_unpack_async[p] = block_parallel_for( cells_to_receive, unpack_ghost, false, gpu_execution_context() , gpu_time_account_func() );            
+            }
+            
+            //assert( data_cur == receive_buffer[p].size() );
             -- active_recvs;
             //ldbg<<"received from P"<<p<<" done, remaining recvs="<<active_recvs<< std::endl;
           }
           else // it's a send
           {
-            int p = reqidx - nprocs;
-            send_buffer[p].clear();
-            send_buffer[p].shrink_to_fit();
+            //int p = reqidx - nprocs;
             -- active_sends;
             //ldbg<<"send to P"<<p<<" done, remaining sends="<<active_sends<< std::endl;
           }
         }
       }      
+
+      for(int p=0;p<nprocs;p++)
+      {
+        send_pack_async[p].wait();
+        send_buffer[p].clear();
+        send_buffer[p].shrink_to_fit();
+        recv_unpack_async[p].wait();
+        receive_buffer[p].clear();
+        receive_buffer[p].shrink_to_fit();
+      }
+      send_pack_async.clear();
+      send_pack_async.shrink_to_fit();
+      recv_unpack_async.clear();
+      recv_unpack_async.shrink_to_fit();
       
       if( CreateParticles )
       {
