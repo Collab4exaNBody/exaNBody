@@ -6,6 +6,47 @@
 namespace exanb
 {
   
+  template<class CellT>
+  struct ChunkNeighbors2GPUFunctor
+  {
+    const CellT * cells = nullptr;
+    const IJK dims;
+    const ssize_t gl = 0;
+    const Vec3d grid_origin;
+    const double cell_size = 0.0;
+    const IJK grid_offset;
+    const ReadOnlyAmrGrid amr;
+    const ChunkNeighborsConfig config;
+    const double max_dist;
+    const unsigned int cs;
+    const unsigned int cs_log2;
+    uint8_t* dev_scratch_mem = nullptr;
+    const size_t block_scratch_mem_size;
+    GridChunkNeighborsGPUWriteAccessor chunk_neighbors;
+    GPUKernelExecutionScratch* scratch;
+    const bool subcell_compaction = false;
+    
+    ONIKA_HOST_DEVICE_FUNC
+    inline void operator () (size_t cell_a_no_gl)
+    {
+      const IJK dimsNoGL = { dims.i-2*gl , dims.j-2*gl , dims.k-2*gl };
+      const IJK loc_a_no_gl = grid_index_to_ijk( dimsNoGL, cell_a_no_gl );
+      const IJK loc_a = { loc_a_no_gl.i+gl , loc_a_no_gl.j+gl , loc_a_no_gl.k+gl };
+      const size_t cell_a = grid_ijk_to_index( dims, loc_a );
+      const unsigned int n = cells[cell_a].size();
+      if( subcell_compaction )
+      {
+        ChunkNeighborFixedCapacityTemp<true> tmp( dev_scratch_mem + block_scratch_mem_size * ONIKA_CU_BLOCK_IDX , block_scratch_mem_size , n );        
+        chunk_neighbors_encode_cell_stream(cells,dims,cell_size,grid_origin,grid_offset,amr,config,max_dist,cs,cs_log2,cell_a,loc_a, chunk_neighbors, tmp );
+      }
+      else
+      {
+        ChunkNeighborFixedCapacityTemp<false> tmp( dev_scratch_mem + block_scratch_mem_size * ONIKA_CU_BLOCK_IDX , block_scratch_mem_size , n );        
+        chunk_neighbors_encode_cell_stream(cells,dims,cell_size,grid_origin,grid_offset,amr,config,max_dist,cs,cs_log2,cell_a,loc_a, chunk_neighbors, tmp );
+      }
+    }
+  };
+
 
   template<class CellT>
   ONIKA_DEVICE_KERNEL_FUNC void chunk_neighbors_gpu_kernel(

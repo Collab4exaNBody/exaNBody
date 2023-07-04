@@ -46,14 +46,14 @@ namespace exanb
       {
         ldbg<<"PushVec3FirstOrder: dt="<<(*dt)<<", dt_scale="<<(*dt_scale)<<", xform_mode="<< (*xform_mode) <<std::endl;
         PushVec3FirstOrderFunctor func { delta_t };
-        compute_cell_particles( *grid , false , func , compute_field_set , gpu_execution_context() , gpu_time_account_func() );
+        compute_cell_particles( *grid , false , func , compute_field_set , gpu_execution_context() );
       }
       else
       {
         const Mat3d xform = (xform_mode->m_value==XFormMode::XFORM) ? domain->xform() : domain->inv_xform();
         ldbg<<"PushVec3FirstOrderXForm: dt="<<(*dt)<<", dt_scale="<<(*dt_scale)<<", xform_mode="<< (*xform_mode)<<", xform="<<xform<<std::endl;
         PushVec3FirstOrderXFormFunctor func { xform , delta_t };
-        compute_cell_particles( *grid , false , func , compute_field_set , gpu_execution_context() , gpu_time_account_func() );
+        compute_cell_particles( *grid , false , func , compute_field_set , gpu_execution_context() );
       }
     }
 

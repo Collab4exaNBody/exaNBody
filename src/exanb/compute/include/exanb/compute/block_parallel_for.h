@@ -8,7 +8,6 @@
 #include <exanb/field_sets.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/profiling_tools.h>
 #include <exanb/core/gpu_execution_context.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
@@ -63,21 +62,8 @@ namespace exanb
     }
   }
 
-  struct AsyncParallelExecution
-  {
-    cudaStream_t m_cu_stream;
-    bool m_async = false;
-    inline void wait()
-    {
-      if( m_async )
-      {
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(m_cu_stream) );
-      }
-    }
-  };
-
-  template< class FuncT, class GPUAccountFuncT = ProfilingAccountTimeNullFunc>
-  static inline AsyncParallelExecution block_parallel_for( uint64_t N, const FuncT& func, bool async = false , GPUKernelExecutionContext * exec_ctx = nullptr, GPUAccountFuncT gpu_account_func = {} )
+  template< class FuncT >
+  static inline void block_parallel_for( uint64_t N, const FuncT& func, GPUKernelExecutionContext * exec_ctx = nullptr, bool async = false )
   {
     if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
     {
@@ -90,30 +76,21 @@ namespace exanb
         const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::task::ParallelTaskConfig::gpu_block_size()) );
         const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * onika::task::ParallelTaskConfig::gpu_sm_mult()
                                     + onika::task::ParallelTaskConfig::gpu_sm_add();
-        const int streamIndex = 0;
-        auto custream = exec_ctx->m_cuda_ctx->m_threadStream[streamIndex];
 
-        //grid.check_cells_are_gpu_addressable();
-
-        // FIXME: profiling timer should run inside of the GPU kernel, so that it is accurate even if execution is asynchronous
-        ProfilingTimer timer;
-        if constexpr ( ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ) profiling_timer_start(timer);
-
-        exec_ctx->reset_counters( streamIndex );
+        auto custream = exec_ctx->m_cuda_stream;        
+        exec_ctx->record_start_event();
+        exec_ctx->reset_counters();
         auto * scratch = exec_ctx->m_cuda_scratch.get();
 
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel, N, func, scratch );
+        
+        if( ! async ) { exec_ctx->wait(); }        
 
-        if( ! async ) { checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(custream) ); }
-        
-        if constexpr ( ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ) gpu_account_func( profiling_timer_elapsed_restart(timer) );
-        
-        return { custream , async } ;
+        return;
       }
     }
 
     block_parallel_for_omp_kernel(N, func);
-    return {};
   }
 
 }

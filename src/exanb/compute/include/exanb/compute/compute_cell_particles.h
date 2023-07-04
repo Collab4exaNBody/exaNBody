@@ -8,7 +8,6 @@
 #include <exanb/field_sets.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/profiling_tools.h>
 #include <exanb/core/gpu_execution_context.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
@@ -95,14 +94,14 @@ namespace exanb
 
   }
 
-  template<class GridT, class FuncT, class FieldSetT, class GPUAccountFuncT = ProfilingAccountTimeNullFunc>
+  template<class GridT, class FuncT, class FieldSetT>
   static inline void compute_cell_particles(
     GridT& grid,
     bool enable_ghosts,
     const FuncT& func,
     FieldSetT cpfields ,
     GPUKernelExecutionContext * exec_ctx = nullptr,
-    GPUAccountFuncT gpu_account_func = {}
+    bool async = false
     )
   {
     const IJK dims = grid.dimension();
@@ -120,20 +119,20 @@ namespace exanb
         const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::task::ParallelTaskConfig::gpu_block_size()) );
         const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * onika::task::ParallelTaskConfig::gpu_sm_mult()
                                     + onika::task::ParallelTaskConfig::gpu_sm_add();
-        const int streamIndex = 0;
-        auto custream = exec_ctx->m_cuda_ctx->m_threadStream[streamIndex];
+
+        auto custream = exec_ctx->m_cuda_stream;
 
         grid.check_cells_are_gpu_addressable();
 
-        ProfilingTimer timer;
-        if constexpr ( ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ) profiling_timer_start(timer);
+        exec_ctx->record_start_event();
 
-        exec_ctx->reset_counters( streamIndex );
+        exec_ctx->reset_counters();
         auto * scratch = exec_ctx->m_cuda_scratch.get();
 
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, compute_cell_particles_gpu_kernel, cells, dims, gl, func, scratch, cpfields );
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(custream) );
-        if constexpr ( ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ) gpu_account_func( profiling_timer_elapsed_restart(timer) );
+        
+        if( ! async ) { exec_ctx->wait(); }        
+        
         return;
       }
     }

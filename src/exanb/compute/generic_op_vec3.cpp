@@ -164,11 +164,11 @@ namespace exanb
           ldbg << "\t\t\tId range = [ "<< R.m_id_start << " ; "<<R.m_id_end<<" [" << std::endl;
         }
 
-        compute_cell_particles( *grid , false , GenericVec3RegionFunctor<OpT>{prcsg,*value,Func} , compute_field_set_region , gpu_execution_context() , gpu_time_account_func() );            
+        compute_cell_particles( *grid , false , GenericVec3RegionFunctor<OpT>{prcsg,*value,Func} , compute_field_set_region , gpu_execution_context() );            
       }
       else
       {
-        compute_cell_particles( *grid , false , GenericVec3Functor<OpT>{*value,Func} , compute_field_set , gpu_execution_context() , gpu_time_account_func() );            
+        compute_cell_particles( *grid , false , GenericVec3Functor<OpT>{*value,Func} , compute_field_set , gpu_execution_context() );            
       }
       
     }

@@ -38,6 +38,11 @@ namespace exanb
   {
     onika::cuda::CudaContext* m_cuda_ctx = nullptr;
     onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
+    cudaStream_t m_cuda_stream;
+    cudaEvent_t m_start_evt = nullptr;
+    cudaEvent_t m_stop_evt = nullptr;
+    double m_total_gpu_execution_time = 0.0;
+    unsigned int m_gpu_kernel_exec_count = 0; // number of currently executing GPU kernels
     
     inline void check_initialize()
     {
@@ -45,37 +50,101 @@ namespace exanb
       {
         m_cuda_scratch = onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch>::New( m_cuda_ctx->m_devices[0]);
       }
+      if( m_cuda_ctx != nullptr )
+      {
+        const int streamIndex = 0;
+        m_cuda_stream = m_cuda_ctx->m_threadStream[streamIndex];
+
+        if( m_start_evt == nullptr )
+        {
+          checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_start_evt ) );
+        }
+        if( m_stop_evt == nullptr )
+        {
+          checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_stop_evt ) );
+        }
+      }
     }
-    
-    inline void reset_counters(int streamIndex)
+
+    inline ~GPUKernelExecutionContext()
+    {
+      if( m_start_evt != nullptr )
+      {
+        checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_start_evt ) );
+        m_start_evt = nullptr;
+      }
+      if( m_stop_evt != nullptr )
+      {
+        checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_stop_evt ) );
+        m_stop_evt = nullptr;
+      }
+    }
+
+    inline void reset_counters()
     {
       if( m_cuda_ctx != nullptr )
       {
-        checkCudaErrors( ONIKA_CU_MEMSET( m_cuda_scratch.get(), 0, sizeof(GPUKernelExecutionScratch), m_cuda_ctx->m_threadStream[streamIndex] ) );
+        checkCudaErrors( ONIKA_CU_MEMSET( m_cuda_scratch.get(), 0, sizeof(GPUKernelExecutionScratch), m_cuda_stream ) );
       }
     }
     
     template<class T>
-    inline void set_return_data( const T* init_value, int streamIndex )
+    inline void set_return_data( const T* init_value )
     {
       static_assert( sizeof(T) <= GPUKernelExecutionScratch::MAX_RETURN_SIZE , "return type size too large" );
-      checkCudaErrors( ONIKA_CU_MEMCPY( m_cuda_scratch->return_data, init_value , sizeof(T) , m_cuda_ctx->m_threadStream[streamIndex] ) );
+      checkCudaErrors( ONIKA_CU_MEMCPY( m_cuda_scratch->return_data, init_value , sizeof(T) , m_cuda_stream ) );
     }
 
     template<class T>
-    inline void retrieve_return_data( T* result, int streamIndex )
+    inline void retrieve_return_data( T* result )
     {
       static_assert( sizeof(T) <= GPUKernelExecutionScratch::MAX_RETURN_SIZE , "return type size too large" );
-      checkCudaErrors( ONIKA_CU_MEMCPY( result , m_cuda_scratch->return_data , sizeof(T) , m_cuda_ctx->m_threadStream[streamIndex] ) );
+      checkCudaErrors( ONIKA_CU_MEMCPY( result , m_cuda_scratch->return_data , sizeof(T) , m_cuda_stream ) );
     }
 
-    inline unsigned int get_occupancy_stats(int streamIndex)
+    inline void record_start_event()
+    {
+      if( m_gpu_kernel_exec_count == 0 )
+      {
+        checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
+      }
+      ++ m_gpu_kernel_exec_count;
+    }
+    
+    inline void wait()
+    {
+      if( m_gpu_kernel_exec_count == 0 ) return;      
+      checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_stop_evt, m_cuda_stream ) );
+      checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
+      float time_ms = 0.0f;      
+      checkCudaErrors( ONIKA_CU_EVENT_ELAPSED(time_ms,m_start_evt,m_stop_evt) );
+      m_total_gpu_execution_time += time_ms;      
+      -- m_gpu_kernel_exec_count;
+      if( m_gpu_kernel_exec_count > 0 )
+      {
+        // re-insert a timer for next executing kernel
+        checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
+      }
+    }
+
+    inline double collect_gpu_execution_time()
+    {
+      double exec_time = 0.0;
+      if( m_total_gpu_execution_time > 0.0 )
+      {
+        exec_time = m_total_gpu_execution_time;
+        m_total_gpu_execution_time = 0.0;
+      }
+      return exec_time;
+    }
+
+    inline unsigned int get_occupancy_stats()
     {
       unsigned int n_busy = 0;
 #     ifdef XNB_GPU_BLOCK_OCCUPANCY_PROFILE
       unsigned int tmp[GPUKernelExecutionScratch::MAX_GPU_BLOCKS];
-      checkCudaErrors( ONIKA_CU_MEMCPY( tmp , m_cuda_scratch->block_occupancy , sizeof(unsigned int)*GPUKernelExecutionScratch::MAX_GPU_BLOCKS , m_cuda_ctx->m_threadStream[streamIndex] ) );
-      checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(m_cuda_ctx->m_threadStream[streamIndex]) );
+      checkCudaErrors( ONIKA_CU_MEMCPY( tmp , m_cuda_scratch->block_occupancy , sizeof(unsigned int)*GPUKernelExecutionScratch::MAX_GPU_BLOCKS , m_cuda_stream ) );
+      checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
       for(unsigned int i=0;i<GPUKernelExecutionScratch::MAX_GPU_BLOCKS;i++)
       {
         if( tmp[i] > 0 ) ++ n_busy;

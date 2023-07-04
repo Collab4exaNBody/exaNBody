@@ -3,7 +3,6 @@
 #include <exanb/compute/compute_pair_singlemat_cell.h>
 #include <exanb/compute/compute_pair_singlemat_gpu.h>
 #include <exanb/compute/compute_pair_traits.h>
-#include <exanb/core/profiling_tools.h>
 #include <exanb/core/log.h>
 #include <exanb/core/gpu_execution_context.h>
 
@@ -15,7 +14,7 @@ namespace exanb
 
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
-  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class FieldSetT , class PosFieldsT = DefaultPositionFields ,  class GPUAccountFuncT = ProfilingAccountTimeNullFunc>
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class FieldSetT , class PosFieldsT = DefaultPositionFields >
   static inline void compute_pair_singlemat(
     GridT& grid,
     double rcut,
@@ -26,7 +25,7 @@ namespace exanb
     FieldSetT cpfields,
     PosFieldsT posfields = PosFieldsT{},
     GPUKernelExecutionContext * exec_ctx = nullptr,
-    GPUAccountFuncT gpu_account_func = {}
+    bool async = false
     )
   {
     const double rcut2 = rcut * rcut;
@@ -55,18 +54,16 @@ namespace exanb
         const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::task::ParallelTaskConfig::gpu_block_size()) );
         const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * onika::task::ParallelTaskConfig::gpu_sm_mult()
                                     + onika::task::ParallelTaskConfig::gpu_sm_add();
-        const int streamIndex = 0;
-        auto custream = exec_ctx->m_cuda_ctx->m_threadStream[streamIndex];
+
+        auto custream = exec_ctx->m_cuda_stream;
+        
         const unsigned int cs = optional.nbh.m_chunk_size;
 
         grid.check_cells_are_gpu_addressable();
         
-//        std::cout << "going GPU ...\n";
-        static constexpr bool has_gpu_timer = ! std::is_same_v<GPUAccountFuncT,ProfilingAccountTimeNullFunc> ;
-        DECLARE_IF_CONSTEXPR(has_gpu_timer,ProfilingTimer,timer);
-        if constexpr ( has_gpu_timer ) profiling_timer_start(timer);
+        exec_ctx->record_start_event();
         
-        exec_ctx->reset_counters( streamIndex );
+        exec_ctx->reset_counters();
         auto * scratch = exec_ctx->m_cuda_scratch.get();
 
         switch( cs )
@@ -83,9 +80,8 @@ namespace exanb
             //std::abort();
             break;
         }
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(custream) );
         
-        if constexpr ( has_gpu_timer ) gpu_account_func( profiling_timer_elapsed_restart(timer) );
+        if( ! async ) { exec_ctx->wait(); }        
         
 #       ifdef XNB_GPU_BLOCK_OCCUPANCY_PROFILE
         unsigned int busy_blocks = exec_ctx->get_occupancy_stats( streamIndex );

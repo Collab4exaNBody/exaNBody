@@ -39,9 +39,6 @@ namespace exanb
     ProfilingFunction task_stop;
   };
 
-  // GPU accounting functor class
-  struct OperatorNodeGpuAccountFunc;
-
   // base class for compute operators
   // it works but it looks ugly. it needs cleanup
   struct OperatorNode
@@ -231,11 +228,9 @@ namespace exanb
     void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
 
     // access GPUExecution context for this operator
-    GPUKernelExecutionContext* gpu_execution_context();
+    GPUKernelExecutionContext* gpu_execution_context(unsigned int id=0);
+    void account_gpu_execution(double t);
     
-    // GPU execution time accounting function
-    OperatorNodeGpuAccountFunc gpu_time_account_func();
-
     // free resources associated to slots
     void free_all_resources();
 
@@ -246,8 +241,6 @@ namespace exanb
     static void reset_profiling_reference_timestamp();
 
     ssize_t resident_memory_inc() const;
-
-    [[noreturn]] void abort();
 
   protected:
     inline const std::set< std::shared_ptr<OperatorSlotBase> >& managed_slots() const { return m_managed_slots; }
@@ -264,8 +257,6 @@ namespace exanb
     OperatorDebugStreamHelper ldbg { this };    
 
   private:
-    // GPU accounting functor has access to this class' private fields
-    friend class OperatorNodeGpuAccountFunc;
 
     static void task_start_callback( const onika::omp::OpenMPToolTaskTiming& evt );
     static void task_stop_callback( const onika::omp::OpenMPToolTaskTiming& evt );
@@ -294,7 +285,7 @@ namespace exanb
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    GPUKernelExecutionContext m_gpu_execution_context;
+    std::vector< std::shared_ptr<GPUKernelExecutionContext> > m_gpu_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;
@@ -309,12 +300,6 @@ namespace exanb
     static bool s_global_profiling;
     static bool s_global_mem_profiling;
     static bool s_debug_execution;
-  };
-
-  struct OperatorNodeGpuAccountFunc
-  {
-    OperatorNode* self = nullptr;
-    inline void operator () (double t) const { self->m_gpu_times.push_back(t); }
   };
 
   using OperatorDebugLogFilter = OperatorNode::OperatorDebugStreamHelper;

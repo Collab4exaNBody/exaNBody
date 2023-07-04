@@ -103,7 +103,7 @@ sets result output to true if at least one particle has moved further than thres
 
       unsigned long long int n_particles_over_dist = 0;
       ReduceMaxDisplacementFunctor func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 };
-      n_particles_over_dist = reduce_cell_particles( *grid , false , func , n_particles_over_dist, reduce_field_set , gpu_execution_context() , gpu_time_account_func() );
+      n_particles_over_dist = reduce_cell_particles( *grid , false , func , n_particles_over_dist, reduce_field_set , gpu_execution_context() );
 
 /*
       ldbg << "a) count over dist "<< max_dist <<" = "<<n_particles_over_dist << std::endl;           
