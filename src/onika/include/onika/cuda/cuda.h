@@ -220,11 +220,19 @@ namespace onika { namespace cuda { namespace _details {
 /************************ Cuda API calls ***********************/
 /***************************************************************/
 # ifdef ONIKA_CUDA_VERSION
+#   define ONIKA_CU_CREATE_EVENT(EVT) cudaEventCreate(&EVT)
+#   define ONIKA_CU_DESTROY_EVENT(EVT) cudaEventDestroy(EVT)
+#   define ONIKA_CU_STREAM_EVENT(EVT,STREAM) cudaEventRecord(EVT,STREAM)
+#   define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) cudaEventElapsedTime(&T,EVT1,EVT2)
 #   define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  cudaStreamSynchronize(STREAM)
 #   define ONIKA_CU_SET_DEVICE(dev)  cudaSetDevice(dev)
 #   define ONIKA_CU_MEMSET(p,v,n,...) cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #   define ONIKA_CU_MEMCPY(d,s,n,...) cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 # else
+#   define ONIKA_CU_CREATE_EVENT(EVT) EVT=nullptr
+#   define ONIKA_CU_DESTROY_EVENT(EVT) EVT=nullptr
+#   define ONIKA_CU_STREAM_EVENT(EVT,STREAM) (void)0
+#   define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) T=0.0f
 #   define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM) (void)0
 #   define ONIKA_CU_SET_DEVICE(dev) (void)0
 #   define ONIKA_CU_MEMSET(p,v,n,...) std::memset(p,v,n)

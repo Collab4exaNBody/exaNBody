@@ -56,7 +56,7 @@ namespace exanb
     ADD_SLOT( ChunkNeighborsScratchEncoding, chunk_neighbors_scratch, PRIVATE );
 
     inline void execute () override final
-    {    
+    {      
       unsigned int cs = config->chunk_size;
       unsigned int cs_log2 = 0;
       while( cs > 1 )
@@ -131,19 +131,17 @@ namespace exanb
         const unsigned int BlockSize = 32; //onika::task::ParallelTaskConfig::gpu_block_size();
         const unsigned int BlocksPerSM = 4;
         const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * BlocksPerSM;
-        const int streamIndex = 0;
-        auto custream = exec_ctx->m_cuda_ctx->m_threadStream[streamIndex];
-        grid->check_cells_are_gpu_addressable();
 
-        ProfilingTimer timer;
-        profiling_timer_start(timer);
+        auto custream = exec_ctx->m_cuda_stream;        
+        exec_ctx->record_start_event();
+        exec_ctx->reset_counters();
+        auto * scratch = exec_ctx->m_cuda_scratch.get();
         
-        exec_ctx->reset_counters( streamIndex );
+        exec_ctx->reset_counters();
         size_t dev_scratch_mem_size = config->scratch_mem_per_cell * GridSize;
         onika::cuda::CudaDeviceStorage<uint8_t> dev_scratch_mem = onika::cuda::CudaDeviceStorage<uint8_t>::New( exec_ctx->m_cuda_ctx->m_devices[0] , dev_scratch_mem_size );
         
-        auto * scratch = exec_ctx->m_cuda_scratch.get();
-        exec_ctx->set_return_data( & chunk_neighbors->m_fixed_stream_pool , streamIndex );
+        exec_ctx->set_return_data( & chunk_neighbors->m_fixed_stream_pool );
 
         ldbg << "memory part @ " << (void*) (scratch->return_data) 
 	           << ", base="<<(void*) chunk_neighbors->m_fixed_stream_pool.m_base_ptr
@@ -152,14 +150,15 @@ namespace exanb
 
         GridChunkNeighborsGPUWriteAccessor chunk_nbh( (onika::memory::MemoryPartionnerMT*) scratch->return_data , *chunk_neighbors );
         
+        using CellsT = std::remove_cv_t< std::remove_reference_t< decltype( cells[0] ) > >;
+        using FuncT = ChunkNeighbors2GPUFunctor<CellsT>;
+        FuncT func = { cells, dims, 0, grid->origin(), grid->cell_size(), grid->offset(), *amr, nbh_config, max_dist, cs, cs_log2, dev_scratch_mem.get(), config->scratch_mem_per_cell, chunk_nbh, scratch, config->subcell_compaction };
+        
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, chunk_neighbors_gpu_kernel, cells,dims,grid->cell_size(),grid->origin(),grid->offset(),*amr,nbh_config,max_dist,cs,cs_log2, dev_scratch_mem.get(),config->scratch_mem_per_cell , chunk_nbh, scratch, config->subcell_compaction );
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE(custream) );
 
+        exec_ctx->retrieve_return_data( & chunk_neighbors->m_fixed_stream_pool );
+        exec_ctx->wait();
         ldbg<<"kernel executed\n";
-
-        exec_ctx->retrieve_return_data( & chunk_neighbors->m_fixed_stream_pool , streamIndex );        
-
-        gpu_time_account_func() ( profiling_timer_elapsed_restart(timer) );
       }
       else
 #     endif

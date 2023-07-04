@@ -25,6 +25,7 @@ struct cudaDeviceProp
   int sharedMemPerBlock = 0;
 };
 using cudaStream_t = int;
+using cudaEvent_t = int*;
 
 #endif // ONIKA_CUDA_VERSION
 

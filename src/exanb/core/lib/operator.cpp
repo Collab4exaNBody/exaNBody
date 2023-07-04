@@ -473,6 +473,16 @@ namespace exanb
     { 
       ONIKA_CU_PROF_RANGE_POP();
 
+      double total_gpu_time = 0.0;
+      for(auto gpuctx:m_gpu_execution_contexts)
+      {
+        if( gpuctx != nullptr )
+        {
+          total_gpu_time += gpuctx->collect_gpu_execution_time();
+        }
+      }
+      if( total_gpu_time > 0.0 ) { m_gpu_times.push_back( total_gpu_time ); }
+
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_end_task_context2( tsk_ctx, this );
       if( parent()==nullptr )
@@ -527,16 +537,18 @@ namespace exanb
     }    
   }
 
-  GPUKernelExecutionContext* OperatorNode::gpu_execution_context()
+  GPUKernelExecutionContext* OperatorNode::gpu_execution_context(unsigned int id)
   {
-    if( ptask_queue().cuda_ctx() == nullptr ) return nullptr;
-    m_gpu_execution_context.m_cuda_ctx = ptask_queue().cuda_ctx();
-    return & m_gpu_execution_context;
-  }
-
-  OperatorNodeGpuAccountFunc OperatorNode::gpu_time_account_func()
-  {
-    return { this };
+    if( id >= m_gpu_execution_contexts.size() )
+    {
+      m_gpu_execution_contexts.resize( id+1 );
+    }
+    if( m_gpu_execution_contexts[id] == nullptr )
+    {
+      m_gpu_execution_contexts[id] = std::make_shared< GPUKernelExecutionContext >();
+      m_gpu_execution_contexts[id]->m_cuda_ctx = ptask_queue().cuda_ctx();
+    }
+    return m_gpu_execution_contexts[id].get();
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )
@@ -815,12 +827,6 @@ namespace exanb
           << "    desc " << p.second->documentation() << std::endl;
     }
     return out;
-  }
-
-  [[noreturn]] void OperatorNode::abort()
-  {
-    lerr << "Fatal error in " << m_backtrace << std::endl;
-    ::std::abort();
   }
 
 }
