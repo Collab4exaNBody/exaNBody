@@ -181,6 +181,7 @@ int main(int argc,char*argv[])
     ldbg << "configuration.omp_num_threads = "<<configuration.omp_num_threads<<std::endl;
     omp_set_num_threads(configuration.omp_num_threads);
   }
+  
   if( configuration.omp_max_nesting > 1 )
   {
     if(configuration.omp_nested) { omp_set_nested(1); }
@@ -302,7 +303,8 @@ int main(int argc,char*argv[])
        <<endl
        << "MPI     : "<< format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
        << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<")"<<endl
-       << "OpenMP  : "<< format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< xstamp_get_omp_version_string() <<")" << endl
+       << "OpenMP  : "<< format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< xstamp_get_omp_version_string() 
+                      << ( ( configuration.omp_max_nesting > 1 ) ? format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
 # ifdef XSTAMP_CUDA_VERSION

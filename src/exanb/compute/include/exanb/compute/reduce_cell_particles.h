@@ -146,18 +146,20 @@ namespace exanb
     //_Pragma("omp critical(dbg_mesg)") { if( reduced_val!=0 ) std::cout << "reduced_val="<<reduced_val<<std::endl; }
   }
 
-  // ==== OpenMP parallel for style impelmentation ====
+
+  // ==== OpenMP parallel for style implementation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class FuncT, class ResultT, class FieldSetT>
-  static inline ResultT reduce_cell_particles(
+  static inline void reduce_cell_particles(
     GridT& grid,
-    bool enable_ghosts,
-    const FuncT& func,
-    ResultT init_value,
+    bool enable_ghosts ,
+    const FuncT& func  ,
+    ResultT& reduced_val , // initial value is used as a start value for reduction
     FieldSetT cpfields ,
-    GPUKernelExecutionContext * exec_ctx = nullptr )
+    GPUKernelExecutionContext * exec_ctx = nullptr ,
+    GPUStreamCallback* user_cb = nullptr )
   {
-    ResultT reduced_val = init_value;
+    //ResultT reduced_val = init_value;
     
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers() ;
@@ -191,16 +193,33 @@ namespace exanb
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, reduce_cell_particles_gpu_kernel, cells, dims, gl, func, ptr, scratch, cpfields );
 
         exec_ctx->retrieve_return_data( &reduced_val );
-        exec_ctx->wait();
         
-        return reduced_val;
+        if( user_cb != nullptr )
+        {
+          user_cb->m_exec_ctx = exec_ctx;
+          checkCudaErrors( cudaStreamAddCallback(custream,GPUKernelExecutionContext::execution_end_callback,user_cb,0) );
+        }
+        else
+        {
+          exec_ctx->wait();
+        }
+        return;
       }
     }
 
+    // here we failed launching the kernel on the GPU, so we're executing on CPU with OpenMP
     reduce_cell_particles_omp_kernel(cells, dims, gl, func, reduced_val, cpfields);
-
-    //_Pragma("omp critical(dbg_mesg)") { if( reduced_val!=0 ) std::cout << "final reduced_val="<<reduced_val<<std::endl; }
-    return reduced_val;
+    //exec_ctx->m_user_callback = nullptr;
+    //exec_ctx->m_user_data = nullptr;
+    if( user_cb != nullptr )
+    {
+      user_cb->m_exec_ctx = exec_ctx;
+      ( * user_cb->m_user_callback )( exec_ctx , user_cb->m_user_data );
+    }
+    else
+    {
+      exec_ctx->wait(); // shall be effectless
+    }
   }
 
 }

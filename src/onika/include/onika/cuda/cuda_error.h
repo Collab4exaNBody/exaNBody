@@ -15,7 +15,6 @@ namespace onika
 {
   namespace cuda
   {
-
     inline void assertCudaSuccess(cudaError_t code, const char *file, int line, bool abort_on_failure=true)
     {
        if( code != cudaSuccess ) 
@@ -24,12 +23,12 @@ namespace onika
           if( abort_on_failure ) std::abort();
        }
     }
-
   } 
 }
 
 #else
 
+//using cudaError_t = int;
 #ifndef checkCudaErrors
 #define checkCudaErrors( _expr_ ) (_expr_)
 #endif

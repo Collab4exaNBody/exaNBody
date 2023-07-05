@@ -5,6 +5,10 @@
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+
 //#define XNB_GPU_BLOCK_OCCUPANCY_PROFILE 1
 
 namespace exanb
@@ -34,13 +38,30 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline unsigned long long int * free_counters() { return counters+RESERVED_COUNTERS; }
   };
 
+  struct GPUKernelExecutionContext;
+
+  struct GPUStreamCallback
+  {
+    void(*m_user_callback)(GPUKernelExecutionContext*,void*) = nullptr;
+    void *m_user_data = nullptr;
+    GPUKernelExecutionContext * m_exec_ctx = nullptr;
+    cudaStream_t m_cu_stream; // stream that triggered the callback
+  };
+
   struct GPUKernelExecutionContext
   {
     onika::cuda::CudaContext* m_cuda_ctx = nullptr;
     onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
+
     cudaStream_t m_cuda_stream;
     cudaEvent_t m_start_evt = nullptr;
     cudaEvent_t m_stop_evt = nullptr;
+
+    std::shared_ptr< std::thread > m_cpu_gpu_sync_thread = nullptr;
+    std::mutex m_cpu_gpu_sync_mutex;
+    std::condition_variable m_cpu_gpu_sync_cond;
+    GPUStreamCallback* m_current_callback = nullptr;
+    
     double m_total_gpu_execution_time = 0.0;
     unsigned int m_gpu_kernel_exec_count = 0; // number of currently executing GPU kernels
     
@@ -78,6 +99,7 @@ namespace exanb
         checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_stop_evt ) );
         m_stop_evt = nullptr;
       }
+      terminate_cpu_gpu_sync_thread();
     }
 
     inline void reset_counters()
@@ -152,6 +174,67 @@ namespace exanb
 #     endif
       return n_busy;
     }
+
+    inline void cpu_gpu_synchronization()
+    {
+      bool terminate_thread = false;
+      do
+      {
+        std::unique_lock lk( m_cpu_gpu_sync_mutex );
+        m_cpu_gpu_sync_cond.wait(lk, [this] { return m_current_callback != nullptr; } );
+        assert( m_current_callback != nullptr );
+        if( m_current_callback->m_user_callback != nullptr )
+        {
+          auto cb = m_current_callback;
+          m_current_callback = nullptr;
+          // std::cout << "cpu_gpu_synchronization recevied cb="<<cb << std::endl;
+          lk.unlock();
+          assert( cb->m_exec_ctx != nullptr );
+          cb->m_exec_ctx->m_cpu_gpu_sync_cond.notify_one();
+          checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( cb->m_cu_stream ) );
+          ( * cb->m_user_callback ) ( cb->m_exec_ctx , cb->m_user_data );
+        }
+        else
+        {
+          terminate_thread = true;
+        }
+      } while( ! terminate_thread );
+    }
+
+    inline void terminate_cpu_gpu_sync_thread()
+    {
+      if( m_cpu_gpu_sync_thread != nullptr )
+      {
+        std::cout << "terminate_cpu_gpu_sync_thread" << std::endl;
+        static GPUStreamCallback null_cb = { nullptr , nullptr , nullptr , 0 };
+        std::unique_lock lk( m_cpu_gpu_sync_mutex );
+        m_cpu_gpu_sync_cond.wait(lk, [this] { return m_current_callback == nullptr; } );
+        m_current_callback = & null_cb;
+        lk.unlock();
+        m_cpu_gpu_sync_cond.notify_one();
+        m_cpu_gpu_sync_thread->join();
+      }
+    }
+
+    static inline void execution_end_callback( cudaStream_t stream,  cudaError_t status, void*  userData)
+    {
+      //std::cout << "execution_end_callback , userData="<<userData << std::endl;
+      checkCudaErrors( status );
+      GPUStreamCallback* cb = (GPUStreamCallback*) userData;
+      assert( cb != nullptr );
+      assert( cb->m_exec_ctx != nullptr );
+      if( cb->m_exec_ctx->m_cpu_gpu_sync_thread == nullptr )
+      {
+        cb->m_exec_ctx->m_cpu_gpu_sync_thread = std::make_shared< std::thread >( & GPUKernelExecutionContext::cpu_gpu_synchronization , cb->m_exec_ctx );
+      }
+      std::unique_lock lk( cb->m_exec_ctx->m_cpu_gpu_sync_mutex );
+      cb->m_exec_ctx->m_cpu_gpu_sync_cond.wait(lk, [cb] { return cb->m_exec_ctx->m_current_callback == nullptr; } );
+      cb->m_cu_stream = stream;
+      cb->m_exec_ctx->m_current_callback = cb;
+      lk.unlock();
+      cb->m_exec_ctx->m_cpu_gpu_sync_cond.notify_one();      
+    }
+
 
   };
 

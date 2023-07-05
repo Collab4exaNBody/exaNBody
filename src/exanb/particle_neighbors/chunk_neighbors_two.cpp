@@ -150,9 +150,9 @@ namespace exanb
 
         GridChunkNeighborsGPUWriteAccessor chunk_nbh( (onika::memory::MemoryPartionnerMT*) scratch->return_data , *chunk_neighbors );
         
-        using CellsT = std::remove_cv_t< std::remove_reference_t< decltype( cells[0] ) > >;
-        using FuncT = ChunkNeighbors2GPUFunctor<CellsT>;
-        FuncT func = { cells, dims, 0, grid->origin(), grid->cell_size(), grid->offset(), *amr, nbh_config, max_dist, cs, cs_log2, dev_scratch_mem.get(), config->scratch_mem_per_cell, chunk_nbh, scratch, config->subcell_compaction };
+        //using CellsT = std::remove_cv_t< std::remove_reference_t< decltype( cells[0] ) > >;
+        //using FuncT = ChunkNeighbors2GPUFunctor<CellsT>;
+        //FuncT func = { cells, dims, 0, grid->origin(), grid->cell_size(), grid->offset(), *amr, nbh_config, max_dist, cs, cs_log2, dev_scratch_mem.get(), config->scratch_mem_per_cell, chunk_nbh, scratch, config->subcell_compaction };
         
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, chunk_neighbors_gpu_kernel, cells,dims,grid->cell_size(),grid->origin(),grid->offset(),*amr,nbh_config,max_dist,cs,cs_log2, dev_scratch_mem.get(),config->scratch_mem_per_cell , chunk_nbh, scratch, config->subcell_compaction );
 

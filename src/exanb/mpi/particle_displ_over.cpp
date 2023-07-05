@@ -15,6 +15,7 @@
 #include <mpi.h>
 
 #include <exanb/compute/reduce_cell_particles.h>
+#include <exanb/mpi/particle_displ_over_async_request.h>
 
 namespace exanb
 {
@@ -76,7 +77,10 @@ namespace exanb
     ADD_SLOT( MPI_Comm           , mpi       , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( GridT              , grid      , INPUT );
     ADD_SLOT( PositionBackupData , backup_r  , INPUT );
-    ADD_SLOT( double             , threshold , INPUT );
+    ADD_SLOT( double             , threshold , INPUT , 0.0 );
+    ADD_SLOT( bool               , async     , INPUT , false );
+
+    ADD_SLOT( ParticleDisplOverAsyncRequest  , particle_displ_comm , INPUT_OUTPUT );
     ADD_SLOT( bool               , result    , OUTPUT );
 
   public:
@@ -101,56 +105,44 @@ sets result output to true if at least one particle has moved further than thres
       const double max_dist2 = max_dist * max_dist;
       const double cell_size = grid->cell_size();
 
-      unsigned long long int n_particles_over_dist = 0;
+      particle_displ_comm->m_comm = *mpi;
+      particle_displ_comm->m_request = MPI_REQUEST_NULL;
+      particle_displ_comm->m_particles_over = 0;
+      particle_displ_comm->m_all_particles_over = 0;
+      particle_displ_comm->m_async_request = false;
+      particle_displ_comm->m_request_started = false;
+      particle_displ_comm->m_reduction_end_callback = GPUStreamCallback{ nullptr , nullptr , nullptr , 0 };
+
       ReduceMaxDisplacementFunctor func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 };
-      n_particles_over_dist = reduce_cell_particles( *grid , false , func , n_particles_over_dist, reduce_field_set , gpu_execution_context() );
 
-/*
-      ldbg << "a) count over dist "<< max_dist <<" = "<<n_particles_over_dist << std::endl;           
-      n_particles_over_dist = 0;
-      IJK dims = grid->dimension();
-      int gl = grid->ghost_layers();
-      auto cells = grid->cells();
-      assert( backup_r->m_data.size() == grid->number_of_cells() );      
-
-#     pragma omp parallel
+      if( *async )
       {
-        GRID_OMP_FOR_BEGIN(dims-2*gl,_,loc, reduction(+:n_particles_over_dist) schedule(dynamic) )
-        {
-          const size_t i = grid_ijk_to_index( dims, loc+gl );
-          const Vec3d cell_origin = grid->cell_position( loc+gl );
-
-          const size_t n_particles = cells[i].size();
-          assert( backup_r->m_data[i].size() == n_particles*3 );
-
-          const uint32_t* rb = backup_r->m_data[i].data();
-          const auto* __restrict__ rx = cells[i][field::rx];
-          const auto* __restrict__ ry = cells[i][field::ry];
-          const auto* __restrict__ rz = cells[i][field::rz];
-
-          unsigned long n_over = 0;
-#         pragma omp simd reduction(+:n_over)
-          for(size_t j=0;j<n_particles;j++)
-          {
-            double dx = restore_u32_double(rb[j*3+0],cell_origin.x,cell_size) - rx[j];
-            double dy = restore_u32_double(rb[j*3+1],cell_origin.y,cell_size) - ry[j];
-            double dz = restore_u32_double(rb[j*3+2],cell_origin.z,cell_size) - rz[j];
-            if( i==4503 ) { _Pragma("omp critical(dbg_mesg)") { std::cout << "j="<<j<< " : dr="<<dx<<","<<dy<<","<<dz<<std::endl; } }
-            size_t is_over = ( ( dx*dx + dy*dy + dz*dz ) >= max_dist2 );
-            n_over += is_over;
-          }
-          n_particles_over_dist += n_over;
-        }
-        GRID_OMP_FOR_END
+        //std::cout << "Async particle_displ_over => result set to false" << std::endl;
+        particle_displ_comm->m_async_request = true;
+        //particle_displ_comm->m_reduction_end_callback = GPUStreamCallback{ reduction_end_callback , particle_displ_comm.get_pointer() , nullptr , 0 };
+        reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set
+                            , gpu_execution_context() /*, & particle_displ_comm->m_reduction_end_callback*/ );
+        particle_displ_comm->start_mpi_async_request();
+        *result = false;
       }
-      ldbg << "b) count over dist "<< max_dist <<" = "<<n_particles_over_dist << std::endl;
-*/
+      else
+      {    
+        reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , gpu_execution_context() );
+        MPI_Allreduce( & ( particle_displ_comm->m_particles_over ) , & ( particle_displ_comm->m_all_particles_over ) , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm );
+        //std::cout << "Nb part moved over "<< max_dist <<" (local/all) = "<< particle_displ_comm->m_particles_over <<" / "<< particle_displ_comm->m_all_particles_over << std::endl;
+        *result = ( particle_displ_comm->m_all_particles_over > 0 ) ;
+      }
 
-      unsigned long long total_n_over = 0;
-      MPI_Allreduce(&n_particles_over_dist,&total_n_over,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,comm);
-
-      ldbg << "Nb part moved over "<< max_dist <<" (local/all) = "<<n_particles_over_dist<<" / "<<total_n_over << std::endl;
-      *result = ( total_n_over > 0 ) ;
+    }
+    
+    static inline void reduction_end_callback( GPUKernelExecutionContext* exec_ctx , void * userData )
+    {
+      //std::cout << "async GPU reduction done" << std::endl;
+      if( exec_ctx != nullptr ) { exec_ctx->wait(); }
+      auto * particle_displ_comm = (ParticleDisplOverAsyncRequest*) userData ;
+      assert( particle_displ_comm != nullptr );
+      assert( particle_displ_comm->m_all_particles_over >= particle_displ_comm->m_particles_over );
+      particle_displ_comm->start_mpi_async_request();
     }
 
   };
@@ -158,7 +150,7 @@ sets result output to true if at least one particle has moved further than thres
  // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-   OperatorNodeFactory::instance()->register_factory( "particle_displ_over", make_grid_variant_operator< ParticleDisplacementOver > );
+    OperatorNodeFactory::instance()->register_factory( "particle_displ_over", make_grid_variant_operator< ParticleDisplacementOver > );
   }
 
 }
