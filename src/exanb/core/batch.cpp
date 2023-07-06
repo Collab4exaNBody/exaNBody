@@ -599,12 +599,14 @@ namespace exanb
   }
 
   LogStreamWrapper& OperatorBatchNode::pretty_print(LogStreamWrapper& out, int details, int indent, ProfilePrintParameters& ppp, ParallelValueStatsFunc pstat )
-  {    
+  {
+    const double inner_loop_backup = ppp.m_inner_loop_time;    
     this->OperatorNode::pretty_print(out,details,indent,ppp,pstat);     
     for(auto op : m_ops)
     {
       op->pretty_print(out,details,indent+2,ppp,pstat);
     }
+    ppp.m_inner_loop_time = inner_loop_backup;
     return out;
   }
 

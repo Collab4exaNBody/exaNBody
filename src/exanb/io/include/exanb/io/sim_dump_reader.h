@@ -67,7 +67,13 @@ namespace exanb
 
     // get grid setup
     domain = header.m_domain;
-    dump_filter.process_domain( domain );
+    Mat3d particle_read_xform = make_identity_matrix();
+    dump_filter.process_domain( domain , particle_read_xform );
+    
+    if( ! is_identity(particle_read_xform) )
+    {
+      lout << "read xform    = "<< particle_read_xform <<std::endl;
+    }
     
     lout << "domain bounds = "<<domain.bounds()<<" , size="<<bounds_size(domain.bounds())<<std::endl;
     if( ! domain.xform_is_identity() )
@@ -249,7 +255,7 @@ namespace exanb
       for(size_t i=0;i<n_particles;i++)
       {
         ParticleTuple tp = dump_filter.decode( particle_buffer[i] );
-        Vec3d ro = { tp[field::rx] , tp[field::ry] , tp[field::rz] };
+        Vec3d ro = particle_read_xform * Vec3d{ tp[field::rx] , tp[field::ry] , tp[field::rz] };
         Vec3d r = ro;
         IJK loc = domain_periodic_location( domain, r ) - grid.offset();
 
