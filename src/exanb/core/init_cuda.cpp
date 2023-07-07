@@ -112,8 +112,8 @@ namespace exanb
         int warpSize = 0;
         int multiProcessorCount = 0;
         int sharedMemPerBlock = 0;
-	int clock_rate = 0;
-	int l2_cache = 0;
+        int clock_rate = 0;
+        int l2_cache = 0;
         std::string device_name;
 
         for(int i=0;i<ndev;i++)
@@ -128,8 +128,8 @@ namespace exanb
           warpSize = cuda_ctx->m_devices[i].m_deviceProp.warpSize;
           multiProcessorCount = cuda_ctx->m_devices[i].m_deviceProp.multiProcessorCount;
           sharedMemPerBlock = cuda_ctx->m_devices[i].m_deviceProp.sharedMemPerBlock;
-	  clock_rate = cuda_ctx->m_devices[i].m_deviceProp.clockRate;
-	  l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
+          clock_rate = cuda_ctx->m_devices[i].m_deviceProp.clockRate;
+          l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
         }
 
         long long tmp[3];
