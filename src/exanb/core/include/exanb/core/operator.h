@@ -147,9 +147,6 @@ namespace exanb
     // indicates that an operator or batch is ready to be executed
     inline bool compiled() const { return m_compiled; }
 
-    // indice weither execution should use a task parallelism paradigm
-    inline bool task_parallelism() const { return m_task_parallelism; }
-
     // ensures slot attached resources are allocated and initialized
     void initialize_slots_resource();
 
@@ -244,7 +241,6 @@ namespace exanb
 
   protected:
     inline const std::set< std::shared_ptr<OperatorSlotBase> >& managed_slots() const { return m_managed_slots; }
-    inline void set_task_parallelism(bool yn) { m_task_parallelism = yn; }
     onika::task::ParallelTaskQueue & ptask_queue();
 
     // profiling
@@ -289,9 +285,6 @@ namespace exanb
     
     // Operator protection after compilation
     bool m_compiled = false;
-
-    // Operator executes in a single region inside a parallel region, or in a task and thus may not create nested parallel region
-    bool m_task_parallelism = false;
 
     // profiling
     bool m_profiling = true;

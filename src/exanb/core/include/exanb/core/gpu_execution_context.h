@@ -49,6 +49,7 @@ namespace exanb
     onika::cuda::CudaContext* m_cuda_ctx = nullptr;
     onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
 
+    unsigned int m_streamIndex = 0;
     cudaStream_t m_cuda_stream;
     cudaEvent_t m_start_evt = nullptr;
     cudaEvent_t m_stop_evt = nullptr;
@@ -64,8 +65,7 @@ namespace exanb
       }
       if( m_cuda_ctx != nullptr )
       {
-        const int streamIndex = 0;
-        m_cuda_stream = m_cuda_ctx->m_threadStream[streamIndex];
+        m_cuda_stream = m_cuda_ctx->getThreadStream(m_streamIndex);
         if( m_start_evt == nullptr )
         {
           checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_start_evt ) );
