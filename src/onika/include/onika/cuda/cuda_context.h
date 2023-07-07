@@ -30,6 +30,7 @@ using cudaEvent_t = int*;
 #endif // ONIKA_CUDA_VERSION
 
 #include <onika/memory/memory_usage.h>
+#include <onika/cuda/cuda_error.h>
 #include <functional>
 #include <list>
 
@@ -65,6 +66,19 @@ namespace onika
       std::vector<cudaStream_t> m_threadStream;
       inline bool has_devices() const { return ! m_devices.empty(); }
       inline unsigned int device_count() const { return m_devices.size(); }
+      inline cudaStream_t getThreadStream(unsigned int tid)
+      {
+        if( tid >= m_threadStream.size() )
+        {
+          unsigned int i = m_threadStream.size();
+          m_threadStream.resize( tid+1 , 0 );
+          for(;i<m_threadStream.size();i++)
+          {
+            checkCudaErrors( cudaStreamCreateWithFlags( & m_threadStream[i], cudaStreamNonBlocking ) );
+          }
+        }
+        return m_threadStream[tid];
+      }
     };
 
   }
