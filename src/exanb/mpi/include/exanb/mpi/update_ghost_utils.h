@@ -5,9 +5,9 @@
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <exanb/core/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
-#include <exanb/compute/block_parallel_for.h>
 
 namespace exanb
 {
@@ -45,8 +45,8 @@ namespace exanb
     {
       std::vector< onika::memory::CudaMMVector<uint8_t> > send_buffer;
       std::vector< onika::memory::CudaMMVector<uint8_t> > receive_buffer;
-      std::vector< GPUKernelExecutionContext* > send_pack_async;
-      std::vector< GPUKernelExecutionContext* > recv_unpack_async;      
+      std::vector< onika::parallel::GPUKernelExecutionContext* > send_pack_async;
+      std::vector< onika::parallel::GPUKernelExecutionContext* > recv_unpack_async;      
     };
 
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
@@ -143,20 +143,28 @@ namespace exanb
 
   } // template utilities used only inside UpdateGhostsNode
 
+}
 
 
-  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
-  struct BlockParallelForFunctorTraits< UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+namespace onika
+{
+
+  namespace parallel
   {
-    static inline constexpr bool CudaCompatible = true;
-  };
 
-  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
-  struct BlockParallelForFunctorTraits< UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles> >
-  {
-    static inline constexpr bool CudaCompatible = true;
-  };
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+    {
+      static inline constexpr bool CudaCompatible = true;
+    };
 
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles> >
+    {
+      static inline constexpr bool CudaCompatible = true;
+    };
+
+  }
 
 }
 

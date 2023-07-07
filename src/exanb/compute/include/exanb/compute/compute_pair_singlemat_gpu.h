@@ -8,7 +8,7 @@
 #include <cstdlib>
 
 #include <exanb/compute/compute_pair_singlemat_cell.h>
-#include <exanb/core/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 namespace exanb
 {
@@ -24,7 +24,7 @@ namespace exanb
     const CPBufFactoryT cpbuf_factory,
     const ForceOpT force_op,
     double rcut2,
-    GPUKernelExecutionScratch* scratch,
+    onika::parallel::GPUKernelExecutionScratch* scratch,
     CellProfT cellprof,
     ChunkSizeT CS,
     ComputeFieldsT cpfields,
@@ -66,7 +66,7 @@ namespace exanb
     while( cell_a_no_gl < ncells_no_gl );
     
 #   ifdef XNB_GPU_BLOCK_OCCUPANCY_PROFILE
-    if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX < GPUKernelExecutionScratch::MAX_GPU_BLOCKS ) { scratch->block_occupancy[ONIKA_CU_BLOCK_IDX] = n_cells_processed; }
+    if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX < onika::parallel::GPUKernelExecutionScratch::MAX_GPU_BLOCKS ) { scratch->block_occupancy[ONIKA_CU_BLOCK_IDX] = n_cells_processed; }
 #   endif
   }
 

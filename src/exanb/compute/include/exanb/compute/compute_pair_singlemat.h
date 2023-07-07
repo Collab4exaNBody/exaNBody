@@ -4,7 +4,7 @@
 #include <exanb/compute/compute_pair_singlemat_gpu.h>
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
-#include <exanb/core/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 #include <onika/task/parallel_task_config.h>
 #include <onika/declare_if.h>
@@ -24,7 +24,7 @@ namespace exanb
     const FuncT& func,
     FieldSetT cpfields,
     PosFieldsT posfields = PosFieldsT{},
-    GPUKernelExecutionContext * exec_ctx = nullptr,
+    onika::parallel::GPUKernelExecutionContext * exec_ctx = nullptr,
     bool async = false
     )
   {

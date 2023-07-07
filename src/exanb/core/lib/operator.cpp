@@ -500,7 +500,7 @@ namespace exanb
     }    
   }
 
-  GPUKernelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
+  onika::parallel::GPUKernelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
   {
     if( id >= m_parallel_execution_contexts.size() )
     {
@@ -508,7 +508,7 @@ namespace exanb
     }
     if( m_parallel_execution_contexts[id] == nullptr )
     {
-      m_parallel_execution_contexts[id] = std::make_shared< GPUKernelExecutionContext >();
+      m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::GPUKernelExecutionContext >();
       m_parallel_execution_contexts[id]->m_streamIndex = id;
       m_parallel_execution_contexts[id]->m_cuda_ctx = ptask_queue().cuda_ctx();
     }

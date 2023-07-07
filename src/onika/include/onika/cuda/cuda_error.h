@@ -30,7 +30,7 @@ namespace onika
 
 //using cudaError_t = int;
 #ifndef checkCudaErrors
-#define checkCudaErrors( _expr_ ) (_expr_)
+#define checkCudaErrors( _expr_ ) do{ auto x=(_expr_); auto y=x; x=y; }while(0)
 #endif
 
 #endif

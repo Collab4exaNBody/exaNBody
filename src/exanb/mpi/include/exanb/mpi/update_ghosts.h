@@ -24,7 +24,7 @@
 #include <exanb/mpi/update_ghost_utils.h>
 #include <exanb/mpi/data_types.h>
 
-#include <exanb/compute/block_parallel_for.h>
+#include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>
 
 namespace exanb
@@ -228,12 +228,12 @@ namespace exanb
           {
             // CPU only execution in this case
             send_pack_async[p] = nullptr;
-            block_parallel_for( cells_to_send, pack_ghost, nullptr , *async_buffer_pack );
+            onika::parallel::block_parallel_for( cells_to_send, pack_ghost, nullptr , *async_buffer_pack );
           }
           else
           {
             send_pack_async[p] = parallel_execution_context(p);
-            block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , *async_buffer_pack );
+            onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , *async_buffer_pack );
           }
         }
         else
@@ -298,12 +298,12 @@ namespace exanb
             {
               // CPU only in this case
               recv_unpack_async[p] = nullptr;
-              block_parallel_for( cells_to_receive, unpack_ghost, nullptr , false );
+              onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, nullptr , false );
             }
             else
             {
               recv_unpack_async[p] = parallel_execution_context(p);
-              block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , *async_buffer_pack );            
+              onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , *async_buffer_pack );            
             }
             
             //assert( data_cur == receive_buffer[p].size() );

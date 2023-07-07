@@ -8,7 +8,7 @@
 #include <exanb/field_sets.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -32,7 +32,7 @@ namespace exanb
     IJK dims,
     unsigned int gl,
     const FuncT func,
-    GPUKernelExecutionScratch* scratch,
+    onika::parallel::GPUKernelExecutionScratch* scratch,
     FieldSet<field_ids...> )
   {
     // avoid use of compute buffer when possible
@@ -100,7 +100,7 @@ namespace exanb
     bool enable_ghosts,
     const FuncT& func,
     FieldSetT cpfields ,
-    GPUKernelExecutionContext * exec_ctx = nullptr,
+    onika::parallel::GPUKernelExecutionContext * exec_ctx = nullptr,
     bool async = false
     )
   {

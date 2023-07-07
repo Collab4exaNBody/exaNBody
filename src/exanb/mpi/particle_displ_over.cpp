@@ -111,7 +111,7 @@ sets result output to true if at least one particle has moved further than thres
       particle_displ_comm->m_all_particles_over = 0;
       particle_displ_comm->m_async_request = false;
       particle_displ_comm->m_request_started = false;
-      particle_displ_comm->m_reduction_end_callback = GPUStreamCallback{ nullptr , nullptr , nullptr , 0 };
+      particle_displ_comm->m_reduction_end_callback = onika::parallel::GPUStreamCallback{ nullptr , nullptr , nullptr , 0 };
 
       ReduceMaxDisplacementFunctor func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 };
 
@@ -135,7 +135,7 @@ sets result output to true if at least one particle has moved further than thres
 
     }
     
-    static inline void reduction_end_callback( GPUKernelExecutionContext* exec_ctx , void * userData )
+    static inline void reduction_end_callback( onika::parallel::GPUKernelExecutionContext* exec_ctx , void * userData )
     {
       ::exanb::ldbg << "async CPU/GPU reduction done, start async MPI collective" << std::endl;
       if( exec_ctx != nullptr ) { exec_ctx->wait(); }

@@ -5,7 +5,6 @@
 #include <exanb/core/log.h>
 #include <exanb/core/yaml_utils.h>
 #include <exanb/core/span.h>
-#include <exanb/core/parallel_execution_context.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -22,6 +21,7 @@
 
 #include <onika/omp/ompt_task_timing.h>
 #include <onika/task/parallel_task_queue.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 namespace exanb
 {
@@ -225,7 +225,7 @@ namespace exanb
     void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
 
     // access GPUExecution context for this operator
-    GPUKernelExecutionContext* parallel_execution_context(unsigned int id=0);
+    onika::parallel::GPUKernelExecutionContext* parallel_execution_context(unsigned int id=0);
     void account_gpu_execution(double t);
     
     // free resources associated to slots
@@ -281,7 +281,7 @@ namespace exanb
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    std::vector< std::shared_ptr<GPUKernelExecutionContext> > m_parallel_execution_contexts;
+    std::vector< std::shared_ptr<onika::parallel::GPUKernelExecutionContext> > m_parallel_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;

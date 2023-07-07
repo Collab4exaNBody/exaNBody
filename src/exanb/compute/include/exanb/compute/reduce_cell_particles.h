@@ -7,7 +7,7 @@
 #include <onika/soatl/field_id.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -37,7 +37,7 @@ namespace exanb
     unsigned int gl,
     const FuncT func,
     ResultT* reduced_val,
-    GPUKernelExecutionScratch* scratch,
+    onika::parallel::GPUKernelExecutionScratch* scratch,
     FieldSet<field_ids...> )
   {
     ResultT local_val = *reduced_val;
@@ -156,8 +156,8 @@ namespace exanb
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
     FieldSetT cpfields ,
-    GPUKernelExecutionContext * exec_ctx = nullptr ,
-    GPUStreamCallback* user_cb = nullptr )
+    onika::parallel::GPUKernelExecutionContext * exec_ctx = nullptr ,
+    onika::parallel::GPUStreamCallback* user_cb = nullptr )
   {
     //ResultT reduced_val = init_value;
     
@@ -167,7 +167,7 @@ namespace exanb
 
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
     {
-      static_assert( sizeof(ResultT) <= GPUKernelExecutionScratch::MAX_RETURN_SIZE , "return value type size exceeds maximum allowed" );
+      static_assert( sizeof(ResultT) <= onika::parallel::GPUKernelExecutionScratch::MAX_RETURN_SIZE , "return value type size exceeds maximum allowed" );
     
       bool allow_cuda_exec = ( exec_ctx != nullptr );
       if( allow_cuda_exec ) allow_cuda_exec = ( exec_ctx->m_cuda_ctx != nullptr );
@@ -197,7 +197,7 @@ namespace exanb
         if( user_cb != nullptr )
         {
           user_cb->m_exec_ctx = exec_ctx;
-          checkCudaErrors( cudaStreamAddCallback(custream,GPUKernelExecutionContext::execution_end_callback,user_cb,0) );
+          checkCudaErrors( cudaStreamAddCallback(custream,onika::parallel::GPUKernelExecutionContext::execution_end_callback,user_cb,0) );
         }
         else
         {

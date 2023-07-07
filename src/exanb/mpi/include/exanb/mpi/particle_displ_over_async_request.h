@@ -5,6 +5,9 @@
 #include <mutex>
 #include <condition_variable>
 
+#include <onika/parallel/parallel_execution_context.h>
+
+
 namespace exanb
 {
 
@@ -16,7 +19,7 @@ namespace exanb
     unsigned long long m_particles_over = 0;
     unsigned long long m_all_particles_over = 0; 
     
-    GPUStreamCallback m_reduction_end_callback = {nullptr,nullptr,nullptr,0};
+    onika::parallel::GPUStreamCallback m_reduction_end_callback = {nullptr,nullptr,nullptr,0};
     
     std::mutex m_request_mutex;
     std::condition_variable m_request_cond;
@@ -49,7 +52,7 @@ namespace exanb
         m_request_started = false;
         m_comm = MPI_COMM_NULL;
         m_request = MPI_REQUEST_NULL;
-        m_reduction_end_callback = GPUStreamCallback{nullptr,nullptr,nullptr,0};
+        m_reduction_end_callback = onika::parallel::GPUStreamCallback{nullptr,nullptr,nullptr,0};
       }
       assert( m_all_particles_over >= m_particles_over );
       return m_all_particles_over;
