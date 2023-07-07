@@ -137,7 +137,7 @@ sets result output to true if at least one particle has moved further than thres
     
     static inline void reduction_end_callback( GPUKernelExecutionContext* exec_ctx , void * userData )
     {
-      ldbg << "async CPU/GPU reduction done, start async MPI collective" << std::endl;
+      ::exanb::ldbg << "async CPU/GPU reduction done, start async MPI collective" << std::endl;
       if( exec_ctx != nullptr ) { exec_ctx->wait(); }
       auto * particle_displ_comm = (ParticleDisplOverAsyncRequest*) userData ;
       assert( particle_displ_comm != nullptr );
