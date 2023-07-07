@@ -121,13 +121,13 @@ sets result output to true if at least one particle has moved further than thres
         particle_displ_comm->m_async_request = true;
         //particle_displ_comm->m_reduction_end_callback = GPUStreamCallback{ reduction_end_callback , particle_displ_comm.get_pointer() , nullptr , 0 };
         reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set
-                            , gpu_execution_context() /*, & particle_displ_comm->m_reduction_end_callback*/ );
+                            , parallel_execution_context() /*, & particle_displ_comm->m_reduction_end_callback*/ );
         particle_displ_comm->start_mpi_async_request();
         *result = false;
       }
       else
       {    
-        reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , gpu_execution_context() );
+        reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() );
         MPI_Allreduce( & ( particle_displ_comm->m_particles_over ) , & ( particle_displ_comm->m_all_particles_over ) , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm );
         ldbg << "Nb part moved over "<< max_dist <<" (local/all) = "<< particle_displ_comm->m_particles_over <<" / "<< particle_displ_comm->m_all_particles_over << std::endl;
         *result = ( particle_displ_comm->m_all_particles_over > 0 ) ;

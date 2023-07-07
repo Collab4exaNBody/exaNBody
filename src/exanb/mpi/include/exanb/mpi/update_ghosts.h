@@ -232,7 +232,7 @@ namespace exanb
           }
           else
           {
-            send_pack_async[p] = gpu_execution_context(p);
+            send_pack_async[p] = parallel_execution_context(p);
             block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , *async_buffer_pack );
           }
         }
@@ -302,7 +302,7 @@ namespace exanb
             }
             else
             {
-              recv_unpack_async[p] = gpu_execution_context(p);
+              recv_unpack_async[p] = parallel_execution_context(p);
               block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , *async_buffer_pack );            
             }
             

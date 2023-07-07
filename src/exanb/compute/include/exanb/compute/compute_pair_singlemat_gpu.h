@@ -8,7 +8,7 @@
 #include <cstdlib>
 
 #include <exanb/compute/compute_pair_singlemat_cell.h>
-#include <exanb/core/gpu_execution_context.h>
+#include <exanb/core/parallel_execution_context.h>
 
 namespace exanb
 {

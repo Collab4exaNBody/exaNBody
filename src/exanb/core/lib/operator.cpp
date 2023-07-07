@@ -441,7 +441,7 @@ namespace exanb
       ONIKA_CU_PROF_RANGE_POP();
 
       double total_gpu_time = 0.0;
-      for(auto gpuctx:m_gpu_execution_contexts)
+      for(auto gpuctx:m_parallel_execution_contexts)
       {
         if( gpuctx != nullptr )
         {
@@ -500,19 +500,19 @@ namespace exanb
     }    
   }
 
-  GPUKernelExecutionContext* OperatorNode::gpu_execution_context(unsigned int id)
+  GPUKernelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
   {
-    if( id >= m_gpu_execution_contexts.size() )
+    if( id >= m_parallel_execution_contexts.size() )
     {
-      m_gpu_execution_contexts.resize( id+1 );
+      m_parallel_execution_contexts.resize( id+1 );
     }
-    if( m_gpu_execution_contexts[id] == nullptr )
+    if( m_parallel_execution_contexts[id] == nullptr )
     {
-      m_gpu_execution_contexts[id] = std::make_shared< GPUKernelExecutionContext >();
-      m_gpu_execution_contexts[id]->m_streamIndex = id;
-      m_gpu_execution_contexts[id]->m_cuda_ctx = ptask_queue().cuda_ctx();
+      m_parallel_execution_contexts[id] = std::make_shared< GPUKernelExecutionContext >();
+      m_parallel_execution_contexts[id]->m_streamIndex = id;
+      m_parallel_execution_contexts[id]->m_cuda_ctx = ptask_queue().cuda_ctx();
     }
-    return m_gpu_execution_contexts[id].get();
+    return m_parallel_execution_contexts[id].get();
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )

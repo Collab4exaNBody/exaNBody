@@ -5,7 +5,7 @@
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <exanb/core/gpu_execution_context.h>
+#include <exanb/core/parallel_execution_context.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/compute/block_parallel_for.h>
 

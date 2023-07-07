@@ -7,7 +7,7 @@
 #include <onika/soatl/field_id.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/gpu_execution_context.h>
+#include <exanb/core/parallel_execution_context.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>

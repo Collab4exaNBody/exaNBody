@@ -119,7 +119,7 @@ namespace exanb
 
 #     ifdef XSTAMP_CUDA_VERSION
       // detect if GPU execution is possible
-      auto exec_ctx = gpu_execution_context();
+      auto exec_ctx = parallel_execution_context();
       bool allow_cuda_exec = *enable_cuda;
       if( allow_cuda_exec ) allow_cuda_exec = ( chunk_neighbors->m_stream_pool_hint > 0 );
       if( allow_cuda_exec ) allow_cuda_exec = ( exec_ctx != nullptr );
