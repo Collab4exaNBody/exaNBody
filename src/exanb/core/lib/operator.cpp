@@ -31,6 +31,8 @@ namespace exanb
   // ========================== OperatorNode ========================
   // ================================================================
 
+  std::shared_ptr<onika::cuda::CudaContext> OperatorNode::s_global_cuda_ctx = nullptr;
+
   OperatorNode::TimeStampT OperatorNode::s_profiling_timestamp_ref;
   
   bool OperatorNode::s_global_profiling = false;
@@ -342,6 +344,8 @@ namespace exanb
   // if one implements generate_tasks, then it is backward compatible with sequential/parallel operator execution
   void OperatorNode::execute()
   {
+    m_omp_task_mode = true;
+  
 #   pragma omp parallel
     {
 #     pragma omp single
@@ -441,14 +445,17 @@ namespace exanb
       ONIKA_CU_PROF_RANGE_POP();
 
       double total_gpu_time = 0.0;
+      double total_async_cpu_time = 0.0;
       for(auto gpuctx:m_parallel_execution_contexts)
       {
         if( gpuctx != nullptr )
         {
           total_gpu_time += gpuctx->collect_gpu_execution_time();
+          total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
         }
       }
       if( total_gpu_time > 0.0 ) { m_gpu_times.push_back( total_gpu_time ); }
+      if( total_async_cpu_time > 0.0 ) { m_async_cpu_times.push_back( total_async_cpu_time ); }
 
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_end_task_context2( tsk_ctx, this );
@@ -510,7 +517,8 @@ namespace exanb
     {
       m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::GPUKernelExecutionContext >();
       m_parallel_execution_contexts[id]->m_streamIndex = id;
-      m_parallel_execution_contexts[id]->m_cuda_ctx = ptask_queue().cuda_ctx();
+      m_parallel_execution_contexts[id]->m_cuda_ctx = global_cuda_ctx();
+      m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     }
     return m_parallel_execution_contexts[id].get();
   }
@@ -729,12 +737,18 @@ namespace exanb
     {
       m_exec_times.reserve(4096);
       m_gpu_times.reserve(4096);
+      m_async_cpu_times.reserve(4096);
     }
   }
 
-  onika::task::ParallelTaskQueue & OperatorNode::ptask_queue()
+  void OperatorNode::set_global_cuda_ctx( std::shared_ptr<onika::cuda::CudaContext> ctx )
   {
-    return onika::task::ParallelTaskQueue::global_ptask_queue();
+    s_global_cuda_ctx = ctx;
+  }
+  
+  onika::cuda::CudaContext* OperatorNode::global_cuda_ctx()
+  {
+    return s_global_cuda_ctx.get();
   }
 
   void OperatorNode::yaml_initialize(const YAML::Node& node)

@@ -14,16 +14,13 @@ namespace exanb
 
   struct FinalizeCuda : public OperatorNode
   {
-#   ifdef XSTAMP_CUDA_VERSION
-    ADD_SLOT( onika::cuda::CudaContext , cuda_ctx , INPUT_OUTPUT );
-#   endif
-
-    inline bool is_sink() const override final { return true; } // not a suppressable operator
+    ADD_SLOT( bool , enable_cuda , INPUT , REQUIRED );
  
     inline void execute () override final
     {
 #     ifdef XSTAMP_CUDA_VERSION
-      if( cuda_ctx.has_value() ) if( cuda_ctx->has_devices() )
+      auto cuda_ctx = global_cuda_ctx();
+      if( *enable_cuda && cuda_ctx->has_devices() )
       {
         checkCudaErrors( cudaDeviceSynchronize() );
         for(const auto &dev : cuda_ctx->m_devices)
@@ -42,7 +39,7 @@ namespace exanb
         cuda_ctx->m_devices.clear(); // calls destructors which frees Cuda resources
         cuda_ctx->m_devices.shrink_to_fit();
       }
-      ptask_queue().set_cuda_ctx( nullptr );
+      set_global_cuda_ctx( nullptr );
 #     endif
     }
   };

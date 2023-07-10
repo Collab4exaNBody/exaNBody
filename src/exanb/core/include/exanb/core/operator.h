@@ -20,7 +20,8 @@
 #include <atomic>
 
 #include <onika/omp/ompt_task_timing.h>
-#include <onika/task/parallel_task_queue.h>
+#include <onika/omp/ompt_task_info.h>
+#include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
 
 namespace exanb
@@ -241,12 +242,15 @@ namespace exanb
 
   protected:
     inline const std::set< std::shared_ptr<OperatorSlotBase> >& managed_slots() const { return m_managed_slots; }
-    onika::task::ParallelTaskQueue & ptask_queue();
+
+    static void set_global_cuda_ctx( std::shared_ptr<onika::cuda::CudaContext> ctx );
+    static onika::cuda::CudaContext* global_cuda_ctx();
 
     // profiling
     std::atomic<uint64_t> m_task_exec_time_accum {0};
     std::vector<double> m_exec_times;
     std::vector<double> m_gpu_times;
+    std::vector<double> m_async_cpu_times;
     ssize_t m_resident_mem_inc = 0;
 
     // debug stream wrapper to enable log filtering
@@ -288,8 +292,17 @@ namespace exanb
 
     // profiling
     bool m_profiling = true;
-    static /*std::vector<ProfilingFunctionSet>*/ ProfilingFunctionSet s_profiling_functions;
+    
+    // allow OpenMP task creation
+    bool m_omp_task_mode = false;
+    
+    
+    static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;
+    
+    // GPU context
+    static std::shared_ptr<onika::cuda::CudaContext> s_global_cuda_ctx;
+    
     static bool s_global_profiling;
     static bool s_global_mem_profiling;
     static bool s_debug_execution;

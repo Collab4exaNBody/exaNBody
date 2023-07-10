@@ -49,7 +49,7 @@ namespace exanb
           const uint16_t cell_b_enc = *(stream++);
           if( cell_b_enc < GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE )
           {
-            printf("nbh stream corrupted: cell=%llu, p=%u, cg=%u/%u, spos=%d\n",cell_a,p_a,cg,cell_groups,int(stream-input_stream) );
+            printf("nbh stream corrupted: cell=%lu, p=%u, cg=%u/%u, spos=%d\n",static_cast<long unsigned int>(cell_a),p_a,cg,cell_groups,int(stream-input_stream) );
             ONIKA_CU_ABORT();
           }
           const IJK loc_b = loc_a + decode_cell_index(cell_b_enc);

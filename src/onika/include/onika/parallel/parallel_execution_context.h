@@ -53,14 +53,22 @@ namespace onika
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
 
       unsigned int m_streamIndex = 0;
-      unsigned int m_omp_num_tasks = 0; // desired number of tasks. 0 means no task, opens (andthen close it after parallel operation) a new parallel section instead of generating a set of tasks
       
+      // desired number of tasks.
+      // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
+      // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single->taskgroup), thus uses taskloop construcut underneath
+      unsigned int m_omp_num_tasks = 0;
+
       cudaStream_t m_cuda_stream;
       cudaEvent_t m_start_evt = nullptr;
       cudaEvent_t m_stop_evt = nullptr;
       
+      double m_total_async_cpu_execution_time = 0.0;
+
       double m_total_gpu_execution_time = 0.0;
       unsigned int m_gpu_kernel_exec_count = 0; // number of currently executing GPU kernels
+      
+      inline bool has_gpu_context() const { return m_cuda_ctx != nullptr; }
       
       inline void check_initialize()
       {
@@ -158,6 +166,17 @@ namespace onika
         {
           exec_time = m_total_gpu_execution_time;
           m_total_gpu_execution_time = 0.0;
+        }
+        return exec_time;
+      }
+
+      double collect_async_cpu_execution_time()
+      {
+        double exec_time = 0.0;
+        if( m_total_async_cpu_execution_time > 0.0 )
+        {
+          exec_time = m_total_async_cpu_execution_time;
+          m_total_async_cpu_execution_time = 0.0;
         }
         return exec_time;
       }

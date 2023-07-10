@@ -41,10 +41,6 @@ namespace exanb
   template<typename GridT>
   struct ChunkNeighborsLightWeight : public OperatorNode
   {
-#ifdef XSTAMP_CUDA_VERSION
-    ADD_SLOT( onika::cuda::CudaContext , cuda_ctx , INPUT , OPTIONAL );
-#endif
-
     ADD_SLOT( GridT               , grid          , INPUT );
     ADD_SLOT( AmrGrid             , amr           , INPUT );
     ADD_SLOT( double              , nbh_dist      , INPUT );  // value added to the search distance to update neighbor list less frequently
@@ -83,9 +79,9 @@ namespace exanb
 
       auto nbh_config = *config;
 #     ifdef XSTAMP_CUDA_VERSION
-      if( cuda_ctx.has_value() )
+      if( parallel_execution_context()->has_gpu_context() )
       {
-        if( cuda_ctx->has_devices() && !nbh_config.build_particle_offset )
+        if( !nbh_config.build_particle_offset )
         {
           ldbg << "INFO: force build_particle_offset to true to ensure Cuda compatibility" << std::endl;
           nbh_config.build_particle_offset = true;

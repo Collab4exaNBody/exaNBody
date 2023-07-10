@@ -18,6 +18,7 @@
 #include <limits>
 #include <chrono>
 #include <mpi.h>
+#include <omp.h>
 
 namespace exanb
 {

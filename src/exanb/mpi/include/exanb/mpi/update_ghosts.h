@@ -225,7 +225,7 @@ namespace exanb
 
           PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , data_ptr_base };
           send_pack_async[p] = parallel_execution_context(p);
-          onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , true, (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
+          onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
         }
         else
         {
@@ -279,14 +279,14 @@ namespace exanb
                 const auto cell_input = ghost_cell_receive_info(cell_input_it);
                 const size_t n_particles = cell_input.m_n_particles;
                 const size_t cell_i = cell_input.m_cell_i;
-                assert( cell_i>=0 && cell_i<n_cells );
+                assert( /*cell_i>=0 &&*/ cell_i<n_cells );
                 cells[cell_i].resize( n_particles , grid->cell_allocator() );
               }
             }
 
             UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_receives.data() , comm_scheme.m_partner[p].m_receive_offset.data() , receive_buffer[p].data() , cells , cell_scalar_components , cell_scalars };
             recv_unpack_async[p] = parallel_execution_context(p);
-            onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , true , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );            
+            onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );            
             
             //assert( data_cur == receive_buffer[p].size() );
             -- active_recvs;

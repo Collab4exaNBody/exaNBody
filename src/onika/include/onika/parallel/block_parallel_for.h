@@ -87,7 +87,6 @@ namespace onika
         uint64_t N
       , const FuncT& func
       , GPUKernelExecutionContext * exec_ctx = nullptr
-      , bool omp_tasks = false
       , bool enable_gpu = true
       , bool async = false )
     {
@@ -116,9 +115,13 @@ namespace onika
         }
       }
 
-      if( omp_tasks )
+      int prefered_num_tasks = 0;
+      if( exec_ctx != nullptr ) prefered_num_tasks = exec_ctx->m_omp_num_tasks;
+
+      // allow tasking mode, means we're in a parallel/single[/taskgroup] scope
+      if( prefered_num_tasks > 0 )
       {
-        int num_tasks = omp_get_max_threads() * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
+        int num_tasks = prefered_num_tasks * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
         block_parallel_for_omp_kernel( N , func , num_tasks , async ? exec_ctx : nullptr );        
       }
       else
