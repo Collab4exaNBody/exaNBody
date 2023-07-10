@@ -129,18 +129,26 @@ namespace onika
       
       inline void wait()
       {
-        if( m_gpu_kernel_exec_count == 0 ) return;      
-        checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_stop_evt, m_cuda_stream ) );
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
-        float time_ms = 0.0f;      
-        checkCudaErrors( ONIKA_CU_EVENT_ELAPSED(time_ms,m_start_evt,m_stop_evt) );
-        m_total_gpu_execution_time += time_ms;      
-        -- m_gpu_kernel_exec_count;
+        // wait for any in flight async taskloop previously launched and associated with this execution context
+        [[maybe_unused]] auto & depvar = *this;
+#       pragma omp task depend(in:depvar) if(0) // blocks until dependency is satisfied
+        {}
+
         if( m_gpu_kernel_exec_count > 0 )
         {
-          // re-insert a timer for next executing kernel
-          checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
+          checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_stop_evt, m_cuda_stream ) );
+          checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
+          float time_ms = 0.0f;      
+          checkCudaErrors( ONIKA_CU_EVENT_ELAPSED(time_ms,m_start_evt,m_stop_evt) );
+          m_total_gpu_execution_time += time_ms;      
+          -- m_gpu_kernel_exec_count;
+          if( m_gpu_kernel_exec_count > 0 )
+          {
+            // re-insert a timer for next executing kernel
+            checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
+          }
         }
+                
       }
 
       inline double collect_gpu_execution_time()

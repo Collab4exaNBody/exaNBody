@@ -69,9 +69,9 @@ namespace exanb
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
 
     ADD_SLOT( UpdateGhostsScratch      , scratch           , PRIVATE );
-    
 
-    inline void execute () override final
+    // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
+    inline void generate_tasks () override final
     {      
       using PackGhostFunctor = GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles>;
@@ -224,17 +224,8 @@ namespace exanb
           uint8_t* data_ptr_base = send_buffer[p].data();
 
           PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , data_ptr_base };
-          if( CreateParticles || ! (*gpu_buffer_pack) )
-          {
-            // CPU only execution in this case
-            send_pack_async[p] = nullptr;
-            onika::parallel::block_parallel_for( cells_to_send, pack_ghost, nullptr , *async_buffer_pack );
-          }
-          else
-          {
-            send_pack_async[p] = parallel_execution_context(p);
-            onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , *async_buffer_pack );
-          }
+          send_pack_async[p] = parallel_execution_context(p);
+          onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , true, (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
         }
         else
         {
@@ -294,17 +285,8 @@ namespace exanb
             }
 
             UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_receives.data() , comm_scheme.m_partner[p].m_receive_offset.data() , receive_buffer[p].data() , cells , cell_scalar_components , cell_scalars };
-            if( CreateParticles || ! (*gpu_buffer_pack) )
-            {
-              // CPU only in this case
-              recv_unpack_async[p] = nullptr;
-              onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, nullptr , false );
-            }
-            else
-            {
-              recv_unpack_async[p] = parallel_execution_context(p);
-              onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , *async_buffer_pack );            
-            }
+            recv_unpack_async[p] = parallel_execution_context(p);
+            onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , true , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );            
             
             //assert( data_cur == receive_buffer[p].size() );
             -- active_recvs;

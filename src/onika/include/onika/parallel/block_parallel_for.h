@@ -48,7 +48,7 @@ namespace onika
         uint64_t N
       , const FuncT& func
       , unsigned int num_tasks = 0
-      , bool async = false
+      , GPUKernelExecutionContext * async_exec_ctx = nullptr
       )
     {
     
@@ -63,24 +63,37 @@ namespace onika
           for(uint64_t i=0;i<N;i++) { func( i ); }
         }
       }
-      else if( async )
+      else if( async_exec_ctx != nullptr )
       {
-#         pragma omp taskloop nogroup
+        // enclose a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
+        [[maybe_unused]] auto & depvar = *async_exec_ctx;
+#       pragma omp task depend(inout:depvar)
+        {
+          // implicit taskgroup, ensures taskloop has completed before enclosing task ends
+#         pragma omp taskloop num_tasks(num_tasks)
           for(uint64_t i=0;i<N;i++) { func( i ); }
+        }
       }
       else
       {
-#         pragma omp taskloop 
+          // implicit taskgroup ensures loop completed at end of structured block.
+#         pragma omp taskloop num_tasks(num_tasks)
           for(uint64_t i=0;i<N;i++) { func( i ); }
       }
     }
 
     template< class FuncT >
-    static inline void block_parallel_for( uint64_t N, const FuncT& func, GPUKernelExecutionContext * exec_ctx = nullptr, bool async = false )
+    static inline void block_parallel_for(
+        uint64_t N
+      , const FuncT& func
+      , GPUKernelExecutionContext * exec_ctx = nullptr
+      , bool omp_tasks = false
+      , bool enable_gpu = true
+      , bool async = false )
     {
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
-        bool allow_cuda_exec = ( exec_ctx != nullptr );
+        bool allow_cuda_exec = enable_gpu && ( exec_ctx != nullptr );
         if( allow_cuda_exec ) allow_cuda_exec = ( exec_ctx->m_cuda_ctx != nullptr );
         if( allow_cuda_exec ) allow_cuda_exec = exec_ctx->m_cuda_ctx->has_devices();
         if( allow_cuda_exec )
@@ -103,7 +116,15 @@ namespace onika
         }
       }
 
-      block_parallel_for_omp_kernel(N, func);
+      if( omp_tasks )
+      {
+        int num_tasks = omp_get_max_threads() * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
+        block_parallel_for_omp_kernel( N , func , num_tasks , async ? exec_ctx : nullptr );        
+      }
+      else
+      {
+        block_parallel_for_omp_kernel( N , func );
+      }
     }
 
   }
