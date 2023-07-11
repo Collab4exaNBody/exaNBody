@@ -1,6 +1,5 @@
 #pragma once
 
-#include <onika/task/parallel_task_config.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
@@ -9,6 +8,7 @@
 
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/block_parallel_for.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -20,10 +20,56 @@ namespace exanb
   // this template is here to know if compute buffer must be built or computation must be ran on the fly
   template<class FuncT> struct ComputeCellParticlesTraits
   {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
+    //static inline constexpr bool RequiresBlockSynchronousCall = false; // nonsense for particles, we cannot call functor with 'fake particle fields' while we don't pass an array which size coudle be 0
     static inline constexpr bool CudaCompatible = false;
   };
 
+  template<class CellsT, class FuncT, class FieldSetT> struct ComputeCellParticlesFunctor;
+
+  template<class CellsT, class FuncT, class... field_ids>
+  struct ComputeCellParticlesFunctor< CellsT, FuncT, FieldSet<field_ids...> >
+  {
+    CellsT m_cells;
+    const IJK m_grid_dims = { 0, 0, 0 };
+    const ssize_t m_ghost_layers = 0;
+    const FuncT m_func;
+    //const FieldSet<field_ids...> m_cpfields;
+    
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+    {
+      size_t cell_a = i;
+      IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
+      cell_a_loc = cell_a_loc + m_ghost_layers;
+      if( m_ghost_layers != 0 )
+      {
+        cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+      }
+      const unsigned int n = m_cells[i].size();
+      ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
+      {
+        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+      }
+    }
+  };
+
+}
+
+namespace onika
+{
+  namespace parallel
+  {
+    template<class CellsT, class FuncT, class FieldSetT>
+    struct BlockParallelForFunctorTraits< exanb::ComputeCellParticlesFunctor<CellsT,FuncT,FieldSetT> >
+    {
+      static inline constexpr bool CudaCompatible = exanb::ComputeCellParticlesTraits<FuncT>::CudaCompatible;
+    };
+  }
+}
+
+namespace exanb
+{
+
+/*
   template<class CellsT, class FuncT, class... field_ids>
   ONIKA_DEVICE_KERNEL_FUNC
   ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
@@ -93,6 +139,7 @@ namespace exanb
     }
 
   }
+*/
 
   template<class GridT, class FuncT, class FieldSetT>
   static inline void compute_cell_particles(
@@ -105,39 +152,26 @@ namespace exanb
     )
   {
     const IJK dims = grid.dimension();
-    const int gl = enable_ghosts ? 0 : grid.ghost_layers() ;
+    int gl = grid.ghost_layers();
+    if( enable_ghosts ) { gl = 0; }
+    const IJK block_dims = dims - (2*gl);
+    const size_t N = block_dims.i * block_dims.j * block_dims.k;
     auto cells = grid.cells();
 
+    bool enable_gpu = false;
     if constexpr ( ComputeCellParticlesTraits<FuncT>::CudaCompatible )
     {
-      bool allow_cuda_exec = ( exec_ctx != nullptr );
-      if( allow_cuda_exec ) allow_cuda_exec = ( exec_ctx->m_cuda_ctx != nullptr );
-      if( allow_cuda_exec ) allow_cuda_exec = exec_ctx->m_cuda_ctx->has_devices();
-      if( allow_cuda_exec )
+      if(exec_ctx != nullptr) 
       {
-        exec_ctx->check_initialize();
-        const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::task::ParallelTaskConfig::gpu_block_size()) );
-        const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * onika::task::ParallelTaskConfig::gpu_sm_mult()
-                                    + onika::task::ParallelTaskConfig::gpu_sm_add();
-
-        auto custream = exec_ctx->m_cuda_stream;
-
-        grid.check_cells_are_gpu_addressable();
-
-        exec_ctx->record_start_event();
-
-        exec_ctx->reset_counters();
-        auto * scratch = exec_ctx->m_cuda_scratch.get();
-
-        ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, compute_cell_particles_gpu_kernel, cells, dims, gl, func, scratch, cpfields );
-        
-        if( ! async ) { exec_ctx->wait(); }        
-        
-        return;
+        if( exec_ctx->has_gpu_context() )
+        {
+          if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
+        }
       }
+      enable_gpu = true;
     }
 
-    compute_cell_particles_omp_kernel(cells, dims, gl, func, cpfields);
+    onika::parallel::block_parallel_for( N, ComputeCellParticlesFunctor<decltype(cells),FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , enable_gpu , async );
   }
 
 }

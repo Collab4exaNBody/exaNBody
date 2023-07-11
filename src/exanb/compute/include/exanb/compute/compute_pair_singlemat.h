@@ -1,16 +1,89 @@
 #pragma once
 
 #include <exanb/compute/compute_pair_singlemat_cell.h>
-#include <exanb/compute/compute_pair_singlemat_gpu.h>
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
-#include <onika/parallel/parallel_execution_context.h>
+#include <exanb/core/grid_cell_compute_profiler.h>
 
-#include <onika/task/parallel_task_config.h>
-#include <onika/declare_if.h>
+#include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/block_parallel_for.h>
 
 namespace exanb
 {
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
+  struct ComputeParticlePairFunctor
+  {
+    CellsT m_cells;
+    GridCellComputeProfiler m_cell_profiler = { nullptr };
+
+    const IJK m_grid_dims = { 0, 0, 0 };
+    const ssize_t m_ghost_layers = 0;
+    
+    const FuncT m_func;
+    const double m_rcut2 = 0.0;
+        
+    const OptionalArgsT m_optional;
+    const ComputePairBufferFactoryT m_cpbuf_factory;
+
+    const CSizeT m_cs;
+    const FieldSetT m_cpfields;
+    const PosFieldsT m_posfields;
+    
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+    {
+      static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical;
+      static constexpr bool gpu_exec = onika::cuda::gpu_device_execution_t::value ;
+      static constexpr onika::BoolConst< gpu_exec ? ( ! ComputePairTraits<FuncT>::BufferLessCompatible ) : ComputePairTraits<FuncT>::ComputeBufferCompatible > prefer_compute_buffer = {}; 
+
+      size_t cell_a = i;
+      IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
+      cell_a_loc = cell_a_loc + m_ghost_layers;
+      if( m_ghost_layers != 0 )
+      {
+        cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+      }
+      m_cell_profiler.start_cell_profiling(cell_a);
+      compute_pair_singlemat_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cs, symmetrical, m_cpfields, m_posfields , prefer_compute_buffer );
+      m_cell_profiler.end_cell_profiling(cell_a);
+    }
+  };
+
+}
+
+namespace onika
+{
+  namespace parallel
+  {
+    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
+    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,CSizeT,FieldSetT,PosFieldsT> >
+    {
+      static inline constexpr bool CudaCompatible = exanb::ComputePairTraits<FuncT>::CudaCompatible;
+    };
+  }
+}
+
+namespace exanb
+{
+
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
+  static inline
+  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,CSizeT,FieldSetT,PosFieldsT> 
+  make_compute_particle_pair_functor(
+      CellsT cells
+    , GridCellComputeProfiler cell_profiler
+    , const IJK& grid_dims
+    , ssize_t ghost_layers
+    , const FuncT& func
+    , double rcut2
+    , const OptionalArgsT& optional
+    , const ComputePairBufferFactoryT& cpbuf_factory
+    , CSizeT cs
+    , FieldSetT cpfields
+    , PosFieldsT posfields
+    )
+  {
+    return {cells,cell_profiler,grid_dims,ghost_layers,func,rcut2,optional,cpbuf_factory,cs,cpfields,posfields};
+  }
 
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
@@ -28,85 +101,47 @@ namespace exanb
     bool async = false
     )
   {
+    static constexpr onika::IntConst<4> const_4{};
+    static constexpr onika::IntConst<8> const_8{};
+
     const double rcut2 = rcut * rcut;
     const IJK dims = grid.dimension();
     int gl = grid.ghost_layers();
     if( enable_ghosts ) { gl = 0; }
     const IJK block_dims = dims - (2*gl);
+    const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
-    ComputePairDebugTraits<FuncT>::print_func( func ); // for debugging purposes
+    // for debugging purposes
+    ComputePairDebugTraits<FuncT>::print_func( func );
+
+    // check if cells allocated in unified memory in case we may execute on the GPU
+    bool enable_gpu = false;
+    if constexpr ( ComputePairTraits<FuncT>::CudaCompatible )
+    {
+      if(exec_ctx != nullptr) 
+      {
+        if( exec_ctx->has_gpu_context() )
+        {
+          if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
+        }
+      }
+      enable_gpu = true;
+    }
 
     auto cells = grid.cells();
     auto cellprof = grid.cell_profiler();
-
-    if constexpr ( ComputePairTraits<FuncT>::CudaCompatible )
+    const unsigned int cs = optional.nbh.m_chunk_size;
+    switch( cs )
     {
-      //static constexpr onika::IntConst<1> const_1{};
-      //static constexpr onika::IntConst<2> const_2{};
-      static constexpr onika::IntConst<4> const_4{};
-      static constexpr onika::IntConst<8> const_8{};
-      bool allow_cuda_exec = ( exec_ctx != nullptr );
-      if( allow_cuda_exec ) allow_cuda_exec = ( exec_ctx->m_cuda_ctx != nullptr );
-      if( allow_cuda_exec ) allow_cuda_exec = exec_ctx->m_cuda_ctx->has_devices();
-      if( allow_cuda_exec )
-      {
-        exec_ctx->check_initialize();
-        const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::task::ParallelTaskConfig::gpu_block_size()) );
-        const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * onika::task::ParallelTaskConfig::gpu_sm_mult()
-                                    + onika::task::ParallelTaskConfig::gpu_sm_add();
-
-        auto custream = exec_ctx->m_cuda_stream;
-        
-        const unsigned int cs = optional.nbh.m_chunk_size;
-
-        grid.check_cells_are_gpu_addressable();
-        
-        exec_ctx->record_start_event();
-        
-        exec_ctx->reset_counters();
-        auto * scratch = exec_ctx->m_cuda_scratch.get();
-
-        switch( cs )
-        {
-          case 4:
-            ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, compute_pair_gpu_kernel, cells,dims,gl,optional,cpbuf_factory,func,rcut2,scratch,cellprof,const_4,cpfields,posfields);
-            break;
-          case 8:
-            ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, compute_pair_gpu_kernel, cells,dims,gl,optional,cpbuf_factory,func,rcut2,scratch,cellprof,const_8,cpfields,posfields);
-            break;
-          default:
-            ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, compute_pair_gpu_kernel, cells,dims,gl,optional,cpbuf_factory,func,rcut2,scratch,cellprof,cs,cpfields,posfields);
-            //lerr << "compute_pair_singlemat: chunk size "<<cs<<" not supported. Accepted values are 1, 4, 8." << std::endl;
-            //std::abort();
-            break;
-        }
-        
-        if( ! async ) { exec_ctx->wait(); }        
-        
-#       ifdef XNB_GPU_BLOCK_OCCUPANCY_PROFILE
-        unsigned int busy_blocks = exec_ctx->get_occupancy_stats( streamIndex );
-        lout << "GPU Occupancy : "<< busy_blocks << " / " << GridSize <<" busy blocks"<<std::endl;
-#       endif
-        
-        return ;
-      }
-    }
-
-#   ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
-    omp_set_num_threads( omp_get_max_threads() );
-#   endif
-
-#   pragma omp parallel
-    {
-      GRID_OMP_FOR_BEGIN(block_dims,_,block_cell_a_loc, schedule(dynamic) )
-      {
-        IJK cell_a_loc = block_cell_a_loc + gl;
-        size_t cell_a = grid_ijk_to_index( dims , cell_a_loc );
-        cellprof.start_cell_profiling(cell_a);
-        compute_pair_singlemat_cell(cells,dims,cell_a_loc,cell_a,rcut2,cpbuf_factory,optional,func,cpfields,posfields);
-        cellprof.end_cell_profiling(cell_a);
-      }
-      GRID_OMP_FOR_END
+      case 4:
+        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        break;
+      case 8:
+        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        break;
+      default:
+        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        break;
     }
   }
 

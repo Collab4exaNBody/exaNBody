@@ -36,41 +36,6 @@ namespace exanb
   ONIKA_HOST_DEVICE_FUNC static inline constexpr PosititionFields<_Rx,_Ry,_Rz> make_position_fields( _Rx , _Ry , _Rz ) { return {}; }
   // compute_pair_singlemat( ... , make_position_fields( field::rx , field::ry , field::rz ) )
 
-  template<class CellsT, class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT, class FieldSetT, class PosFieldsT = DefaultPositionFields >
-  static inline void compute_pair_singlemat_cell(
-    CellsT cells,
-    IJK dims,
-    IJK loc_a,
-    size_t cell_a,
-    double rcut2,
-    const ComputePairBufferFactoryT& cpbuf_factory,
-    const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
-    const FuncT& func,
-    FieldSetT cpfields,
-    PosFieldsT posfields = {}
-    )
-  {
-    static constexpr auto const_4 = onika::UIntConst<4>{};
-    static constexpr auto const_8 = onika::UIntConst<8>{};
-    static constexpr typename decltype(optional.nbh)::is_symmetrical_t symmetrical;
-    
-    // prefer compute buffer based computations when available
-    static constexpr onika::BoolConst< ComputePairTraits<FuncT>::ComputeBufferCompatible > UseComputeBuffer{}; 
-
-    const unsigned int chunk_size = optional.nbh.m_chunk_size;
-    //auto* cells = grid.cells();
-
-    switch( chunk_size )
-    {
-      case 4  : compute_pair_singlemat_cell(cells,dims,loc_a,cell_a,rcut2,cpbuf_factory,optional,func,    const_4, symmetrical, cpfields, posfields, UseComputeBuffer); break;
-      case 8  : compute_pair_singlemat_cell(cells,dims,loc_a,cell_a,rcut2,cpbuf_factory,optional,func,    const_8, symmetrical, cpfields, posfields, UseComputeBuffer); break;
-      default : compute_pair_singlemat_cell(cells,dims,loc_a,cell_a,rcut2,cpbuf_factory,optional,func, chunk_size, symmetrical, cpfields, posfields, UseComputeBuffer); break;
-        //lerr << "compute_pair_singlemat_cell: chunk size "<<chunk_size<<" not supported. Accepted values are 2, 4, 8." << std::endl;
-        //std::abort();
-        //break;
-    }
-  }
-
   /*
    * FIXME: compact pair weighting structure will need refactoring for cuda compatibility
    */

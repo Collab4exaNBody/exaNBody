@@ -43,6 +43,8 @@ namespace onika
     /************** start of Cuda code definitions ***************/
 #   ifdef __CUDA_ARCH__
 
+    using gpu_device_execution_t = std::true_type;
+
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort() { __threadfence(); __trap(); __builtin_unreachable(); }
 # if __CUDA_ARCH__ < 600
 #error atomicAdd(double) not available
@@ -112,6 +114,7 @@ namespace onika
     }
 
     using onika_cu_memory_order_t = std::memory_order;
+    using gpu_device_execution_t = std::false_type;
 
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/
 #   define ONIKA_CU_BLOCK_SHARED        /**/

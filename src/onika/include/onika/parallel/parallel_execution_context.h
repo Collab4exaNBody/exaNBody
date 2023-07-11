@@ -5,8 +5,6 @@
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 
-//#define XNB_GPU_BLOCK_OCCUPANCY_PROFILE 1
-
 namespace onika
 {
 
@@ -27,11 +25,6 @@ namespace onika
 
       unsigned char return_data[MAX_RETURN_SIZE];
       unsigned long long int counters[MAX_COUNTERS];
-
-  #   ifdef XNB_GPU_BLOCK_OCCUPANCY_PROFILE
-      static constexpr size_t MAX_GPU_BLOCKS = 2048;
-      unsigned int block_occupancy[MAX_GPU_BLOCKS];
-  #   endif
 
       ONIKA_HOST_DEVICE_FUNC inline unsigned long long int * cell_idx_counter() { return counters+CELL_COUNTER_IDX; }
       ONIKA_HOST_DEVICE_FUNC inline unsigned long long int * free_counters() { return counters+RESERVED_COUNTERS; }
@@ -179,21 +172,6 @@ namespace onika
           m_total_async_cpu_execution_time = 0.0;
         }
         return exec_time;
-      }
-
-      inline unsigned int get_occupancy_stats()
-      {
-        unsigned int n_busy = 0;
-  #     ifdef XNB_GPU_BLOCK_OCCUPANCY_PROFILE
-        unsigned int tmp[GPUKernelExecutionScratch::MAX_GPU_BLOCKS];
-        checkCudaErrors( ONIKA_CU_MEMCPY( tmp , m_cuda_scratch->block_occupancy , sizeof(unsigned int)*GPUKernelExecutionScratch::MAX_GPU_BLOCKS , m_cuda_stream ) );
-        checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
-        for(unsigned int i=0;i<GPUKernelExecutionScratch::MAX_GPU_BLOCKS;i++)
-        {
-          if( tmp[i] > 0 ) ++ n_busy;
-        }
-  #     endif
-        return n_busy;
       }
 
       static inline void execution_end_callback( cudaStream_t stream,  cudaError_t status, void*  userData)

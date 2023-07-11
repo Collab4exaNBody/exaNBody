@@ -26,7 +26,7 @@ namespace exanb
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( bool     , single_gpu  , INPUT , true ); // how to partition GPUs inside groups of contiguous MPI ranks
     ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
-    ADD_SLOT( bool     , enable_cuda , INPUT , true );
+    ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true );
 
   public:
 

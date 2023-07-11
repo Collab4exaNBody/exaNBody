@@ -20,7 +20,8 @@ namespace exanb
   {
 #   ifdef XNB_GRID_CELL_COMPUTE_PROFILING
     GridCellComputeProfiling * __restrict__ m_grid_compute_profiling_ptr = nullptr;
-    ONIKA_HOST_DEVICE_FUNC inline void start_cell_profiling( size_t cell_idx )
+    
+    ONIKA_HOST_DEVICE_FUNC inline void start_cell_profiling( size_t cell_idx ) const
     {
       if( m_grid_compute_profiling_ptr != nullptr )
       {
@@ -31,7 +32,7 @@ namespace exanb
         }
       }
     }
-    ONIKA_HOST_DEVICE_FUNC inline void end_cell_profiling( size_t cell_idx )
+    ONIKA_HOST_DEVICE_FUNC inline void end_cell_profiling( size_t cell_idx ) const
     {
       if( m_grid_compute_profiling_ptr != nullptr )
       {
@@ -43,7 +44,7 @@ namespace exanb
         }
       }
     }
-    inline double get_cell_time(size_t cell_idx)
+    inline double get_cell_time(size_t cell_idx) const
     {
       if( m_grid_compute_profiling_ptr != nullptr ) return m_grid_compute_profiling_ptr[cell_idx].m_time;
       else return 1.0;
