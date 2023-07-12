@@ -75,7 +75,7 @@ namespace exanb
     bool enable_ghosts,
     const FuncT& func,
     FieldSetT cpfields ,
-    onika::parallel::GPUKernelExecutionContext * exec_ctx = nullptr,
+    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
     bool async = false )
   {
     using CellsT = typename GridT::CellParticles;

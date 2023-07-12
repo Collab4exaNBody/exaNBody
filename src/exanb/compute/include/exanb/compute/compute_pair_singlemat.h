@@ -97,7 +97,7 @@ namespace exanb
     const FuncT& func,
     FieldSetT cpfields,
     PosFieldsT posfields = PosFieldsT{},
-    onika::parallel::GPUKernelExecutionContext * exec_ctx = nullptr,
+    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
     bool async = false
     )
   {

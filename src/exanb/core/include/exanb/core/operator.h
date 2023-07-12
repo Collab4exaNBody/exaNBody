@@ -226,7 +226,7 @@ namespace exanb
     void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
 
     // access GPUExecution context for this operator
-    onika::parallel::GPUKernelExecutionContext* parallel_execution_context(unsigned int id=0);
+    onika::parallel::ParallelExecutionContext* parallel_execution_context(unsigned int id=0);
     void account_gpu_execution(double t);
     
     // free resources associated to slots
@@ -285,7 +285,7 @@ namespace exanb
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    std::vector< std::shared_ptr<onika::parallel::GPUKernelExecutionContext> > m_parallel_execution_contexts;
+    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_parallel_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;

@@ -16,10 +16,9 @@ namespace onika
 
   namespace parallel
   {
-
     // this template is here to know if compute buffer must be built or computation must be ran on the fly
     template<class FuncT> struct BlockParallelForFunctorTraits
-    {
+    {      
       static inline constexpr bool CudaCompatible = false;
     };
 
@@ -47,8 +46,9 @@ namespace onika
     inline void block_parallel_for_omp_kernel(
         uint64_t N
       , const FuncT& func
+      , ParallelExecutionStreamCallback* user_cb = nullptr
       , unsigned int num_tasks = 0
-      , GPUKernelExecutionContext * async_exec_ctx = nullptr
+      , ParallelExecutionContext * async_exec_ctx = nullptr
       )
     {
     
@@ -72,6 +72,8 @@ namespace onika
           // implicit taskgroup, ensures taskloop has completed before enclosing task ends
 #         pragma omp taskloop num_tasks(num_tasks)
           for(uint64_t i=0;i<N;i++) { func( i ); }
+          
+          if( user_cb != nullptr ) { ( * user_cb->m_user_callback )( user_cb->m_exec_ctx , user_cb->m_user_data ); }
         }
       }
       else
@@ -79,6 +81,8 @@ namespace onika
           // implicit taskgroup ensures loop completed at end of structured block.
 #         pragma omp taskloop num_tasks(num_tasks)
           for(uint64_t i=0;i<N;i++) { func( i ); }
+
+          if( user_cb != nullptr ) { ( * user_cb->m_user_callback )( user_cb->m_exec_ctx , user_cb->m_user_data ); }
       }
     }
 
@@ -86,10 +90,18 @@ namespace onika
     static inline void block_parallel_for(
         uint64_t N
       , const FuncT& func
-      , GPUKernelExecutionContext * exec_ctx = nullptr
+      , ParallelExecutionContext * exec_ctx = nullptr
       , bool enable_gpu = true
-      , bool async = false )
-    {
+      , bool async = false
+      , ParallelExecutionStreamCallback* user_cb = nullptr
+      , void * return_data = nullptr
+      , size_t return_data_size = 0)
+    {    
+      if( user_cb != nullptr )
+      {
+        user_cb->m_exec_ctx = exec_ctx;
+      }
+    
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
         bool allow_cuda_exec = enable_gpu && ( exec_ctx != nullptr );
@@ -105,11 +117,22 @@ namespace onika
           auto custream = exec_ctx->m_cuda_stream;        
           exec_ctx->record_start_event();
           exec_ctx->reset_counters();
+          if( return_data != nullptr && return_data_size > 0 )
+          {
+            exec_ctx->set_return_data( return_data , return_data_size );
+          }          
           auto * scratch = exec_ctx->m_cuda_scratch.get();
 
           ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel, N, func, scratch );
+
+          if( return_data != nullptr && return_data_size > 0 )
+          {
+            exec_ctx->retrieve_return_data( return_data , return_data_size );
+          }
           
-          if( ! async ) { exec_ctx->wait(); }        
+          exec_ctx->register_stream_callback( user_cb );
+          
+          if( ! async ) { exec_ctx->wait(); }
 
           return;
         }
@@ -121,13 +144,11 @@ namespace onika
       // allow tasking mode, means we're in a parallel/single[/taskgroup] scope
       if( prefered_num_tasks > 0 )
       {
-        int num_tasks = prefered_num_tasks * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
-        block_parallel_for_omp_kernel( N , func , num_tasks , async ? exec_ctx : nullptr );        
+        prefered_num_tasks = prefered_num_tasks * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
+        if( ! async ) exec_ctx = nullptr;
       }
-      else
-      {
-        block_parallel_for_omp_kernel( N , func );
-      }
+
+      block_parallel_for_omp_kernel( N , func , user_cb , prefered_num_tasks , exec_ctx );
     }
 
   }

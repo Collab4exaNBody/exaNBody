@@ -45,8 +45,8 @@ namespace exanb
     {
       std::vector< onika::memory::CudaMMVector<uint8_t> > send_buffer;
       std::vector< onika::memory::CudaMMVector<uint8_t> > receive_buffer;
-      std::vector< onika::parallel::GPUKernelExecutionContext* > send_pack_async;
-      std::vector< onika::parallel::GPUKernelExecutionContext* > recv_unpack_async;      
+      std::vector< onika::parallel::ParallelExecutionContext* > send_pack_async;
+      std::vector< onika::parallel::ParallelExecutionContext* > recv_unpack_async;      
     };
 
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
