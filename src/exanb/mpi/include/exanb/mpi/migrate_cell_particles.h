@@ -12,6 +12,8 @@
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/thread.h>
 
+#include <exanb/grid_cell_particles/cell_particle_update_functor.h>
+
 #include <mpi.h>
 #include <vector>
 #include <string>
@@ -43,14 +45,6 @@
 namespace exanb
 {
 
-  /****************************************
-   * Available cell value merge operators
-   ***************************************/
-  struct CellValueAdd
-  {
-    template<class T> inline T operator () (const T& a, const T& b) const { return a+b; }
-  };
-
   /*********************************************
    * Available optional particle data handlers
    *********************************************/
@@ -71,7 +65,7 @@ namespace exanb
       when cells and their particles are partitionned, all particles are correctly located in their corresponding cell.
   */
 
-  template<class GridT, class CellValueMergeOperatorT=CellValueAdd >
+  template<class GridT, class CellValueMergeOperatorT=UpdateValueAdd >
   struct MigrateCellParticlesImpl
   {
     using CellParticles = typename GridT::CellParticles;
@@ -1181,7 +1175,7 @@ namespace exanb
           MIGRATE_CELL_PARTICLE_ASSERT( v*stride+3+c < recv_cell_value_buffer.size() );
           
           // cell value merge is done through the + operator
-          cell_scalars[cell_scalars_index] = merge_func( cell_scalars[cell_scalars_index] , recv_cell_value_buffer[v*stride+3+c] );
+          merge_func( cell_scalars[cell_scalars_index] , recv_cell_value_buffer[v*stride+3+c] );
         }
       }
     }
