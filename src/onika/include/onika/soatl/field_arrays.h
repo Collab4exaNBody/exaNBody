@@ -136,12 +136,11 @@ namespace onika
       inline void write_tuple( size_t i, const FieldTuple<otherIds...>& tp ) const
       {
         assert( i < capacity() );
-        TEMPLATE_LIST_BEGIN
-          (*this)[FieldId<otherIds>()][i] = tp[ FieldId<otherIds>() ]
-        TEMPLATE_LIST_END
+        ( ... , ( (*this)[FieldId<otherIds>()][i] = tp[ FieldId<otherIds>() ] ) );
       }
 
-      // reads ith tuple  
+      // reads ith tuple
+      ONIKA_HOST_DEVICE_FUNC 
       inline FieldTuple<ids...> operator [] ( size_t i ) const
       {
         assert( i < capacity() ); 

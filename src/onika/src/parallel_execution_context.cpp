@@ -113,8 +113,8 @@ namespace onika
     void ParallelExecutionContext::wait()
     {
       // wait for any in flight async taskloop previously launched and associated with this execution context
-      [[maybe_unused]] auto & depvar = *this;
-#       pragma omp task depend(in:depvar) if(0) // blocks until dependency is satisfied
+      auto * myself = this;
+#     pragma omp task depend(in:myself[0]) if(0) // blocks until dependency is satisfied
       {}
 
       if( m_gpu_kernel_exec_count > 0 )

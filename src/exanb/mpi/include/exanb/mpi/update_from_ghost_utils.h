@@ -37,7 +37,7 @@ namespace exanb
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
-          auto tp = m_cells[cell_i][particle_index[j]];
+          ParticleTuple tp = m_cells[cell_i][particle_index[j]];
           m_merge_func( tp , data->m_particles[j] );
           m_cells[cell_i].write_tuple( particle_index[j] , tp );
         }

@@ -66,8 +66,7 @@ namespace onika
       else if( async_exec_ctx != nullptr )
       {
         // enclose a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
-        [[maybe_unused]] auto & depvar = *async_exec_ctx;
-#       pragma omp task depend(inout:depvar)
+#       pragma omp task depend(inout:async_exec_ctx[0])
         {
           // implicit taskgroup, ensures taskloop has completed before enclosing task ends
 #         pragma omp taskloop num_tasks(num_tasks)
