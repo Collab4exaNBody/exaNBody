@@ -60,9 +60,10 @@ namespace exanb
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
-        uint8_t* data_ptr = m_data_ptr_base + m_sends[i].m_send_buffer_offset;
+        const size_t particle_offset = m_sends[i].m_send_buffer_offset;
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        uint8_t* data_ptr = m_data_ptr_base + byte_offset; //m_sends[i].m_send_buffer_offset;
         CellParticlesUpdateData* data = (CellParticlesUpdateData*) data_ptr;
-        size_t data_cur = 0;
 
         if( ONIKA_CU_THREAD_IDX == 0 )
         {
@@ -80,17 +81,15 @@ namespace exanb
           m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
           apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
         }
-        data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
         if( m_cell_scalars != nullptr )
         {
+          const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
           GridCellValueType* gcv = reinterpret_cast<GridCellValueType*>( data_ptr + data_cur );
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
             gcv[c]  = m_cell_scalars[cell_i*m_cell_scalar_components+c];
           }
-          //data_cur += sizeof(GridCellValueType) * m_cell_scalar_components;
         }
-        //data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
       }
     };
 
@@ -107,17 +106,15 @@ namespace exanb
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
-        const uint8_t * const __restrict__ data_ptr = m_data_ptr_base + m_cell_offset[i];
+        const size_t particle_offset = m_cell_offset[i];
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        const uint8_t * const __restrict__ data_ptr = m_data_ptr_base + byte_offset; //m_cell_offset[i];
         const CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
-        //size_t data_cur = 0;
 
         const auto cell_input_it = m_receives[i];
         const auto cell_input = ghost_cell_receive_info(cell_input_it);
-
-        //assert( data_cur < receive_buffer[p].size() );
         const size_t cell_i = cell_input.m_cell_i;
         assert( cell_i == data->m_cell_i );
-        //assert( cell_i>=0 && cell_i<n_cells );
         
         const size_t n_particles = cell_input.m_n_particles;
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -126,17 +123,15 @@ namespace exanb
           if constexpr ( ! CreateParticles ) { m_cells[cell_i].write_tuple( j, data->m_particles[j]                      ); }
         }
         
-        const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
         if( m_cell_scalars != nullptr )
         {
+          const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
           const GridCellValueType* gcv = reinterpret_cast<const GridCellValueType*>( data_ptr + data_cur );
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
             m_cell_scalars[cell_i*m_cell_scalar_components+c] = gcv[c];
           }
-          //data_cur += sizeof(GridCellValueType) * m_cell_scalar_components;
         }              
-        //data = reinterpret_cast<CellParticlesUpdateData*>( data_ptr + data_cur );
       }
     };
 

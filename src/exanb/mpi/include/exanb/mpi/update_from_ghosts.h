@@ -66,7 +66,7 @@ namespace exanb
     ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
 
-    ADD_SLOT( UpdateGhostsScratch      , scratch           , PRIVATE );
+    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
     inline void generate_tasks () override final
@@ -92,70 +92,20 @@ namespace exanb
           cell_scalars = grid_cell_values->data().data();
         }
       }
-      if( cell_scalars )
+      if( cell_scalars != nullptr )
       {
         ldbg << "update from ghost cell values with "<< cell_scalar_components << " components"<<std::endl;
+      }
+      else
+      {
+        cell_scalar_components = 0; // just in case pointer is null but number of components is non zero
       }
 
       int comm_tag = *mpi_tag;
       int nprocs = 1;
       int rank = 0;
       MPI_Comm_size(comm,&nprocs);
-      MPI_Comm_rank(comm,&rank);
-
-
-      // FIXME:
-      /*********************** shall be in a separate operator **********************/
-      //std::cout<<"cell bytes = "<<comm_scheme.m_cell_bytes<<" , scalar components = "<<cell_scalar_components<< " , particle_bytes = "<< comm_scheme.m_particle_bytes<<" , sizeof(ParticleTuple)="<<sizeof(ParticleTuple)<< std::endl;
-      if( comm_scheme.m_cell_bytes != cell_scalar_components*sizeof(GridCellValueType) || comm_scheme.m_particle_bytes != sizeof(ParticleTuple) )
-      {
-        //std::cout<<"recalcul offsets"<<std::endl;
-        for(int p=0;p<nprocs;p++)
-        {
-          size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
-          if( cells_to_send > 0 )
-          {
-            size_t data_cur = 0;
-            for(size_t i=0;i<cells_to_send;i++)
-            {
-              comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset = data_cur; 
-              size_t n_particles = comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
-              //std::cout<<"A: p="<<p<<", i="<<i<<" data_cur1="<<data_cur<<" cell#"<<comm_scheme.m_partner[p].m_sends[i].m_cell_i<<" npart="<<n_particles;
-              data_cur += sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
-              //std::cout<<" data_cur2="<<data_cur;
-              if( cell_scalars != nullptr )
-              {
-                data_cur += sizeof(GridCellValueType) * cell_scalar_components;
-              }
-              //std::cout<<" data_cur3="<<data_cur<<std::endl;
-            }
-          }
-          
-          size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
-          comm_scheme.m_partner[p].m_receive_offset.assign( cells_to_receive , 0 );
-          size_t buffer_offset = 0;
-          for(size_t i=0;i<cells_to_receive;i++)
-          {
-            const auto cell_input_it = comm_scheme.m_partner[p].m_receives[i];
-            const auto cell_input = ghost_cell_receive_info(cell_input_it);
-            //const size_t cell_i = cell_input.m_cell_i;
-            //assert( cell_i>=0 && cell_i<n_cells );
-            size_t n_particles = cell_input.m_n_particles;
-            size_t bytes_to_receive = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
-            if( cell_scalars != nullptr )
-            {
-              bytes_to_receive += sizeof(GridCellValueType) * cell_scalar_components;
-            }
-            comm_scheme.m_partner[p].m_receive_offset[i] = buffer_offset;
-            buffer_offset += bytes_to_receive;
-          }
-        }
-        
-        comm_scheme.m_cell_bytes = cell_scalar_components*sizeof(GridCellValueType);
-        comm_scheme.m_particle_bytes = sizeof(ParticleTuple);
-      }
-      /********************************************************************/
-      
+      MPI_Comm_rank(comm,&rank);      
    
       // reverse order begins here, before the code is the same as in update_ghosts.h
       
@@ -165,19 +115,25 @@ namespace exanb
       for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
       // send and receive buffers
-      auto & send_buffer = scratch->send_buffer;
-      auto & receive_buffer = scratch->receive_buffer;
-      auto & send_pack_async = scratch->send_pack_async;
-      auto & recv_unpack_async = scratch->recv_unpack_async;
+      auto & send_buffer = ghost_comm_buffers->send_buffer;
+      auto & receive_buffer = ghost_comm_buffers->receive_buffer;
+      auto & send_pack_async = ghost_comm_buffers->send_pack_async;
+      auto & recv_unpack_async = ghost_comm_buffers->recv_unpack_async;
       send_buffer.resize(nprocs);
       receive_buffer.resize(nprocs);
       send_pack_async.assign(nprocs , nullptr );
       recv_unpack_async.assign(nprocs , nullptr );
 
+      //size_t total_buffer_size = 0;
       size_t active_sends = 0;
       size_t active_recvs = 0;
+
+      // ***************** send/receive bufer resize ******************
       for(int p=0;p<nprocs;p++)
       {
+        receive_buffer[p].clear();
+        send_buffer[p].clear();
+
         // start receive from partner p
         size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
         if( cells_to_receive > 0 )
@@ -194,9 +150,6 @@ namespace exanb
             receive_size += cells_to_receive * sizeof(GridCellValueType) * cell_scalar_components;
           }
           receive_buffer[p].resize( receive_size );
-          //ldbg << "receiving "<<receive_size<<" bytes from P"<<p<<std::endl;
-          ++ active_recvs;
-          MPI_Irecv( (char*) receive_buffer[p].data(), receive_size, MPI_CHAR, p, comm_tag, comm, & requests[p] );
         }
         
         // start send to partner p
@@ -216,6 +169,16 @@ namespace exanb
           }
           send_buffer[p].resize( send_buffer_size );
 
+        }
+        //total_buffer_size += receive_buffer[p].size() + send_buffer[p].size();
+      }
+
+      // ***************** send bufer packing start ******************
+      for(int p=0;p<nprocs;p++)
+      {
+        if( ! send_buffer[p].empty() )
+        {
+          const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
           PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_receives.data() 
                                         , comm_scheme.m_partner[p].m_receive_offset.data()
                                         , send_buffer[p].data()
@@ -225,13 +188,19 @@ namespace exanb
           send_pack_async[p] = parallel_execution_context(p);
           onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , *gpu_buffer_pack , *async_buffer_pack );
         }
-        else
+      }
+
+      // ***************** async receive start ******************
+      for(int p=0;p<nprocs;p++)
+      {
+        if( ! receive_buffer[p].empty() )
         {
-          send_buffer[p].clear();
+          ++ active_recvs;
+          MPI_Irecv( (char*) receive_buffer[p].data(), receive_buffer[p].size(), MPI_CHAR, p, comm_tag, comm, & requests[p] );
         }
       }
 
-      // send packed buffers when they're ready
+      // ***************** wait for send buffers to be ready ******************
       for(int p=0;p<nprocs;p++)
       {
         if( ! send_buffer[p].empty() )
@@ -242,7 +211,7 @@ namespace exanb
           MPI_Isend( (char*) send_buffer[p].data() , send_buffer[p].size(), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
         }
       }
-      
+
       size_t ghost_particles_recv = 0;
       while( active_sends>0 || active_recvs>0 )
       {
