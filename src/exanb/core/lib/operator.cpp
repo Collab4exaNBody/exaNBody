@@ -31,6 +31,8 @@ namespace exanb
   // ========================== OperatorNode ========================
   // ================================================================
 
+  std::shared_ptr<onika::cuda::CudaContext> OperatorNode::s_global_cuda_ctx = nullptr;
+
   OperatorNode::TimeStampT OperatorNode::s_profiling_timestamp_ref;
   
   bool OperatorNode::s_global_profiling = false;
@@ -342,40 +344,17 @@ namespace exanb
   // if one implements generate_tasks, then it is backward compatible with sequential/parallel operator execution
   void OperatorNode::execute()
   {
+    m_omp_task_mode = true;
+  
 #   pragma omp parallel
     {
 #     pragma omp single
       {
-        // scheduler task must be outside of operators' taskgroup
-        //ONIKA_DBG_MESG_LOCK { lout<< name() << " : start ptask scheduler (standalone operator)" << std::endl << std::flush; }
-        ptask_queue().start();
-
 #       pragma omp taskgroup
         {
-          // ONIKA_DBG_MESG_LOCK { lout<< name() << " : start tasking mode (standalone operator)"<<std::endl << std::flush; }
           generate_tasks();          
-          // ONIKA_DBG_MESG_LOCK { lout<< name() << " : finished spawn initial tasks (standalone operator)" << std::endl << std::flush; }          
         } // --- end of task group ---
-
-        // ONIKA_DBG_MESG_LOCK { lout<< name() << " : ptq flush (standalone operator)" << std::endl << std::flush; }
-        ptask_queue().flush();
-
-        // ONIKA_DBG_MESG_LOCK { lout<< name() << " : ptq stop (standalone operator)" << std::endl << std::flush; }
-        ptask_queue().stop();
-        
-        // ONIKA_DBG_MESG_LOCK { lout<< name() << " : ptq wait_all (standalone operator)" << std::endl << std::flush; }
-        ptask_queue().wait_all();
-
-      // scheduling point, other threads start participating in task execution here
       } // --- end of single ---
-
-        // synchronize with OperatorTaskScheduler 
-/*
-#     pragma omp single nowait
-      {
-        ONIKA_DBG_MESG_LOCK { lout<< name() << " : end tasking mode (standalone operator)" << std::endl << std::flush; }
-      }
-*/
     } // --- end of parallel section ---
   }
   
@@ -447,12 +426,9 @@ namespace exanb
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_begin_task_context2( tsk_ctx, this );
 #     else
-      if( parent()==nullptr || ! parent()->task_parallelism() )
-      {
-        T0 = std::chrono::high_resolution_clock::now();
-        onika::omp::OpenMPToolTaskTiming evt_info = { this , m_tag.get() , omp_get_thread_num() , T0 - s_profiling_timestamp_ref , T0 - s_profiling_timestamp_ref };
-        profile_task_start( evt_info );
-      }
+      T0 = std::chrono::high_resolution_clock::now();
+      onika::omp::OpenMPToolTaskTiming evt_info = { this , m_tag.get() , omp_get_thread_num() , T0 - s_profiling_timestamp_ref , T0 - s_profiling_timestamp_ref };
+      profile_task_start( evt_info );
 #     endif
 
       ONIKA_CU_PROF_RANGE_PUSH( m_tag.get() );
@@ -460,28 +436,26 @@ namespace exanb
 
     this->initialize_slots_resource();
 
-    if( task_parallelism() ) // task with dependencies based on slots
-    {
-      this->generate_tasks();
-    }
-    else // sequential execution of fork-join parallel components
-    {
-      this->execute();
-    }
+    // sequential execution of fork-join parallel components
+    // except if OperatorNode derived class implements generate_tasks instead of execute, in which case, task parallelism mode is used
+    this->execute();
 
     if( do_profiling )
     { 
       ONIKA_CU_PROF_RANGE_POP();
 
       double total_gpu_time = 0.0;
-      for(auto gpuctx:m_gpu_execution_contexts)
+      double total_async_cpu_time = 0.0;
+      for(auto gpuctx:m_parallel_execution_contexts)
       {
         if( gpuctx != nullptr )
         {
           total_gpu_time += gpuctx->collect_gpu_execution_time();
+          total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
         }
       }
       if( total_gpu_time > 0.0 ) { m_gpu_times.push_back( total_gpu_time ); }
+      if( total_async_cpu_time > 0.0 ) { m_async_cpu_times.push_back( total_async_cpu_time ); }
 
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_end_task_context2( tsk_ctx, this );
@@ -490,15 +464,11 @@ namespace exanb
         this->collect_execution_time();
       }
 #     else
-      if( parent()==nullptr || ! parent()->task_parallelism() )
-      {
-        auto T1 = std::chrono::high_resolution_clock::now();
-        onika::omp::OpenMPToolTaskTiming evt_info = { this , m_tag.get() , omp_get_thread_num() , T0 - s_profiling_timestamp_ref , T1 - s_profiling_timestamp_ref };
-        profile_task_stop( evt_info );
-        auto exectime = ( T1 - T0 ).count() / 1000000.0;
-        //lout<<name()<<" exectime "<<exectime<<std::endl;
-        m_exec_times.push_back( exectime );
-      }
+      auto T1 = std::chrono::high_resolution_clock::now();
+      onika::omp::OpenMPToolTaskTiming evt_info = { this , m_tag.get() , omp_get_thread_num() , T0 - s_profiling_timestamp_ref , T1 - s_profiling_timestamp_ref };
+      profile_task_stop( evt_info );
+      auto exectime = ( T1 - T0 ).count() / 1000000.0;
+      m_exec_times.push_back( exectime );
 #     endif
     }
 
@@ -537,18 +507,20 @@ namespace exanb
     }    
   }
 
-  GPUKernelExecutionContext* OperatorNode::gpu_execution_context(unsigned int id)
+  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
   {
-    if( id >= m_gpu_execution_contexts.size() )
+    if( id >= m_parallel_execution_contexts.size() )
     {
-      m_gpu_execution_contexts.resize( id+1 );
+      m_parallel_execution_contexts.resize( id+1 );
     }
-    if( m_gpu_execution_contexts[id] == nullptr )
+    if( m_parallel_execution_contexts[id] == nullptr )
     {
-      m_gpu_execution_contexts[id] = std::make_shared< GPUKernelExecutionContext >();
-      m_gpu_execution_contexts[id]->m_cuda_ctx = ptask_queue().cuda_ctx();
+      m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::ParallelExecutionContext >();
+      m_parallel_execution_contexts[id]->m_streamIndex = id;
+      m_parallel_execution_contexts[id]->m_cuda_ctx = global_cuda_ctx();
+      m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     }
-    return m_gpu_execution_contexts[id].get();
+    return m_parallel_execution_contexts[id].get();
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )
@@ -604,7 +576,6 @@ namespace exanb
   {
     static const std::string padding = "................................................................................";
     out<< format_string("%*s",indent,"") << name() ;
-    if( task_parallelism() ) out<<"+task";
     
     if( ppp.m_print_profiling )
     {
@@ -755,12 +726,6 @@ namespace exanb
       m_depth = 0;
     }
 
-    // task parallelism is inherited and propagates down the operator tree
-    if( parent() != nullptr )
-    {
-      m_task_parallelism = m_task_parallelism || parent()->task_parallelism();
-    }
-    
     // pre-stored operator stack to help debugging
     if( parent() != nullptr ) { m_backtrace = parent()->m_backtrace + "." + m_name; }
     else { m_backtrace = m_name; }
@@ -776,12 +741,18 @@ namespace exanb
     {
       m_exec_times.reserve(4096);
       m_gpu_times.reserve(4096);
+      m_async_cpu_times.reserve(4096);
     }
   }
 
-  onika::task::ParallelTaskQueue & OperatorNode::ptask_queue()
+  void OperatorNode::set_global_cuda_ctx( std::shared_ptr<onika::cuda::CudaContext> ctx )
   {
-    return onika::task::ParallelTaskQueue::global_ptask_queue();
+    s_global_cuda_ctx = ctx;
+  }
+  
+  onika::cuda::CudaContext* OperatorNode::global_cuda_ctx()
+  {
+    return s_global_cuda_ctx.get();
   }
 
   void OperatorNode::yaml_initialize(const YAML::Node& node)

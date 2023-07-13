@@ -23,7 +23,7 @@ namespace exanb
     uint8_t* dev_scratch_mem = nullptr;
     const size_t block_scratch_mem_size;
     GridChunkNeighborsGPUWriteAccessor chunk_neighbors;
-    GPUKernelExecutionScratch* scratch;
+    onika::parallel::GPUKernelExecutionScratch* scratch;
     const bool subcell_compaction = false;
     
     ONIKA_HOST_DEVICE_FUNC
@@ -64,7 +64,7 @@ namespace exanb
     uint8_t* dev_scratch_mem,
     size_t block_scratch_mem_size,
     GridChunkNeighborsGPUWriteAccessor chunk_neighbors,
-    GPUKernelExecutionScratch* scratch,
+    onika::parallel::GPUKernelExecutionScratch* scratch,
     bool subcell_compaction = false )
   {  
     if( ONIKA_CU_THREAD_IDX==0 && ONIKA_CU_BLOCK_IDX==0 )

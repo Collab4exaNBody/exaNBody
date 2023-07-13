@@ -43,6 +43,8 @@ namespace onika
     /************** start of Cuda code definitions ***************/
 #   ifdef __CUDA_ARCH__
 
+    using gpu_device_execution_t = std::true_type;
+
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort() { __threadfence(); __trap(); __builtin_unreachable(); }
 # if __CUDA_ARCH__ < 600
 #error atomicAdd(double) not available
@@ -53,7 +55,7 @@ namespace onika
 #   define ONIKA_CU_THREAD_LOCAL        __local__
 #   define ONIKA_CU_BLOCK_SHARED        __shared__
 
-#   define ONIKA_CU_BLOCK_SIMD_FOR(T,i,s,e)           for(T _onika_tmp_j=s , i=s+threadIdx.x ; _onika_tmp_j<e ; _onika_tmp_j+=blockDim.x, i+=blockDim.x ) if(i<e)
+#   define ONIKA_CU_BLOCK_SIMD_FOR(T,i,s,e)           for(T i=s+threadIdx.x ; i<e ; i+=blockDim.x )
 #   define ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED(T,i,s,e) for(T _onika_tmp_j=s , i=s+threadIdx.x ; _onika_tmp_j<e ; _onika_tmp_j+=blockDim.x, i+=blockDim.x )
 
 #   define ONIKA_CU_BLOCK_SYNC()   __syncthreads()
@@ -112,6 +114,7 @@ namespace onika
     }
 
     using onika_cu_memory_order_t = std::memory_order;
+    using gpu_device_execution_t = std::false_type;
 
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/
 #   define ONIKA_CU_BLOCK_SHARED        /**/

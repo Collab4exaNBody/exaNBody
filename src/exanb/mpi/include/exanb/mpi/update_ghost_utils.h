@@ -5,9 +5,9 @@
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <exanb/core/gpu_execution_context.h>
+#include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
-#include <exanb/compute/block_parallel_for.h>
 
 namespace exanb
 {
@@ -45,8 +45,8 @@ namespace exanb
     {
       std::vector< onika::memory::CudaMMVector<uint8_t> > send_buffer;
       std::vector< onika::memory::CudaMMVector<uint8_t> > receive_buffer;
-      std::vector< GPUKernelExecutionContext* > send_pack_async;
-      std::vector< GPUKernelExecutionContext* > recv_unpack_async;      
+      std::vector< onika::parallel::ParallelExecutionContext* > send_pack_async;
+      std::vector< onika::parallel::ParallelExecutionContext* > recv_unpack_async;      
     };
 
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
@@ -76,7 +76,7 @@ namespace exanb
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          assert( particle_index[j]>=0 && particle_index[j] < m_cells[cell_i].size() );
+          assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
           m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
           apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
         }
@@ -117,7 +117,7 @@ namespace exanb
         //assert( data_cur < receive_buffer[p].size() );
         const size_t cell_i = cell_input.m_cell_i;
         assert( cell_i == data->m_cell_i );
-        assert( cell_i>=0 && cell_i<n_cells );
+        //assert( cell_i>=0 && cell_i<n_cells );
         
         const size_t n_particles = cell_input.m_n_particles;
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -143,20 +143,28 @@ namespace exanb
 
   } // template utilities used only inside UpdateGhostsNode
 
+}
 
 
-  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
-  struct BlockParallelForFunctorTraits< UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+namespace onika
+{
+
+  namespace parallel
   {
-    static inline constexpr bool CudaCompatible = true;
-  };
 
-  template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
-  struct BlockParallelForFunctorTraits< UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles> >
-  {
-    static inline constexpr bool CudaCompatible = true;
-  };
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+    {
+      static inline constexpr bool CudaCompatible = true;
+    };
 
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles> >
+    {
+      static inline constexpr bool CudaCompatible = true;
+    };
+
+  }
 
 }
 

@@ -23,19 +23,12 @@ namespace exanb
 
   class InitCuda : public OperatorNode
   {
-
-#ifdef XSTAMP_CUDA_VERSION
-    ADD_SLOT( onika::cuda::CudaContext , cuda_ctx , OUTPUT );
-#endif
-
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( bool     , single_gpu  , INPUT , true ); // how to partition GPUs inside groups of contiguous MPI ranks
     ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
-    ADD_SLOT( bool     , enable_cuda , INPUT , true );
+    ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true );
 
   public:
-
-    inline bool is_sink() const override final { return true; } // not a suppressable operator
 
     inline void execute () override final
     {
@@ -46,18 +39,24 @@ namespace exanb
       MPI_Comm_rank(comm,&rank);
 
       lout << "=========== Cuda ================"<<std::endl;
+
 #     ifdef XSTAMP_CUDA_VERSION
+
+      std::shared_ptr<onika::cuda::CudaContext> cuda_ctx = nullptr;
+
       int n_gpus = 0;
       if( *enable_cuda ) cudaGetDeviceCount(&n_gpus);
       if( n_gpus <= 0 )
       {
         lout <<"No GPU found"<<std::endl;
-        cuda_ctx->m_devices.clear();
-        cuda_ctx->m_threadStream.clear();
+//        cuda_ctx->m_devices.clear();
+//        cuda_ctx->m_threadStream.clear();
         onika::memory::GenericHostAllocator::set_cuda_enabled( false );
       }
       else
       {
+        cuda_ctx = std::make_shared<onika::cuda::CudaContext>();
+      
         int gpu_first_device = 0;
         if( *single_gpu )
         {
@@ -112,8 +111,8 @@ namespace exanb
         int warpSize = 0;
         int multiProcessorCount = 0;
         int sharedMemPerBlock = 0;
-	int clock_rate = 0;
-	int l2_cache = 0;
+        int clock_rate = 0;
+        int l2_cache = 0;
         std::string device_name;
 
         for(int i=0;i<ndev;i++)
@@ -128,8 +127,8 @@ namespace exanb
           warpSize = cuda_ctx->m_devices[i].m_deviceProp.warpSize;
           multiProcessorCount = cuda_ctx->m_devices[i].m_deviceProp.multiProcessorCount;
           sharedMemPerBlock = cuda_ctx->m_devices[i].m_deviceProp.sharedMemPerBlock;
-	  clock_rate = cuda_ctx->m_devices[i].m_deviceProp.clockRate;
-	  l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
+          clock_rate = cuda_ctx->m_devices[i].m_deviceProp.clockRate;
+          l2_cache = cuda_ctx->m_devices[i].m_deviceProp.persistingL2CacheMaxSize;
         }
 
         long long tmp[3];
@@ -137,11 +136,12 @@ namespace exanb
         MPI_Allreduce(MPI_IN_PLACE,tmp,3,MPI_LONG_LONG,MPI_SUM,*mpi);
         ValueStreamer<long long>(tmp) >> ndev >> n_support_vmm >> totalGlobalMem;
 
-	if( n_support_vmm != ndev )
-	{
-	  lerr<<"GPUs don't support unified memory, cannot continue"<<std::endl;
-	  std::abort();
-	}
+        if( n_support_vmm != ndev )
+        {
+          lerr<<"GPUs don't support unified memory, cannot continue"<<std::endl;
+          std::abort();
+        }
+        onika::memory::GenericHostAllocator::set_cuda_enabled( true );
 
         lout <<"GPUs : "<<ndev<< std::endl;
         lout <<"Type : "<<device_name << std::endl;
@@ -149,10 +149,8 @@ namespace exanb
         lout <<"Mem  : "<< memory_bytes_string(totalGlobalMem/ndev) <<" (shared="<<memory_bytes_string(sharedMemPerBlock,"%g%s")<<" L2="<<memory_bytes_string(l2_cache,"%g%s")<<")" <<std::endl;
       }
       
-      // FIXME: this works only because all operator nodes share the same global parallel task queue
-      // this is not very clean, should be rethinked
-      ptask_queue().set_cuda_ctx( & (*cuda_ctx) );
-      
+      set_global_cuda_ctx( cuda_ctx );
+            
 #     else
       lout <<"Cuda disabled"<<std::endl;
 #     endif

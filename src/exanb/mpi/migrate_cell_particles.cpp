@@ -15,13 +15,14 @@
 #include <cstring>
 
 #include <exanb/mpi/migrate_cell_particles.h>
+#include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
 namespace exanb
 {
   
 
   // operator interface
-  template<class GridT, class CellValueMergeOperatorT=CellValueAdd >
+  template<class GridT, class CellValueMergeOperatorT=UpdateValueAdd >
   class MigrateCellParticles : public OperatorNode
   {
     using CellParticles = typename GridT::CellParticles;
@@ -36,7 +37,7 @@ namespace exanb
     // -----------------------------------------------
     ADD_SLOT( MPI_Comm  , mpi        , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( long      , mpi_tag    , INPUT , 0 );
-    ADD_SLOT( MergeOp   , merge_func , INPUT, MergeOp{} );
+    //ADD_SLOT( MergeOp   , merge_func , INPUT, MergeOp{} );
 
     ADD_SLOT( GridBlock , lb_block   , INPUT , REQUIRED );
     ADD_SLOT( double    , ghost_dist , INPUT , REQUIRED );
@@ -105,7 +106,7 @@ the ghost cells are always empty after this operator.
         , *copy_task_threshold //cptask_threshold
         , *mpi_tag //comm_tag
         , *mpi //comm
-        , *merge_func
+        , MergeOp{}
         , *lb_block //out_block
         , *buffer_size //comm_buffer_size
         , *extra_receive_buffers
