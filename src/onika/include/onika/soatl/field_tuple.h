@@ -66,8 +66,8 @@ struct FieldTuple
   ONIKA_HOST_DEVICE_FUNC inline FieldTuple() { zero(); }
 
   //! default copy constructor and copy operator
-  /*ONIKA_HOST_DEVICE_FUNC inline */ FieldTuple( const FieldTuple & rhs ) = default; //: m_data(rhs.m_data) { }
-  /*ONIKA_HOST_DEVICE_FUNC inline */ FieldTuple& operator = ( const FieldTuple & rhs ) = default; //{ copy_or_zero_fields(rhs); return *this; }
+  FieldTuple( const FieldTuple & rhs ) = default; 
+  FieldTuple& operator = ( const FieldTuple & rhs ) = default; 
 
   //! partial copy existing fields in rhs and zero others
   template<typename... other_ids>

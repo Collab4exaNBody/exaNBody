@@ -9,6 +9,7 @@
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/mpi/update_ghost_utils.h>
+#include <onika/integral_constant.h>
 
 namespace exanb
 {
@@ -37,9 +38,9 @@ namespace exanb
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
-          ParticleTuple tp = m_cells[cell_i][particle_index[j]];
-          m_merge_func( tp , data->m_particles[j] );
-          m_cells[cell_i].write_tuple( particle_index[j] , tp );
+          //ParticleTuple tp = m_cells[cell_i][particle_index[j]];
+          m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
+          //m_cells[cell_i].write_tuple( particle_index[j] , tp );
         }
         size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
         if( m_cell_scalars != nullptr )
@@ -48,7 +49,7 @@ namespace exanb
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
             // replace with updatefunc( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] );
-            m_merge_func( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] );
+            m_merge_func( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] /*, onika::TrueType{}*/ );
           }
         }
       }
