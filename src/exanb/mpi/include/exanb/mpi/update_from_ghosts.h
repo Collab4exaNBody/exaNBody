@@ -69,7 +69,8 @@ namespace exanb
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
-    inline void generate_tasks () override final
+    //inline void generate_tasks () override final
+    inline void execute () override final
     {      
       using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBufer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT>;
@@ -132,45 +133,32 @@ namespace exanb
       for(int p=0;p<nprocs;p++)
       {
         receive_buffer[p].clear();
-        send_buffer[p].clear();
-
-        // start receive from partner p
-        size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
-        if( cells_to_receive > 0 )
+        const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
+        size_t particles_to_receive = 0;
+        for(size_t i=0;i<cells_to_receive;i++)
         {
-          size_t particles_to_receive = 0;
-          for(size_t i=0;i<cells_to_receive;i++)
-          {
-            particles_to_receive += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size(); // ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
-          }
-          assert( particles_to_receive > 0 );
-          size_t receive_size = ( cells_to_receive * sizeof(CellParticlesUpdateData) ) + ( particles_to_receive * sizeof(ParticleTuple) );
-          if( cell_scalars != nullptr )
-          {
-            receive_size += cells_to_receive * sizeof(GridCellValueType) * cell_scalar_components;
-          }
-          receive_buffer[p].resize( receive_size );
+          particles_to_receive += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size(); // ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
         }
+        size_t receive_size = ( cells_to_receive * sizeof(CellParticlesUpdateData) ) + ( particles_to_receive * sizeof(ParticleTuple) );
+        if( cell_scalars != nullptr )
+        {
+          receive_size += cells_to_receive * sizeof(GridCellValueType) * cell_scalar_components;
+        }
+        receive_buffer[p].resize( receive_size );
         
-        // start send to partner p
-        size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
-        if( cells_to_send > 0 )
+        send_buffer[p].clear();
+        const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
+        size_t particles_to_send = 0;
+        for(size_t i=0;i<cells_to_send;i++)
         {
-          size_t particles_to_send = 0;
-          for(size_t i=0;i<cells_to_send;i++)
-          {
-            particles_to_send += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles; //comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
-          }
-          assert( particles_to_send > 0 );
-          size_t send_buffer_size = ( cells_to_send * sizeof(CellParticlesUpdateData) ) + ( particles_to_send * sizeof(ParticleTuple) );
-          if( cell_scalars != nullptr )
-          {
-            send_buffer_size += cells_to_send * sizeof(GridCellValueType) * cell_scalar_components;
-          }
-          send_buffer[p].resize( send_buffer_size );
-
+          particles_to_send += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles; //comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
         }
-        //total_buffer_size += receive_buffer[p].size() + send_buffer[p].size();
+        size_t send_buffer_size = ( cells_to_send * sizeof(CellParticlesUpdateData) ) + ( particles_to_send * sizeof(ParticleTuple) );
+        if( cell_scalars != nullptr )
+        {
+          send_buffer_size += cells_to_send * sizeof(GridCellValueType) * cell_scalar_components;
+        }
+        send_buffer[p].resize( send_buffer_size );
       }
 
       // ***************** send bufer packing start ******************

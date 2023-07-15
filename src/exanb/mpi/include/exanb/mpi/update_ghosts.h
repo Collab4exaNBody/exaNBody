@@ -70,7 +70,8 @@ namespace exanb
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
-    inline void generate_tasks () override final
+//    inline void generate_tasks () override final
+    inline void execute () override final
     {      
       using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles>;
@@ -131,10 +132,7 @@ namespace exanb
       for(int p=0;p<nprocs;p++)
       {
         receive_buffer[p].clear(); // avoid useless copy of existing data in case of a resize
-        send_buffer[p].clear();
-
-        // start receive from partner p
-        size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
+        const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
         if( cells_to_receive > 0 )
         {
           size_t particles_to_receive = 0;
@@ -151,8 +149,8 @@ namespace exanb
           receive_buffer[p].resize( receive_size );
         }
         
-        // start send to partner p
-        size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
+        send_buffer[p].clear();
+        const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
         if( cells_to_send > 0 )
         {
           size_t particles_to_send = 0;
