@@ -65,11 +65,11 @@ namespace exanb
 
     ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
+    ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
-    //inline void generate_tasks () override final
     inline void execute () override final
     {      
       using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBufer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
@@ -176,13 +176,19 @@ namespace exanb
       }
 
       // ***************** async receive start ******************
-      std::memset( ghost_comm_buffers->send_buffer.data() , 0 , ghost_comm_buffers->sendbuf_total_size() );
+      uint8_t* recv_buf_ptr = ghost_comm_buffers->send_buffer.data();
+      std::vector<uint8_t> recv_staging;
+      if( *staging_buffer )
+      {
+        recv_staging.resize( ghost_comm_buffers->sendbuf_total_size() );
+        recv_buf_ptr = recv_staging.data();
+      }
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           ++ active_recvs;
-          MPI_Irecv( (char*) ghost_comm_buffers->sendbuf_ptr(p), ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[p] );
+          MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p], ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[p] );
         }
       }
 
@@ -194,19 +200,21 @@ namespace exanb
           if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
         }
       }
+
+      // ***************** initiate buffer sends ******************
+      uint8_t* send_buf_ptr = ghost_comm_buffers->recv_buffer.data();
+      std::vector<uint8_t> send_staging;
+      if( *staging_buffer )
       {
-        uint64_t send_hash = 0;
-        size_t n_words = 1 + ghost_comm_buffers->recvbuf_total_size()/sizeof(uint64_t);
-        uint64_t * buf = (uint64_t*) ghost_comm_buffers->recv_buffer.data();
-        for(size_t i=0;i<n_words;i++) send_hash += buf[i];
-        ldbg << "send buffer hash = "<<send_hash<<std::endl;
+        send_staging.assign( send_buf_ptr , send_buf_ptr + ghost_comm_buffers->recvbuf_total_size() );
+        send_buf_ptr = send_staging.data();
       }
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
           ++ active_sends;
-          MPI_Isend( (char*) ghost_comm_buffers->recvbuf_ptr(p) , ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
+          MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
         }
       }
 
@@ -222,6 +230,10 @@ namespace exanb
           {
             int p = reqidx;
             const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
+            if( *staging_buffer )
+            {
+              std::memcpy( ghost_comm_buffers->sendbuf_ptr(p) , recv_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p) );
+            }
             UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_sends.data()
                                               , cells
                                               , cell_scalars
