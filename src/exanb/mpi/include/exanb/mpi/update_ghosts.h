@@ -168,6 +168,7 @@ namespace exanb
       }
 
       // ***************** async receive start ******************
+      std::memset( ghost_comm_buffers->recv_buffer.data() , 0 , ghost_comm_buffers->recvbuf_total_size() );
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
@@ -183,7 +184,21 @@ namespace exanb
         if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
-          //ldbg << "sending "<<send_buffer_size<<" bytes to P"<<p<<std::endl;
+        }
+      }
+      {
+        uint64_t send_hash = 0;
+        size_t n_words = 1 + ghost_comm_buffers->sendbuf_total_size()/sizeof(uint64_t);
+        uint64_t * buf = (uint64_t*) ghost_comm_buffers->send_buffer.data();
+        for(size_t i=0;i<n_words;i++) send_hash += buf[i];
+        ldbg << "send buffer hash = "<<send_hash<<std::endl;
+      }
+
+      // ***************** initiate buffer sends ******************
+      for(int p=0;p<nprocs;p++)
+      {
+        if( ghost_comm_buffers->sendbuf_size(p) > 0 )
+        {
           ++ active_sends;
           MPI_Isend( (char*) ghost_comm_buffers->sendbuf_ptr(p) , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
         }
