@@ -116,60 +116,57 @@ namespace exanb
       for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
       // send and receive buffers
-      auto & send_buffer = ghost_comm_buffers->send_buffer;
-      auto & receive_buffer = ghost_comm_buffers->receive_buffer;
+      ghost_comm_buffers->initialize_partners( nprocs );
       auto & send_pack_async = ghost_comm_buffers->send_pack_async;
       auto & recv_unpack_async = ghost_comm_buffers->recv_unpack_async;
-      send_buffer.resize(nprocs);
-      receive_buffer.resize(nprocs);
-      send_pack_async.assign(nprocs , nullptr );
-      recv_unpack_async.assign(nprocs , nullptr );
 
       //size_t total_buffer_size = 0;
       size_t active_sends = 0;
       size_t active_recvs = 0;
 
-      // ***************** send/receive bufer resize ******************
+      // ********compute send and receive buffers offsets and total sizes ************
       for(int p=0;p<nprocs;p++)
-      {
-        receive_buffer[p].clear();
-        const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
+      {   
+        const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
         size_t particles_to_receive = 0;
         for(size_t i=0;i<cells_to_receive;i++)
         {
-          particles_to_receive += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size(); // ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
+          particles_to_receive += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
         }
         size_t receive_size = ( cells_to_receive * sizeof(CellParticlesUpdateData) ) + ( particles_to_receive * sizeof(ParticleTuple) );
         if( cell_scalars != nullptr )
         {
           receive_size += cells_to_receive * sizeof(GridCellValueType) * cell_scalar_components;
         }
-        receive_buffer[p].resize( receive_size );
         
-        send_buffer[p].clear();
-        const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
+        const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
         size_t particles_to_send = 0;
         for(size_t i=0;i<cells_to_send;i++)
         {
-          particles_to_send += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles; //comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+          particles_to_send += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
         }
         size_t send_buffer_size = ( cells_to_send * sizeof(CellParticlesUpdateData) ) + ( particles_to_send * sizeof(ParticleTuple) );
         if( cell_scalars != nullptr )
         {
           send_buffer_size += cells_to_send * sizeof(GridCellValueType) * cell_scalar_components;
         }
-        send_buffer[p].resize( send_buffer_size );
+
+        ghost_comm_buffers->set_partner_buffer_sizes( p , receive_size , send_buffer_size );
       }
+
+      // ***************** send/receive bufer resize ******************
+      ghost_comm_buffers->resize_buffers();
+
 
       // ***************** send bufer packing start ******************
       for(int p=0;p<nprocs;p++)
       {
-        if( ! send_buffer[p].empty() )
+        if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
           const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
           PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_receives.data() 
                                         , comm_scheme.m_partner[p].m_receive_offset.data()
-                                        , send_buffer[p].data()
+                                        , ghost_comm_buffers->recvbuf_ptr(p)
                                         , cells
                                         , cell_scalar_components
                                         , cell_scalars };
@@ -181,22 +178,22 @@ namespace exanb
       // ***************** async receive start ******************
       for(int p=0;p<nprocs;p++)
       {
-        if( ! receive_buffer[p].empty() )
+        if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           ++ active_recvs;
-          MPI_Irecv( (char*) receive_buffer[p].data(), receive_buffer[p].size(), MPI_CHAR, p, comm_tag, comm, & requests[p] );
+          MPI_Irecv( (char*) ghost_comm_buffers->sendbuf_ptr(p), ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[p] );
         }
       }
 
       // ***************** wait for send buffers to be ready ******************
       for(int p=0;p<nprocs;p++)
       {
-        if( ! send_buffer[p].empty() )
+        if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
           if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
           //ldbg << "sending "<<send_buffer_size<<" bytes to P"<<p<<std::endl;
           ++ active_sends;
-          MPI_Isend( (char*) send_buffer[p].data() , send_buffer[p].size(), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
+          MPI_Isend( (char*) ghost_comm_buffers->recvbuf_ptr(p) , ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
         }
       }
 
@@ -211,12 +208,12 @@ namespace exanb
           if( reqidx < nprocs ) // it's a receive
           {
             int p = reqidx;
-            const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
+            const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
             UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_sends.data()
                                               , cells
                                               , cell_scalars
                                               , cell_scalar_components
-                                              , receive_buffer[p].data()
+                                              , ghost_comm_buffers->sendbuf_ptr(p)
                                               , UpdateValueFunctor{} };
             recv_unpack_async[p] = parallel_execution_context(p);
             onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            

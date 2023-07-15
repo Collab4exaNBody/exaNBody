@@ -43,10 +43,43 @@ namespace exanb
 
     struct UpdateGhostsScratch
     {
-      std::vector< onika::memory::CudaMMVector<uint8_t> > send_buffer;
-      std::vector< onika::memory::CudaMMVector<uint8_t> > receive_buffer;
+      static constexpr size_t BUFFER_GUARD_SIZE = 4096;
+      std::vector<size_t> send_buffer_offsets;
+      std::vector<size_t> recv_buffer_offsets;
       std::vector< onika::parallel::ParallelExecutionContext* > send_pack_async;
-      std::vector< onika::parallel::ParallelExecutionContext* > recv_unpack_async;      
+      std::vector< onika::parallel::ParallelExecutionContext* > recv_unpack_async;    
+      onika::memory::CudaMMVector<uint8_t> send_buffer;
+      onika::memory::CudaMMVector<uint8_t> recv_buffer;
+      
+      inline void initialize_partners(int nprocs)
+      {
+        send_buffer_offsets.assign( nprocs + 1 , 0  );
+        recv_buffer_offsets.assign( nprocs + 1 , 0  );
+        send_pack_async.assign( nprocs , nullptr );
+        recv_unpack_async.assign( nprocs , nullptr );
+      }
+      
+      inline void set_partner_buffer_sizes(int p, size_t recvbytes, size_t sendbytes)
+      {
+        recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + recvbytes;
+        send_buffer_offsets[p+1] = send_buffer_offsets[p] + sendbytes;
+      }
+      
+      inline void resize_buffers()
+      {
+        recv_buffer.clear();
+        recv_buffer.resize( recvbuf_total_size() + 2 * BUFFER_GUARD_SIZE );
+        send_buffer.clear();
+        send_buffer.resize( recvbuf_total_size() + 2 * BUFFER_GUARD_SIZE );
+      }
+      
+      inline size_t sendbuf_size(int p) const { return send_buffer_offsets[p+1] - send_buffer_offsets[p]; } 
+      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + BUFFER_GUARD_SIZE + send_buffer_offsets[p]; }
+      inline size_t sendbuf_total_size() const { return send_buffer_offsets.back(); } 
+
+      inline size_t recvbuf_size(int p) const { return recv_buffer_offsets[p+1] - recv_buffer_offsets[p]; } 
+      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + BUFFER_GUARD_SIZE + recv_buffer_offsets[p]; } 
+      inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); } 
     };
 
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
