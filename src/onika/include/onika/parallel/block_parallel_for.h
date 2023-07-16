@@ -165,6 +165,8 @@ namespace onika
         }
       }
 
+      // ================== CPU / OpenMP execution path ====================
+
       int prefered_num_tasks = 0;
       if( exec_ctx != nullptr ) prefered_num_tasks = exec_ctx->m_omp_num_tasks;
 
@@ -174,14 +176,36 @@ namespace onika
         prefered_num_tasks = prefered_num_tasks * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
         if( ! async ) exec_ctx = nullptr;
       }
-
-      if      constexpr ( functor_has_cpu_prolog ) { func( exec_ctx, block_parallel_for_cpu_prolog_t{} ); }
-      else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
+            
+      if( async && prefered_num_tasks > 0 && exec_ctx != nullptr ) // tasking mode
+      {
+#       pragma omp task depend(inout:exec_ctx[0])
+        {
+          if      constexpr ( functor_has_cpu_prolog ) { func( exec_ctx, block_parallel_for_cpu_prolog_t{} ); }
+          else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }        
+        }
+      }
+      else
+      {
+        if      constexpr ( functor_has_cpu_prolog ) { func( exec_ctx, block_parallel_for_cpu_prolog_t{} ); }
+        else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
+      }
 
       block_parallel_for_omp_kernel( N , func , user_cb , prefered_num_tasks , exec_ctx );
 
-      if      constexpr ( functor_has_cpu_epilog ) { func( exec_ctx, block_parallel_for_cpu_epilog_t{} ); }
-      else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
+      if( async && prefered_num_tasks > 0 && exec_ctx != nullptr ) // tasking mode
+      {
+#       pragma omp task depend(inout:exec_ctx[0])
+        {
+          if      constexpr ( functor_has_cpu_epilog ) { func( exec_ctx, block_parallel_for_cpu_epilog_t{} ); }
+          else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
+        }        
+      }
+      else
+      {
+        if      constexpr ( functor_has_cpu_epilog ) { func( exec_ctx, block_parallel_for_cpu_epilog_t{} ); }
+        else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
+      }
     }
 
   }

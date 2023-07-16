@@ -247,16 +247,18 @@ namespace exanb
               }
             }
 
-            if( *staging_buffer )
-            {
-              std::memcpy( ghost_comm_buffers->recvbuf_ptr(p) , recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p) );
-            }
             UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_receives.data()
                                               , comm_scheme.m_partner[p].m_receive_offset.data()
                                               , ghost_comm_buffers->recvbuf_ptr(p) 
                                               , cells 
                                               , cell_scalar_components 
                                               , cell_scalars };
+            if( *staging_buffer )
+            {
+              unpack_ghost.m_staging_buffer_ptr = recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p];
+              unpack_ghost.m_data_buffer_size = ghost_comm_buffers->recvbuf_size(p);
+              //std::memcpy( ghost_comm_buffers->recvbuf_ptr(p) , recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p) );
+            }
             recv_unpack_async[p] = parallel_execution_context(p);
             onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );            
             
