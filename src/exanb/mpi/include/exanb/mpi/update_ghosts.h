@@ -71,7 +71,7 @@ namespace exanb
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
-    inline void execute () override final
+    inline void execute() override final
     {      
       using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles>;

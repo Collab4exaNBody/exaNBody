@@ -70,7 +70,7 @@ namespace exanb
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
-    inline void execute () override final
+    inline void execute() override final
     {      
       using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT>;
@@ -163,7 +163,7 @@ namespace exanb
       std::vector<uint8_t> send_staging;
       if( *staging_buffer )
       {
-        send_staging.assign( send_buf_ptr , send_buf_ptr + ghost_comm_buffers->recvbuf_total_size() );
+        send_staging.resize( ghost_comm_buffers->recvbuf_total_size() );
         send_buf_ptr = send_staging.data();
       }
       for(int p=0;p<nprocs;p++)
@@ -204,20 +204,12 @@ namespace exanb
         }
       }
 
-      // ***************** wait for send buffers to be ready ******************
-      for(int p=0;p<nprocs;p++)
-      {
-        if( ghost_comm_buffers->recvbuf_size(p) > 0 )
-        {
-          if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
-        }
-      }
-
       // ***************** initiate buffer sends ******************
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
+          if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
           ++ active_sends;
           MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
         }
