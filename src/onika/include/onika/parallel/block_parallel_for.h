@@ -6,6 +6,7 @@
 #include <onika/cuda/device_storage.h>
 #include <onika/soatl/field_id.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <onika/lambda_tools.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -16,6 +17,19 @@ namespace onika
 
   namespace parallel
   {
+    // user can add an overloaded call operator taking one of this type as its only parameter
+    // an overload with block_parallel_for_prolog_t will be used both as CPU and GPU launch prolog
+    // while and overload with block_parallel_for_gpu_prolog_t will e called only in case of a GPU launch
+    // and similarily with block_parallel_for_cpu_prolog_t
+    struct block_parallel_for_prolog_t {};
+    struct block_parallel_for_gpu_prolog_t : public block_parallel_for_prolog_t {};
+    struct block_parallel_for_cpu_prolog_t : public block_parallel_for_prolog_t {};
+
+    // same as block_parallel_for_prolog_t but for end of parallel for execution
+    struct block_parallel_for_epilog_t {};
+    struct block_parallel_for_gpu_epilog_t : public block_parallel_for_epilog_t {};
+    struct block_parallel_for_cpu_epilog_t : public block_parallel_for_epilog_t {};
+  
     // this template is here to know if compute buffer must be built or computation must be ran on the fly
     template<class FuncT> struct BlockParallelForFunctorTraits
     {      
@@ -95,7 +109,15 @@ namespace onika
       , ParallelExecutionStreamCallback* user_cb = nullptr
       , void * return_data = nullptr
       , size_t return_data_size = 0)
-    {    
+    {
+      static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
+      static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
+      static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
+      static constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_cpu_prolog_t>;
+      static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
+      static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
+      static constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_cpu_epilog_t>;
+    
       if( user_cb != nullptr )
       {
         user_cb->m_exec_ctx = exec_ctx;
@@ -122,7 +144,13 @@ namespace onika
           }          
           auto * scratch = exec_ctx->m_cuda_scratch.get();
 
+               if constexpr ( functor_has_gpu_prolog ) { func( exec_ctx, block_parallel_for_gpu_prolog_t{} ); }
+          else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
+
           ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel, N, func, scratch );
+
+               if constexpr ( functor_has_gpu_epilog ) { func( exec_ctx, block_parallel_for_gpu_epilog_t{} ); }
+          else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
 
           if( return_data != nullptr && return_data_size > 0 )
           {
@@ -147,7 +175,13 @@ namespace onika
         if( ! async ) exec_ctx = nullptr;
       }
 
+      if      constexpr ( functor_has_cpu_prolog ) { func( exec_ctx, block_parallel_for_cpu_prolog_t{} ); }
+      else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
+
       block_parallel_for_omp_kernel( N , func , user_cb , prefered_num_tasks , exec_ctx );
+
+      if      constexpr ( functor_has_cpu_epilog ) { func( exec_ctx, block_parallel_for_cpu_epilog_t{} ); }
+      else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
     }
 
   }

@@ -156,12 +156,24 @@ namespace exanb
       ghost_comm_buffers->resize_buffers();
 
       // ***************** send bufer packing start ******************
+      uint8_t* send_buf_ptr = ghost_comm_buffers->send_buffer.data();
+      std::vector<uint8_t> send_staging;
+      if( *staging_buffer )
+      {
+        send_staging.resize( ghost_comm_buffers->sendbuf_total_size() );
+        send_buf_ptr = send_staging.data();
+      }
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , ghost_comm_buffers->sendbuf_ptr(p) };
+          if( *staging_buffer )
+          {
+            pack_ghost.m_staging_buffer_ptr = send_staging.data() + ghost_comm_buffers->send_buffer_offsets[p];
+            pack_ghost.m_data_buffer_size = ghost_comm_buffers->sendbuf_size(p);
+          }
           send_pack_async[p] = parallel_execution_context(p);
           onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
         }
@@ -173,38 +185,24 @@ namespace exanb
       if( *staging_buffer )
       {
         recv_staging.resize( ghost_comm_buffers->recvbuf_total_size() );
-        recv_buf_ptr=recv_staging.data();
+        recv_buf_ptr = recv_staging.data();
       }
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
           ++ active_recvs;
+          // recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p]
           MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p], ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[p] );
         }
       }
 
-      // ***************** wait for send buffers to be ready ******************
+      // ***************** initiate buffer sends ******************
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
-        }
-      }
-
-      // ***************** initiate buffer sends ******************
-      uint8_t* send_buf_ptr = ghost_comm_buffers->send_buffer.data();
-      std::vector<uint8_t> send_staging;
-      if( *staging_buffer )
-      {
-        send_staging.assign( send_buf_ptr , send_buf_ptr + ghost_comm_buffers->sendbuf_total_size() );
-        send_buf_ptr = send_staging.data();
-      }
-      for(int p=0;p<nprocs;p++)
-      {
-        if( ghost_comm_buffers->sendbuf_size(p) > 0 )
-        {
           ++ active_sends;
           MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
         }
