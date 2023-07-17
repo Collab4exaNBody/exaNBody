@@ -89,7 +89,25 @@ namespace exanb
       const CellParticles * const __restrict__ m_cells = nullptr;
       const GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
       const size_t m_cell_scalar_components = 0;
-      uint8_t* __restrict__ m_data_ptr_base = nullptr;
+      uint8_t * const __restrict__ m_data_ptr_base = nullptr;
+      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      size_t m_data_buffer_size = 0;
+
+      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_epilog_t ) const
+      {
+        if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
+        {
+          checkCudaErrors( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , ctx->m_cuda_stream ) );
+        }        
+      }
+      
+      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_cpu_epilog_t ) const
+      {
+        if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
+        {
+          std::memcpy( m_staging_buffer_ptr , m_data_ptr_base , m_data_buffer_size );
+        }
+      }
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
@@ -131,11 +149,30 @@ namespace exanb
     {
       const GhostCellReceiveScheme * const __restrict__ m_receives = nullptr;
       const uint64_t * const __restrict__ m_cell_offset = nullptr;
-      const uint8_t * const __restrict__ m_data_ptr_base = nullptr;
+      uint8_t * const __restrict__ m_data_ptr_base = nullptr;
 
       CellParticles * const __restrict__ m_cells = nullptr;
       const size_t m_cell_scalar_components = 0;
       GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
+
+      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      size_t m_data_buffer_size = 0;
+
+      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_prolog_t ) const
+      {
+        if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
+        {
+          checkCudaErrors( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size ,  ctx->m_cuda_stream ) );
+        }        
+      }
+      
+      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_cpu_prolog_t ) const
+      {
+        if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
+        {
+          std::memcpy( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size );
+        }
+      }
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
