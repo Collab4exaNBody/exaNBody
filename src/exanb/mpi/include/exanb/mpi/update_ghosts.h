@@ -77,7 +77,6 @@ namespace exanb
       using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles>;
           
       // prerequisites
-
       MPI_Comm comm = *mpi;
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
 
@@ -139,17 +138,19 @@ namespace exanb
         send_staging.resize( ghost_comm_buffers->sendbuf_total_size() );
         send_buf_ptr = send_staging.data();
       }
+
       for(int p=0;p<nprocs;p++)
       {
         if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
-          m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_sends.data() , cells , cell_scalars , cell_scalar_components , ghost_comm_buffers->sendbuf_ptr(p) };
-          if( *staging_buffer )
-          {
-            m_pack_functors[p].m_staging_buffer_ptr = send_staging.data() + ghost_comm_buffers->send_buffer_offsets[p];
-            m_pack_functors[p].m_data_buffer_size = ghost_comm_buffers->sendbuf_size(p);
-          }
+          m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_sends.data()
+                                               , cells
+                                               , cell_scalars
+                                               , cell_scalar_components
+                                               , ghost_comm_buffers->sendbuf_ptr(p)
+                                               , ghost_comm_buffers->sendbuf_size(p)
+                                               , (*staging_buffer) ? ( send_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr };
           send_pack_async[p] = parallel_execution_context(p);
           onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
         }
@@ -195,7 +196,8 @@ namespace exanb
         {
           if( reqidx < nprocs ) // it's a receive
           {
-            int p = reqidx;
+            const int p = reqidx;
+            assert( p >= 0 && p < nprocs );
             const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
 
 #           ifndef NDEBUG
@@ -217,6 +219,7 @@ namespace exanb
                 const size_t n_particles = cell_input.m_n_particles;
                 const size_t cell_i = cell_input.m_cell_i;
                 assert( /*cell_i>=0 &&*/ cell_i<n_cells );
+                assert( cells[cell_i].empty() );
                 cells[cell_i].resize( n_particles , grid->cell_allocator() );
               }
             }
@@ -226,25 +229,18 @@ namespace exanb
                                               , ghost_comm_buffers->recvbuf_ptr(p) 
                                               , cells 
                                               , cell_scalar_components 
-                                              , cell_scalars };
-            if( *staging_buffer )
-            {
-              m_unpack_functors[p].m_staging_buffer_ptr = recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p];
-              m_unpack_functors[p].m_data_buffer_size = ghost_comm_buffers->recvbuf_size(p);
-              //std::memcpy( ghost_comm_buffers->recvbuf_ptr(p) , recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p) );
-            }
+                                              , cell_scalars
+                                              , ghost_comm_buffers->recvbuf_size(p)
+                                              , (*staging_buffer) ? ( recv_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
             recv_unpack_async[p] = parallel_execution_context(p);
             onika::parallel::block_parallel_for( cells_to_receive, m_unpack_functors[p], recv_unpack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );            
-            
-            //assert( data_cur == receive_buffer[p].size() );
+
             -- active_recvs;
-            //ldbg<<"received from P"<<p<<" done, remaining recvs="<<active_recvs<< std::endl;
           }
           else // it's a send
           {
-            //int p = reqidx - nprocs;
+            //const int p = reqidx - nprocs;
             -- active_sends;
-            //ldbg<<"send to P"<<p<<" done, remaining sends="<<active_sends<< std::endl;
           }
         }
       }      
