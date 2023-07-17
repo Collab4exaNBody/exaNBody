@@ -116,49 +116,16 @@ namespace exanb
       for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
       // send and receive buffers
-      ghost_comm_buffers->initialize_partners( nprocs );
       auto & send_pack_async = ghost_comm_buffers->send_pack_async;
       auto & recv_unpack_async = ghost_comm_buffers->recv_unpack_async;
-
-      //size_t total_buffer_size = 0;
       size_t active_sends = 0;
       size_t active_recvs = 0;
 
-      // ********compute send and receive buffers offsets and total sizes ************
-      for(int p=0;p<nprocs;p++)
-      {   
-        const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
-        size_t particles_to_receive = 0;
-        for(size_t i=0;i<cells_to_receive;i++)
-        {
-          particles_to_receive += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
-        }
-        size_t receive_size = ( cells_to_receive * sizeof(CellParticlesUpdateData) ) + ( particles_to_receive * sizeof(ParticleTuple) );
-        if( cell_scalars != nullptr )
-        {
-          receive_size += cells_to_receive * sizeof(GridCellValueType) * cell_scalar_components;
-        }
-        
-        const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
-        size_t particles_to_send = 0;
-        for(size_t i=0;i<cells_to_send;i++)
-        {
-          particles_to_send += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
-        }
-        size_t send_buffer_size = ( cells_to_send * sizeof(CellParticlesUpdateData) ) + ( particles_to_send * sizeof(ParticleTuple) );
-        if( cell_scalars != nullptr )
-        {
-          send_buffer_size += cells_to_send * sizeof(GridCellValueType) * cell_scalar_components;
-        }
-
-        ghost_comm_buffers->set_partner_buffer_sizes( p , receive_size , send_buffer_size );
-      }
-
       // ***************** send/receive bufer resize ******************
-      ghost_comm_buffers->resize_buffers();
-
+      ghost_comm_buffers->resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof(ParticleTuple) , sizeof(GridCellValueType) , cell_scalar_components );
 
       // ***************** send bufer packing start ******************
+      std::vector<PackGhostFunctor> m_pack_functors( nprocs );
       uint8_t* send_buf_ptr = ghost_comm_buffers->recv_buffer.data();
       std::vector<uint8_t> send_staging;
       if( *staging_buffer )
@@ -171,7 +138,7 @@ namespace exanb
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
           const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
-          PackGhostFunctor pack_ghost = { comm_scheme.m_partner[p].m_receives.data() 
+          m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                         , comm_scheme.m_partner[p].m_receive_offset.data()
                                         , ghost_comm_buffers->recvbuf_ptr(p)
                                         , cells
@@ -179,11 +146,11 @@ namespace exanb
                                         , cell_scalars };
           if( *staging_buffer )
           {
-            pack_ghost.m_staging_buffer_ptr = send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p];
-            pack_ghost.m_data_buffer_size = ghost_comm_buffers->recvbuf_size(p);
+            m_pack_functors[p].m_staging_buffer_ptr = send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p];
+            m_pack_functors[p].m_data_buffer_size = ghost_comm_buffers->recvbuf_size(p);
           }
           send_pack_async[p] = parallel_execution_context(p);
-          onika::parallel::block_parallel_for( cells_to_send, pack_ghost, send_pack_async[p] , *gpu_buffer_pack , *async_buffer_pack );
+          onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , *gpu_buffer_pack , *async_buffer_pack );
         }
       }
 
@@ -215,6 +182,7 @@ namespace exanb
         }
       }
 
+      std::vector<UnpackGhostFunctor> m_unpack_functors( nprocs , UnpackGhostFunctor{} );
       size_t ghost_particles_recv = 0;
       while( active_sends>0 || active_recvs>0 )
       {
@@ -227,7 +195,7 @@ namespace exanb
           {
             int p = reqidx;
             const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
-            UnpackGhostFunctor unpack_ghost = { comm_scheme.m_partner[p].m_sends.data()
+            m_unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
                                               , cells
                                               , cell_scalars
                                               , cell_scalar_components
@@ -235,12 +203,12 @@ namespace exanb
                                               , UpdateValueFunctor{} };
             if( *staging_buffer )
             {
-              unpack_ghost.m_staging_buffer_ptr = recv_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p];
-              unpack_ghost.m_data_buffer_size = ghost_comm_buffers->sendbuf_size(p);
+              m_unpack_functors[p].m_staging_buffer_ptr = recv_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p];
+              m_unpack_functors[p].m_data_buffer_size = ghost_comm_buffers->sendbuf_size(p);
               //std::memcpy( ghost_comm_buffers->recvbuf_ptr(p) , recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p) );
             }
             recv_unpack_async[p] = parallel_execution_context(p);
-            onika::parallel::block_parallel_for( cells_to_receive, unpack_ghost, recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            
+            onika::parallel::block_parallel_for( cells_to_receive, m_unpack_functors[p], recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            
             
             //assert( data_cur == receive_buffer[p].size() );
             -- active_recvs;

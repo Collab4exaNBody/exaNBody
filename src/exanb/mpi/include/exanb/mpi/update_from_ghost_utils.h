@@ -18,11 +18,11 @@ namespace exanb
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class UpdateFuncT>
     struct GhostSendUnpackFromReceiveBuffer
     {
-      const GhostCellSendScheme * const __restrict__ m_sends = nullptr;
-      CellParticles * const __restrict__ m_cells = nullptr;
-      GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
-      const size_t m_cell_scalar_components = 0;
-      uint8_t* const __restrict__ m_data_ptr_base = nullptr;
+      const GhostCellSendScheme * __restrict__ m_sends = nullptr;
+      CellParticles * __restrict__ m_cells = nullptr;
+      GridCellValueType * __restrict__ m_cell_scalars = nullptr;
+      size_t m_cell_scalar_components = 0;
+      uint8_t* __restrict__ m_data_ptr_base = nullptr;
       UpdateFuncT m_merge_func;
 
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
@@ -76,13 +76,13 @@ namespace exanb
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
     struct GhostReceivePackToSendBuffer
     {
-      const GhostCellReceiveScheme * const __restrict__ m_receives = nullptr;
-      const uint64_t * const __restrict__ m_cell_offset = nullptr; 
-      uint8_t * const __restrict__ m_data_ptr_base = nullptr;
+      const GhostCellReceiveScheme * __restrict__ m_receives = nullptr;
+      const uint64_t * __restrict__ m_cell_offset = nullptr; 
+      uint8_t * __restrict__ m_data_ptr_base = nullptr;
 
-      const CellParticles * const __restrict__ m_cells = nullptr;
-      const size_t m_cell_scalar_components = 0;
-      const GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
+      const CellParticles * __restrict__ m_cells = nullptr;
+      size_t m_cell_scalar_components = 0;
+      const GridCellValueType * __restrict__ m_cell_scalars = nullptr;
 
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
       size_t m_data_buffer_size = 0;
