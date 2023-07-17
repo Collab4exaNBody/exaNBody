@@ -109,7 +109,6 @@ namespace exanb
     size_t m_particle_bytes = 0;
     size_t m_cell_bytes = 0;
     std::vector< GhostPartnerCommunicationScheme > m_partner;
-    bool m_update_buffer_offset = true;
   };
 
   template<class StreamT>

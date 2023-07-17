@@ -27,7 +27,9 @@ namespace exanb
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
-        const uint8_t* data_ptr = m_data_ptr_base + m_sends[i].m_send_buffer_offset;
+        const size_t particle_offset = m_sends[i].m_send_buffer_offset;
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        const uint8_t* data_ptr = m_data_ptr_base + byte_offset; //m_sends[i].m_send_buffer_offset;
         const CellParticlesUpdateData * data = (const CellParticlesUpdateData*) data_ptr;
 
         assert( data->m_cell_i == m_sends[i].m_partner_cell_i );
@@ -38,9 +40,7 @@ namespace exanb
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
-          //ParticleTuple tp = m_cells[cell_i][particle_index[j]];
           m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
-          //m_cells[cell_i].write_tuple( particle_index[j] , tp );
         }
         size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
         if( m_cell_scalars != nullptr )
@@ -48,7 +48,6 @@ namespace exanb
           const GridCellValueType* gcv = reinterpret_cast<const GridCellValueType*>( data_ptr + data_cur );
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
-            // replace with updatefunc( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] );
             m_merge_func( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] /*, onika::TrueType{}*/ );
           }
         }
@@ -68,7 +67,9 @@ namespace exanb
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
-        uint8_t * const __restrict__ data_ptr = m_data_ptr_base + m_cell_offset[i];
+        const size_t particle_offset = m_cell_offset[i];
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        uint8_t * const __restrict__ data_ptr = m_data_ptr_base + byte_offset;
         CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
 
         const auto cell_input_it = m_receives[i];

@@ -348,7 +348,7 @@ namespace exanb
   
 #   pragma omp parallel
     {
-#     pragma omp single
+#     pragma omp master
       {
 #       pragma omp taskgroup
         {

@@ -289,6 +289,30 @@ namespace exanb
         }
       }
 
+      // final step, rebuild buffer particle offsets
+      /********************************************************************/
+      for(int p=0;p<nprocs;p++)
+      {
+        const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
+        size_t total_particles = 0;
+        for(size_t i=0;i<cells_to_send;i++)
+        {
+          comm_scheme.m_partner[p].m_sends[i].m_send_buffer_offset = total_particles; 
+          total_particles += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();; 
+        }
+        const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
+        comm_scheme.m_partner[p].m_receive_offset.assign( cells_to_receive , 0 );
+        total_particles = 0;
+        for(size_t i=0;i<cells_to_receive;i++)
+        {
+          const auto cell_input_it = comm_scheme.m_partner[p].m_receives[i];
+          const auto cell_input = ghost_cell_receive_info(cell_input_it);
+          comm_scheme.m_partner[p].m_receive_offset[i] = total_particles;
+          total_particles += cell_input.m_n_particles;
+        }
+      }
+      /********************************************************************/
+
       ldbg << "--- end ghost_comm_scheme ---" << std::endl;
     }
 
