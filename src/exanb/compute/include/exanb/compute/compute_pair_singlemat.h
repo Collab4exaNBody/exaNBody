@@ -98,6 +98,7 @@ namespace exanb
     FieldSetT cpfields,
     PosFieldsT posfields = PosFieldsT{},
     onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
+    bool enable_gpu = true,
     bool async = false
     )
   {
@@ -115,17 +116,19 @@ namespace exanb
     ComputePairDebugTraits<FuncT>::print_func( func );
 
     // check if cells allocated in unified memory in case we may execute on the GPU
-    bool enable_gpu = false;
-    if constexpr ( ComputePairTraits<FuncT>::CudaCompatible )
+    if( exec_ctx == nullptr )
     {
-      if(exec_ctx != nullptr) 
+      enable_gpu = false;
+    }
+    if( enable_gpu && ComputePairTraits<FuncT>::CudaCompatible )
+    {
+      if( exec_ctx != nullptr ) 
       {
         if( exec_ctx->has_gpu_context() )
         {
           if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
         }
       }
-      enable_gpu = true;
     }
 
     auto cells = grid.cells();

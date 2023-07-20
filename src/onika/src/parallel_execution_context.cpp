@@ -96,44 +96,77 @@ namespace onika
       checkCudaErrors( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
     }
 
-    void ParallelExecutionContext::record_start_event()
+    // enqueue start event to associated GPU execution stream and increments number of executing GPU kernels
+    // maximum number of executing GPU kernels is 1
+    void ParallelExecutionContext::gpu_kernel_start()
     {
-      if( m_gpu_kernel_exec_count == 0 )
-      {
-        checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
-      }
+      std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
+      m_kernel_count_condition.wait( lk, [this](){ return m_gpu_kernel_exec_count==0; } );
+      assert( m_gpu_kernel_exec_count == 0 );
+      checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
       ++ m_gpu_kernel_exec_count;
+      lk.unlock();
+      m_kernel_count_condition.notify_all();
+    }
+
+    // enqueue stop event in associated GPU stream for timing purposes
+    void ParallelExecutionContext::gpu_kernel_end()
+    {
+      assert( m_gpu_kernel_exec_count == 1 );
+      checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_stop_evt, m_cuda_stream ) );
+    }
+
+    void ParallelExecutionContext::omp_kernel_start()
+    {
+      std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
+      ++ m_omp_kernel_exec_count;
+      lk.unlock();
+      m_kernel_count_condition.notify_all();
     }
     
+    void ParallelExecutionContext::omp_kernel_end()
+    {
+      std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
+      -- m_omp_kernel_exec_count;
+      lk.unlock();
+      m_kernel_count_condition.notify_all();
+    }
+
     void ParallelExecutionContext::gpuSynchronizeStream()
     {
       checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
     }
+
+    bool ParallelExecutionContext::queryStatus()
+    {
+      std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
+      return ( m_omp_kernel_exec_count + m_gpu_kernel_exec_count ) == 0;
+    }
     
     void ParallelExecutionContext::wait()
-    {
-      // wait for any in flight async taskloop previously launched and associated with this execution context
-      auto * myself = this;
-#     pragma omp task depend(in:myself[0]) if(0) // blocks until dependency is satisfied
-      {}
-
-      if( m_gpu_kernel_exec_count > 0 )
-      {
-        checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_stop_evt, m_cuda_stream ) );
-        gpuSynchronizeStream();
-        float time_ms = 0.0f;      
-        checkCudaErrors( ONIKA_CU_EVENT_ELAPSED(time_ms,m_start_evt,m_stop_evt) );
-        m_total_gpu_execution_time += time_ms;      
-        -- m_gpu_kernel_exec_count;
-        if( m_gpu_kernel_exec_count > 0 )
+    {    
+      std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
+      m_kernel_count_condition.wait( lk , 
+        [this]()
         {
-          // re-insert a timer for next executing kernel
-          checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_start_evt, m_cuda_stream ) );
-        }
-      }
-              
-    }
+          // wait for GPU kernels completion
+          if( m_gpu_kernel_exec_count > 0 )
+          {
+            assert( m_gpu_kernel_exec_count == 1 ); // multiple flying GPU kernels not supported yet
+            gpuSynchronizeStream();
+            float time_ms = 0.0f;      
+            checkCudaErrors( ONIKA_CU_EVENT_ELAPSED(time_ms,m_start_evt,m_stop_evt) );
+            m_total_gpu_execution_time += time_ms;
+            m_gpu_kernel_exec_count = 0;
+          }
 
+          return m_omp_kernel_exec_count+m_gpu_kernel_exec_count == 0;
+        });
+      
+      lk.unlock();
+      m_kernel_count_condition.notify_all();
+    }
+    
     double ParallelExecutionContext::collect_gpu_execution_time()
     {
       double exec_time = 0.0;
