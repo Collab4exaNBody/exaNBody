@@ -110,12 +110,15 @@ namespace onika
     }
 
     // enqueue stop event in associated GPU stream for timing purposes
+    //  does not decrement m_gpu_kernel_exec_count, this must be done when the GPU kernel has completed,
+    // i.e. during a wait() call
     void ParallelExecutionContext::gpu_kernel_end()
     {
       assert( m_gpu_kernel_exec_count == 1 );
       checkCudaErrors( ONIKA_CU_STREAM_EVENT( m_stop_evt, m_cuda_stream ) );
     }
 
+    // increments m_omp_kernel_exec_count
     void ParallelExecutionContext::omp_kernel_start()
     {
       std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
@@ -124,6 +127,7 @@ namespace onika
       m_kernel_count_condition.notify_all();
     }
     
+    // decrements m_omp_kernel_exec_count
     void ParallelExecutionContext::omp_kernel_end()
     {
       std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
