@@ -67,6 +67,7 @@ namespace exanb
     ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
     ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
+    ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
@@ -181,6 +182,10 @@ namespace exanb
       }
 
       // ***************** initiate buffer sends ******************
+      if( *serialize_pack_send )
+      {
+        for(int p=0;p<nprocs;p++) { if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); } }
+      }
       std::vector<bool> message_sent( nprocs , false );
       while( active_sends < active_send_packs )
       {
@@ -189,7 +194,7 @@ namespace exanb
           if( ! message_sent[p] && ghost_comm_buffers->sendbuf_size(p) > 0 )
           {
             bool ready = true;
-            if( send_pack_async[p] != nullptr ) { ready = send_pack_async[p]->queryStatus(); }
+            if( ! (*serialize_pack_send) && send_pack_async[p] != nullptr ) { ready = send_pack_async[p]->queryStatus(); }
             if( ready )
             {
               ++ active_sends;
