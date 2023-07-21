@@ -43,7 +43,7 @@ namespace onika { namespace soatl
     ONIKA_HOST_DEVICE_FUNC
     static inline void zero_data(T& x)
     {
-      ZeroHelper<T>::zero(x);
+      ZeroHelper<T>::zero(x) ;
     }
   }
 
@@ -63,11 +63,11 @@ struct FieldTuple
   static inline constexpr bool has_field( FieldId<field_id> ) { return HasField<field_id>::value; }
 
   //! default onstructor
-  inline FieldTuple() { zero(); }
+  ONIKA_HOST_DEVICE_FUNC inline FieldTuple() { zero(); }
 
   //! default copy constructor and copy operator
-  FieldTuple( const FieldTuple & rhs ) = default;
-  FieldTuple& operator = ( const FieldTuple & rhs ) = default;
+  FieldTuple( const FieldTuple & rhs ) = default; 
+  FieldTuple& operator = ( const FieldTuple & rhs ) = default; 
 
   //! partial copy existing fields in rhs and zero others
   template<typename... other_ids>

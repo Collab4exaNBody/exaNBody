@@ -33,10 +33,6 @@ namespace exanb
 
     ADD_SLOT( CpuGpuPartition , cpu_gpu_partition  , INPUT_OUTPUT);
 
-#   ifdef XSTAMP_CUDA_VERSION
-    ADD_SLOT( onika::cuda::CudaContext , cuda_ctx , INPUT_OUTPUT , OPTIONAL );
-#   endif
-
     inline void execute () override final
     {    
       const CellCosts& grid_costs = *cell_costs;       
@@ -55,9 +51,7 @@ namespace exanb
       GRID_FOR_END
    
 #     ifdef XSTAMP_CUDA_VERSION
-      bool has_devices = false;
-      if( cuda_ctx.has_value() ) has_devices = cuda_ctx->has_devices();
-      if( has_devices )
+      if( parallel_execution_context()->has_gpu_context() )
       {
         //const size_t n_cells = grid_cell_count(grid_dims);
 

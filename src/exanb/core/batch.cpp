@@ -24,7 +24,6 @@ namespace exanb
 
     void run() override final;
     void execute() override final;
-    void generate_tasks() override final;
     bool is_terminal() const override final;
     LogStreamWrapper& pretty_print(LogStreamWrapper& out, int details, int indent, ProfilePrintParameters& ppp , ParallelValueStatsFunc pstat ) override final;
     void apply_graph( std::function<void(OperatorNode*)> f, bool prefix=false) override final;
@@ -60,7 +59,6 @@ namespace exanb
     bool is_looping() const override final;
     void finalize() override final;
     
-    // concurrent execution. cannot be used if operator task_parallelism() returns true 
     inline void set_parallel_execution(bool p) { m_parallel_execution=p; }
     inline bool parallel_execution() const { return m_parallel_execution; }
     inline void set_parallel_cores(const std::vector<double>& partition) { m_parallel_cores = partition; }    
@@ -136,7 +134,7 @@ namespace exanb
 
   bool OperatorBatchNode::is_trivial_encapsulation() const
   {
-    return m_ops.size()==1 && !is_looping() && !is_conditional() && !task_parallelism();
+    return m_ops.size()==1 && !is_looping() && !is_conditional() ;
   }
 
   void OperatorBatchNode::set_rebind_name( const std::string& k , const std::string& otherk )
@@ -414,12 +412,6 @@ namespace exanb
    */
   void OperatorBatchNode::run()
   {
-    // FIXME: something to do here for task dependencies ...
-    // case 0 : task_parallelism() => false, we don't need any dependency handling
-    // case 1 : task_parallelism() => true, parent()->task_parallelism() => false,
-    //          tasking not started, we'll start tasking in generate_tasks method, don't need to handle dependency
-    //          because previous operators ran sequentially
-    // case 2 : if we're already in tasking mode, we can safely use a task with dependency
     if( eval_condition() )
     {
       this->OperatorNode::run();
@@ -435,77 +427,11 @@ namespace exanb
     }
   }
 
-  void OperatorBatchNode::generate_tasks()
-  {
-    if( is_looping() || is_conditional() )
-    {
-      lerr << "OperatorBatchNode::generate_tasks : batch loop and condition not allowed in tasking mode";
-      std::abort();
-    }
-  
-    if( parallel_execution() )
-    {
-      lerr << "Internal error: OperatorBatchNode::generate_tasks : cannot use both parallel and parallel_task execution mode";
-      std::abort();
-    }
-
-    bool start_tasking = task_parallelism();
-    if( parent() != nullptr )
-    {
-      start_tasking = start_tasking && !parent()->task_parallelism();
-    }
-
-    if( start_tasking ) // start a tasking region
-    {
-#     pragma omp parallel
-      {
-#       pragma omp single
-        {
-          //ONIKA_DBG_MESG_LOCK { lout<< name() << " : start ptask scheduler" << std::endl << std::flush; }
-          ptask_queue().start();
-
-#         pragma omp taskgroup
-          {
-            //ONIKA_DBG_MESG_LOCK { lout<< name() << " : start tasking mode (" << m_ops.size() <<" ops)"<<std::endl << std::flush; }  
-            execute_sequential_ops();
-            //ONIKA_DBG_MESG_LOCK { lout<< name() << " : finished spwan tasks" << std::endl << std::flush; }
-          } // --- end of task group ---
-          
-          // when primary tasks are finished, we can request task scheduler to terminate after all enqueued tasks are processed
-          //ONIKA_DBG_MESG_LOCK { lout<< name() << " : ptq stop" << std::endl << std::flush; }
-          ptask_queue().flush();           
-          //ONIKA_DBG_MESG_LOCK { lout<< name() << " : ptq stop" << std::endl << std::flush; }
-          ptask_queue().stop();
-          //ONIKA_DBG_MESG_LOCK { lout<< name() << " : ptq wait_all" << std::endl << std::flush; }
-          ptask_queue().wait_all();
-        } // --- end of single ---
-
-        // synchronize with OperatorTaskScheduler 
-/*
-#       pragma omp single nowait
-        {
-          ONIKA_DBG_MESG_LOCK { lout<< name() << " : end tasking mode" << std::endl << std::flush; }
-        }
-*/
-      }
-    }
-    else
-    {
-      execute_sequential_ops();
-    }
-  }
-
   // execute this batch
   void OperatorBatchNode::execute()
   {
     size_t iteration_count = 0;
     bool continue_loop = true;
-
-    if( task_parallelism() )
-    {
-      lerr << "Internal error: OperatorBatchNode::execute : cannot use both parallel and parallel_task execution mode";
-      std::abort();
-    }
 
     while( continue_loop )
     {
@@ -752,12 +678,6 @@ namespace exanb
             batch->set_parallel_cores( batch_node["cores"].as< std::vector<double> >() );
           }
         }
-      }
-      else if( batch_node["parallel_tasks"] )
-      {
-        bool pt = batch_node["parallel_tasks"].as<bool>();
-        //std::cout << tmp_operator_name<< " : parallel_tasks="<<std::boolalpha<<pt<<std::endl;
-        batch->set_task_parallelism( pt );
       }
       
       oplist_node = batch_node["body"];

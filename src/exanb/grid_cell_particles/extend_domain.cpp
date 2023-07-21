@@ -120,7 +120,7 @@ namespace exanb
       
       size_t max_n_otb = n;
       {
-        long tmp[7] = { -grid_min.i , -grid_min.j , -grid_min.k , grid_max.i , grid_max.j , grid_max.k , max_n_otb };
+        long tmp[7] = { -grid_min.i , -grid_min.j , -grid_min.k , grid_max.i , grid_max.j , grid_max.k , static_cast<long>(max_n_otb) };
         MPI_Allreduce(MPI_IN_PLACE,tmp,7,MPI_LONG,MPI_MAX,*mpi);
         grid_min.i = -tmp[0];
         grid_min.j = -tmp[1];

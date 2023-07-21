@@ -5,7 +5,6 @@
 #include <exanb/core/log.h>
 #include <exanb/core/yaml_utils.h>
 #include <exanb/core/span.h>
-#include <exanb/core/gpu_execution_context.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -21,7 +20,9 @@
 #include <atomic>
 
 #include <onika/omp/ompt_task_timing.h>
-#include <onika/task/parallel_task_queue.h>
+#include <onika/omp/ompt_task_info.h>
+#include <onika/cuda/cuda_context.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 namespace exanb
 {
@@ -147,9 +148,6 @@ namespace exanb
     // indicates that an operator or batch is ready to be executed
     inline bool compiled() const { return m_compiled; }
 
-    // indice weither execution should use a task parallelism paradigm
-    inline bool task_parallelism() const { return m_task_parallelism; }
-
     // ensures slot attached resources are allocated and initialized
     void initialize_slots_resource();
 
@@ -228,7 +226,7 @@ namespace exanb
     void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
 
     // access GPUExecution context for this operator
-    GPUKernelExecutionContext* gpu_execution_context(unsigned int id=0);
+    onika::parallel::ParallelExecutionContext* parallel_execution_context(unsigned int id=0);
     void account_gpu_execution(double t);
     
     // free resources associated to slots
@@ -244,13 +242,15 @@ namespace exanb
 
   protected:
     inline const std::set< std::shared_ptr<OperatorSlotBase> >& managed_slots() const { return m_managed_slots; }
-    inline void set_task_parallelism(bool yn) { m_task_parallelism = yn; }
-    onika::task::ParallelTaskQueue & ptask_queue();
+
+    static void set_global_cuda_ctx( std::shared_ptr<onika::cuda::CudaContext> ctx );
+    static onika::cuda::CudaContext* global_cuda_ctx();
 
     // profiling
     std::atomic<uint64_t> m_task_exec_time_accum {0};
     std::vector<double> m_exec_times;
     std::vector<double> m_gpu_times;
+    std::vector<double> m_async_cpu_times;
     ssize_t m_resident_mem_inc = 0;
 
     // debug stream wrapper to enable log filtering
@@ -285,18 +285,24 @@ namespace exanb
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    std::vector< std::shared_ptr<GPUKernelExecutionContext> > m_gpu_execution_contexts;
+    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_parallel_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;
 
-    // Operator executes in a single region inside a parallel region, or in a task and thus may not create nested parallel region
-    bool m_task_parallelism = false;
-
     // profiling
     bool m_profiling = true;
-    static /*std::vector<ProfilingFunctionSet>*/ ProfilingFunctionSet s_profiling_functions;
+    
+    // allow OpenMP task creation
+    bool m_omp_task_mode = false;
+    
+    
+    static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;
+    
+    // GPU context
+    static std::shared_ptr<onika::cuda::CudaContext> s_global_cuda_ctx;
+    
     static bool s_global_profiling;
     static bool s_global_mem_profiling;
     static bool s_debug_execution;

@@ -31,10 +31,6 @@ namespace exanb
   template<typename GridT>
   struct ChunkNeighborsLegacy : public OperatorNode
   {
-#ifdef XSTAMP_CUDA_VERSION
-    ADD_SLOT( onika::cuda::CudaContext , cuda_ctx , INPUT , OPTIONAL );
-#endif
-
     ADD_SLOT( GridT               , grid            , INPUT );
     ADD_SLOT( AmrGrid             , amr             , INPUT );
     ADD_SLOT( AmrSubCellPairCache , amr_grid_pairs  , INPUT );
@@ -63,13 +59,7 @@ namespace exanb
         std::abort();
       }
 
-      bool gpu_enabled = false;
-#     ifdef XSTAMP_CUDA_VERSION
-      if( cuda_ctx.has_value() )
-      {
-        gpu_enabled = cuda_ctx->has_devices() ;
-      }
-#     endif
+      const bool gpu_enabled = parallel_execution_context()->has_gpu_context();
 
       static constexpr std::false_type no_z_order = {};
       if( domain->xform_is_identity() )
