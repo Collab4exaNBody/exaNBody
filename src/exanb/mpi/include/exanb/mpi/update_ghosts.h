@@ -67,11 +67,13 @@ namespace exanb
     ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
     ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
+    ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
     inline void execute() override final
+//    inline void generate_tasks() override final
     {      
       using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles>;
@@ -118,11 +120,8 @@ namespace exanb
       std::vector< MPI_Request > requests( total_requests );
       for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
-      // number of flying messages
-      size_t active_sends = 0;
-      size_t active_recvs = 0;
 
-      // keep track of buffer pack/unpack progress
+      // keep track of buffer pack/unpack progress  loop ............................................  2.494e+04            0.000   0.000         1  83.57% / 100.00%
       auto & send_pack_async   = ghost_comm_buffers->send_pack_async;
       auto & recv_unpack_async = ghost_comm_buffers->recv_unpack_async;
 
@@ -133,6 +132,7 @@ namespace exanb
       std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
       uint8_t* send_buf_ptr = ghost_comm_buffers->send_buffer.data();
       std::vector<uint8_t> send_staging;
+      size_t active_send_packs = 0;
       if( *staging_buffer )
       {
         send_staging.resize( ghost_comm_buffers->sendbuf_total_size() );
@@ -143,6 +143,7 @@ namespace exanb
       {
         if( ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
+          assert( ghost_comm_buffers->send_buffer_offsets[p] + ghost_comm_buffers->sendbuf_size(p) <= ghost_comm_buffers->sendbuf_total_size() );
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_sends.data()
                                                , cells
@@ -153,8 +154,13 @@ namespace exanb
                                                , (*staging_buffer) ? ( send_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr };
           send_pack_async[p] = parallel_execution_context(p);
           onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
+          ++ active_send_packs;
         }
       }
+
+      // number of flying messages
+      size_t active_sends = 0;
+      size_t active_recvs = 0;
 
       // ***************** async receive start ******************
       uint8_t* recv_buf_ptr = ghost_comm_buffers->recv_buffer.data();
@@ -168,6 +174,7 @@ namespace exanb
       {
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
+          assert( ghost_comm_buffers->recv_buffer_offsets[p] + ghost_comm_buffers->recvbuf_size(p) <= ghost_comm_buffers->recvbuf_total_size() );
           ++ active_recvs;
           // recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p]
           MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p], ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[p] );
@@ -175,13 +182,26 @@ namespace exanb
       }
 
       // ***************** initiate buffer sends ******************
-      for(int p=0;p<nprocs;p++)
+      if( *serialize_pack_send )
       {
-        if( ghost_comm_buffers->sendbuf_size(p) > 0 )
+        for(int p=0;p<nprocs;p++) { if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); } }
+      }
+      std::vector<bool> message_sent( nprocs , false );
+      while( active_sends < active_send_packs )
+      {
+        for(int p=0;p<nprocs;p++)
         {
-          if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); }
-          ++ active_sends;
-          MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
+          if( ! message_sent[p] && ghost_comm_buffers->sendbuf_size(p) > 0 )
+          {
+            bool ready = true;
+            if( ! (*serialize_pack_send) && send_pack_async[p] != nullptr ) { ready = send_pack_async[p]->queryStatus(); }
+            if( ready )
+            {
+              ++ active_sends;
+              MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
+              message_sent[p] = true;
+            }
+          }
         }
       }
 

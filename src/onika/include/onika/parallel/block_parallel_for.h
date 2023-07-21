@@ -7,6 +7,7 @@
 #include <onika/soatl/field_id.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/lambda_tools.h>
+#include <onika/stream_utils.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -73,6 +74,7 @@ namespace onika
 
       if( exec_ctx != nullptr ) // for backward compatibility
       {
+//        std::cout<<"notify omp parallel_for start"<<std::endl;
         exec_ctx->omp_kernel_start();
         if( num_tasks == 0 || ! async )
         {
