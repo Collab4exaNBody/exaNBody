@@ -7,12 +7,14 @@
 #define ONIKA_CU_PROF_RANGE_PUSH(s) nvtxRangePush(s)
 #define ONIKA_CU_PROF_RANGE_POP() nvtxRangePop()
 #define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st) cudaMemPrefetchAsync((const void*)(ptr),sz,0,st) 
+#define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) cudaStreamCreateWithFlags( & streamref, cudaStreamNonBlocking )
 
 #else
 
 #define ONIKA_CU_PROF_RANGE_PUSH(s) do{}while(false)
 #define ONIKA_CU_PROF_RANGE_POP() do{}while(false)
 #define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st) do{}while(false)
+#define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) __onika_fake_cudaStreamCreate(streamref)
 
 struct cudaDeviceProp
 {
@@ -26,6 +28,8 @@ struct cudaDeviceProp
 };
 using cudaStream_t = int;
 using cudaEvent_t = int*;
+using cudaError_t = int;
+static inline cudaError_t __onika_fake_cudaStreamCreate(cudaStream_t& s){s=0; return 0;}
 
 #endif // ONIKA_CUDA_VERSION
 
@@ -74,7 +78,8 @@ namespace onika
           m_threadStream.resize( tid+1 , 0 );
           for(;i<m_threadStream.size();i++)
           {
-            checkCudaErrors( cudaStreamCreateWithFlags( & m_threadStream[i], cudaStreamNonBlocking ) );
+            checkCudaErrors( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
+            // cudaStreamCreateWithFlags( & m_threadStream[i], cudaStreamNonBlocking );
           }
         }
         return m_threadStream[tid];
