@@ -144,6 +144,24 @@ namespace onika
     bool ParallelExecutionContext::queryStatus()
     {
       std::unique_lock<std::mutex> lk(m_kernel_count_mutex);
+      if( m_gpu_kernel_exec_count > 0 )
+      {
+        assert( m_gpu_kernel_exec_count == 1 ); // multiple flying GPU kernels not supported yet
+        auto status = cudaEventQuery(m_stop_evt);
+        if( status == cudaSuccess )
+        {
+          gpuSynchronizeStream();
+          float time_ms = 0.0f;      
+          checkCudaErrors( ONIKA_CU_EVENT_ELAPSED(time_ms,m_start_evt,m_stop_evt) );
+          m_total_gpu_execution_time += time_ms;
+          m_gpu_kernel_exec_count = 0;
+          m_kernel_count_condition.notify_all();
+        }
+        else if( status != cudaErrorNotReady )
+        {
+          checkCudaErrors( status );
+        }
+      }
       return ( m_omp_kernel_exec_count + m_gpu_kernel_exec_count ) == 0;
     }
     
@@ -164,7 +182,7 @@ namespace onika
             m_gpu_kernel_exec_count = 0;
           }
 
-          return m_omp_kernel_exec_count+m_gpu_kernel_exec_count == 0;
+          return ( m_omp_kernel_exec_count+m_gpu_kernel_exec_count ) == 0;
         });
       
       lk.unlock();
