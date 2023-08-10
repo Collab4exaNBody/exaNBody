@@ -1,6 +1,6 @@
 #pragma once
 
-#include <exanb/compute/compute_pair_singlemat_cell.h>
+#include <exanb/compute/compute_cell_particle_pairs_cell.h>
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
@@ -43,7 +43,7 @@ namespace exanb
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
       m_cell_profiler.start_cell_profiling(cell_a);
-      compute_pair_singlemat_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cs, symmetrical, m_cpfields, m_posfields , prefer_compute_buffer );
+      compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cs, symmetrical, m_cpfields, m_posfields , prefer_compute_buffer );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
   };
@@ -88,7 +88,7 @@ namespace exanb
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class FieldSetT , class PosFieldsT = DefaultPositionFields >
-  static inline void compute_pair_singlemat(
+  static inline void compute_cell_particle_pairs(
     GridT& grid,
     double rcut,
     bool enable_ghosts,
