@@ -58,6 +58,9 @@ namespace onika
       void omp_kernel_start();
       void omp_kernel_end();
 
+      cudaStream_t gpu_stream() const;
+      onika::cuda::CudaContext* gpu_context() const;
+      
       void gpuSynchronizeStream();
       bool queryStatus();
       void wait();
