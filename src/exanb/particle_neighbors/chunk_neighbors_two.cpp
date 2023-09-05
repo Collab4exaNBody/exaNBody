@@ -129,10 +129,8 @@ namespace exanb
         const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * BlocksPerSM;
 
         auto custream = exec_ctx->m_cuda_stream;        
-        exec_ctx->record_start_event();
-        exec_ctx->reset_counters();
-        auto * scratch = exec_ctx->m_cuda_scratch.get();
-        
+        exec_ctx->gpu_kernel_start();
+        auto * scratch = exec_ctx->m_cuda_scratch.get();        
         exec_ctx->reset_counters();
         size_t dev_scratch_mem_size = config->scratch_mem_per_cell * GridSize;
         onika::cuda::CudaDeviceStorage<uint8_t> dev_scratch_mem = onika::cuda::CudaDeviceStorage<uint8_t>::New( exec_ctx->m_cuda_ctx->m_devices[0] , dev_scratch_mem_size );
@@ -153,6 +151,7 @@ namespace exanb
         ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, chunk_neighbors_gpu_kernel, cells,dims,grid->cell_size(),grid->origin(),grid->offset(),*amr,nbh_config,max_dist,cs,cs_log2, dev_scratch_mem.get(),config->scratch_mem_per_cell , chunk_nbh, scratch, config->subcell_compaction );
 
         exec_ctx->retrieve_return_data( & chunk_neighbors->m_fixed_stream_pool );
+        exec_ctx->gpu_kernel_end();
         exec_ctx->wait();
         ldbg<<"kernel executed\n";
       }
