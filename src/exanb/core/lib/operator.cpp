@@ -628,8 +628,8 @@ namespace exanb
       }
       gpu_avg_inbalance /= gpu_total_exec_count;
 
-
       if( ppp.m_total_time < total_exec_time ) { ppp.m_total_time = total_exec_time; }
+      if( ppp.m_inner_loop_time < total_exec_time && is_looping() ) { ppp.m_inner_loop_time = total_exec_time; }
 
       assert( padding.length() >= 50 );
       int padlen = ( 50 - (name().length()+indent) ) ;
@@ -643,6 +643,10 @@ namespace exanb
           gpu_total_exec_time_str = format_string(" (%.2e)",gpu_total_exec_time);
         }
         out << format_string(" %*.*s % .3e%s%6.3f  %6.3f %9ld  %5.2f%%",padlen,padlen,padding,total_exec_time,gpu_total_exec_time_str,avg_inbalance,max_inbalance,total_exec_count,pt);
+        if( ppp.m_inner_loop_time > 0.0 )
+        {
+          out << format_string(" / %5.2f%%", 100.*total_exec_time/ppp.m_inner_loop_time );
+        }
       }
       else if( gpu_total_exec_count > 0 )
       {
