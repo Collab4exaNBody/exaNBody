@@ -61,7 +61,7 @@ namespace exanb
     ADD_SLOT( bool , force_lb_change, INPUT ,false , DocString{"Force particle packing/unpacking to and from send buffers even if a load balancing has not been triggered"} );
     
     // optional per cell set of scalar values
-    ADD_SLOT( GridCellValues , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( GridCellValues , grid_cell_values  , INPUT_OUTPUT , OPTIONAL , DocString{"Per grid cell scalar values to be migrated (optional)"} );
 
   public:
     // -----------------------------------------------
