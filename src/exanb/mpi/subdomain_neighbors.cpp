@@ -49,7 +49,7 @@ namespace exanb
       subdomain_neighbors->resize( np , SubDomainNeighborBlock{} );
       SubDomainNeighborBlock myself = { enlarge_block(*lb_block,gl) , rank };
       MPI_Allgather( (char*) &myself, sizeof(SubDomainNeighborBlock), MPI_CHAR, (char*) subdomain_neighbors->data(), sizeof(SubDomainNeighborBlock), MPI_CHAR, comm);
-      assert( subdomain_neighbors->at(rank) == myself );
+      assert( subdomain_neighbors->at(rank).m_rank == myself.m_rank );
       
       int j = 0;
       for(int i=0;i<np;i++)
