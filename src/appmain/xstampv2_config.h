@@ -70,6 +70,7 @@ xsv2ConfigBegin( onika                                        , "Onika sub-syste
   xsv2ConfigItem( int          , dag_tasks_per_thread ,   64  , "target number of tasks per thread" );
   xsv2ConfigItem( int          , dag_max_batch_size   , 4096  , "maximum tasks per batch only meaningful for scheduler fifo (2)" );
   xsv2ConfigItem( int          , dag_scheduler        ,   -1  , "DAG scheduler : 0=omp+depend , 1=native/ordering , 2 native/fifo , 3 GPU, default (-1) = auto" );
+  xsv2ConfigItem( StringVector , gpu_disable_filter   , {}    , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
   xsv2ConfigItem( int          , gpu_sm_mult          , ONIKA_CU_MIN_BLOCKS_PER_SM , "GPU number of blocks per SM" );
   xsv2ConfigItem( int          , gpu_sm_add           , 0     , "GPU number of blocks added to grid size" );
   xsv2ConfigItem( int          , gpu_block_size       , ONIKA_CU_MAX_THREADS_PER_BLOCK , "GPU kernel block size" );
