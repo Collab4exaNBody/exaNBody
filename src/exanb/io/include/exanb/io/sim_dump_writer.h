@@ -66,7 +66,7 @@ namespace exanb
       assert( static_cast<MPI_Offset>(write_offset) >= file.user_offset() );
       if( ! b.m_data.empty() )
       {
-        assert( b.m_n_particles > 0 );
+        // assert( b.m_n_particles > 0 ); // NOT NECESSARY : m_n_particles < 0 tells not to store compressed size
         assert( b.m_raw_size >= b.m_data.size() );
         assert( b.m_data.size() < std::numeric_limits<uint32_t>::max() );
         assert( b.m_raw_size < std::numeric_limits<uint32_t>::max() );

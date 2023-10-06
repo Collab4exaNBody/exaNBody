@@ -29,6 +29,11 @@ namespace onika
       return m_cuda_ctx != nullptr;
     }
     
+    onika::cuda::CudaContext* ParallelExecutionContext::gpu_context() const
+    {
+      return m_cuda_ctx;
+    }
+    
     void ParallelExecutionContext::init_device_scratch()
     {
       if( m_cuda_scratch == nullptr )
@@ -146,6 +151,12 @@ namespace onika
       checkCudaErrors( ONIKA_CU_STREAM_SYNCHRONIZE( m_cuda_stream ) );
 #     endif
     }
+
+    cudaStream_t ParallelExecutionContext::gpu_stream() const
+    {
+      return m_cuda_stream;
+    }
+
 
     bool ParallelExecutionContext::queryStatus()
     {

@@ -29,8 +29,14 @@ struct cudaDeviceProp
 using cudaStream_t = int;
 using cudaEvent_t = int*;
 using cudaError_t = int;
-static inline cudaError_t __onika_fake_cudaStreamCreate(cudaStream_t& s){s=0; return 0;}
-
+static inline constexpr int cudaSuccess = 0;
+static inline constexpr int cudaStreamNonBlocking = 0;
+static inline constexpr int cudaErrorNotReady = 0;
+static inline constexpr int cudaStreamCreateWithFlags(cudaStream_t*,int){return cudaSuccess;}
+template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyArgs...){return cudaSuccess;}
+#define cudaEventQuery _fake_cuda_api_noop
+#define cudaStreamAddCallback _fake_cuda_api_noop
+#define cudaStreamCreate _fake_cuda_api_noop
 #endif // ONIKA_CUDA_VERSION
 
 #include <onika/memory/memory_usage.h>

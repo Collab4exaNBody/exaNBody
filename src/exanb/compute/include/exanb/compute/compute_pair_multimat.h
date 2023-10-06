@@ -58,7 +58,7 @@ namespace exanb
         case 4 : compute_pair_multimat_cell(grid,tab,cell_a,rcuts,funcs,NTYPES,pair_id_map,optional, const_4, FieldSet<field_ids...>{}); break;
         case 8 : compute_pair_multimat_cell(grid,tab,cell_a,rcuts,funcs,NTYPES,pair_id_map,optional, const_8, FieldSet<field_ids...>{}); break;
         default:
-          lerr << "compute_pair_singlemat_cell: chunk size "<<chunk_size<<" not supported. Accepted values are 1, 2, 4, 8." << std::endl;
+          lerr << ":compute_pair_multimat_cell: chunk size "<<chunk_size<<" not supported. Accepted values are 1, 2, 4, 8." << std::endl;
           std::abort();
           break;
       }
@@ -72,7 +72,7 @@ namespace exanb
         case 4 : compute_pair_multimat_cell(grid,tab,cell_a,rcuts,funcs,NTYPES,IdentityPairIdMap{},optional, const_4, FieldSet<field_ids...>{}); break;
         case 8 : compute_pair_multimat_cell(grid,tab,cell_a,rcuts,funcs,NTYPES,IdentityPairIdMap{},optional, const_8, FieldSet<field_ids...>{}); break;
         default:
-          lerr << "compute_pair_singlemat_cell: chunk size "<<chunk_size<<" not supported. Accepted values are 1, 2, 4, 8." << std::endl;
+          lerr << "compute_pair_multimat_cell: chunk size "<<chunk_size<<" not supported. Accepted values are 1, 2, 4, 8." << std::endl;
           std::abort();
           break;
       }

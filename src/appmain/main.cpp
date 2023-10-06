@@ -179,6 +179,17 @@ int main(int argc,char*argv[])
   if( configuration.omp_num_threads > 0 )
   {
     ldbg << "configuration.omp_num_threads = "<<configuration.omp_num_threads<<std::endl;
+    std::string num_thread_str;
+    const char* old_num_thread_str = std::getenv("OMP_NUM_THREADS");
+    if( old_num_thread_str != nullptr ) num_thread_str = old_num_thread_str;
+    if( ! num_thread_str.empty() )
+    {
+      std::cout << "*WARNING* Overriding OpenMP's OMP_NUM_THREADS variable from "<<num_thread_str<<" to "<<configuration.omp_num_threads<<" because user speicified a positive value for configuration.omp_num_threads"<<std::endl;
+    }    
+    std::ostringstream oss;
+    oss << configuration.omp_num_threads;
+    num_thread_str = oss.str();
+    setenv( "OMP_NUM_THREADS" , num_thread_str.c_str() , 1 );
     omp_set_num_threads(configuration.omp_num_threads);
   }
   

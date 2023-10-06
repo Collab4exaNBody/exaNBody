@@ -34,7 +34,7 @@ namespace exanb
   
   template<class _Rx, class _Ry, class _Rz>
   ONIKA_HOST_DEVICE_FUNC static inline constexpr PosititionFields<_Rx,_Ry,_Rz> make_position_fields( _Rx , _Ry , _Rz ) { return {}; }
-  // compute_pair_singlemat( ... , make_position_fields( field::rx , field::ry , field::rz ) )
+  // compute_cell_particle_pairs( ... , make_position_fields( field::rx , field::ry , field::rz ) )
 
   /*
    * FIXME: compact pair weighting structure will need refactoring for cuda compatibility
@@ -42,7 +42,7 @@ namespace exanb
   template< class CellT, class CST, bool Symetric
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class PosFieldsT, bool PreferComputeBuffer, class... field_ids>
-  ONIKA_HOST_DEVICE_FUNC static inline void compute_pair_singlemat_cell(
+  ONIKA_HOST_DEVICE_FUNC static inline void compute_cell_particle_pairs_cell(
     CellT* cells,
     IJK dims,
     IJK loc_a,
