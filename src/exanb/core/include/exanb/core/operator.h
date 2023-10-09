@@ -231,6 +231,7 @@ namespace exanb
     void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
 
     // access GPUExecution context for this operator
+    void set_gpu_enabled(bool en);
     onika::parallel::ParallelExecutionContext* parallel_execution_context(unsigned int id=0);
     void account_gpu_execution(double t);
     
@@ -301,6 +302,8 @@ namespace exanb
     // allow OpenMP task creation
     bool m_omp_task_mode = false;
     
+    // allow gpu execution for this particular instance
+    bool m_gpu_execution_allowed = true;
     
     static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;
