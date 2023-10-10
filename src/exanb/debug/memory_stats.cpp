@@ -28,7 +28,7 @@ namespace exanb
     ADD_SLOT( bool     , rusage_stats, INPUT , true );
     ADD_SLOT( bool     , graph_slots, INPUT , true );
     ADD_SLOT( bool     , graph_res_mem, INPUT , false );
-    ADD_SLOT( long     , musage_threshold   , 1024 );
+    ADD_SLOT( long     , musage_threshold   , 1048576 );
     ADD_SLOT( long     , page_size , INPUT , 4096 );    
     
   public:
