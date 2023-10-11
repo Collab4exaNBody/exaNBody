@@ -116,6 +116,15 @@ namespace exanb
   // try to load a YAML file, and abort if any yaml execption is raised, printing exception message
   YAML::Node yaml_load_file_abort_on_except(const std::string& file_name)
   {
+    // test if file can be opened (YAML does not produce clear exception for this case)
+    {
+      std::ifstream fin(file_name);
+      if( ! fin )
+      {
+        fatal_error() << "Unable to open file "<<file_name<<std::endl;
+      }
+    }
+    
     try
     {
       YAML::Node node = YAML::LoadFile( file_name );
@@ -123,10 +132,14 @@ namespace exanb
     }
     catch(const YAML::Exception& e)
     {
-      lerr << "Error reading YAML file "<<file_name<<std::endl;
-      lerr << e.msg <<std::endl;
-      lerr << "at line " << e.mark.line <<", column "<<e.mark.column <<std::endl;
-      std::abort();
+      fatal_error() << "Error reading YAML file "<<file_name<<std::endl
+                    << e.msg <<std::endl
+                    << "at line " << e.mark.line
+                    <<", column "<<e.mark.column <<std::endl;
+    }
+    catch(...)
+    {
+      fatal_error() << "Unknown YAML error reading file "<<file_name<<std::endl;
     }
     return YAML::Node();
   }

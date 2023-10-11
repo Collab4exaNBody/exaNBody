@@ -152,7 +152,6 @@ macro(exaNBodyStartApplication)
 
   # embedded third party tools
   set(EXASTAMP_THIRDPARTY_DIR ${XNB_ROOT_DIR}/thirdparty)
-  find_path(TKSPLINE_INCLUDE_DIRS tk/spline.h)
 
   set(NAIVEMATRIX_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR})
   set(BASEN_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/base-n/include)
@@ -287,7 +286,6 @@ macro(exaNBodyStartApplication)
     ${PROJECT_BINARY_DIR}/include
     ${YAML_CPP_INCLUDE_DIR}
     ${MPI_CXX_INCLUDE_PATH}
-    ${TKSPLINE_INCLUDE_DIRS}
     ${TINYEXPR_INCLUDE_DIRS}
     ${NAIVEMATRIX_INCLUDE_DIRS}
     )
@@ -300,6 +298,11 @@ macro(exaNBodyStartApplication)
       ${MPI_CXX_LIBRARIES}
       ${XNB_APP_LIBRARIES}
       tinyexpr)
+
+  # Regression tests configuration 
+  option(XNB_TEST_SEQ "Enable Sequential tests" OFF)
+  option(XNB_TEST_MT "Enable MultiThread only tests" OFF)
+  option(XNB_TEST_MPI "Enable MPI+Threads tests" ON)
 
   # build components, plugins and builtin tests
   add_subdirectory(${XNB_ROOT_DIR}/src ${XNB_BINARY_DIR})
