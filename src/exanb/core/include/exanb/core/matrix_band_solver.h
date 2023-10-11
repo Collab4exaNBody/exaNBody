@@ -10,14 +10,16 @@ namespace exanb
 
   class MatrixBandSolver
   {
-    std::vector< std::vector<double> > m_upper_band; 
-    std::vector< std::vector<double> > m_lower_band;  
+    std::vector< std::vector<double> > m_upper_band;
+    std::vector< std::vector<double> > m_lower_band;
+    int m_width = 0;
+      
   public:
     MatrixBandSolver() = default;                 
     MatrixBandSolver(int dim, int n_u, int n_l);     
     ~MatrixBandSolver() = default;                    
     void resize(int dim, int n_u, int n_l);      
-    int dim() const;                              
+    inline int width() const { return m_width; }
     inline int upper_size() const { return m_upper_band.size()-1; }
     inline int lower_size() const { return m_lower_band.size()-1; }
 
