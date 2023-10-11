@@ -11,6 +11,7 @@
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/file_utils.h>
+#include <exanb/core/yaml_utils.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/quantity.h>
 #include <exanb/core/unityConverterHelper.h>
@@ -93,13 +94,17 @@ namespace exanb
       {
         lout << "\n\n**********************\n**********************\n";
         lout << "** Reference file "<<file_name<<"\n";
-        YAML::Node data = YAML::LoadFile(file_name);
+        YAML::Node raw_data = yaml_load_file_abort_on_except(file_name);
         double length_scale = 1.0;
 
-        if( ! data.IsMap() )
+        
+        YAML::Node data;
+        if( raw_data.IsMap() ) { data = raw_data; }
+        else
         {
-          lerr << "check file format not supported\n";
-          std::abort();
+          lout << "** Warning: reference file uses obsolete format. This format will be unsupported in future releases."<<std::endl;
+          data["values"] = raw_data;
+          data["length_unit"] = "1.0 nm"; 
         }
         if( data["length_unit"] ) { length_scale = data["length_unit"].as<Quantity>().convert(); }
         reference_values = data["values"].as< std::vector<ParticleReferenceValue> >();
