@@ -161,6 +161,11 @@ namespace exanb
       std::swap( coefs[0] , coefs[3] );
       std::swap( coefs[1] , coefs[2] );
 
+      // normalize coeeficient values to avoid extreme high, or extreme low values
+      double min_abs_non_0 = -1.0;
+      for(int i=0;i<4;i++) if( coefs[i] != 0.0 ) if( fabs(coefs[i]) < min_abs_non_0 || min_abs_non_0 < 0.0 ) min_abs_non_0 = fabs(coefs[i]);
+      if( min_abs_non_0 > 0.0 ) for(int i=0;i<4;i++) coefs[i] /= min_abs_non_0;
+
       lout << "CostModelFit: best fit parameters : A="<<std::setprecision(3)<< coefs[0] << ", B="<< coefs[1] <<", C="<< coefs[2] <<", D="<< coefs[3] << std::endl;
     }
 
