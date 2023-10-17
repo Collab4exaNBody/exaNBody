@@ -446,16 +446,18 @@ namespace exanb
 
       double total_gpu_time = 0.0;
       double total_async_cpu_time = 0.0;
+      bool account_for_async_exec_time = false;
       for(auto gpuctx:m_parallel_execution_contexts)
       {
         if( gpuctx != nullptr )
         {
+          account_for_async_exec_time = true;
           total_gpu_time += gpuctx->collect_gpu_execution_time();
           total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
         }
       }
-      if( total_gpu_time > 0.0 ) { m_gpu_times.push_back( total_gpu_time ); }
-      if( total_async_cpu_time > 0.0 ) { m_async_cpu_times.push_back( total_async_cpu_time ); }
+      m_gpu_times.push_back( total_gpu_time ); // account for 0 (no GPU or async) execution times, to avoid asymetry between mpi processes
+      m_async_cpu_times.push_back( total_async_cpu_time );
 
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_end_task_context2( tsk_ctx, this );
@@ -591,7 +593,19 @@ namespace exanb
       double avg_inbalance = 0.0;
       double max_inbalance = 0.0;
 
-      //lout<<std::endl<<name()<<" pre m_exec_times ("<<m_exec_times.size()<<") : "; for(auto d:m_exec_times) lout<<d<<" "; lout<<std::endl;
+      // check cpu executions counts consistency
+      {
+        std::vector<double> exec_counts( 1 , total_exec_count );
+        std::vector<double> exec_counts_min( 1 , 0.0 );
+        std::vector<double> exec_counts_max( 1 , 0.0 );
+        std::vector<double> exec_counts_avg( 1 , 0.0 );
+        pstat( exec_counts, np, rank, exec_counts_min, exec_counts_max, exec_counts_avg );
+        if( exec_counts_max[0] != exec_counts_min[0] )
+        {
+          fatal_error() << "OperatorNode::pretty_print ("<<pathname()<<") : P "<<rank<<" / "<<np<<" : execs = "<<total_exec_count<<", min="<<exec_counts_min[0]<<", max="<<exec_counts_max[0]<<std::endl;
+        }
+      }
+
       pstat( m_exec_times, np, rank, min_time, max_time, avg_time );
       assert( avg_time.size() == total_exec_count );
       assert( min_time.size() == total_exec_count );
@@ -618,6 +632,18 @@ namespace exanb
       double gpu_total_exec_time = 0.0;
       double gpu_avg_inbalance = 0.0;
       double gpu_max_inbalance = 0.0;
+      // check GPU executions counts consistency
+      {
+        std::vector<double> exec_counts( 1 , gpu_total_exec_count );
+        std::vector<double> exec_counts_min( 1 , 0.0 );
+        std::vector<double> exec_counts_max( 1 , 0.0 );
+        std::vector<double> exec_counts_avg( 1 , 0.0 );
+        pstat( exec_counts, np, rank, exec_counts_min, exec_counts_max, exec_counts_avg );
+        if( exec_counts_max[0] != exec_counts_min[0] )
+        {
+          fatal_error() << "OperatorNode::pretty_print ("<<pathname()<<") : P "<<rank<<" / "<<np<<" : GPU execs = "<<gpu_total_exec_count<<", min="<<exec_counts_min[0]<<", max="<<exec_counts_max[0]<<std::endl;
+        }
+      }
       pstat( m_gpu_times, np, rank, gpu_min_time, gpu_max_time, gpu_avg_time );
       assert( gpu_avg_time.size() == gpu_total_exec_count );
       assert( gpu_min_time.size() == gpu_total_exec_count );
@@ -643,7 +669,7 @@ namespace exanb
       if( pt >= 0.01 )
       {
         std::string gpu_total_exec_time_str = "           ";
-        if( gpu_total_exec_count > 0 )
+        if( gpu_total_exec_count > 0 && gpu_total_exec_time > 0.0 )
         {
           gpu_total_exec_time_str = format_string(" (%.2e)",gpu_total_exec_time);
         }
@@ -653,7 +679,7 @@ namespace exanb
           out << format_string(" / %5.2f%%", 100.*total_exec_time/ppp.m_inner_loop_time );
         }
       }
-      else if( gpu_total_exec_count > 0 )
+      else if( gpu_total_exec_count > 0 && gpu_total_exec_time > 0.0 )
       {
         out << " (G)";
       }

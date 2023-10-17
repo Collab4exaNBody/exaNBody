@@ -42,6 +42,8 @@ namespace exanb
     template<class WriteFuncT> static inline constexpr size_t write_optional_header( WriteFuncT ) { return 0; }
     template<class ReadFuncT> static inline constexpr size_t read_optional_header( ReadFuncT ) { return 0; }
     static inline constexpr void process_domain(Domain&,Mat3d&) {}
+    static inline constexpr bool particle_input_filter(const Vec3d&) { return true; } // returns false if particle is to be ignored
+    static inline constexpr void post_process_domain(Domain&) {}
     static inline constexpr size_t optional_cell_data_size(size_t) { return 0; }
     static inline constexpr  const uint8_t* optional_cell_data_ptr(size_t) { return nullptr; }
     static inline constexpr void read_optional_data_from_stream( const uint8_t* , size_t ) {}
