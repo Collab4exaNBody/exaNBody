@@ -461,25 +461,25 @@ namespace exanb
         {
           T* allocated_value = new T();
           bool decode_success = false;
+          std::ostringstream errstr;
           try
           {
             decode_success = YAMLConvertWrapper<T>::decode(node,*allocated_value);
           }
           catch(const YAML::Exception& e)
           {
-            lerr << "Error reading value for slot "<<sname<<std::endl;
-            lerr << "at line " << e.mark.line <<", column "<<e.mark.column <<std::endl;
+            errstr << "Error reading value for slot "<<sname<<std::endl
+                   << "at line " << e.mark.line <<", column "<<e.mark.column <<std::endl;
             decode_success = false;
           }
           if( ! decode_success )
           {
-            lerr << "could not convert key "<< sname <<" to type "<< pretty_short_type<T>() << " in node "<< oname << std::endl;
-            lerr << "Owner node @ " <<owner <<std::endl;
-            lerr << "YAML data is :" <<std::endl;
-            dump_node_to_stream( lerr , node );
-            lerr << std::endl << std::flush;
+            errstr << "could not convert key "<< sname <<" to type "<< pretty_short_type<T>() << " in node "<< oname << std::endl
+                   << "Owner node @ " <<owner <<std::endl
+                   << "YAML data is :" <<std::endl;
+            dump_node_to_stream( errstr , node );
             delete allocated_value;
-            std::abort();
+            fatal_error() << errstr.str() << std::endl << std::flush;
           }
           return allocated_value;
         }
@@ -492,13 +492,13 @@ namespace exanb
 
     inline void yaml_initialize_priv(const YAML::Node& node, std::false_type )
     {
+      std::ostringstream errstr;
       //initialize_value( [this,node](T& value)
       //  {
-          lerr << "no YAML conversion (known at compile time) for key "<< OperatorSlotBase::name() <<" to type "<<pretty_short_type<T>() << " in node "<< this->owner()->name() <<std::endl;
-          lerr << "YAML data is :" <<std::endl;
-          dump_node_to_stream( lerr , node );
-          lerr << std::endl;
-          std::abort();      
+          errstr << "no YAML conversion (known at compile time) for key "<< OperatorSlotBase::name() <<" to type "<<pretty_short_type<T>() << " in node "<< this->owner()->name() <<std::endl
+                 << "YAML data is :" <<std::endl;
+          dump_node_to_stream( errstr , node );
+          fatal_error() << errstr.str() << std::endl << std::flush;
       //  } );
     }
 
