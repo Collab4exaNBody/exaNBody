@@ -5,7 +5,7 @@
 #include <exanb/core/domain.h>
 #include <exanb/core/string_utils.h>
 
-#include <tk/spline.h>
+#include <exanb/core/spline.h>
 
 namespace exanb
 {
@@ -27,9 +27,9 @@ namespace exanb
       size_t N = X.size();
       std::vector<double> Y(N,0.0);
       for(size_t i=0;i<N;i++) { Y[i] = yfunc(i); }
-      tk::spline s;
+      exanb::Spline s;
       s.set_points(X,Y);    // X needs to be sorted, strictly increasing
-      return s(ix);
+      return s.eval(ix);
     }
 
     inline void execute ()  override final
