@@ -507,6 +507,11 @@ namespace exanb
     }    
   }
 
+  void OperatorNode::set_gpu_enabled(bool b)
+  {
+    m_gpu_execution_allowed = b;
+  }
+
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
   {
     if( id >= m_parallel_execution_contexts.size() )
@@ -517,7 +522,7 @@ namespace exanb
     {
       m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::ParallelExecutionContext >();
       m_parallel_execution_contexts[id]->m_streamIndex = id;
-      m_parallel_execution_contexts[id]->m_cuda_ctx = global_cuda_ctx();
+      m_parallel_execution_contexts[id]->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
       m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     }
     return m_parallel_execution_contexts[id].get();
@@ -628,8 +633,8 @@ namespace exanb
       }
       gpu_avg_inbalance /= gpu_total_exec_count;
 
-
       if( ppp.m_total_time < total_exec_time ) { ppp.m_total_time = total_exec_time; }
+      if( ppp.m_inner_loop_time < total_exec_time && is_looping() ) { ppp.m_inner_loop_time = total_exec_time; }
 
       assert( padding.length() >= 50 );
       int padlen = ( 50 - (name().length()+indent) ) ;
@@ -643,6 +648,10 @@ namespace exanb
           gpu_total_exec_time_str = format_string(" (%.2e)",gpu_total_exec_time);
         }
         out << format_string(" %*.*s % .3e%s%6.3f  %6.3f %9ld  %5.2f%%",padlen,padlen,padding,total_exec_time,gpu_total_exec_time_str,avg_inbalance,max_inbalance,total_exec_count,pt);
+        if( ppp.m_inner_loop_time > 0.0 )
+        {
+          out << format_string(" / %5.2f%%", 100.*total_exec_time/ppp.m_inner_loop_time );
+        }
       }
       else if( gpu_total_exec_count > 0 )
       {

@@ -58,19 +58,39 @@ namespace exanb
         send_pack_async.assign( nprocs , nullptr );
         recv_unpack_async.assign( nprocs , nullptr );
       }
-      
-      inline void set_partner_buffer_sizes(int p, size_t recvbytes, size_t sendbytes)
+            
+      inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components )
       {
-        recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + recvbytes;
-        send_buffer_offsets[p+1] = send_buffer_offsets[p] + sendbytes;
-      }
+        int nprocs = comm_scheme.m_partner.size();
+        initialize_partners( nprocs );
+        recv_buffer_offsets[0] = 0;
+        send_buffer_offsets[0] = 0;
+        for(int p=0;p<nprocs;p++)
+        {   
+          const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
+          size_t particles_to_receive = 0;
+          for(size_t i=0;i<cells_to_receive;i++)
+          {
+            particles_to_receive += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
+          }
+          const size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+          
+          const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
+          size_t particles_to_send = 0;
+          for(size_t i=0;i<cells_to_send;i++)
+          {
+            particles_to_send += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+          }
+          const size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+
+          recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + receive_size;
+          send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;
+        }
       
-      inline void resize_buffers()
-      {
         recv_buffer.clear();
         recv_buffer.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
         send_buffer.clear();
-        send_buffer.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
+        send_buffer.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
       }
       
       inline size_t sendbuf_size(int p) const { return send_buffer_offsets[p+1] - send_buffer_offsets[p]; } 
@@ -85,13 +105,13 @@ namespace exanb
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
     struct GhostSendPackFunctor
     {
-      const GhostCellSendScheme * const __restrict__ m_sends = nullptr;
-      const CellParticles * const __restrict__ m_cells = nullptr;
-      const GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
-      const size_t m_cell_scalar_components = 0;
-      uint8_t * const __restrict__ m_data_ptr_base = nullptr;
-      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      const GhostCellSendScheme * m_sends = nullptr;
+      const CellParticles * m_cells = nullptr;
+      const GridCellValueType * m_cell_scalars = nullptr;
+      size_t m_cell_scalar_components = 0;
+      uint8_t * m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
+      uint8_t * m_staging_buffer_ptr = nullptr;
 
       inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_epilog_t ) const
       {
@@ -113,6 +133,7 @@ namespace exanb
       {
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        assert( byte_offset < m_data_buffer_size );
         uint8_t* data_ptr = m_data_ptr_base + byte_offset; //m_sends[i].m_send_buffer_offset;
         CellParticlesUpdateData* data = (CellParticlesUpdateData*) data_ptr;
 
@@ -147,16 +168,14 @@ namespace exanb
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
     struct GhostReceiveUnpackFunctor
     {
-      const GhostCellReceiveScheme * const __restrict__ m_receives = nullptr;
-      const uint64_t * const __restrict__ m_cell_offset = nullptr;
-      uint8_t * const __restrict__ m_data_ptr_base = nullptr;
-
-      CellParticles * const __restrict__ m_cells = nullptr;
-      const size_t m_cell_scalar_components = 0;
-      GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
-
-      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      const GhostCellReceiveScheme * m_receives = nullptr;
+      const uint64_t * m_cell_offset = nullptr;
+      uint8_t * m_data_ptr_base = nullptr;
+      CellParticles * m_cells = nullptr;
+      size_t m_cell_scalar_components = 0;
+      GridCellValueType * m_cell_scalars = nullptr;
       size_t m_data_buffer_size = 0;
+      uint8_t * m_staging_buffer_ptr = nullptr;
 
       inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_prolog_t ) const
       {
@@ -178,6 +197,7 @@ namespace exanb
       {
         const size_t particle_offset = m_cell_offset[i];
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        assert( byte_offset < m_data_buffer_size );
         const uint8_t * const __restrict__ data_ptr = m_data_ptr_base + byte_offset; //m_cell_offset[i];
         const CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
 

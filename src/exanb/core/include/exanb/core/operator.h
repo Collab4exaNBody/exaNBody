@@ -86,6 +86,7 @@ namespace exanb
     struct ProfilePrintParameters
     {
       double m_total_time = 0.0;
+      double m_inner_loop_time = 0.0;
       bool m_print_profiling = false;
     };
 
@@ -111,7 +112,11 @@ namespace exanb
     virtual inline std::string documentation() const { return std::string(); }
     
     // print operator and its sub graph with various level of details
-    inline LogStreamWrapper& pretty_print(LogStreamWrapper& out, int details, bool prof = false, ParallelValueStatsFunc pstat = default_parallel_stats_func ) { ProfilePrintParameters p{0.,prof}; return pretty_print(out,details,0,p,pstat); }
+    inline LogStreamWrapper& pretty_print(LogStreamWrapper& out, int details, bool prof = false, ParallelValueStatsFunc pstat = default_parallel_stats_func )
+    {
+      ProfilePrintParameters p{0.,0.,prof};
+      return pretty_print(out,details,0,p,pstat);
+    }
     virtual LogStreamWrapper& pretty_print(LogStreamWrapper& out, int details, int indent, ProfilePrintParameters& ppp, ParallelValueStatsFunc pstat );
     
     // populate user given inputs from YAML config file
@@ -226,6 +231,7 @@ namespace exanb
     void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
 
     // access GPUExecution context for this operator
+    void set_gpu_enabled(bool en);
     onika::parallel::ParallelExecutionContext* parallel_execution_context(unsigned int id=0);
     void account_gpu_execution(double t);
     
@@ -296,6 +302,8 @@ namespace exanb
     // allow OpenMP task creation
     bool m_omp_task_mode = false;
     
+    // allow gpu execution for this particular instance
+    bool m_gpu_execution_allowed = true;
     
     static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;

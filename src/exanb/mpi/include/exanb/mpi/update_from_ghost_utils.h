@@ -18,15 +18,15 @@ namespace exanb
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class UpdateFuncT>
     struct GhostSendUnpackFromReceiveBuffer
     {
-      const GhostCellSendScheme * const __restrict__ m_sends = nullptr;
-      CellParticles * const __restrict__ m_cells = nullptr;
-      GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
-      const size_t m_cell_scalar_components = 0;
-      uint8_t* const __restrict__ m_data_ptr_base = nullptr;
-      UpdateFuncT m_merge_func;
-
-      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      const GhostCellSendScheme * __restrict__ m_sends = nullptr;
+      CellParticles * __restrict__ m_cells = nullptr;
+      GridCellValueType * __restrict__ m_cell_scalars = nullptr;
+      size_t m_cell_scalar_components = 0;
+      uint8_t* __restrict__ m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
+      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+
+      UpdateFuncT m_merge_func;
 
       inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_prolog_t ) const
       {
@@ -48,6 +48,7 @@ namespace exanb
       {
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        assert( byte_offset < m_data_buffer_size );
         const uint8_t* data_ptr = m_data_ptr_base + byte_offset; //m_sends[i].m_send_buffer_offset;
         const CellParticlesUpdateData * data = (const CellParticlesUpdateData*) data_ptr;
 
@@ -76,16 +77,14 @@ namespace exanb
     template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
     struct GhostReceivePackToSendBuffer
     {
-      const GhostCellReceiveScheme * const __restrict__ m_receives = nullptr;
-      const uint64_t * const __restrict__ m_cell_offset = nullptr; 
-      uint8_t * const __restrict__ m_data_ptr_base = nullptr;
-
-      const CellParticles * const __restrict__ m_cells = nullptr;
-      const size_t m_cell_scalar_components = 0;
-      const GridCellValueType * const __restrict__ m_cell_scalars = nullptr;
-
-      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      const GhostCellReceiveScheme * __restrict__ m_receives = nullptr;
+      const uint64_t * __restrict__ m_cell_offset = nullptr; 
+      uint8_t * __restrict__ m_data_ptr_base = nullptr;
+      const CellParticles * __restrict__ m_cells = nullptr;
+      size_t m_cell_scalar_components = 0;
+      const GridCellValueType * __restrict__ m_cell_scalars = nullptr;
       size_t m_data_buffer_size = 0;
+      uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
 
       inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_epilog_t ) const
       {
@@ -107,6 +106,7 @@ namespace exanb
       {
         const size_t particle_offset = m_cell_offset[i];
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        assert( byte_offset < m_data_buffer_size );
         uint8_t * const __restrict__ data_ptr = m_data_ptr_base + byte_offset;
         CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
 

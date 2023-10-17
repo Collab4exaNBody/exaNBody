@@ -5,6 +5,9 @@
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 
+#include <mutex>
+#include <condition_variable>
+
 namespace onika
 {
 
@@ -50,8 +53,16 @@ namespace onika
       void set_return_data( const void* ptr, size_t sz );
       void* get_device_return_data_ptr();
       void retrieve_return_data( void* ptr, size_t sz );
-      void record_start_event();
+      void gpu_kernel_start();
+      void gpu_kernel_end();
+      void omp_kernel_start();
+      void omp_kernel_end();
+
+      cudaStream_t gpu_stream() const;
+      onika::cuda::CudaContext* gpu_context() const;
+      
       void gpuSynchronizeStream();
+      bool queryStatus();
       void wait();
       double collect_gpu_execution_time();
       double collect_async_cpu_execution_time();
@@ -78,8 +89,13 @@ namespace onika
       
       // desired number of tasks.
       // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
-      // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single->taskgroup), thus uses taskloop construcut underneath
+      // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single/master->taskgroup), thus uses taskloop construcut underneath
       unsigned int m_omp_num_tasks = 0;
+      
+      std::mutex m_kernel_count_mutex;
+      std::condition_variable m_kernel_count_condition;
+      uint64_t m_omp_kernel_exec_count = 0;
+      uint64_t m_gpu_kernel_exec_count = 0; // number of currently executing GPU kernels
 
       cudaStream_t m_cuda_stream;
       cudaEvent_t m_start_evt = nullptr;
@@ -88,8 +104,6 @@ namespace onika
       double m_total_async_cpu_execution_time = 0.0;
 
       double m_total_gpu_execution_time = 0.0;
-      unsigned int m_gpu_kernel_exec_count = 0; // number of currently executing GPU kernels
-
     };
 
   }
