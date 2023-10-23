@@ -259,59 +259,63 @@ namespace exanb
         Vec3d r = ro;
         IJK loc = domain_periodic_location( domain, r ) - grid.offset();
 
-        if( ! grid.contains(loc) )
+        // optionally filter out some particles at read time
+        if( dump_filter.particle_input_filter( domain.xform() * r ) )
         {
-          IJK badloc = loc;
-          if( loc.i < 0 ) loc.i = 0;
-          else if( loc.i >= domain.grid_dimension().i ) loc.i = domain.grid_dimension().i - 1;
-          if( loc.j < 0 ) loc.j = 0;
-          else if( loc.j >= domain.grid_dimension().j ) loc.j = domain.grid_dimension().j - 1;
-          if( loc.k < 0 ) loc.k = 0;
-          else if( loc.k >= domain.grid_dimension().k ) loc.k = domain.grid_dimension().k - 1;
+          if( ! grid.contains(loc) )
+          {
+            IJK badloc = loc;
+            if( loc.i < 0 ) loc.i = 0;
+            else if( loc.i >= domain.grid_dimension().i ) loc.i = domain.grid_dimension().i - 1;
+            if( loc.j < 0 ) loc.j = 0;
+            else if( loc.j >= domain.grid_dimension().j ) loc.j = domain.grid_dimension().j - 1;
+            if( loc.k < 0 ) loc.k = 0;
+            else if( loc.k >= domain.grid_dimension().k ) loc.k = domain.grid_dimension().k - 1;
+            
+            double dist = min_distance_between( r , grid.cell_bounds(loc) );
+            if( dist < grid.cell_size()*1.e-3 )
+            {
+              lerr << "Warning: outside particle, location adjusted from "<<badloc<<" to "<<loc<<", distance="<<dist<<std::endl;
+            }
+            else
+            {
+              lerr<<"Domain = "<<domain<<std::endl;
+              lerr<<"Domain size = "<<domain.bounds_size()<<std::endl;
+              lerr<<"particle #"<<at_id<<", ro="<<ro<<", r="<<r<<"<< in cell "<<loc<<" (dist="<<dist <<") not in grid : offset="<<grid.offset()<<std::endl<<std::flush;
+              std::abort();
+            }
+          }
+
+          if( ro == Vec3d{0,0,0} )
+          {
+            ++ n_zero_in;
+            if( zero_seq_start == -1 ) { zero_seq_start=at_id; zero_seq_end=at_id+1; }
+            else if( ssize_t(at_id) == zero_seq_end ) { ++ zero_seq_end; }
+          }
+          else if( zero_seq_end>zero_seq_start )
+          {
+            ldbg << "particles #"<<zero_seq_start<<"-"<<(zero_seq_end-1)<<" ("<<zero_seq_end-zero_seq_start<<") are located at (0,0,0)" << std::endl;
+            zero_seq_start = -1;
+            zero_seq_end = -1;
+          }
           
-          double dist = min_distance_between( r , grid.cell_bounds(loc) );
-          if( dist < grid.cell_size()*1.e-3 )
-          {
-            lerr << "Warning: outside particle, location adjusted from "<<badloc<<" to "<<loc<<", distance="<<dist<<std::endl;
-          }
-          else
-          {
-            lerr<<"Domain = "<<domain<<std::endl;
-            lerr<<"Domain size = "<<domain.bounds_size()<<std::endl;
-            lerr<<"particle #"<<at_id<<", ro="<<ro<<", r="<<r<<"<< in cell "<<loc<<" (dist="<<dist <<") not in grid : offset="<<grid.offset()<<std::endl<<std::flush;
-            std::abort();
-          }
-        }
+          if( r == Vec3d{0,0,0} ) { ++ n_zero; }
 
-        if( ro == Vec3d{0,0,0} )
-        {
-          ++ n_zero_in;
-          if( zero_seq_start == -1 ) { zero_seq_start=at_id; zero_seq_end=at_id+1; }
-          else if( ssize_t(at_id) == zero_seq_end ) { ++ zero_seq_end; }
-        }
-        else if( zero_seq_end>zero_seq_start )
-        {
-          ldbg << "particles #"<<zero_seq_start<<"-"<<(zero_seq_end-1)<<" ("<<zero_seq_end-zero_seq_start<<") are located at (0,0,0)" << std::endl;
-          zero_seq_start = -1;
-          zero_seq_end = -1;
-        }
-        
-        if( r == Vec3d{0,0,0} ) { ++ n_zero; }
+          // update particle's position with respect to boundary conditions
+          tp[field::rx] = r.x;
+          tp[field::ry] = r.y;
+          tp[field::rz] = r.z;
 
-        // update particle's position with respect to boundary conditions
-        tp[field::rx] = r.x;
-        tp[field::ry] = r.y;
-        tp[field::rz] = r.z;
-
-        const size_t cell_idx = grid_ijk_to_index( grid_dims , loc );
-        auto & cell = grid.cell(cell_idx);
-        const size_t p_idx = cell.size();
-        assert( is_inside( grid.cell_bounds(loc) , Vec3d{tp[field::rx],tp[field::ry],tp[field::rz]} ) );
-        cell.push_back( tp );
-        dump_filter.append_cell_particle( cell_idx , p_idx );
-        ++ at_id;
-        ++ particle_count;
-      } 
+          const size_t cell_idx = grid_ijk_to_index( grid_dims , loc );
+          auto & cell = grid.cell(cell_idx);
+          const size_t p_idx = cell.size();
+          assert( is_inside( grid.cell_bounds(loc) , Vec3d{tp[field::rx],tp[field::ry],tp[field::rz]} ) );
+          cell.push_back( tp );
+          dump_filter.append_cell_particle( cell_idx , p_idx );
+          ++ at_id;
+          ++ particle_count;          
+        }
+      }
 
       // lout.progress_bar("Loading ",(i+1)*1.0/local_chunk_count);
     }            
@@ -343,6 +347,10 @@ namespace exanb
       std::abort();
     }
 
+    dump_filter.post_process_domain( domain );
+    IJK cell_shift = make_ijk( floor( ( domain.origin() - grid.origin() ) / domain.cell_size() ) );
+    grid.set_origin( grid.origin() + cell_shift * domain.cell_size() );
+    grid.set_offset( grid.offset() - cell_shift );
     grid.rebuild_particle_offsets();
     assert( check_particles_inside_cell(grid/*,true,true*/) );
     ldbg << "grid has "<< grid.number_of_particles() << " particles" << std::endl; 
