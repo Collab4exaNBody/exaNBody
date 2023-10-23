@@ -54,13 +54,13 @@ namespace exanb
       const unsigned int n = m_cells[cell_a].size();
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
       {
-			  if constexpr ( ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdxt)
+			  if constexpr (  !ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx )
 				{
-	        m_func(cell_a, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
 				else
 				{
-	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+	        m_func(cell_a, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
       }
     }
