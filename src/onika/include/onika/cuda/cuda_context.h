@@ -11,11 +11,6 @@
 
 #else
 
-#define ONIKA_CU_PROF_RANGE_PUSH(s) do{}while(false)
-#define ONIKA_CU_PROF_RANGE_POP() do{}while(false)
-#define ONIKA_CU_MEM_PREFETCH(ptr,sz,d,st) do{}while(false)
-#define ONIKA_CU_CREATE_STREAM_NON_BLOCKING(streamref) __onika_fake_cudaStreamCreate(streamref)
-
 struct cudaDeviceProp
 {
   char name[256];
@@ -34,10 +29,18 @@ static inline constexpr int cudaStreamNonBlocking = 0;
 static inline constexpr int cudaErrorNotReady = 0;
 static inline constexpr int cudaStreamCreateWithFlags(cudaStream_t*,int){return cudaSuccess;}
 template<class... AnyArgs> static inline constexpr int _fake_cuda_api_noop(AnyArgs...){return cudaSuccess;}
+
 #define cudaEventQuery _fake_cuda_api_noop
 #define cudaStreamAddCallback _fake_cuda_api_noop
 #define cudaStreamCreate _fake_cuda_api_noop
+
+#define ONIKA_CU_PROF_RANGE_PUSH            _fake_cuda_api_noop
+#define ONIKA_CU_PROF_RANGE_POP             _fake_cuda_api_noop
+#define ONIKA_CU_MEM_PREFETCH               _fake_cuda_api_noop
+#define ONIKA_CU_CREATE_STREAM_NON_BLOCKING _fake_cuda_api_noop
+
 #endif // ONIKA_CUDA_VERSION
+
 
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda_error.h>

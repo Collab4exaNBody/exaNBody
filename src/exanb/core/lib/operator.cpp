@@ -446,12 +446,10 @@ namespace exanb
 
       double total_gpu_time = 0.0;
       double total_async_cpu_time = 0.0;
-      bool account_for_async_exec_time = false;
       for(auto gpuctx:m_parallel_execution_contexts)
       {
         if( gpuctx != nullptr )
         {
-          account_for_async_exec_time = true;
           total_gpu_time += gpuctx->collect_gpu_execution_time();
           total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
         }
