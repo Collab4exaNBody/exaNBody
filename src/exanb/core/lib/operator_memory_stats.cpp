@@ -59,8 +59,6 @@ namespace exanb
 
   void print_operator_memory_stats(exanb::OperatorNode* simulation_graph , MPI_Comm comm , size_t musage_threshold )
   {
-    
-
     int rank=0, np=1;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &np);
