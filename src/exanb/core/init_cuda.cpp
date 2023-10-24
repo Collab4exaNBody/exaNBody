@@ -77,7 +77,7 @@ namespace exanb
           fatal_error()<<"Unsupported configuration: number of threads ("<<max_threads<<") less than number of GPUs ("<<ndev<<")"<<std::endl;
         }
         ldbg << "support for a maximum of "<<max_threads<<" threads accessing "<<ndev<<" GPUs"<<std::endl;
-        cuda_ctx->m_threadStream.resize( ndev , 0 );
+        //cuda_ctx->m_threadStream.resize( ndev , 0 );
         assert( ndev > 0 );
         
         checkCudaErrors( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );

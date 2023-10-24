@@ -25,9 +25,7 @@ namespace onika
         m_threadStream.resize( tid+1 , 0 );
         for(;i<m_threadStream.size();i++)
         {
-          std::cout << "create stream #"<<i<<std::endl;
           checkCudaErrors( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
-          // cudaStreamCreateWithFlags( & m_threadStream[i], cudaStreamNonBlocking );
         }
       }
       return m_threadStream[tid];
