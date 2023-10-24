@@ -77,22 +77,10 @@ namespace onika
     {
       std::vector<CudaDevice> m_devices;
       std::vector<cudaStream_t> m_threadStream;
-      inline bool has_devices() const { return ! m_devices.empty(); }
-      inline unsigned int device_count() const { return m_devices.size(); }
-      inline cudaStream_t getThreadStream(unsigned int tid)
-      {
-        if( tid >= m_threadStream.size() )
-        {
-          unsigned int i = m_threadStream.size();
-          m_threadStream.resize( tid+1 , 0 );
-          for(;i<m_threadStream.size();i++)
-          {
-            checkCudaErrors( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
-            // cudaStreamCreateWithFlags( & m_threadStream[i], cudaStreamNonBlocking );
-          }
-        }
-        return m_threadStream[tid];
-      }
+
+      bool has_devices() const;
+      unsigned int device_count() const;
+      cudaStream_t getThreadStream(unsigned int tid);
     };
 
   }

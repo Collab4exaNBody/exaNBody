@@ -77,32 +77,20 @@ namespace exanb
           fatal_error()<<"Unsupported configuration: number of threads ("<<max_threads<<") less than number of GPUs ("<<ndev<<")"<<std::endl;
         }
         ldbg << "support for a maximum of "<<max_threads<<" threads accessing "<<ndev<<" GPUs"<<std::endl;
-        cuda_ctx->m_threadStream.resize( ndev , 0 );
+        //cuda_ctx->m_threadStream.resize( ndev , 0 );
         assert( ndev > 0 );
         
         checkCudaErrors( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );
-
-#       pragma omp parallel //num_threads(ndev)
+        if( smem_bksize.has_value() )
         {
-          const size_t tid = omp_get_thread_num();
-          const unsigned int gpu_index = tid % ndev;
-          checkCudaErrors( cudaSetDevice( cuda_ctx->m_devices[gpu_index].device_id ) );
-          if( smem_bksize.has_value() )
+          switch( *smem_bksize )
           {
-            switch( *smem_bksize )
-            {
-              case 4 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
-              case 8 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
-              default:
-                lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
-                checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
-                break;
-            }
-          }
-          if( tid < size_t(ndev) )
-          {
-            assert( tid < cuda_ctx->m_threadStream.size() );
-            checkCudaErrors( cudaStreamCreateWithFlags( & cuda_ctx->m_threadStream[tid], cudaStreamNonBlocking ) );
+            case 4 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
+            case 8 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
+            default:
+              lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
+              checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
+              break;
           }
         }
 
