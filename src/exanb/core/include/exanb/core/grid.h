@@ -59,7 +59,7 @@ namespace exanb
     inline Vec3d origin() const { return m_origin; }
 
     inline void set_cell_size(double s) { m_cell_size = s; }
-    inline double cell_size() const { return m_cell_size; }
+    ONIKA_HOST_DEVICE_FUNC inline double cell_size() const { return m_cell_size; }
 
     // quantities usefull for testing
 //    inline double cell_size2() const { return m_cell_size*m_cell_size; }
@@ -82,7 +82,7 @@ namespace exanb
     inline size_t ghost_layers() const { return static_cast<size_t>( std::ceil( max_neighbor_distance() / cell_size() ) ); }
 
     // get start position of a cell
-    inline Vec3d cell_position(const IJK& loc) const 
+    ONIKA_HOST_DEVICE_FUNC inline Vec3d cell_position(const IJK& loc) const 
     {
       return m_origin+((m_offset+loc)*m_cell_size);
     }
@@ -95,7 +95,7 @@ namespace exanb
 
     // locate a cell from a point in space. cell location returned contains the point p.
     // return the cell coordinate relative to the local grid. e.g. if a particle is contained is the cell at the low corner of this grid, the retruned loc is IJK{0,0,0}
-    inline IJK locate_cell(const Vec3d& p_in) const
+    ONIKA_HOST_DEVICE_FUNC inline IJK locate_cell(const Vec3d& p_in) const
     {
       Vec3d p = ( p_in - m_origin ) / m_cell_size;
       IJK loc = make_ijk( p ); // this is correct because make_ijk(Vec3d) apply std::floor on x,y,z components. a simple cast to an int does not work because of nearest rounding.

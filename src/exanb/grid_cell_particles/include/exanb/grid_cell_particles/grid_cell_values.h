@@ -5,6 +5,7 @@
 #include <cassert>
 #include <exanb/core/basic_types_def.h>
 #include <exanb/core/grid_algorithm.h>
+#include <onika/memory/allocator.h>
 
 namespace exanb
 {    
@@ -33,7 +34,7 @@ namespace exanb
   struct GridCellValuesT
   {
     using GridCellValueType = T;
-    using GridCellValueVector = std::vector<GridCellValueType>;
+    using GridCellValueVector = onika::memory::CudaMMVector<GridCellValueType>;
 
     inline GridCellFieldAccessor<T*> field_data(const GridCellField& gcf)
     {
@@ -109,7 +110,7 @@ namespace exanb
     inline void set_grid_dims( const IJK& dims )
     {
       m_grid_dims = dims;
-      m_data.resize( number_of_cells() * m_components );
+      m_data.resize( number_of_cells() * m_components , 0.0 );
     }
 
     // informative, does impact storage in any way
