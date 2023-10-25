@@ -63,8 +63,8 @@ namespace exanb
 
     // quantities usefull for testing
 //    inline double cell_size2() const { return m_cell_size*m_cell_size; }
-    inline double epsilon_cell_size() const { return c_epsilon * cell_size(); }
-    inline double epsilon_cell_size2() const { double x=epsilon_cell_size(); return x*x; }
+    ONIKA_HOST_DEVICE_FUNC inline double epsilon_cell_size() const { return c_epsilon * cell_size(); }
+    ONIKA_HOST_DEVICE_FUNC inline double epsilon_cell_size2() const { double x=epsilon_cell_size(); return x*x; }
 
     ONIKA_HOST_DEVICE_FUNC inline IJK dimension() const
     {
@@ -88,7 +88,7 @@ namespace exanb
     }
 
     // get spatial bounds of a cell
-    inline AABB cell_bounds(const IJK& loc) const
+    ONIKA_HOST_DEVICE_FUNC inline AABB cell_bounds(const IJK& loc) const
     {
       return AABB{ this->cell_position(loc) , this->cell_position(loc+1) };
     }
@@ -207,7 +207,7 @@ namespace exanb
     }
 
     // return number if cells in grid (including ghost layers)
-    inline size_t number_of_cells() const { return m_cells.size(); }
+    ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cells() const { return onika::cuda::vector_size( m_cells ); }
 
     // cell's particles data allocator
     inline const onika::soatl::PackedFieldArraysAllocator & cell_allocator() const

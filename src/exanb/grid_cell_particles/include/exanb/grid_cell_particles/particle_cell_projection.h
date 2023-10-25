@@ -1,3 +1,5 @@
+#pragma once
+
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/quaternion_operators.h>
