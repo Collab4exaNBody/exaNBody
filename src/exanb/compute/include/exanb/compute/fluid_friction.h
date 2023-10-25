@@ -20,11 +20,11 @@ namespace exanb
 
   struct DefaultFrictionFunctor
   {
-    ONIKA_HOST_DEVICE_FUNC inline Vec3d operator () ( const Vec3d& r, const Vec3d& pv, const Vec3d& fv ) const
+    ONIKA_HOST_DEVICE_FUNC inline Vec3d operator () ( const Vec3d& r, const Vec3d& pv, const Vec3d& fv, double cx ) const
     {
       const Vec3d relative_velocity = fv - pv;
       const double relative_velocity_norm = norm(relative_velocity);
-      return relative_velocity * relative_velocity_norm;
+      return cx * relative_velocity * relative_velocity_norm;
     }
   };
 
@@ -46,7 +46,7 @@ namespace exanb
     {
       using namespace ParticleCellProjectionTools;
 
-      assert( cell_value_stride == subdiv * 3 ); // we only accept 3d vector fields
+      assert( cell_value_stride >= subdiv*subdiv*subdiv * 4 ); // we only accept 4 components vector fields
       const Vec3d r = {rx,ry,rz};
       const Vec3d v = {vx,vy,vz};
       if( cell_value_ptr != nullptr )
@@ -67,13 +67,14 @@ namespace exanb
         assert( nbh_subcell_i>=0 && nbh_subcell_i<(subdiv*subdiv*subdiv) );
 
         // access fluid velocity in the grid's sub cell at particle location
+        const double cx = cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*4 + 0 ] ;
         const Vec3d flow_velocity = {
-          cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*3 + 0 ] ,
-          cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*3 + 1 ] ,
-          cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*3 + 2 ] };
+          cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*4 + 1 ] ,
+          cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*4 + 2 ] ,
+          cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i*4 + 3 ] };
 
         // compute friction force
-        Vec3d force = friction( r , v , flow_velocity , args ... );
+        Vec3d force = friction( r , v , flow_velocity , cx , args ... );
         fx += force.x;
         fy += force.y;
         fz += force.z;
@@ -99,7 +100,7 @@ namespace exanb
     ADD_SLOT( GridT          , grid             , INPUT_OUTPUT            , DocString{"Grid of cells of particles"} );
     ADD_SLOT( bool           , ghost            , INPUT, false            , DocString{"set to true to enable compute in ghost area"} );
     ADD_SLOT( GridCellValues , grid_cell_values , INPUT, GridCellValues{} , DocString{"Grid cell values, holding cell centered values"} );
-    ADD_SLOT( std::string    , field_name       , INPUT , REQUIRED        , DocString{"cell value field holding fluid velocity. must be a 3-component vector"} );
+    ADD_SLOT( std::string    , field_name       , INPUT , REQUIRED        , DocString{"cell value field holding fluid velocity. must be a 4-component vector (cx, vx,vy,vz)"} );
     ADD_SLOT( FrictionFuncT  , friction_func    , INPUT , FrictionFuncT{} , DocString{"Friction functor"} );
 
     static constexpr ConcatFieldSet< FieldSet< field::_rx, field::_ry, field::_rz, field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz > , AdditionalFieldSetT > compute_field_set{};
@@ -111,9 +112,9 @@ namespace exanb
 
       const auto field = grid_cell_values->field(*field_name);
       const unsigned int subdiv = field.m_subdiv;
-      if( field.m_components != subdiv*subdiv*subdiv*3 )
+      if( field.m_components != subdiv*subdiv*subdiv*4 )
       {
-        fatal_error() << "field "<< *field_name <<" must have exactly 3 compnents, but has "<< field.m_components*1.0/(subdiv*subdiv*subdiv) << std::endl;
+        fatal_error() << "field "<< *field_name <<" must have exactly 4 compnents (cx, vx,vy,vz), but has "<< field.m_components*1.0/(subdiv*subdiv*subdiv) << std::endl;
       }
       const auto field_data = grid_cell_values->field_data(*field_name);
       

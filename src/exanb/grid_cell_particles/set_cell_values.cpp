@@ -69,7 +69,7 @@ namespace exanb
         grid_cell_values->add_field(*field_name,subdiv,ncomps);
       }
       assert( size_t(subdiv) == grid_cell_values->field(*field_name).m_subdiv );
-      assert( size_t(subdiv * subdiv * subdiv) == grid_cell_values->field(*field_name).m_components );
+      assert( size_t(subdiv * subdiv * subdiv) * ncomps == grid_cell_values->field(*field_name).m_components );
       auto field_data = grid_cell_values->field_data(*field_name);
       
       const Mat3d xform = domain->xform();
