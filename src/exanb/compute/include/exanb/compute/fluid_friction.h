@@ -29,10 +29,14 @@ namespace exanb
   };
 
 
-  template<class GridT, class FrictionFuncT = DefaultFrictionFunctor >
+  template<class CellsT, class FrictionFuncT = DefaultFrictionFunctor >
   struct ParticleFluidFrictionFunctor
   {
-    const GridT& grid;
+    const IJK m_dims = {0,0,0};
+    const Vec3d m_origin = {0.,0.,0.};
+    const double m_cell_size = 0.0;
+    const CellsT * m_cells = nullptr;
+    
     const double * __restrict__ cell_value_ptr = nullptr;
     const size_t cell_value_stride = 0;
     const unsigned int subdiv = 0;
@@ -51,19 +55,18 @@ namespace exanb
       const Vec3d v = {vx,vy,vz};
       if( cell_value_ptr != nullptr )
       {
-        const IJK dims = grid.dimension();
-        const IJK loc = grid.locate_cell(r);
-        const Vec3d cell_origin = grid.cell_position( loc );
-        IJK center_cell_loc;
-        IJK center_subcell_loc;
+        const IJK loc = make_ijk( ( r - m_origin ) / m_cell_size );
+        const Vec3d cell_origin = m_origin + ( loc * m_cell_size );
+        IJK center_cell_loc = {0,0,0};
+        IJK center_subcell_loc = {0,0,0};
         Vec3d rco = r - cell_origin;
-        const double cell_size = grid.cell_size();
-        const double subcell_size = cell_size / subdiv;
-        localize_subcell( rco, cell_size, subcell_size, subdiv, center_cell_loc, center_subcell_loc );
+        //const double cell_size = grid.cell_size();
+        const double subcell_size = m_cell_size / subdiv;
+        localize_subcell( rco, m_cell_size, subcell_size, subdiv, center_cell_loc, center_subcell_loc );
         center_cell_loc += loc;
-        const ssize_t nbh_cell_i = grid_ijk_to_index( dims , center_cell_loc );
+        const ssize_t nbh_cell_i = grid_ijk_to_index( m_dims , center_cell_loc );
         const ssize_t nbh_subcell_i = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , center_subcell_loc );
-        assert( nbh_cell_i>=0 && nbh_cell_i<ssize_t(grid.number_of_cells()) );
+        //assert( nbh_cell_i>=0 && nbh_cell_i<ssize_t(grid.number_of_cells()) );
         assert( nbh_subcell_i>=0 && nbh_subcell_i<(subdiv*subdiv*subdiv) );
 
         // access fluid velocity in the grid's sub cell at particle location
@@ -107,7 +110,7 @@ namespace exanb
     
   public:
     inline void execute () override final
-    {
+    {      
       if( grid->number_of_cells() == 0 ) return;
 
       const auto field = grid_cell_values->field(*field_name);
@@ -117,8 +120,10 @@ namespace exanb
         fatal_error() << "field "<< *field_name <<" must have exactly 4 compnents (cx, vx,vy,vz), but has "<< field.m_components*1.0/(subdiv*subdiv*subdiv) << std::endl;
       }
       const auto field_data = grid_cell_values->field_data(*field_name);
-      
-      ParticleFluidFrictionFunctor<GridT, FrictionFuncT> func = { *grid , field_data.m_data_ptr , field_data.m_stride , subdiv , *friction_func };
+
+      const auto * cells = grid->cells();
+      using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells[0]) > >;
+      ParticleFluidFrictionFunctor< CellsT , FrictionFuncT> func = { grid->dimension(),grid->origin(),grid->cell_size(),grid->cells() , field_data.m_data_ptr , field_data.m_stride , subdiv , *friction_func };
       
       compute_cell_particles( *grid , false , func , compute_field_set , parallel_execution_context() );                  
     }
