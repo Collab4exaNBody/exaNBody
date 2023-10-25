@@ -98,7 +98,7 @@ namespace exanb
   {  
     ADD_SLOT( GridT          , grid             , INPUT_OUTPUT            , DocString{"Grid of cells of particles"} );
     ADD_SLOT( bool           , ghost            , INPUT, false            , DocString{"set to true to enable compute in ghost area"} );
-    ADD_SLOT( GridCellValues , grid_cell_values , INPUT , REQUIRED        , DocString{"Grid cell values, holding cell centered values"} );
+    ADD_SLOT( GridCellValues , grid_cell_values , INPUT, GridCellValues{} , DocString{"Grid cell values, holding cell centered values"} );
     ADD_SLOT( std::string    , field_name       , INPUT , REQUIRED        , DocString{"cell value field holding fluid velocity. must be a 3-component vector"} );
     ADD_SLOT( FrictionFuncT  , friction_func    , INPUT , FrictionFuncT{} , DocString{"Friction functor"} );
 
