@@ -25,9 +25,9 @@ namespace exanb
     inline void initialize_from_optional_parameters(
                   const ParticleRegions* particle_regions, 
                   ParticleRegionCSG* region,
-                  const GridCellValues* grid_cell_values, 
-                  const std::string* grid_cell_mask_name, 
-                  const double* grid_cell_mask_value)
+                  const GridCellValues* grid_cell_values = nullptr, 
+                  const std::string* grid_cell_mask_name = nullptr, 
+                  const double* grid_cell_mask_value = nullptr )
     {
       // filter based on region CSG
       prcsg = ParticleRegionCSGShallowCopy{};

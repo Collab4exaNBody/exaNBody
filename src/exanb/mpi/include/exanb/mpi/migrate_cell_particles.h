@@ -610,6 +610,7 @@ namespace exanb
       {
         // grid_cell_values->m_data.assign( grid.number_of_cells() * cell_scalar_components , static_cast<GridCellValueType>(0) );
         grid_cell_values->set_grid_dims( grid.dimension() );
+        grid_cell_values->set_grid_offset( grid.offset() );
         grid_cell_values->set_ghost_layers( grid.ghost_layers() );
         grid_cell_values->data().assign( grid.number_of_cells() * cell_scalar_components , static_cast<GridCellValueType>(0) );
         cell_scalars = grid_cell_values->data().data();

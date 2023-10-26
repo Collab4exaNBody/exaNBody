@@ -659,6 +659,19 @@ int main(int argc,char*argv[])
     }*/
   }
 
+  // setup GPU disable filtering
+  if( ! configuration.onika.gpu_disable_filter.empty() )
+  {
+    auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_disable_filter, {} , "GPU disabled for " );
+    simulation_graph->apply_graph(
+      [&hashes](OperatorNode* o)
+      {
+        if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
+      });
+  }
+
+
+
 
   // configure Onika sub-sytem
   onika::task::ParallelTaskConfig::s_dag_bulk_task_factor  = configuration.onika.dag_bulk_task_factor;

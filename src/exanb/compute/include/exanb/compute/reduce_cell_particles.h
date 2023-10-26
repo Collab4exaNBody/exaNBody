@@ -42,7 +42,7 @@ namespace exanb
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
-      ResultT local_val = *reduced_val;
+      ResultT local_val = ResultT();
 
       size_t cell_a = i;
       IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;

@@ -10,6 +10,7 @@
 #include <exanb/amr/amr_grid.h>
 #include <exanb/amr/amr_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 
 #include <mpi.h>
 #include <exanb/mpi/all_reduce_multi.h>
@@ -27,6 +28,8 @@ namespace exanb
     ADD_SLOT( GridT    , grid   , INPUT , REQUIRED );   
     ADD_SLOT( Domain   , domain , INPUT , OPTIONAL );
     ADD_SLOT( AmrGrid  , amr    , INPUT , OPTIONAL );
+
+    ADD_SLOT( GridCellValues , grid_cell_values , INPUT, OPTIONAL );
 
     inline void execute () override final
     {            
@@ -147,6 +150,14 @@ namespace exanb
 	   {
        lout << "AMR density    = " << format_string("%.2g",n_inner_particles*1.0/n_subcells) <<std::endl;
      }
+     if( grid_cell_values.has_value() )
+     {
+       lout << "Cell values    = " << grid_cell_values->m_fields.size() << std::endl;
+       for(const auto& p : grid_cell_values->m_fields)
+       {
+         lout << "  " << p.first << " : subdiv="<< p.second.m_subdiv<<", components="<<p.second.m_components<<std::endl;
+       }
+     }     
      lout << "=================================" << std::endl;
     }
   };

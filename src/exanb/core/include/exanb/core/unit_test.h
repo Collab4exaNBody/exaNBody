@@ -13,8 +13,8 @@ namespace exanb
 
   struct UnitTestsReport
   {
-    int n_passed;
-    int n_failed;
+    int n_passed = 0;
+    int n_failed = 0;
   };
 
   struct UnitTest

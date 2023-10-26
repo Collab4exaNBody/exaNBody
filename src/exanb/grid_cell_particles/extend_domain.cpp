@@ -73,7 +73,10 @@ namespace exanb
             print_particle( lerr , particles[i] , false );
             fatal_error()
               << "********************************************\n"
-              << "Suspicious out of domain particle , bounds="<<domain->bounds()<<"\n"
+              << "Suspicious out of domain particle\n"
+	      << "bounds         = "<<domain->bounds()<<"\n"
+	      << "dist to domain = "<<sqrt(domain_dist2)<<"\n"
+	      << "cell size      = "<<cell_size<<"\n"
               << "********************************************"<<std::endl;
           }
         }

@@ -15,6 +15,7 @@
 #include <omp.h>
 #endif
 
+
 namespace exanb
 {
 
@@ -23,6 +24,11 @@ namespace exanb
   {
     //static inline constexpr bool RequiresBlockSynchronousCall = false; // nonsense for particles, we cannot call functor with 'fake particle fields' while we don't pass an array which size coudle be 0
     static inline constexpr bool CudaCompatible = false;
+  };
+
+  template<class FuncT> struct ComputeCellParticlesTraitsUseCellIdx
+  {
+    static inline constexpr bool UseCellIdx = false;
   };
 
   template<class CellsT, class FuncT, class FieldSetT> struct ComputeCellParticlesFunctor;
@@ -48,7 +54,14 @@ namespace exanb
       const unsigned int n = m_cells[cell_a].size();
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
       {
-        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+			  if constexpr (  !ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx )
+				{
+	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+				}
+				else
+				{
+	        m_func(cell_a, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+				}
       }
     }
   };

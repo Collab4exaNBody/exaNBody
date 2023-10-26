@@ -113,6 +113,7 @@ namespace exanb
   {
     static inline bool decode(const YAML::Node& node, T& value)
     {
+      //std::cout<<"call YAML conversion for "<<typeid(T).name()<<std::endl;
       return YAML::convert<T>::decode(node,value);
     }
   };
@@ -120,6 +121,7 @@ namespace exanb
   {
     static inline bool decode(const YAML::Node&, const T&)
     {
+      //std::cout<<"don't know how to convert "<<typeid(T).name()<<std::endl;
       return false;
     }
   };

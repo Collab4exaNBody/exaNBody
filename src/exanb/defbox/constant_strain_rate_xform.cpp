@@ -6,7 +6,6 @@
 #include <exanb/core/string_utils.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/unityConverterHelper.h>
-#include <tk/spline.h>
 #include <string>
 #include <math.h>
 

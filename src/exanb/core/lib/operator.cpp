@@ -446,12 +446,10 @@ namespace exanb
 
       double total_gpu_time = 0.0;
       double total_async_cpu_time = 0.0;
-      bool account_for_async_exec_time = false;
       for(auto gpuctx:m_parallel_execution_contexts)
       {
         if( gpuctx != nullptr )
         {
-          account_for_async_exec_time = true;
           total_gpu_time += gpuctx->collect_gpu_execution_time();
           total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
         }
@@ -509,6 +507,11 @@ namespace exanb
     }    
   }
 
+  void OperatorNode::set_gpu_enabled(bool b)
+  {
+    m_gpu_execution_allowed = b;
+  }
+
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
   {
     if( id >= m_parallel_execution_contexts.size() )
@@ -519,7 +522,7 @@ namespace exanb
     {
       m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::ParallelExecutionContext >();
       m_parallel_execution_contexts[id]->m_streamIndex = id;
-      m_parallel_execution_contexts[id]->m_cuda_ctx = global_cuda_ctx();
+      m_parallel_execution_contexts[id]->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
       m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     }
     return m_parallel_execution_contexts[id].get();
