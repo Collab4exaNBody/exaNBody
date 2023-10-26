@@ -7,6 +7,7 @@
 #include <array>
 #include <functional>
 #include <onika/cuda/cuda.h>
+#include <onika/cuda/cuda_math.h>
 // #include <bit>
 
 namespace exanb
@@ -128,14 +129,16 @@ namespace exanb
     return a;
   }
 
-  inline IJK vclamp(const IJK& a, const IJK& min, const IJK& max)
+  ONIKA_HOST_DEVICE_FUNC inline IJK vclamp(const IJK& a, const IJK& min, const IJK& max)
   {
-    return IJK{ std::clamp(a.i,min.i,max.i) , std::clamp(a.j,min.j,max.j) , std::clamp(a.k,min.k,max.k) };
+    using onika::cuda::clamp;
+    return IJK{ clamp(a.i,min.i,max.i) , clamp(a.j,min.j,max.j) , clamp(a.k,min.k,max.k) };
   }
 
-  inline IJK vclamp(const IJK& a, ssize_t min, ssize_t max)
+  ONIKA_HOST_DEVICE_FUNC inline IJK vclamp(const IJK& a, ssize_t min, ssize_t max)
   {
-    return IJK{ std::clamp(a.i,min,max) , std::clamp(a.j,min,max) , std::clamp(a.k,min,max) };
+    using onika::cuda::clamp;
+    return IJK{ clamp(a.i,min,max) , clamp(a.j,min,max) , clamp(a.k,min,max) };
   }
 
   ONIKA_HOST_DEVICE_FUNC inline IJK operator + (const IJK& a, const IJK& b)

@@ -1,6 +1,9 @@
+#pragma once
+
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/quaternion_operators.h>
+#include <onika/cuda/cuda.h>
 
 namespace exanb
 {
@@ -13,7 +16,7 @@ namespace exanb
   
     using StringList = std::vector<std::string>;
   
-    static inline void localize_subcell( const Vec3d& r, double cell_size, double sub_cellsize, ssize_t subdiv, IJK& cell_loc, IJK& subcell_loc )
+    ONIKA_HOST_DEVICE_FUNC static inline void localize_subcell( const Vec3d& r, double cell_size, double sub_cellsize, ssize_t subdiv, IJK& cell_loc, IJK& subcell_loc )
     {
       cell_loc = make_ijk( r / cell_size );
       Vec3d ro = r - (cell_loc*cell_size);

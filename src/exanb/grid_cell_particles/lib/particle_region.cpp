@@ -357,7 +357,7 @@ namespace exanb
         if( tok.op >= 0 )
         {
           int id = region_idx_map.size();
-          assert( id == m_regions.size() );
+          assert( id == int(m_regions.size()) );
           if( region_idx_map.find( tok.op ) == region_idx_map.end() )
           {
             region_idx_map[tok.op] = id;

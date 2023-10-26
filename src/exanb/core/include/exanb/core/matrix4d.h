@@ -183,6 +183,39 @@ namespace exanb
     return M;
   }
 
+  /* X-aligned unit cylinder */
+  ONIKA_HOST_DEVICE_FUNC inline Mat4d x_cylinder_quadric()
+  {
+    Mat4d M = Mat4d_zero;
+    M.m[0][0] = 0;
+    M.m[1][1] = 1.;
+    M.m[2][2] = 1.;
+    M.m[3][3] = -1;
+    return M;
+  }
+
+  /* X-aligned unit cylinder */
+  ONIKA_HOST_DEVICE_FUNC inline Mat4d y_cylinder_quadric()
+  {
+    Mat4d M = Mat4d_zero;
+    M.m[0][0] = 1.;
+    M.m[1][1] = 0.;
+    M.m[2][2] = 1.;
+    M.m[3][3] = -1;
+    return M;
+  }
+
+  /* X-aligned unit cylinder */
+  ONIKA_HOST_DEVICE_FUNC inline Mat4d z_cylinder_quadric()
+  {
+    Mat4d M = Mat4d_zero;
+    M.m[0][0] = 1.;
+    M.m[1][1] = 1.;
+    M.m[2][2] = 0.;
+    M.m[3][3] = -1;
+    return M;
+  }
+
   /* plane equation as a quadric */
   ONIKA_HOST_DEVICE_FUNC inline Mat4d plane_quadric(const Plane3d& P)
   {
@@ -341,6 +374,9 @@ namespace YAML
           else if( s == "conex" ) M = exanb::x_cone_quadric();
           else if( s == "coney" ) M = exanb::y_cone_quadric();
           else if( s == "conez" ) M = exanb::z_cone_quadric();
+          else if( s == "cylx" ) M = exanb::x_cylinder_quadric();
+          else if( s == "cyly" ) M = exanb::y_cylinder_quadric();
+          else if( s == "cylz" ) M = exanb::z_cylinder_quadric();
           else if( s == "planex" ) M = exanb::plane_quadric( Plane3d{ Vec3d{1,0,0} , 0 } );
           else if( s == "planey" ) M = exanb::plane_quadric( Plane3d{ Vec3d{0,1,0} , 0 } );
           else if( s == "planez" ) M = exanb::plane_quadric( Plane3d{ Vec3d{0,0,1} , 0 } );
