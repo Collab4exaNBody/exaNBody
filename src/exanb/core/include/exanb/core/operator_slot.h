@@ -7,7 +7,6 @@
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/print_utils.h>
 #include <exanb/core/yaml_utils.h>
-// #include "exanb/operator_task_scheduler.h"
 
 #include <onika/memory/memory_usage.h>
 #include <onika/dac/dac.h>
