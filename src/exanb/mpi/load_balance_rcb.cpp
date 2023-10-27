@@ -200,8 +200,8 @@ namespace exanb
           out_block.start = IJK { 0, 0, 0 };
           out_block.end = dom_dims;
         }
-  //      std::cout <<rank<<" RCB: block = "<<out_block<<std::endl<<std::flush;
-  //      MPI_Barrier( comm );
+        ldbg <<"Zoltan based RCB : block = "<<out_block<<std::endl<<std::flush;
+        //MPI_Barrier( comm );
       }
       else
 #     endif
