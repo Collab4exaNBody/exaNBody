@@ -96,7 +96,8 @@ namespace exanb
       IJK domain_grid_dims = domain.grid_dimension();
       Vec3d domain_size = bounds_size( domain.bounds() );
 
-      ldbg <<"domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << "ghost_layers=" << ghost_layers << std::endl;
+      ldbg <<"UpdateGhostsCommScheme: --- begin ghost_comm_scheme ---" << std::endl;
+      ldbg <<"UpdateGhostsCommScheme: domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << "ghost_layers=" << ghost_layers << std::endl;
 
       // for periodic conditions we shift simulation box once to the right or to the left
       // FIXME: this could be more than 1 and less than -1, in case the nieghborhood distance is greater than the domain itself
@@ -232,62 +233,49 @@ namespace exanb
 
       // initialize MPI requests for both sends and receives
       size_t total_requests = 2 * nprocs;
-      std::vector< MPI_Request > requests( total_requests );
-      for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
+      std::vector< MPI_Request > requests( total_requests , MPI_REQUEST_NULL );
+      total_requests = 0;
 
       // alocate receive buffers and start async receives and sends
-      //std::vector< std::vector<uint64_t> > receive_buffer( nprocs ); // receive buffer contains array of pairs (cell index,particle count)
-      ssize_t active_sends = 0;
-      ssize_t active_recvs = 0;
+      size_t active_recvs=0, active_sends=0;
       for(int p=0;p<nprocs;p++)
       {
-        comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
-        if( recv_count[p] > 0 )
+        if( p == rank )
         {
-          //receive_buffer[p].resize( recv_count[p] );
-          MPI_Irecv( comm_scheme.m_partner[p].m_receives.data() /*receive_buffer[p].data()*/ , recv_count[p], mpi_datatype<uint64_t>(), p, comm_tag, comm, & requests[p] );
-          ++ active_recvs;
+          if( recv_count[p] != send_count[p] )
+          {
+            fatal_error() << "Inconsistent self send/receive sizes : recv_count["<<p<<"]="<<recv_count[p]<<" , send_count["<<p<<"]="<<send_count[p]<<std::endl;
+          }
+          if( recv_count[p] > 0 )
+          {
+            comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
+            for(size_t i=0;i<recv_count[p]; i++) comm_scheme.m_partner[p].m_receives[i] = send_buffer[p][i];
+            send_buffer[p].clear();
+          }
         }
-        if( send_count[p] > 0 )
-        {
-          MPI_Isend( send_buffer[p].data() , send_count[p], mpi_datatype<uint64_t>(), p, comm_tag, comm, & requests[nprocs+p] );
-          ++ active_sends;
+        else
+        {      
+          comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
+          if( recv_count[p] > 0 )
+          {
+            //receive_buffer[p].resize( recv_count[p] );
+            MPI_Irecv( comm_scheme.m_partner[p].m_receives.data() /*receive_buffer[p].data()*/ , recv_count[p], mpi_datatype<uint64_t>(), p, comm_tag, comm, & requests[total_requests++] );
+            ++ active_recvs;
+          }
+          if( send_count[p] > 0 )
+          {
+            MPI_Isend( send_buffer[p].data() , send_count[p], mpi_datatype<uint64_t>(), p, comm_tag, comm, & requests[total_requests++] );
+            ++ active_sends;
+          }
         }
       }
       
-      ldbg << "active_sends="<<active_sends<<" active_recvs="<<active_recvs<<std::endl;
+      ldbg << "UpdateGhostsCommScheme: active_sends="<<active_sends<<" active_recvs="<<active_recvs<<std::endl;
 
-      // TODO: a major optimization here, is to merge receive_buffer[p] and comm_scheme[p].m_receives which holds exactly the same information
-      // DONE. corresponds to commented area
-      while( active_sends>0 || active_recvs>0 )            
-      {
-        int reqidx = MPI_UNDEFINED;
-        MPI_Status status;
-        MPI_Waitany(total_requests,requests.data(),&reqidx,&status);
-        if( reqidx != MPI_UNDEFINED )
-        {
-          if( reqidx < nprocs ) // it's a receive
-          {
-            /*
-            int p = reqidx;
-            for(size_t i=0;i<recv_count[p];i++)
-            {
-              size_t cell_i = 0;
-              size_t n_particles = 0;
-              decode_cell_particle( receive_buffer[p][i], cell_i, n_particles );
-              comm_scheme[p].m_receives.push_back( GhostCellReceiveScheme{cell_i,n_particles} );
-            }
-            */
-            -- active_recvs;
-          }
-          else // it's a send
-          {
-            int p = reqidx - nprocs;
-            send_buffer[p].clear();
-            -- active_sends;
-          }
-        }
-      }
+      // simpler version. possible because we do not decode recevied buffers anymore. they are received in their final form.
+      std::vector<MPI_Status> req_status( total_requests );
+      MPI_Waitall( total_requests , requests.data() , req_status.data() );
+      for(auto& sbuf:send_buffer) sbuf.clear();
 
       // final step, rebuild buffer particle offsets
       /********************************************************************/
@@ -313,7 +301,7 @@ namespace exanb
       }
       /********************************************************************/
 
-      ldbg << "--- end ghost_comm_scheme ---" << std::endl;
+      ldbg << "UpdateGhostsCommScheme: --- end ghost_comm_scheme ---" << std::endl;
     }
 
 
