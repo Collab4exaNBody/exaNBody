@@ -271,12 +271,17 @@ namespace exanb
         }
       }
       
+      
+      // wait for asynchronous operations to finish
+      /********************************************************************/
       ldbg << "active_sends="<<active_sends<<" , active_recvs="<<active_recvs<<" , total_requests="<<total_requests<<std::endl;
       std::vector<MPI_Status> request_status_array( total_requests );
       MPI_Waitall( total_requests , requests.data() , request_status_array.data() );
       for(auto & sbuf : send_buffer) sbuf.clear();
       active_sends = 0;
       active_recvs = 0;
+      /********************************************************************/
+
 
       // final step, rebuild buffer particle offsets
       /********************************************************************/
