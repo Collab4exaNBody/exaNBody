@@ -2,7 +2,6 @@
 #include <exanb/core/type_utils.h>
 #include <exanb/core/string_utils.h>
 #include <exanb/core/thread.h>
-#include <exanb/core/operator_task.h>
 
 #include <onika/omp/ompt_interface.h>
 #include <onika/omp/ompt_task_timing.h>

@@ -240,22 +240,9 @@ namespace exanb
       size_t active_recvs=0, active_sends=0;
       for(int p=0;p<nprocs;p++)
       {
-        if( p == rank )
+        comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
+        if( p != rank )
         {
-          if( recv_count[p] != send_count[p] )
-          {
-            fatal_error() << "Inconsistent self send/receive sizes : recv_count["<<p<<"]="<<recv_count[p]<<" , send_count["<<p<<"]="<<send_count[p]<<std::endl;
-          }
-          if( recv_count[p] > 0 )
-          {
-            comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
-            for(size_t i=0;i<recv_count[p]; i++) comm_scheme.m_partner[p].m_receives[i] = send_buffer[p][i];
-            send_buffer[p].clear();
-          }
-        }
-        else
-        {      
-          comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
           if( recv_count[p] > 0 )
           {
             //receive_buffer[p].resize( recv_count[p] );
@@ -268,14 +255,31 @@ namespace exanb
             ++ active_sends;
           }
         }
+        else // buffer to send to myself ( p == rank )
+        {
+          if( send_count[p] != recv_count[p] )
+          {
+            fatal_error()<<"inconsistent send/receive sizes for self message send."<<std::endl;
+          }
+          if( recv_count[p] > 0 )
+          {
+            for(size_t i=0;i<recv_count[p];i++) comm_scheme.m_partner[p].m_receives[i] = send_buffer[p][i];
+          }
+          send_buffer[p].clear();
+        }
       }
       
-      ldbg << "UpdateGhostsCommScheme: active_sends="<<active_sends<<" active_recvs="<<active_recvs<<std::endl;
+      
+      // wait for asynchronous operations to finish
+      /********************************************************************/
+      ldbg << "active_sends="<<active_sends<<" , active_recvs="<<active_recvs<<" , total_requests="<<total_requests<<std::endl;
+      std::vector<MPI_Status> request_status_array( total_requests );
+      MPI_Waitall( total_requests , requests.data() , request_status_array.data() );
+      for(auto & sbuf : send_buffer) sbuf.clear();
+      active_sends = 0;
+      active_recvs = 0;
+      /********************************************************************/
 
-      // simpler version. possible because we do not decode recevied buffers anymore. they are received in their final form.
-      std::vector<MPI_Status> req_status( total_requests );
-      MPI_Waitall( total_requests , requests.data() , req_status.data() );
-      for(auto& sbuf:send_buffer) sbuf.clear();
 
       // final step, rebuild buffer particle offsets
       /********************************************************************/

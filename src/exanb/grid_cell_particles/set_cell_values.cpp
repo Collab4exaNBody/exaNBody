@@ -65,7 +65,10 @@ namespace exanb
       const int subdiv = *grid_subdiv;
       if( ! grid_cell_values->has_field(*field_name) )
       {
-        ldbg << "Create cell field "<< *field_name << std::endl;
+        ldbg << "Create cell field "<< *field_name << " subdiv="<<subdiv<<" ncomps="<<ncomps<< std::endl;
+        ldbg << "init value =";
+        for(auto x:*value) ldbg << " "<<x;
+        ldbg << std::endl;
         grid_cell_values->add_field(*field_name,subdiv,ncomps);
       }
       assert( size_t(subdiv) == grid_cell_values->field(*field_name).m_subdiv );
@@ -95,7 +98,7 @@ namespace exanb
               const size_t j = cell_i * field_data.m_stride +  grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , sc ) * ncomps;
               for(int k=0;k<ncomps;k++)
               {
-                field_data.m_data_ptr[j] = value->at(k);
+                field_data.m_data_ptr[j+k] = value->at(k);
               }
             }
           }

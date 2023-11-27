@@ -1,6 +1,5 @@
 #pragma once
 
-#include <onika/task/parallel_task_config.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
@@ -168,9 +167,10 @@ namespace onika
         if( allow_cuda_exec )
         {
           exec_ctx->check_initialize();
-          const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::task::ParallelTaskConfig::gpu_block_size()) );
-          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount * onika::task::ParallelTaskConfig::gpu_sm_mult()
-                                      + onika::task::ParallelTaskConfig::gpu_sm_add();
+          const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
+          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
+                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
 
           auto custream = exec_ctx->m_cuda_stream;        
           exec_ctx->gpu_kernel_start();
@@ -209,7 +209,7 @@ namespace onika
       // allow tasking mode, means we're in a parallel/single[/taskgroup] scope
       if( prefered_num_tasks > 0 )
       {
-        prefered_num_tasks = prefered_num_tasks * onika::task::ParallelTaskConfig::gpu_sm_mult() + onika::task::ParallelTaskConfig::gpu_sm_add() ;
+        prefered_num_tasks = prefered_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
       }
 
       block_parallel_for_omp_kernel( N, func, exec_ctx, prefered_num_tasks, async, user_cb );

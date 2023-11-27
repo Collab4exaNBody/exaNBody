@@ -117,8 +117,10 @@ namespace exanb
       
       // initialize MPI requests for both sends and receives
       size_t total_requests = 2 * nprocs;
-      std::vector< MPI_Request > requests( total_requests );
-      for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
+      std::vector< MPI_Request > requests( total_requests , MPI_REQUEST_NULL );
+      std::vector< int > request_idx( total_requests , -1 );
+      total_requests = 0;
+      //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
 
       // keep track of buffer pack/unpack progress  loop ............................................  2.494e+04            0.000   0.000         1  83.57% / 100.00%
@@ -177,7 +179,9 @@ namespace exanb
           assert( ghost_comm_buffers->recv_buffer_offsets[p] + ghost_comm_buffers->recvbuf_size(p) <= ghost_comm_buffers->recvbuf_total_size() );
           ++ active_recvs;
           // recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p]
-          MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p], ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[p] );
+          request_idx[ total_requests ] = p;
+          MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p], ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
+          ++ total_requests;
         }
       }
 
@@ -198,12 +202,16 @@ namespace exanb
             if( ready )
             {
               ++ active_sends;
-              MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[nprocs+p] );
+              request_idx[ total_requests ] = nprocs+p;
+              MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
+              ++ total_requests;
               message_sent[p] = true;
             }
           }
         }
       }
+
+      ldbg << "UpdateGhosts : total active requests = "<<total_requests<<std::endl;
 
       std::vector<UnpackGhostFunctor> m_unpack_functors( nprocs , UnpackGhostFunctor{} );
       size_t ghost_particles_recv = 0;
@@ -214,6 +222,7 @@ namespace exanb
         MPI_Waitany(total_requests,requests.data(),&reqidx,&status);
         if( reqidx != MPI_UNDEFINED )
         {
+          reqidx = request_idx[ reqidx ]; // get the original request index ( [0;nprocs-1] for receives, [nprocs;2*nprocs-1] for sends )
           if( reqidx < nprocs ) // it's a receive
           {
             const int p = reqidx;

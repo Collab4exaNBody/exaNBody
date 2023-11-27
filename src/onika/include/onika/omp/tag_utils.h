@@ -5,7 +5,7 @@
 
 namespace onika
 {
-  namespace task
+  namespace omp
   {
 
     template<class StreamT , int Nin, int ... Is>
