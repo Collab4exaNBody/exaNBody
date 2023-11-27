@@ -64,21 +64,13 @@ xsv2ConfigBegin( debug                                   , "debuggin and introsp
   xsv2ConfigItem( bool         , graph_exec     , false   , "component graph execution debug traces");
 xsv2ConfigEnd();
 
-xsv2ConfigBegin( onika                                        , "Onika sub-system configuration" );
-  xsv2ConfigItem( double       , dag_graph_mt         , 0.25  , "Number of tasks to build graph. if <1.0, means fraction of number of omp threads" );
-  xsv2ConfigItem( double       , dag_bulk_task_factor ,    1. , "x number_of_threads = number of dag tasks to spawn before looking for newly unlocked tasks" );
-  xsv2ConfigItem( int          , dag_tasks_per_thread ,   64  , "target number of tasks per thread" );
-  xsv2ConfigItem( int          , dag_max_batch_size   , 4096  , "maximum tasks per batch only meaningful for scheduler fifo (2)" );
-  xsv2ConfigItem( int          , dag_scheduler        ,   -1  , "DAG scheduler : 0=omp+depend , 1=native/ordering , 2 native/fifo , 3 GPU, default (-1) = auto" );
-  xsv2ConfigItem( StringVector , gpu_disable_filter   , {}    , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
-  xsv2ConfigItem( int          , gpu_sm_mult          , ONIKA_CU_MIN_BLOCKS_PER_SM , "GPU number of blocks per SM" );
-  xsv2ConfigItem( int          , gpu_sm_add           , 0     , "GPU number of blocks added to grid size" );
-  xsv2ConfigItem( int          , gpu_block_size       , ONIKA_CU_MAX_THREADS_PER_BLOCK , "GPU kernel block size" );
-  xsv2ConfigItem( bool         , dag_reduce           , true  , "reduce dag by suppressing empty tasks" );
-  xsv2ConfigItem( bool         , dag_reorder          , false , "reorder tasks to maximize task unlocking throuput" );
-  xsv2ConfigItem( bool         , dag_scheduler_tied   , true  , "DAG scheduler is a tied task if true, untied otherwise" );
-  xsv2ConfigItem( bool         , dag_scheduler_yield  , false , "DAG scheduler uses taskyield when there's no more tasks to process in task heap/fifo" );
-  xsv2ConfigItem( bool         , dag_diagnostics      , false , "dump generated DAG properties" ); 
+xsv2ConfigBegin( onika                                                                    , "Onika sub-system configuration" );
+  xsv2ConfigItem( int          , parallel_task_core_mult , ONIKA_TASKS_PER_CORE           , "Number of OpenMP tasks per core when using task mode" );
+  xsv2ConfigItem( int          , parallel_task_core_add  , 0                              , "Additional number of OpenMP tasks when using task mode" );
+  xsv2ConfigItem( int          , gpu_sm_mult             , ONIKA_CU_MIN_BLOCKS_PER_SM     , "GPU number of blocks per SM" );
+  xsv2ConfigItem( int          , gpu_sm_add              , 0                              , "GPU number of blocks added to grid size" );
+  xsv2ConfigItem( int          , gpu_block_size          , ONIKA_CU_MAX_THREADS_PER_BLOCK , "GPU kernel block size" );
+  xsv2ConfigItem( StringVector , gpu_disable_filter      , {}                             , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
 xsv2ConfigEnd();
 
 xsv2ConfigBegin( configuration                                , "exaStampV2 configuration");  
