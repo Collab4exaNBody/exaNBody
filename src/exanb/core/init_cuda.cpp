@@ -25,6 +25,7 @@ namespace exanb
   {
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( bool     , single_gpu  , INPUT , true ); // how to partition GPUs inside groups of contiguous MPI ranks
+    ADD_SLOT( long     , rotate_gpu  , INPUT , 0 );    // shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node.
     ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
     ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true );
 
@@ -60,7 +61,7 @@ namespace exanb
         int gpu_first_device = 0;
         if( *single_gpu )
         {
-          gpu_first_device = rank % n_gpus;
+          gpu_first_device = ( rank + (*rotate_gpu) ) % n_gpus;
           cuda_ctx->m_devices.resize(1);
         }
         else
