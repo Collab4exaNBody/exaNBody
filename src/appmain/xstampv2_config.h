@@ -81,6 +81,7 @@ xsv2ConfigBegin( configuration                                , "exaStampV2 conf
 
   xsv2ConfigItem( bool          , mpimt               , true  , "enables MPI_THREAD_MULTIPLE feature if available");
   xsv2ConfigItem( bool          , pinethreads         , false , "try to pine OpenMP thread");
+  xsv2ConfigItem( int           , threadrotate        , 0     , "rotate thread pinning (use OpenMP thread index + threadrotate modulus number of threads as a reference)");
   xsv2ConfigItem( int           , omp_num_threads     , -1    , "number of OpenMP threads (-1 means default)");
   xsv2ConfigItem( int           , omp_max_nesting     , -1    , "maximum nesting level for OpenMP nested parallelism");
   xsv2ConfigItem( bool          , omp_nested          , false , "enables OpenMP nesting");
