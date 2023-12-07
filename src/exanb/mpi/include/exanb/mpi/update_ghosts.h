@@ -29,6 +29,7 @@
 
 namespace exanb
 {
+
   template<
     class GridT,
     class FieldSetT,
@@ -68,6 +69,7 @@ namespace exanb
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
     ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
     ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
+    //ADD_SLOT( MpiMultipleWaitMethod    , wait_method       , INPUT , MpiMultipleWaitMethod{ MpiMultipleWaitMethod::EXANB_MPI_WAIT_ANY } );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
@@ -81,6 +83,12 @@ namespace exanb
       // prerequisites
       MPI_Comm comm = *mpi;
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
+
+      int comm_tag = *mpi_tag;
+      int nprocs = 1;
+      int rank = 0;
+      MPI_Comm_size(comm,&nprocs);
+      MPI_Comm_rank(comm,&rank);
 
       CellParticles* cells = grid->cells();
 
@@ -105,21 +113,14 @@ namespace exanb
         cell_scalar_components = 0;
       }
 
-      int comm_tag = *mpi_tag;
-      int nprocs = 1;
-      int rank = 0;
-      MPI_Comm_size(comm,&nprocs);
-      MPI_Comm_rank(comm,&rank);
-
 #     ifndef NDEBUG
       const size_t n_cells = grid->number_of_cells();
 #     endif      
       
       // initialize MPI requests for both sends and receives
-      size_t total_requests = 2 * nprocs;
-      std::vector< MPI_Request > requests( total_requests , MPI_REQUEST_NULL );
-      std::vector< int > request_idx( total_requests , -1 );
-      total_requests = 0;
+      std::vector< MPI_Request > requests( 2 * nprocs , MPI_REQUEST_NULL );
+      std::vector< int > partner_idx( 2 * nprocs , -1 );
+      int total_requests = 0;
       //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
 
@@ -134,7 +135,7 @@ namespace exanb
       std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
       uint8_t* send_buf_ptr = ghost_comm_buffers->send_buffer.data();
       std::vector<uint8_t> send_staging;
-      size_t active_send_packs = 0;
+      int active_send_packs = 0;
       if( *staging_buffer )
       {
         send_staging.resize( ghost_comm_buffers->sendbuf_total_size() );
@@ -161,8 +162,8 @@ namespace exanb
       }
 
       // number of flying messages
-      size_t active_sends = 0;
-      size_t active_recvs = 0;
+      int active_sends = 0;
+      int active_recvs = 0;
 
       // ***************** async receive start ******************
       uint8_t* recv_buf_ptr = ghost_comm_buffers->recv_buffer.data();
@@ -179,7 +180,7 @@ namespace exanb
           assert( ghost_comm_buffers->recv_buffer_offsets[p] + ghost_comm_buffers->recvbuf_size(p) <= ghost_comm_buffers->recvbuf_total_size() );
           ++ active_recvs;
           // recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p]
-          request_idx[ total_requests ] = p;
+          partner_idx[ total_requests ] = p;
           MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p], ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
           ++ total_requests;
         }
@@ -202,7 +203,7 @@ namespace exanb
             if( ready )
             {
               ++ active_sends;
-              request_idx[ total_requests ] = nprocs+p;
+              partner_idx[ total_requests ] = nprocs+p;
               MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p] , ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
               ++ total_requests;
               message_sent[p] = true;
@@ -218,14 +219,39 @@ namespace exanb
       while( active_sends>0 || active_recvs>0 )
       {
         int reqidx = MPI_UNDEFINED;
-        MPI_Status status;
-        MPI_Waitany(total_requests,requests.data(),&reqidx,&status);
+
+        if( total_requests != ( active_sends + active_recvs ) )
+        {
+          fatal_error() << "Inconsistent total_active_requests ("<<total_requests<<") != ( "<<active_sends<<" + "<<active_recvs<<" )" <<std::endl;
+        }
+//#       ifndef NDEBUG
+        ldbg << active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<total_requests<<") :" ;
+        for(int i=0;i<total_requests;i++)
+        {
+          const int p = partner_idx[i];
+          ldbg << " REQ"<< i << "="<< ( (p < nprocs) ? "RECV-P" : "SEND-P" ) << ( (p < nprocs) ? p : (p - nprocs) );
+        }
+        ldbg << std::endl;
+//#       endif
+        if( total_requests == 1 )
+        {
+          MPI_Wait( requests.data() , MPI_STATUS_IGNORE );
+          reqidx = 0;
+        }
+        else
+        {
+          MPI_Waitany( total_requests , requests.data() , &reqidx , MPI_STATUS_IGNORE );
+        }
+
         if( reqidx != MPI_UNDEFINED )
         {
-          reqidx = request_idx[ reqidx ]; // get the original request index ( [0;nprocs-1] for receives, [nprocs;2*nprocs-1] for sends )
-          if( reqidx < nprocs ) // it's a receive
+          if( reqidx<0 || reqidx >=total_requests )
           {
-            const int p = reqidx;
+            fatal_error() << "bad request index "<<reqidx<<std::endl;
+          }
+          int p = partner_idx[ reqidx ]; // get the original request index ( [0;nprocs-1] for receives, [nprocs;2*nprocs-1] for sends )
+          if( p < nprocs ) // it's a receive
+          {
             assert( p >= 0 && p < nprocs );
             const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
 
@@ -238,7 +264,7 @@ namespace exanb
             MPI_Get_count(&status,MPI_CHAR,&status_count);
             assert( receive_size == status_count );
 #           endif
-            
+
             // re-allocate cells before they receive particles
             if( CreateParticles )
             {
@@ -271,6 +297,14 @@ namespace exanb
             //const int p = reqidx - nprocs;
             -- active_sends;
           }
+
+          requests[reqidx] = requests[total_requests-1];
+          partner_idx[reqidx] = partner_idx[total_requests-1];
+          -- total_requests;
+        }
+        else
+        {
+          ldbg << "Warning: undefined request index returned by MPI_Waitany"<<std::endl;
         }
       }      
 
