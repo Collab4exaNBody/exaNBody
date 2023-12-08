@@ -229,14 +229,13 @@ namespace exanb
       }
     };
 
-    class MpiRequestArray
+    struct MpiRequestArray
     {
+      MpiMultipleWaitMethod m_wait_method = { MpiMultipleWaitMethod::EXANB_MPI_WAIT_ANY };
       std::vector<MPI_Request> m_requests;
       std::vector<int> m_request_ids;
       std::vector<int> m_completed_request_ids;
-      MpiMultipleWaitMethod m_wait_method = { MpiMultipleWaitMethod::EXANB_MPI_WAIT_ANY };
 
-    public:
       inline void initialize(int capacity)
       {
         m_requests.clear();
@@ -253,7 +252,17 @@ namespace exanb
         m_request_ids.push_back( req_id );
       }
 
-      inline std::pair<size_t,const int*> wait_some()
+      inline bool empty() const
+      {
+        return m_requests.empty();
+      }
+      
+      inline size_t number_of_requests() const
+      {
+        return m_requests.size();
+      }
+
+      inline std::pair<int,const int*> wait_some()
       {
         if( m_requests.size() != m_request_ids.size() )
         {
@@ -307,7 +316,15 @@ namespace exanb
             return { m_completed_request_ids.size() , m_completed_request_ids.data() };
           }
           break;
+          
+          default :
+          {
+            fatal_error() << "Unknown wait method" << std::endl;
+          }
+          break;
         }
+        
+        return { 0 , nullptr } ;
       }
     };
 
