@@ -67,6 +67,7 @@ namespace exanb
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
     ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
     ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
+    ADD_SLOT( bool                     , wait_all          , INPUT , false );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
@@ -173,7 +174,7 @@ namespace exanb
           ++ active_recvs;
           partner_idx[ total_requests ] = p;
           MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p], ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-          ldbg << "async recv #, "<<total_requests<<" partner #"<<p << std::endl;
+          ldbg << "async recv #"<<total_requests<<" partner #"<<p << std::endl;
           ++ total_requests;          
         }
       }
@@ -197,7 +198,7 @@ namespace exanb
               ++ active_sends;
               partner_idx[ total_requests ] = nprocs+p;
               MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-              ldbg << "async send #, "<<total_requests<<" partner #"<<p << std::endl;
+              ldbg << "async send #"<<total_requests<<" partner #"<<p << std::endl;
               ++ total_requests;          
               message_sent[p] = true;
             }
@@ -207,6 +208,11 @@ namespace exanb
 
       std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
       size_t ghost_cells_recv = 0;
+
+      if( *wait_all )
+      {
+        MPI_Waitall( total_requests , requests.data() , MPI_STATUS_IGNORE );
+      }
 
       while( active_sends>0 || active_recvs>0 )
       {
@@ -225,14 +231,22 @@ namespace exanb
         }
         ldbg << std::endl;
 //#       endif
-        if( total_requests == 1 )
+
+        if( *wait_all )
         {
-          MPI_Wait( requests.data() , MPI_STATUS_IGNORE );
-          reqidx = 0;
+          reqidx = total_requests-1; // process communication in reverse order
         }
         else
         {
-          MPI_Waitany( total_requests , requests.data() , &reqidx , MPI_STATUS_IGNORE );
+          if( total_requests == 1 )
+          {
+            MPI_Wait( requests.data() , MPI_STATUS_IGNORE );
+            reqidx = 0;
+          }
+          else
+          {
+            MPI_Waitany( total_requests , requests.data() , &reqidx , MPI_STATUS_IGNORE );
+          }
         }
         
         if( reqidx != MPI_UNDEFINED )

@@ -69,7 +69,7 @@ namespace exanb
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
     ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
     ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
-    //ADD_SLOT( MpiMultipleWaitMethod    , wait_method       , INPUT , MpiMultipleWaitMethod{ MpiMultipleWaitMethod::EXANB_MPI_WAIT_ANY } );
+    ADD_SLOT( bool                     , wait_all          , INPUT , false );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
@@ -216,6 +216,12 @@ namespace exanb
 
       std::vector<UnpackGhostFunctor> m_unpack_functors( nprocs , UnpackGhostFunctor{} );
       size_t ghost_particles_recv = 0;
+       
+      if( *wait_all )
+      {
+        MPI_Waitall( total_requests , requests.data() , MPI_STATUS_IGNORE );
+      }
+      
       while( active_sends>0 || active_recvs>0 )
       {
         int reqidx = MPI_UNDEFINED;
@@ -233,14 +239,22 @@ namespace exanb
         }
         ldbg << std::endl;
 //#       endif
-        if( total_requests == 1 )
+
+        if( *wait_all )
         {
-          MPI_Wait( requests.data() , MPI_STATUS_IGNORE );
-          reqidx = 0;
+          reqidx = total_requests-1; // process communications in reverse order
         }
         else
         {
-          MPI_Waitany( total_requests , requests.data() , &reqidx , MPI_STATUS_IGNORE );
+          if( total_requests == 1 )
+          {
+            MPI_Wait( requests.data() , MPI_STATUS_IGNORE );
+            reqidx = 0;
+          }
+          else
+          {
+            MPI_Waitany( total_requests , requests.data() , &reqidx , MPI_STATUS_IGNORE );
+          }
         }
 
         if( reqidx != MPI_UNDEFINED )
