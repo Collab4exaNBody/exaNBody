@@ -129,7 +129,7 @@ namespace exanb
       std::vector<PackGhostFunctor> m_pack_functors( nprocs );
       uint8_t* send_buf_ptr = ghost_comm_buffers->recv_buffer.data();
       std::vector<uint8_t> send_staging;
-      int active_send_packs = 0;
+      size_t active_send_packs = 0;
       if( *staging_buffer )
       {
         send_staging.resize( ghost_comm_buffers->recvbuf_total_size() );
