@@ -97,7 +97,7 @@ namespace exanb
       Vec3d domain_size = bounds_size( domain.bounds() );
 
       ldbg <<"UpdateGhostsCommScheme: --- begin ghost_comm_scheme ---" << std::endl;
-      ldbg <<"UpdateGhostsCommScheme: domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << "ghost_layers=" << ghost_layers << std::endl;
+      ldbg <<"UpdateGhostsCommScheme: domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << " ghost_layers=" << ghost_layers << std::endl;
 
       // for periodic conditions we shift simulation box once to the right or to the left
       // FIXME: this could be more than 1 and less than -1, in case the nieghborhood distance is greater than the domain itself

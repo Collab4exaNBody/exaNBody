@@ -44,9 +44,7 @@ namespace exanb
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
     
-    static_assert( ParticleTuple::has_field(field::rx) , "ParticleTuple must contain field::rx" );
-    static_assert( ParticleTuple::has_field(field::ry) , "ParticleTuple must contain field::ry" );
-    static_assert( ParticleTuple::has_field(field::rz) , "ParticleTuple must contain field::rz" );
+    static_assert( ParticleTuple::has_field(field::rx) && ParticleTuple::has_field(field::rx) && ParticleTuple::has_field(field::rx) , "ParticleTuple must contain rx, ry and rz fields" );
     
     struct CellParticlesUpdateData
     {
@@ -154,10 +152,10 @@ namespace exanb
                                                , cell_scalar_components
                                                , ghost_comm_buffers->sendbuf_ptr(p)
                                                , ghost_comm_buffers->sendbuf_size(p)
-                                               , (*staging_buffer) ? ( send_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr };
+                                               , ( (*staging_buffer) && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr };
           send_pack_async[p] = parallel_execution_context(p);
           onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );
-          ++ active_send_packs;
+          if( p != rank ) { ++ active_send_packs; }
         }
       }
 
@@ -175,7 +173,7 @@ namespace exanb
       }
       for(int p=0;p<nprocs;p++)
       {
-        if( ghost_comm_buffers->recvbuf_size(p) > 0 )
+        if( p!=rank && ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
           assert( ghost_comm_buffers->recv_buffer_offsets[p] + ghost_comm_buffers->recvbuf_size(p) <= ghost_comm_buffers->recvbuf_total_size() );
           ++ active_recvs;
@@ -196,7 +194,7 @@ namespace exanb
       {
         for(int p=0;p<nprocs;p++)
         {
-          if( ! message_sent[p] && ghost_comm_buffers->sendbuf_size(p) > 0 )
+          if( p!=rank && !message_sent[p] && ghost_comm_buffers->sendbuf_size(p) > 0 )
           {
             bool ready = true;
             if( ! (*serialize_pack_send) && send_pack_async[p] != nullptr ) { ready = send_pack_async[p]->queryStatus(); }
@@ -215,11 +213,60 @@ namespace exanb
       ldbg << "UpdateGhosts : total active requests = "<<total_requests<<std::endl;
 
       std::vector<UnpackGhostFunctor> m_unpack_functors( nprocs , UnpackGhostFunctor{} );
-      size_t ghost_particles_recv = 0;
-       
+
+      size_t ghost_cells_recv=0 , ghost_cells_self=0;
+ 
+      // *** packet decoding process lambda ***
+      auto process_receive_buffer = [&,this](int p)
+      {
+        const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();        
+        // re-allocate cells before they receive particles
+        if( CreateParticles )
+        {
+          for( auto cell_input_it : comm_scheme.m_partner[p].m_receives )
+          {
+            const auto cell_input = ghost_cell_receive_info(cell_input_it);
+            const size_t n_particles = cell_input.m_n_particles;
+            const size_t cell_i = cell_input.m_cell_i;
+            assert( /*cell_i>=0 &&*/ cell_i<n_cells );
+            assert( cells[cell_i].empty() );
+            cells[cell_i].resize( n_particles , grid->cell_allocator() );
+          }
+        }
+        
+        if( p != rank ) ghost_cells_recv += cells_to_receive;
+        else ghost_cells_self += cells_to_receive;
+
+        m_unpack_functors[p] = UnpackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data()
+                                          , comm_scheme.m_partner[p].m_receive_offset.data()
+                                          , (p!=rank) ? ghost_comm_buffers->recvbuf_ptr(p) : ghost_comm_buffers->sendbuf_ptr(p)
+                                          , cells 
+                                          , cell_scalar_components 
+                                          , cell_scalars
+                                          , ghost_comm_buffers->recvbuf_size(p)
+                                          , ( (*staging_buffer) && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
+        recv_unpack_async[p] = parallel_execution_context(p);
+        onika::parallel::block_parallel_for( cells_to_receive, m_unpack_functors[p], recv_unpack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );                    
+      };
+      // *** end of packet decoding lamda ***
+
+      // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
+      if( ghost_comm_buffers->sendbuf_size(rank) > 0 )
+      {
+        if( ghost_comm_buffers->sendbuf_size(rank) != ghost_comm_buffers->recvbuf_size(rank) )
+        {
+          fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers->sendbuf_size(rank)<<" receive="<<ghost_comm_buffers->recvbuf_size(rank)<<std::endl;
+        }
+        ldbg << "UpdateGhosts: loopback buffer size="<<ghost_comm_buffers->sendbuf_size(rank)<<std::endl;
+        if( ! (*serialize_pack_send) && send_pack_async[rank] != nullptr ) { send_pack_async[rank]->wait(); }
+        process_receive_buffer(rank);
+      }
+
       if( *wait_all )
       {
+        ldbg << "UpdateFromGhosts: MPI_Waitall, total_requests="<<total_requests<<std::endl;
         MPI_Waitall( total_requests , requests.data() , MPI_STATUS_IGNORE );
+        ldbg << "UpdateFromGhosts: MPI_Waitall done"<<std::endl;
       }
       
       while( active_sends>0 || active_recvs>0 )
@@ -230,15 +277,13 @@ namespace exanb
         {
           fatal_error() << "Inconsistent total_active_requests ("<<total_requests<<") != ( "<<active_sends<<" + "<<active_recvs<<" )" <<std::endl;
         }
-//#       ifndef NDEBUG
-        ldbg << active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<total_requests<<") :" ;
+        ldbg << "UpdateGhosts: "<< active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<total_requests<<") :" ;
         for(int i=0;i<total_requests;i++)
         {
           const int p = partner_idx[i];
           ldbg << " REQ"<< i << "="<< ( (p < nprocs) ? "RECV-P" : "SEND-P" ) << ( (p < nprocs) ? p : (p - nprocs) );
         }
         ldbg << std::endl;
-//#       endif
 
         if( *wait_all )
         {
@@ -267,43 +312,7 @@ namespace exanb
           if( p < nprocs ) // it's a receive
           {
             assert( p >= 0 && p < nprocs );
-            const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
-
-#           ifndef NDEBUG
-            size_t particles_to_receive = 0;
-            for(size_t i=0;i<cells_to_receive;i++) { particles_to_receive += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles; }
-            ssize_t receive_size = ( cells_to_receive * sizeof(CellParticlesUpdateData) ) + ( particles_to_receive * sizeof(ParticleTuple) );
-            receive_size += cells_to_receive * sizeof(GridCellValueType) * cell_scalar_components;
-            int status_count = 0;
-            MPI_Get_count(&status,MPI_CHAR,&status_count);
-            assert( receive_size == status_count );
-#           endif
-
-            // re-allocate cells before they receive particles
-            if( CreateParticles )
-            {
-              for( auto cell_input_it : comm_scheme.m_partner[p].m_receives )
-              {
-                const auto cell_input = ghost_cell_receive_info(cell_input_it);
-                const size_t n_particles = cell_input.m_n_particles;
-                const size_t cell_i = cell_input.m_cell_i;
-                assert( /*cell_i>=0 &&*/ cell_i<n_cells );
-                assert( cells[cell_i].empty() );
-                cells[cell_i].resize( n_particles , grid->cell_allocator() );
-              }
-            }
-
-            m_unpack_functors[p] = UnpackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data()
-                                              , comm_scheme.m_partner[p].m_receive_offset.data()
-                                              , ghost_comm_buffers->recvbuf_ptr(p) 
-                                              , cells 
-                                              , cell_scalar_components 
-                                              , cell_scalars
-                                              , ghost_comm_buffers->recvbuf_size(p)
-                                              , (*staging_buffer) ? ( recv_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
-            recv_unpack_async[p] = parallel_execution_context(p);
-            onika::parallel::block_parallel_for( cells_to_receive, m_unpack_functors[p], recv_unpack_async[p] , (!CreateParticles) && (*gpu_buffer_pack) , *async_buffer_pack );            
-
+            process_receive_buffer(p);
             -- active_recvs;
           }
           else // it's a send
@@ -326,13 +335,13 @@ namespace exanb
       {
         if( recv_unpack_async[p] != nullptr ) { recv_unpack_async[p]->wait(); }
       }
-      
+
       if( CreateParticles )
       {
         grid->rebuild_particle_offsets();
       }
 
-      ldbg << "--- end update_ghosts : received "<< ghost_particles_recv<<" ghost particles" << std::endl;
+      ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;
      }
 
   };

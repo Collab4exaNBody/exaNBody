@@ -130,7 +130,7 @@ namespace exanb
       std::vector<PackGhostFunctor> m_pack_functors( nprocs );
       uint8_t* send_buf_ptr = ghost_comm_buffers->recv_buffer.data();
       std::vector<uint8_t> send_staging;
-      size_t active_send_packs = 0;
+      int active_send_packs = 0;
       if( *staging_buffer )
       {
         send_staging.resize( ghost_comm_buffers->recvbuf_total_size() );
@@ -148,10 +148,10 @@ namespace exanb
                                                , cell_scalar_components
                                                , cell_scalars
                                                , ghost_comm_buffers->recvbuf_size(p)
-                                               , (*staging_buffer) ? ( send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
+                                               , ( (*staging_buffer) && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
           send_pack_async[p] = parallel_execution_context(p);
           onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , *gpu_buffer_pack , *async_buffer_pack );
-          ++ active_send_packs;
+          if( p != rank ) { ++ active_send_packs; }
         }
       }
 
@@ -169,27 +169,29 @@ namespace exanb
       }
       for(int p=0;p<nprocs;p++)
       {
-        if( ghost_comm_buffers->sendbuf_size(p) > 0 )
+        if( p!=rank && ghost_comm_buffers->sendbuf_size(p) > 0 )
         {
           ++ active_recvs;
           partner_idx[ total_requests ] = p;
           MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers->send_buffer_offsets[p], ghost_comm_buffers->sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-          ldbg << "async recv #"<<total_requests<<" partner #"<<p << std::endl;
+          //ldbg << "async recv #"<<total_requests<<" partner #"<<p << std::endl;
           ++ total_requests;          
         }
       }
 
-      // ***************** initiate buffer sends ******************
+      /*** optional synchronization : wait for all send buffers to be packed before moving on ***/
       if( *serialize_pack_send )
       {
         for(int p=0;p<nprocs;p++) { if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); } }
       }
+
+      // ***************** initiate buffer sends ******************
       std::vector<bool> message_sent( nprocs , false );
       while( active_sends < active_send_packs )
       {
         for(int p=0;p<nprocs;p++)
         {
-          if( ! message_sent[p] && ghost_comm_buffers->recvbuf_size(p) > 0 )
+          if( p!=rank && !message_sent[p] && ghost_comm_buffers->recvbuf_size(p)>0 )
           {
             bool ready = true;
             if( ! (*serialize_pack_send) && send_pack_async[p] != nullptr ) { ready = send_pack_async[p]->queryStatus(); }
@@ -198,22 +200,58 @@ namespace exanb
               ++ active_sends;
               partner_idx[ total_requests ] = nprocs+p;
               MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers->recv_buffer_offsets[p] , ghost_comm_buffers->recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-              ldbg << "async send #"<<total_requests<<" partner #"<<p << std::endl;
+              // ldbg << "async send #"<<total_requests<<" partner #"<<p << std::endl;
               ++ total_requests;          
               message_sent[p] = true;
             }
           }
         }
       }
+      assert( active_sends == active_send_packs );
+
 
       std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
       size_t ghost_cells_recv = 0;
 
-      if( *wait_all )
+
+      // *** packet decoding process lambda ***
+      auto process_receive_buffer = [&,this](int p)
       {
-        MPI_Waitall( total_requests , requests.data() , MPI_STATUS_IGNORE );
+        const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
+        ghost_cells_recv += cells_to_receive;
+        unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
+                                                , cells
+                                                , cell_scalars
+                                                , cell_scalar_components
+                                                , (p!=rank) ? ghost_comm_buffers->sendbuf_ptr(p) : ghost_comm_buffers->recvbuf_ptr(p)
+                                                , ghost_comm_buffers->sendbuf_size(p)
+                                                , ( (*staging_buffer) && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr
+                                                , UpdateValueFunctor{} };
+        recv_unpack_async[p] = parallel_execution_context(p);
+        onika::parallel::block_parallel_for( cells_to_receive, unpack_functors[p], recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            
+      };
+      // *** end of packet decoding lamda ***
+
+
+      // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
+      if( ghost_comm_buffers->recvbuf_size(rank) > 0 )
+      {
+        if( ghost_comm_buffers->sendbuf_size(rank) != ghost_comm_buffers->recvbuf_size(rank) )
+        {
+          fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers->recvbuf_size(rank)<<" receive="<<ghost_comm_buffers->sendbuf_size(rank)<<std::endl;
+        }
+        ldbg << "UpdateFromGhosts: loopback buffer size="<<ghost_comm_buffers->sendbuf_size(rank)<<std::endl;
+        if( ! (*serialize_pack_send) && send_pack_async[rank] != nullptr ) { send_pack_async[rank]->wait(); }
+        process_receive_buffer(rank);
       }
 
+      // *** wait for flying messages to arrive ***
+      if( *wait_all )
+      {
+        ldbg << "UpdateFromGhosts: MPI_Waitall, total_requests="<<total_requests<<std::endl;
+        MPI_Waitall( total_requests , requests.data() , MPI_STATUS_IGNORE );
+        ldbg << "UpdateFromGhosts: MPI_Waitall done"<<std::endl;
+      }
       while( active_sends>0 || active_recvs>0 )
       {
         int reqidx = MPI_UNDEFINED;
@@ -222,15 +260,13 @@ namespace exanb
         {
           fatal_error() << "Inconsistent total_active_requests ("<<total_requests<<") != ( "<<active_sends<<" + "<<active_recvs<<" )" <<std::endl;
         }
-//#       ifndef NDEBUG
-        ldbg << active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<total_requests<<") :" ;
+        ldbg <<"UpdateFromGhosts: "<< active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<total_requests<<") :" ;
         for(int i=0;i<total_requests;i++)
         {
           const int p = partner_idx[i];
           ldbg << " REQ"<< i << "="<< ( (p < nprocs) ? "RECV-P" : "SEND-P" ) << ( (p < nprocs) ? p : (p - nprocs) );
         }
         ldbg << std::endl;
-//#       endif
 
         if( *wait_all )
         {
@@ -256,22 +292,9 @@ namespace exanb
             fatal_error() << "bad request index "<<reqidx<<std::endl;
           }
           const int p = partner_idx[ reqidx ]; // get the original request index ( [0;nprocs-1] for receives, [nprocs;2*nprocs-1] for sends )
-          //ldbg <<"P"<<rank<< " GOT REQ" << reqidx << "="<< ( (p < nprocs) ? "RECV-P" : "SEND-P" ) << ( (p < nprocs) ? p : (p - nprocs) ) << std::endl;
           if( p < nprocs ) // it's a receive
           {
-            const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
-            ghost_cells_recv += cells_to_receive;
-            unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
-                                                    , cells
-                                                    , cell_scalars
-                                                    , cell_scalar_components
-                                                    , ghost_comm_buffers->sendbuf_ptr(p)
-                                                    , ghost_comm_buffers->sendbuf_size(p)
-                                                    , (*staging_buffer) ? ( recv_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr
-                                                    , UpdateValueFunctor{} };
-            recv_unpack_async[p] = parallel_execution_context(p);
-            onika::parallel::block_parallel_for( cells_to_receive, unpack_functors[p], recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            
-            
+            process_receive_buffer(p);
             -- active_recvs;
           }
           else // it's a send
