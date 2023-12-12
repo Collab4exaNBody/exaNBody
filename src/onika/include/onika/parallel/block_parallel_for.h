@@ -176,9 +176,9 @@ namespace onika
         {
           exec_ctx->check_initialize();
           const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
-          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
-                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
-                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+//          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+//                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
+//                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
 
           auto custream = exec_ctx->m_cuda_stream;        
           exec_ctx->gpu_kernel_start();
