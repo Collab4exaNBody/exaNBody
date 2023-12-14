@@ -13,6 +13,7 @@ namespace YAML
   using exanb::Plane3d;
   using exanb::Mat3d;
   using exanb::AABB;
+  using exanb::units::Quantity;
     
   template<> struct convert< IJK >
   {
