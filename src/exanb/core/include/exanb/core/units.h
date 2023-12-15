@@ -5,6 +5,7 @@
 #include <string>
 
 #include <exanb/core/physics_constants.h>
+#include <onika/cuda/cuda.h>
 
 // #define EXANB_LEGACY_UNITS_DEPRECATED 1 // will be set soon ...
 
@@ -38,8 +39,7 @@ namespace exanb
       double m_to_si = 1.0;
       const char* m_short_name = "?";
       const char* m_name = "unknow";
-      
-      inline bool operator == (const UnitDefinition& other) const { return m_class==other.m_class && m_to_si==other.m_to_si; }      
+      ONIKA_HOST_DEVICE_FUNC inline bool operator == (const UnitDefinition& other) const { return m_class==other.m_class && m_to_si==other.m_to_si; }      
     };
 
     /*********************************************************************/
@@ -99,43 +99,6 @@ namespace exanb
 
     /*********************************************************************/
     /*********************************************************************/
-
-    namespace symbols
-    {
-      static inline constexpr auto m = meter;
-      static inline constexpr auto mm = millimeter;
-      static inline constexpr auto um = micron;
-      static inline constexpr auto nm = nanometer;
-      static inline constexpr auto ang = angstrom;
-      
-      static inline constexpr auto kg = kilogram;
-      static inline constexpr auto g = gram;
-      static inline constexpr auto Da = atomic_mass_unit;
-      
-      static inline constexpr auto h = hour;
-      static inline constexpr auto s = second;
-      static inline constexpr auto us = microsecond;
-      static inline constexpr auto ns = nanosecond;
-      static inline constexpr auto ps = picosecond;
-      static inline constexpr auto fs = fetosecond;
-      
-      static inline constexpr auto C = coulomb;
-      static inline constexpr auto ec = elementary_charge;
-      
-      static inline constexpr auto K = kelvin;
-      
-      static inline constexpr auto mol = ::exanb::units::mol;
-
-      static inline constexpr auto cd = candela;
-      
-      static inline constexpr auto rad = radian;
-      static inline constexpr auto degree = ::exanb::units::degree;
-      
-      static inline constexpr auto J = joule;
-      static inline constexpr auto eV = electron_volt;
-      static inline constexpr auto cal = calorie;
-      static inline constexpr auto kcal = kcalorie;
-    }
 
     struct UnitSystem
     {
@@ -234,7 +197,7 @@ namespace exanb
       UnitSystem m_system = SI;
       UnitPowers m_unit_powers = { { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. } };
 
-      inline constexpr double convert( const UnitSystem& other = internal_unit_system ) const
+      ONIKA_HOST_DEVICE_FUNC inline double convert( const UnitSystem& other ) const
       {
         double value = m_value;
         for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
@@ -250,11 +213,16 @@ namespace exanb
         }
         return value;      
       }
+      ONIKA_HOST_DEVICE_FUNC inline double convert() const
+      {
+        constexpr UnitSystem IUS = ::exanb::units::internal_unit_system;
+        return convert( IUS );
+      }
       
-      inline operator double() const { return convert(); }
+      ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
     };
 
-    inline Quantity operator * ( const Quantity& qlhs , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const Quantity& qrhs )
     {
       Quantity q = qrhs;
       q.m_value *= qrhs.m_value;
@@ -281,7 +249,7 @@ namespace exanb
       return q;
     }
 
-    inline Quantity operator ^ ( const Quantity& qlhs , double power )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const Quantity& qlhs , double power )
     {
       Quantity q = qlhs;
       q.m_value = pow( q.m_value , power );
@@ -292,7 +260,7 @@ namespace exanb
       return q;
     }
 
-    inline Quantity dispatch_energy_units( const Quantity& q )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity dispatch_energy_units( const Quantity& q )
     {
       double joule_factor = pow( q.m_system.m_units[ENERGY].m_to_si , q.m_unit_powers.m_powers[ENERGY] );
       Quantity qnrj = { joule_factor , SI };
@@ -304,7 +272,7 @@ namespace exanb
       return qremain * qnrj;
     }
 
-    inline Quantity operator * ( double value , const UnitDefinition& U )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const UnitDefinition& U )
     {
       Quantity q = { value };
       q.m_system.m_units[ U.m_class ] = U;
@@ -312,26 +280,41 @@ namespace exanb
       return dispatch_energy_units(q);
     }
 
-    inline Quantity operator ^ ( const UnitDefinition& U , double power )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const UnitDefinition& U , double power )
     {
-      return dispatch_energy_units( 1.0 * U ) ^ power;
+      return ( 1.0 * U ) ^ power;
     }
 
-    inline Quantity operator * ( double value , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const Quantity& qrhs )
     {
       Quantity q = qrhs;
       q.m_value *= value;
-      return dispatch_energy_units(q);
+      return q;
     }
 
-    inline Quantity operator * ( const Quantity& qlhs , const UnitDefinition& U )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const UnitDefinition& U )
     {
-      return qlhs * dispatch_energy_units( 1.0 * U );
+      return qlhs * ( 1.0 * U );
     }
 
-    inline Quantity operator / ( const Quantity& qlhs , const Quantity& qrhs )
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( const Quantity& qlhs , const Quantity& qrhs )
     {
       return qlhs * ( qrhs ^ -1.0 );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( const Quantity& qlhs , const UnitDefinition& U )
+    {
+      return qlhs * ( ( 1.0 * U ) ^ -1.0 );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( double x , const UnitDefinition& U )
+    {
+      return x * ( ( 1.0 * U ) ^ -1.0 );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( double x , const Quantity& qrhs )
+    {
+      return x * ( qrhs ^ -1.0 );
     }
 
     template<class StreamT>
@@ -372,7 +355,6 @@ namespace exanb
     Quantity make_quantity( double value , const std::string& units_and_powers );
     Quantity quantity_from_string(const std::string& s, bool& conversion_done);
     Quantity quantity_from_string(const std::string& s);
-
   }
 
   /************ backward compatibility layer ***********/  
@@ -433,4 +415,34 @@ namespace YAML
 
 }
 
+// allow use of quantities without parsing strings
+#define EXANB_QUANTITY( __expr ) [&]() -> double { \
+  using namespace ::exanb::units; \
+  [[maybe_unused]] constexpr auto m = meter; \
+  [[maybe_unused]] constexpr auto mm = millimeter; \
+  [[maybe_unused]] constexpr auto um = micron; \
+  [[maybe_unused]] constexpr auto nm = nanometer; \
+  [[maybe_unused]] constexpr auto ang = angstrom; \
+  [[maybe_unused]] constexpr auto kg = kilogram; \
+  [[maybe_unused]] constexpr auto g = gram; \
+  [[maybe_unused]] constexpr auto Da = atomic_mass_unit; \
+  [[maybe_unused]] constexpr auto h = hour; \
+  [[maybe_unused]] constexpr auto s = second; \
+  [[maybe_unused]] constexpr auto us = microsecond; \
+  [[maybe_unused]] constexpr auto ns = nanosecond; \
+  [[maybe_unused]] constexpr auto ps = picosecond; \
+  [[maybe_unused]] constexpr auto fs = fetosecond; \
+  [[maybe_unused]] constexpr auto C = coulomb; \
+  [[maybe_unused]] constexpr auto ec = elementary_charge; \
+  [[maybe_unused]] constexpr auto K = kelvin; \
+  [[maybe_unused]] constexpr auto mol = ::exanb::units::mol; \
+  [[maybe_unused]] constexpr auto cd = candela; \
+  [[maybe_unused]] constexpr auto rad = radian; \
+  [[maybe_unused]] constexpr auto degree = ::exanb::units::degree;       \
+  [[maybe_unused]] constexpr auto J = joule; \
+  [[maybe_unused]] constexpr auto eV = electron_volt; \
+  [[maybe_unused]] constexpr auto cal = calorie; \
+  [[maybe_unused]] constexpr auto kcal = kcalorie; \
+  return ( __expr ).convert(); \
+}()
 
