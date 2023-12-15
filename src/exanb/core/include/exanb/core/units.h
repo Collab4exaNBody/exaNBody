@@ -188,6 +188,26 @@ namespace exanb
 
   }
 
+  /************ backward compatibility layer ***********/  
+  struct EnumUnities
+  {
+    units::UnitDefinition m_unit;
+    inline constexpr EnumUnities(const units::UnitDefinition& u) : m_unit(u) {}
+    inline constexpr operator units::UnitDefinition() const { return m_unit; }
+    static inline constexpr units::UnitDefinition meter = units::meter;
+    static inline constexpr units::UnitDefinition angstrom = units::angstrom;
+    static inline constexpr units::UnitDefinition atomic_mass_unit = units::atomic_mass_unit;
+    static inline constexpr units::UnitDefinition gram = units::gram;
+    static inline constexpr units::UnitDefinition picosecond = units::picosecond;
+    static inline constexpr units::UnitDefinition second = units::second;
+    static inline constexpr units::UnitDefinition elementary_charge = units::elementary_charge;
+    static inline constexpr units::UnitDefinition kelvin = units::kelvin;
+    static inline constexpr units::UnitDefinition particle = units::particle;
+    static inline constexpr units::UnitDefinition candela = units::candela;
+    static inline constexpr units::UnitDefinition radian = units::radian;
+  };
+  /************ END OF backward compatibility *********************/
+
 }
 
 #include "exanb/internal_units.h"
@@ -355,7 +375,7 @@ namespace exanb
 
   }
 
-  /************ backward compatibility with older versions ***********/  
+  /************ backward compatibility layer ***********/  
   struct UnityConverterHelper
   {
 #   ifdef EXANB_LEGACY_UNITS_DEPRECATED
@@ -368,9 +388,9 @@ namespace exanb
   };
   using units::Quantity;
   using units::make_quantity;
-   
-}
+  /************ END OF backward compatibility *********************/  
 
+}
 
 /***************** YAML conversion *****************/
 
