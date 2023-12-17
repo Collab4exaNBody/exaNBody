@@ -7,7 +7,8 @@
 #include <exanb/core/physics_constants.h>
 #include <onika/cuda/cuda.h>
 
-// #define EXANB_LEGACY_UNITS_DEPRECATED 1 // will be set soon ...
+#define EXANB_UNITS_V2 1
+// #define EXANB_LEGACY_UNITS_DEPRECATED 1 // will soon be uncommented and will generate warnings if you use UnityConverterHelper::convert(...)
 
 namespace exanb
 {
@@ -416,7 +417,7 @@ namespace YAML
 }
 
 // allow use of quantities without parsing strings
-#define EXANB_QUANTITY( __expr ) [&]() -> double { \
+#define EXANB_QUANTITY( __expr ) [&]() -> ::exanb::units::Quantity { \
   using namespace ::exanb::units; \
   [[maybe_unused]] constexpr auto m = meter; \
   [[maybe_unused]] constexpr auto mm = millimeter; \
@@ -443,6 +444,6 @@ namespace YAML
   [[maybe_unused]] constexpr auto eV = electron_volt; \
   [[maybe_unused]] constexpr auto cal = calorie; \
   [[maybe_unused]] constexpr auto kcal = kcalorie; \
-  return ( __expr ).convert(); \
+  return ( __expr ); \
 }()
 

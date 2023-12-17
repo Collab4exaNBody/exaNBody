@@ -121,16 +121,14 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
   using namespace exanb::legacy_constant;
   const double x = 3.14;
   
-  //using namespace exanb::units;
-  
 # define TEST_EXPR( v , u , expr ) \
 { \
   const auto qa = exanb::units::make_quantity(v,u); \
-  const double a = qa.convert(); \
+  const double a = qa; \
   const auto qb = EXANB_QUANTITY( expr ); \
-  /*const double b = qb.convert();*/ \
-  /*std::cout<<v<<" "<<u<<" ("<<qa<<") = "<<a<<" , "<<qb<<" = "<<b<<std::endl;*/ \
-  /*XSTAMP_TEST_ASSERT( qa == qb );*/ \
+  const double b = qb; \
+  std::cout<<v<<" "<<u<<" ("<<qa<<") = "<<a<<" , "<<qb<<" = "<<b<<std::endl; \
+  XSTAMP_TEST_ASSERT( a == b ); \
 }
 
   TEST_EXPR( boltzmann, "J/K" , boltzmann * J / K );
