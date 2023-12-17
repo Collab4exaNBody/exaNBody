@@ -345,14 +345,6 @@ namespace exanb
       return out;
     }
 
-    // pretty printing
-    template<class StreamT>
-    inline StreamT& operator << (StreamT& out, const Quantity& q)
-    {
-      out << q.m_value << ' ';
-      return units_power_to_stream(out,q);
-    }
-
     Quantity make_quantity( double value , const std::string& units_and_powers );
     Quantity quantity_from_string(const std::string& s, bool& conversion_done);
     Quantity quantity_from_string(const std::string& s);
@@ -374,6 +366,15 @@ namespace exanb
   /************ END OF backward compatibility *********************/  
 
 }
+
+// pretty printing
+template<class StreamT>
+inline StreamT& operator << (StreamT& out, const exanb::units::Quantity& q)
+{
+  out << q.m_value << '.';
+  return exanb::units::units_power_to_stream(out,q);
+}
+
 
 /***************** YAML conversion *****************/
 
