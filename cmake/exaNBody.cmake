@@ -150,9 +150,12 @@ macro(exaNBodyStartApplication)
     endif()
   endif()
 
+  # external sources required
+  # https://github.com/kthohr/gcem.git
+  # 
+
   # embedded third party tools
   set(EXASTAMP_THIRDPARTY_DIR ${XNB_ROOT_DIR}/thirdparty)
-
   set(NAIVEMATRIX_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR})
   set(BASEN_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/base-n/include)
   set(TINYEXPR_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr)

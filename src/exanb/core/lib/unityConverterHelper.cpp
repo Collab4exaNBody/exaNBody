@@ -640,4 +640,56 @@ namespace exanb
   
 } // end of namespace exanb
 
+/********************** UNIT TESTS **********************************/
+
+#include <exanb/core/unit_test.h>
+#include <vector>
+#include <string>
+#include <cmath>
+
+XSTAMP_UNIT_TEST(exanb_units_conversion)
+{
+  using namespace exanb::legacy_constant;
+
+  std::cout<<"struct UnitConversionCheck { double value=0.0; const char* unit_str=nullptr; double conv=0.0; exanb::units::Quantity q={}; };\ndouble x=0.0; UnitConversionCheck unit_conversion_check[] = {\n";
+
+# define TEST_EXPR( v , u , expr ) std::cout<<"  { x="<< std::hexfloat<< v <<" , \""<<u<<"\" , "<<std::hexfloat<< exanb::UnityConverterHelper::convert(v,std::string(u))<<" , EXANB_QUANTITY( "<< #expr <<" ) } ,\n";
+
+  TEST_EXPR( boltzmann, "J/K" , boltzmann * J / K );
+  TEST_EXPR( 1.0 , "m" , 1.0 * m );
+  TEST_EXPR( 1.0 , "m/s" , 1.0 * m / s );
+  TEST_EXPR( 1.0 , "ang" , 1.0 * ang );
+  TEST_EXPR( 1.0 , "J" , 1.0 * J );
+  TEST_EXPR( boltzmann , "m^2*kg/s^2/K" , boltzmann * (m^2) * kg / (s^2) / K );
+  TEST_EXPR( 1.0, "1/m^2" , 1.0 / (m^2) );
+  TEST_EXPR( 1.0, "m^-2" , 1.0 * (m^-2) );
+  TEST_EXPR( 1.0, "s/m^2" , 1.0 * s / (m^2) );
+  TEST_EXPR( 1.0 , "m^2/s^2" , 1.0 * (m^2) / (s^2) );
+  TEST_EXPR( 1.0 , "1/s^2" , 1.0 / (s^2) );
+  TEST_EXPR( epsilonZero , "C^2.s^2/m^3/kg^1" , epsilonZero * (C^2) * (s^2) / (m^3) / kg );
+  
+  for( double x : std::vector<double>{ 3.14 , -3.14 , 0.1 , -0.1 } )
+  {
+    TEST_EXPR( x , "m" , x * m );
+    TEST_EXPR( x , "m/s" , x * m / s );
+    TEST_EXPR( x , "s" , x * s );
+    TEST_EXPR( x , "degree" , x * degree );
+    TEST_EXPR( x , "ang" , x * ang );
+    TEST_EXPR( x , "J" , x * J );
+    TEST_EXPR( x , "1/m^2" , x / (m^2) );
+    TEST_EXPR( x , "m^-2" , x * (m^-2) );
+    TEST_EXPR( x , "m^2/s^2" , x * (m^2) / (s^2) );
+    TEST_EXPR( x , "eV" , x * eV );
+    TEST_EXPR( x , "1/ang" , x / ang );
+    TEST_EXPR( x , "1/ang^2" , x / (ang^2) );
+    TEST_EXPR( x , "1/ang^3" , x / (ang^3) );
+    TEST_EXPR( x , "1/ang^4" , x / (ang^4) );
+    TEST_EXPR( x , "eV.ang/e-^2" , x * eV * ang / (ec^2) );
+    TEST_EXPR( x , "C^2.s^2/m^3/kg^1" , x * (C^2) * (s^2) / (m^3) / kg );
+    TEST_EXPR( x, "eV.ang/e-^2" , x * eV * ang / (ec^2) );
+  }
+
+  std::cout <<"};\n";
+
+}
 
