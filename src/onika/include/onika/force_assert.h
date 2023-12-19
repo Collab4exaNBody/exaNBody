@@ -16,5 +16,8 @@ namespace onika
   }
 }
 
+#ifdef __INTEL_COMPILER
 #define ONIKA_FORCE_ASSERT(cond) ::onika::_onika_force_assert(cond,#cond,__func__,__FILE__,__LINE__)
-
+#else
+#define ONIKA_FORCE_ASSERT(cond) ::onika::_onika_force_assert(cond,#cond,"<unknown>",__FILE__,__LINE__)
+#endif

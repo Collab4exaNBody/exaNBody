@@ -109,7 +109,7 @@ namespace exanb
         size_t np = cells[c].size();
         for(size_t pos=0;pos<np;++pos)
         {
-          const auto value = gridacc.get(c,pos,ftype);
+          [[maybe_unused]] const auto value = gridacc.get(c,pos,ftype);
           if constexpr ( ParaViewTypeId<field_type>::ncomp == 1 )
           {
             sources.push_back( value );

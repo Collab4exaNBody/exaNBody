@@ -7,6 +7,7 @@
 #include <cassert>
 #include <sstream>
 #include <cstdlib>
+#include <iostream>
 
 #include "tinyexpr.h"
 
@@ -26,6 +27,13 @@ namespace exanb
       // output unities_list = ({ang,6}, {kcal,-1}, {J,-1}, {T,-7}, {kg,-30})
       size_t pos = 0;
       double power = 1.0;//first unit positive
+      bool inverse_power = false;
+      if( p_unities.find("1/")==0 ) 
+      {
+        p_unities = p_unities.substr(2);
+        inverse_power = true;
+      }
+      
       std::vector< std::pair<std::string, double> > unities_list;
       while ((pos = p_unities.find_first_of("/*.")) != std::string::npos)
       {
@@ -55,7 +63,19 @@ namespace exanb
       for(const auto& pair : unities_list)
       {
         //Protection : if the unity doesn't exist, exit the code
-        q = q * ( unit_from_symbol(pair.first) ^ pair.second );
+        UnitDefinition u = unit_from_symbol(pair.first);
+        Quantity mq = u ^ pair.second;
+        //std::cout<<"Unit^Power: "<<std::defaultfloat<<pair.first<<" ^ "<<pair.second<<" (unit="<<u.m_name<<") => "<< mq <<std::endl;
+        //std::cout<<q<<" * "<<mq;
+        q = q * mq;
+        //std::cout<<" = "<<q<<std::endl;
+      }
+      //std::cout<<std::endl;
+      if( inverse_power )
+      {
+        const double v = q.m_value;
+        q = q ^ -1.0;
+        q.m_value = v;
       }
       return q;    
     }
@@ -105,10 +125,41 @@ namespace exanb
       return quantity_from_string(s,dont_care);
     }
 
-  } // end of namespace unit
+    std::ostream& units_power_to_stream (std::ostream& out, const Quantity& q)
+    {
+      bool bad_units = false;
+      for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
+      {
+        if( q.m_system.m_units[i].m_class != i ) bad_units = true;
+      }
+      if( bad_units )
+      {
+        out << "<bad-unit>";
+      }
+      else
+      {
+        bool unit_found = false;
+        for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
+        {
+          if( q.m_unit_powers.m_powers[i] != 0.0 )
+          {
+            out << ( unit_found ? "." : "" ) << q.m_system.m_units[i].m_short_name << '^' << q.m_unit_powers.m_powers[i];
+            unit_found = true;
+          }
+        }
+      }
+      return out;
+    }
+
+    std::ostream& operator << (std::ostream& out, const exanb::units::Quantity& q)
+    {
+      out << q.m_value << '.';
+      return units_power_to_stream(out,q);
+    }
+
+  } // end of namespace units
   
 } // end of namespace exanb
-
 
 
 /********************** UNIT TESTS **********************************/
@@ -123,10 +174,10 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
 # define TEST_EXPR( v , u , expr ) \
 { \
   const exanb::Quantity qa = exanb::units::make_quantity(v,u); \
-  const double a = qa; \
+  const double a = qa.convert(); \
   const exanb::Quantity qb = EXANB_QUANTITY( expr ); \
-  const double b = qb; \
-  std::cout<<"\n"<<v<<" "<<u<<" => "<<qa<<" = "<<a<<"\n"<<qb<<" = "<<b<<std::endl; \
+  const double b = qb.convert(); \
+  /* std::cout<<"make_quantity("<<v<<",\""<<u<<"\") = "<<qa<<" = "<<a<<" , "<<qb<<" = "<<b<<std::endl;*/ \
   XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 ); \
 }
 
@@ -151,14 +202,14 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
     TEST_EXPR( x , "degree" , x * degree );
     TEST_EXPR( x , "ang" , x * ang );
     TEST_EXPR( x , "J" , x * J );
-    TEST_EXPR( x , "1/m^2" , 1.0 / (m^2) );
+    TEST_EXPR( x , "1/m^2" , x / (m^2) );
     TEST_EXPR( x , "m^-2" , x * (m^-2) );
     TEST_EXPR( x , "m^2/s^2" , x * (m^2) / (s^2) );
     TEST_EXPR( x , "eV" , x * eV );
     TEST_EXPR( x , "1/ang" , x / ang );
-    TEST_EXPR( x , "1/ang^2" , x / ang^2 );
-    TEST_EXPR( x , "1/ang^3" , x / ang^3 );
-    TEST_EXPR( x , "1/ang^4" , x / ang^4 );
+    TEST_EXPR( x , "1/ang^2" , x / (ang^2) );
+    TEST_EXPR( x , "1/ang^3" , x / (ang^3) );
+    TEST_EXPR( x , "1/ang^4" , x / (ang^4) );
     TEST_EXPR( x , "eV.ang/e-^2" , x * eV * ang / (ec^2) );
     TEST_EXPR( x , "C^2.s^2/m^3/kg^1" , x * (C^2) * (s^2) / (m^3) / kg );
     TEST_EXPR( x, "eV.ang/e-^2" , x * eV * ang / (ec^2) );

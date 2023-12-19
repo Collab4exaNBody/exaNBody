@@ -27,10 +27,22 @@ namespace exanb
       LUMINOUS,
       ANGLE,
       ENERGY,
-      NUMBER_OF_UNIT_CLASSES,
+      NUMBER_OF_UNIT_CLASSES = ENERGY,
       OTHER = -1
     };
-      
+    
+    static inline constexpr const char* g_unit_class_str[NUMBER_OF_UNIT_CLASSES+1] = {
+      "LENGTH",
+      "MASS",
+      "TIME",
+      "CHARGE",
+      "TEMP",
+      "AMOUNT",
+      "LUMINOUS",
+      "ANGLE",
+      "ENERGY"
+    };
+    
     static inline constexpr auto elementaryChargeCoulomb = legacy_constant::elementaryCharge;
     static inline constexpr auto undefined_value = std::numeric_limits<double>::quiet_NaN();
     
@@ -108,7 +120,7 @@ namespace exanb
 
     struct UnitPowers
     {
-      double m_powers[NUMBER_OF_UNIT_CLASSES] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
+      double m_powers[NUMBER_OF_UNIT_CLASSES] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
     };
 
 /*
@@ -147,8 +159,7 @@ namespace exanb
       , kelvin
       , mol
       , candela
-      , radian
-      , joule } };
+      , radian } };
 
   }
 
@@ -189,14 +200,13 @@ namespace exanb
         INTERNAL_UNIT_TEMPERATURE,
         INTERNAL_UNIT_AMOUNT_OF_SUBSTANCE,
         INTERNAL_UNIT_LUMINOUS_INTENSITY,
-        INTERNAL_UNIT_ANGLE,
-        joule } };
+        INTERNAL_UNIT_ANGLE} };
       
     struct Quantity
     {
       double m_value = 0.0;
       UnitSystem m_system = SI;
-      UnitPowers m_unit_powers = { { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. } };
+      UnitPowers m_unit_powers = { { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. } };
 
       ONIKA_HOST_DEVICE_FUNC inline double convert( const UnitSystem& other ) const
       {
@@ -220,12 +230,12 @@ namespace exanb
         return convert( IUS );
       }
       
-      ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
+      //ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
     };
 
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const Quantity& qrhs )
     {
-      Quantity q = qrhs;
+      Quantity q = qlhs;
       q.m_value *= qrhs.m_value;
       for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
       {
@@ -236,15 +246,19 @@ namespace exanb
             if( q.m_unit_powers.m_powers[i] == 0.0 )
             {
               q.m_system.m_units[i] = qrhs.m_system.m_units[i];
+              q.m_unit_powers.m_powers[i] = qrhs.m_unit_powers.m_powers[i];
             }
-            q.m_value *= pow( qrhs.m_system.m_units[i].m_to_si / q.m_system.m_units[i].m_to_si , qrhs.m_unit_powers.m_powers[i] );
-            q.m_unit_powers.m_powers[i] += qrhs.m_unit_powers.m_powers[i];
+            else
+            {
+              q.m_value *= pow( qrhs.m_system.m_units[i].m_to_si / q.m_system.m_units[i].m_to_si , qrhs.m_unit_powers.m_powers[i] );
+              q.m_unit_powers.m_powers[i] += qrhs.m_unit_powers.m_powers[i];
+            }
           }
         }
         else
         {
           q.m_system.m_units[i] = unknown; // will popup a nan
-          q.m_unit_powers.m_powers[i] = 1.0;
+          q.m_unit_powers.m_powers[i] = 0.0;
         }
       }
       return q;
@@ -261,24 +275,29 @@ namespace exanb
       return q;
     }
 
-    ONIKA_HOST_DEVICE_FUNC inline Quantity dispatch_energy_units( const Quantity& q )
-    {
-      double joule_factor = pow( q.m_system.m_units[ENERGY].m_to_si , q.m_unit_powers.m_powers[ENERGY] );
-      Quantity qnrj = { joule_factor , SI };
-      qnrj.m_unit_powers.m_powers[LENGTH] = q.m_unit_powers.m_powers[ENERGY] * 2;
-      qnrj.m_unit_powers.m_powers[MASS  ] = q.m_unit_powers.m_powers[ENERGY] * 1;
-      qnrj.m_unit_powers.m_powers[TIME]   = q.m_unit_powers.m_powers[ENERGY] * -2;
-      Quantity qremain = q;
-      qremain.m_unit_powers.m_powers[ENERGY] = 0.0;
-      return qremain * qnrj;
-    }
-
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const UnitDefinition& U )
     {
       Quantity q = { value };
-      q.m_system.m_units[ U.m_class ] = U;
-      q.m_unit_powers.m_powers[ U.m_class ] = 1.0;
-      return dispatch_energy_units(q);
+      if( U.m_class>=0 && U.m_class < NUMBER_OF_UNIT_CLASSES )
+      {
+        q.m_system.m_units[ U.m_class ] = U;
+        q.m_unit_powers.m_powers[ U.m_class ] = 1.0;
+      }
+      else if( U.m_class == ENERGY )
+      {
+        q.m_value *= U.m_to_si;
+        q.m_system.m_units[ LENGTH ] = meter;
+        q.m_unit_powers.m_powers[ LENGTH ] = 2;
+        q.m_system.m_units[ MASS ] = kilogram;
+        q.m_unit_powers.m_powers[ MASS ] = 1;
+        q.m_system.m_units[ TIME ] = second;
+        q.m_unit_powers.m_powers[ TIME ] = -2;        
+      }
+      else
+      {
+        q.m_value = undefined_value;
+      }
+      return q;
     }
 
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const UnitDefinition& U , double power )
@@ -318,32 +337,9 @@ namespace exanb
       return x * ( qrhs ^ -1.0 );
     }
 
-    template<class StreamT>
-    inline StreamT& units_power_to_stream (StreamT& out, const Quantity& q)
-    {
-      bool bad_units = false;
-      for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
-      {
-        if( q.m_system.m_units[i].m_class != i ) bad_units = true;
-      }
-      if( bad_units )
-      {
-        out << "<bad-unit>";
-      }
-      else
-      {
-        bool unit_found = false;
-        for(int i=0;i<NUMBER_OF_UNIT_CLASSES;i++)
-        {
-          if( q.m_unit_powers.m_powers[i] != 0.0 )
-          {
-            out << ( unit_found ? "." : "" ) << q.m_system.m_units[i].m_short_name << '^' << q.m_unit_powers.m_powers[i];
-            unit_found = true;
-          }
-        }
-      }
-      return out;
-    }
+    // pretty printing
+    std::ostream& units_power_to_stream (std::ostream& out, const Quantity& q);
+    std::ostream& operator << (std::ostream& out, const exanb::units::Quantity& q);
 
     Quantity make_quantity( double value , const std::string& units_and_powers );
     Quantity quantity_from_string(const std::string& s, bool& conversion_done);
@@ -366,15 +362,6 @@ namespace exanb
   /************ END OF backward compatibility *********************/  
 
 }
-
-// pretty printing
-template<class StreamT>
-inline StreamT& operator << (StreamT& out, const exanb::units::Quantity& q)
-{
-  out << q.m_value << '.';
-  return exanb::units::units_power_to_stream(out,q);
-}
-
 
 /***************** YAML conversion *****************/
 
