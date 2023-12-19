@@ -171,14 +171,113 @@ namespace exanb
 XSTAMP_UNIT_TEST(exanb_units_conversion)
 {
   using namespace exanb::legacy_constant;
-  
+
+  // regression test data base extracted from previous version.
+  struct UnitConversionCheck
+  {
+    double value=0.0;
+    const char* unit_str=nullptr; 
+    double conv=0.0; 
+    exanb::units::Quantity q={};
+  };
+  double x=0.0;
+  std::vector<UnitConversionCheck> unit_conversion_check = {
+    { x=0x1.0b0f12214fbefp-76 , "J/K" , 0x1.a9b45a3281e65p-1 , EXANB_QUANTITY( boltzmann * J / K ) } ,
+    { x=0x1p+0 , "m" , 0x1.2a05f2p+33 , EXANB_QUANTITY( 1.0 * m ) } ,
+    { x=0x1p+0 , "m/s" , 0x1.47ae147ae147bp-7 , EXANB_QUANTITY( 1.0 * m / s ) } ,
+    { x=0x1p+0 , "ang" , 0x1p+0 , EXANB_QUANTITY( 1.0 * ang ) } ,
+    { x=0x1p+0 , "J" , 0x1.98137dc066bcfp+75 , EXANB_QUANTITY( 1.0 * J ) } ,
+    { x=0x1.0b0f12214fbefp-76 , "m^2*kg/s^2/K" , 0x1.a9b45a3281e65p-1 , EXANB_QUANTITY( boltzmann * (m^2) * kg / (s^2) / K ) } ,
+    { x=0x1p+0 , "1/m^2" , 0x1.79ca10c924223p-67 , EXANB_QUANTITY( 1.0 / (m^2) ) } ,
+    { x=0x1p+0 , "m^-2" , 0x1.79ca10c924223p-67 , EXANB_QUANTITY( 1.0 * (m^-2) ) } ,
+    { x=0x1p+0 , "s/m^2" , 0x1.5798ee2308c3ap-27 , EXANB_QUANTITY( 1.0 * s / (m^2) ) } ,
+    { x=0x1p+0 , "m^2/s^2" , 0x1.a36e2eb1c432cp-14 , EXANB_QUANTITY( 1.0 * (m^2) / (s^2) ) } ,
+    { x=0x1p+0 , "1/s^2" , 0x1.357c299a88ea7p-80 , EXANB_QUANTITY( 1.0 / (s^2) ) } ,
+    { x=0x1.37876d323b864p-37 , "C^2.s^2/m^3/kg^1" , 0x1.337f14f782bb5p-21 , EXANB_QUANTITY( epsilonZero * (C^2) * (s^2) / (m^3) / kg ) } ,
+    { x=0x1.91eb851eb851fp+1 , "m" , 0x1.d3e57e8p+34 , EXANB_QUANTITY( x * m ) } ,
+    { x=0x1.91eb851eb851fp+1 , "m/s" , 0x1.013a92a305532p-5 , EXANB_QUANTITY( x * m / s ) } ,
+    { x=0x1.91eb851eb851fp+1 , "s" , 0x1.6d8b4ad4p+41 , EXANB_QUANTITY( x * s ) } ,
+    { x=0x1.91eb851eb851fp+1 , "degree" , 0x1.c0f2ee53f24ecp-5 , EXANB_QUANTITY( x * degree ) } ,
+    { x=0x1.91eb851eb851fp+1 , "ang" , 0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x * ang ) } ,
+    { x=0x1.91eb851eb851fp+1 , "J" , 0x1.4056fb08f47d5p+77 , EXANB_QUANTITY( x * J ) } ,
+    { x=0x1.91eb851eb851fp+1 , "1/m^2" , 0x1.28908a9de5533p-65 , EXANB_QUANTITY( x / (m^2) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "m^-2" , 0x1.28908a9de5533p-65 , EXANB_QUANTITY( x * (m^-2) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "m^2/s^2" , 0x1.4940bbb1f255fp-12 , EXANB_QUANTITY( x * (m^2) / (s^2) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "eV" , 0x1.d9628792cb413p+14 , EXANB_QUANTITY( x * eV ) } ,
+    { x=0x1.91eb851eb851fp+1 , "1/ang" , 0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / ang ) } ,
+    { x=0x1.91eb851eb851fp+1 , "1/ang^2" , 0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / (ang^2) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "1/ang^3" , 0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / (ang^3) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "1/ang^4" , 0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / (ang^4) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "eV.ang/e-^2" , 0x1.d9628792cb413p+14 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=0x1.91eb851eb851fp+1 , "C^2.s^2/m^3/kg^1" , 0x1.8cb7a343494f9p+17 , EXANB_QUANTITY( x * (C^2) * (s^2) / (m^3) / kg ) } ,
+    { x=0x1.91eb851eb851fp+1 , "eV.ang/e-^2" , 0x1.d9628792cb413p+14 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "m" , -0x1.d3e57e8p+34 , EXANB_QUANTITY( x * m ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "m/s" , -0x1.013a92a305532p-5 , EXANB_QUANTITY( x * m / s ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "s" , -0x1.6d8b4ad4p+41 , EXANB_QUANTITY( x * s ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "degree" , -0x1.c0f2ee53f24ecp-5 , EXANB_QUANTITY( x * degree ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "ang" , -0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x * ang ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "J" , -0x1.4056fb08f47d5p+77 , EXANB_QUANTITY( x * J ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "1/m^2" , -0x1.28908a9de5533p-65 , EXANB_QUANTITY( x / (m^2) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "m^-2" , -0x1.28908a9de5533p-65 , EXANB_QUANTITY( x * (m^-2) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "m^2/s^2" , -0x1.4940bbb1f255fp-12 , EXANB_QUANTITY( x * (m^2) / (s^2) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "eV" , -0x1.d9628792cb413p+14 , EXANB_QUANTITY( x * eV ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "1/ang" , -0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / ang ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "1/ang^2" , -0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / (ang^2) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "1/ang^3" , -0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / (ang^3) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "1/ang^4" , -0x1.91eb851eb851fp+1 , EXANB_QUANTITY( x / (ang^4) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "eV.ang/e-^2" , -0x1.d9628792cb413p+14 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "C^2.s^2/m^3/kg^1" , -0x1.8cb7a343494f9p+17 , EXANB_QUANTITY( x * (C^2) * (s^2) / (m^3) / kg ) } ,
+    { x=-0x1.91eb851eb851fp+1 , "eV.ang/e-^2" , -0x1.d9628792cb413p+14 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=0x1.999999999999ap-4 , "m" , 0x1.dcd65p+29 , EXANB_QUANTITY( x * m ) } ,
+    { x=0x1.999999999999ap-4 , "m/s" , 0x1.0624dd2f1a9fcp-10 , EXANB_QUANTITY( x * m / s ) } ,
+    { x=0x1.999999999999ap-4 , "s" , 0x1.74876e8p+36 , EXANB_QUANTITY( x * s ) } ,
+    { x=0x1.999999999999ap-4 , "degree" , 0x1.c987103b761f5p-10 , EXANB_QUANTITY( x * degree ) } ,
+    { x=0x1.999999999999ap-4 , "ang" , 0x1.999999999999ap-4 , EXANB_QUANTITY( x * ang ) } ,
+    { x=0x1.999999999999ap-4 , "J" , 0x1.4675fe338564p+72 , EXANB_QUANTITY( x * J ) } ,
+    { x=0x1.999999999999ap-4 , "1/m^2" , 0x1.2e3b40a0e9b4fp-70 , EXANB_QUANTITY( x / (m^2) ) } ,
+    { x=0x1.999999999999ap-4 , "m^-2" , 0x1.2e3b40a0e9b4fp-70 , EXANB_QUANTITY( x * (m^-2) ) } ,
+    { x=0x1.999999999999ap-4 , "m^2/s^2" , 0x1.4f8b588e368fp-17 , EXANB_QUANTITY( x * (m^2) / (s^2) ) } ,
+    { x=0x1.999999999999ap-4 , "eV" , 0x1.e26e321cefc02p+9 , EXANB_QUANTITY( x * eV ) } ,
+    { x=0x1.999999999999ap-4 , "1/ang" , 0x1.999999999999ap-4 , EXANB_QUANTITY( x / ang ) } ,
+    { x=0x1.999999999999ap-4 , "1/ang^2" , 0x1.999999999999ap-4 , EXANB_QUANTITY( x / (ang^2) ) } ,
+    { x=0x1.999999999999ap-4 , "1/ang^3" , 0x1.999999999999ap-4 , EXANB_QUANTITY( x / (ang^3) ) } ,
+    { x=0x1.999999999999ap-4 , "1/ang^4" , 0x1.999999999999ap-4 , EXANB_QUANTITY( x / (ang^4) ) } ,
+    { x=0x1.999999999999ap-4 , "eV.ang/e-^2" , 0x1.e26e321cefc02p+9 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=0x1.999999999999ap-4 , "C^2.s^2/m^3/kg^1" , 0x1.944c448c513bdp+12 , EXANB_QUANTITY( x * (C^2) * (s^2) / (m^3) / kg ) } ,
+    { x=0x1.999999999999ap-4 , "eV.ang/e-^2" , 0x1.e26e321cefc02p+9 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=-0x1.999999999999ap-4 , "m" , -0x1.dcd65p+29 , EXANB_QUANTITY( x * m ) } ,
+    { x=-0x1.999999999999ap-4 , "m/s" , -0x1.0624dd2f1a9fcp-10 , EXANB_QUANTITY( x * m / s ) } ,
+    { x=-0x1.999999999999ap-4 , "s" , -0x1.74876e8p+36 , EXANB_QUANTITY( x * s ) } ,
+    { x=-0x1.999999999999ap-4 , "degree" , -0x1.c987103b761f5p-10 , EXANB_QUANTITY( x * degree ) } ,
+    { x=-0x1.999999999999ap-4 , "ang" , -0x1.999999999999ap-4 , EXANB_QUANTITY( x * ang ) } ,
+    { x=-0x1.999999999999ap-4 , "J" , -0x1.4675fe338564p+72 , EXANB_QUANTITY( x * J ) } ,
+    { x=-0x1.999999999999ap-4 , "1/m^2" , -0x1.2e3b40a0e9b4fp-70 , EXANB_QUANTITY( x / (m^2) ) } ,
+    { x=-0x1.999999999999ap-4 , "m^-2" , -0x1.2e3b40a0e9b4fp-70 , EXANB_QUANTITY( x * (m^-2) ) } ,
+    { x=-0x1.999999999999ap-4 , "m^2/s^2" , -0x1.4f8b588e368fp-17 , EXANB_QUANTITY( x * (m^2) / (s^2) ) } ,
+    { x=-0x1.999999999999ap-4 , "eV" , -0x1.e26e321cefc02p+9 , EXANB_QUANTITY( x * eV ) } ,
+    { x=-0x1.999999999999ap-4 , "1/ang" , -0x1.999999999999ap-4 , EXANB_QUANTITY( x / ang ) } ,
+    { x=-0x1.999999999999ap-4 , "1/ang^2" , -0x1.999999999999ap-4 , EXANB_QUANTITY( x / (ang^2) ) } ,
+    { x=-0x1.999999999999ap-4 , "1/ang^3" , -0x1.999999999999ap-4 , EXANB_QUANTITY( x / (ang^3) ) } ,
+    { x=-0x1.999999999999ap-4 , "1/ang^4" , -0x1.999999999999ap-4 , EXANB_QUANTITY( x / (ang^4) ) } ,
+    { x=-0x1.999999999999ap-4 , "eV.ang/e-^2" , -0x1.e26e321cefc02p+9 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+    { x=-0x1.999999999999ap-4 , "C^2.s^2/m^3/kg^1" , -0x1.944c448c513bdp+12 , EXANB_QUANTITY( x * (C^2) * (s^2) / (m^3) / kg ) } ,
+    { x=-0x1.999999999999ap-4 , "eV.ang/e-^2" , -0x1.e26e321cefc02p+9 , EXANB_QUANTITY( x * eV * ang / (ec^2) ) } ,
+  };
+  for(const auto & test : unit_conversion_check)
+  {
+    const exanb::Quantity qa = exanb::units::make_quantity( test.value , test.unit_str );
+    const double a = qa.convert();
+    const double b = test.q.convert();
+    XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 );
+  }
+
+
 # define TEST_EXPR( v , u , expr ) \
 { \
   const exanb::Quantity qa = exanb::units::make_quantity(v,u); \
   const double a = qa.convert(); \
   const exanb::Quantity qb = EXANB_QUANTITY( expr ); \
   const double b = qb.convert(); \
-  /* std::cout<<"make_quantity("<<v<<",\""<<u<<"\") = "<<qa<<" = "<<a<<" , "<<qb<<" = "<<b<<std::endl;*/ \
   XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 ); \
 }
 
