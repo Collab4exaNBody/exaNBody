@@ -165,6 +165,7 @@ namespace exanb
 /********************** UNIT TESTS **********************************/
 
 #include <exanb/core/unit_test.h>
+#include <vector>
 #include <cmath>
 
 XSTAMP_UNIT_TEST(exanb_units_conversion)
