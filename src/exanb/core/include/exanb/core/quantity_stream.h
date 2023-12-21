@@ -1,17 +1,8 @@
 #pragma once
 
-#include <exanb/core/quantity.h>
-#include <exanb/core/unityConverterHelper.h>
-#include <iostream>
+#include <exanb/core/units.h>
 
-namespace exanb
-{
-  // pretty printing
-  inline std::ostream& operator << (std::ostream& out, const Quantity& q)
-  {
-    out << q.m_value << ' ' << UnityConverterHelper::unities_descriptor_to_string(q.m_unit) ;
-    return out;
-  }
-  
-}
+#ifdef EXANB_LEGACY_UNITS_DEPRECATED
+#warning include file exanb/core/quantity_stream.h is deprecated, please include exanb/core/units.h instead
+#endif
 

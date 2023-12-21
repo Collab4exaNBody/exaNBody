@@ -1,7 +1,7 @@
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
-#include <exanb/core/quantity.h>
+#include <exanb/core/units.h>
 
 #include <iostream>
 
@@ -24,7 +24,7 @@ namespace exanb
       std::getline( std::cin , qstr );
       if( ! qstr.empty() )
       {
-        *value = quantity_from_string( qstr ).convert();
+        *value = exanb::units::quantity_from_string( qstr ).convert();
       }
       ldbg << "value = '"<< *value << "'" << std::endl;
     }
