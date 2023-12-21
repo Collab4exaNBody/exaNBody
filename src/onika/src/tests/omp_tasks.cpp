@@ -342,7 +342,7 @@ void taskset_termination_detection()
 #   pragma omp single
     {
       
-#     pragma omp task default(none) shared(nb_tasks,taskgroup_counter,cout)
+#     pragma omp task default(none) shared(taskgroup_counter,cout)
       {
         int c = taskgroup_counter.load( std::memory_order_relaxed );
         do

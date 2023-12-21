@@ -66,9 +66,9 @@ namespace onika
       , ParallelExecutionStreamCallback* user_cb = nullptr
       )
     {
-      static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
       static constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_cpu_prolog_t>;
-      static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
       static constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_cpu_epilog_t>;
 
       if( exec_ctx != nullptr ) // for backward compatibility
@@ -149,10 +149,10 @@ namespace onika
       , size_t return_data_size = 0)
     {
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
-      static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
-      static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
-      static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
-      static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
     
       if( user_cb != nullptr )
       {

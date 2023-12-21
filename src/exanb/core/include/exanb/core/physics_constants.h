@@ -9,7 +9,7 @@ namespace exanb
     static constexpr double elementaryCharge = 1.6021892e-19;  ///< Elementary charge in Coulomb
     static constexpr double boltzmann = 1.380662e-23;  ///< Boltzmann constant in m2 kg s-2 K-1
     static constexpr double avogadro = 6.02214199e23;  ///< Avogadro constant in mol-1
-    static constexpr double calorie = 4.1868;  ///< calorie in joules
+    static constexpr double calorie_joules = 4.1868;  ///< calorie in joules
     static constexpr double epsilonZero = 8.854187e-12; ///< Vacuum permittivity
 
     static constexpr double e = 2.7182818284590452;  ///< Euler's number

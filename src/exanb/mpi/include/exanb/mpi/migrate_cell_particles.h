@@ -829,7 +829,7 @@ namespace exanb
 
             // ldbg << "internal copy of "<< it->size() << " particles"<<std::endl;
             auto* buf_ptr = & (*it);
-#           pragma omp task default(none) firstprivate(buf_ptr) shared(grid,out_ghost_layers,opt_data_helper)
+#           pragma omp task default(none) firstprivate(buf_ptr) shared(grid,opt_data_helper,out_ghost_layers)
             {
               NullLockArray nla;
               insert_particles_to_grid( grid , nla, *buf_ptr, out_ghost_layers, opt_data_helper );
@@ -915,7 +915,7 @@ namespace exanb
               extra_recv_buffer_pos_hint = extra_buf.first + 1;
               std::swap( receive_buffer[p] , * extra_buf.second );
               //++ n_unpacked_buffers_async;
-#             pragma omp task default(none) firstprivate(extra_buf) shared(grid,out_ghost_layers,cell_locks_taskyield,extra_recv_buffer_ptrs,extra_rcv_bufs,opt_data_helper)
+#             pragma omp task default(none) firstprivate(extra_buf) shared(grid,cell_locks_taskyield,extra_recv_buffer_ptrs,extra_rcv_bufs,opt_data_helper,out_ghost_layers)
               {
                 insert_particles_to_grid( grid, cell_locks_taskyield, * extra_buf.second, out_ghost_layers, opt_data_helper );
                 give_receive_buffer_back( extra_recv_buffer_ptrs, extra_rcv_bufs, extra_buf );

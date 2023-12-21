@@ -11,46 +11,6 @@
 #include <map>
 #include <cassert>
 #include <cstring>
-#include <complex>
-
-// some default provided definitions for YAML conversion
-namespace YAML
-{
-
-  template<class T> struct convert< std::complex<T> >
-  {
-    static inline Node encode(const std::complex<T>& v)
-    {
-      Node node;
-      node["real"] = v.real();
-      node["imag"] = v.imag();
-      return node;
-    }
-    static inline bool decode(const Node& node, std::complex<T>& v)
-    {
-      if( node.IsSequence() && node.size() == 2)
-      {
-        Quantity qr;
-        Quantity qi;
-        if( ! YAML::convert<Quantity>::decode(node[0],qr) || ! YAML::convert<Quantity>::decode(node[1],qi)  ) { return false; }
-        v.real( qr.convert() );
-        v.imag( qi.convert() );
-        return true;
-      }
-      else if( node.IsMap() )
-      {
-        Quantity qr;
-        Quantity qi;
-        if( ! YAML::convert<Quantity>::decode(node["real"],qr) || ! YAML::convert<Quantity>::decode(node["imag"],qi)  ) { return false; }
-        v.real( qr.convert() );
-        v.imag( qi.convert() );
-        return true;
-      }
-      return false;
-    }
-  };
-
-}
 
 namespace exanb
 {
