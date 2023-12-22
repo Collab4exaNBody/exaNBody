@@ -211,6 +211,7 @@ int main(int argc,char*argv[])
 
   // ============= CPU Core counting and thread pining =============
   int cpucount = 0;
+  std::vector<int> cpu_ids;
   {
     cpu_set_t cpuaff;
     CPU_ZERO(&cpuaff);
@@ -232,14 +233,14 @@ int main(int argc,char*argv[])
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuaff_backup);
     /************************/
     
-    int cpus[ncpus]; // table with the core ids
     for (int i=0; i<CPU_SETSIZE; ++i)
     {
       if (CPU_ISSET(i, &cpuaff)) 
       {
-        cpus[cpucount++] = i;
+        cpu_ids.push_back(i);
       }
     }
+    cpucount = cpu_ids.size();
     if( cpucount != ncpus )
     {
       lerr << "Internal error when counting CPU cores" << std::endl;
@@ -249,17 +250,6 @@ int main(int argc,char*argv[])
     {
       lerr << "Thread pining disabled because there are less cpu cores ("<<cpucount<<") than OpenMP threads ("<<num_threads<<")" << std::endl;
       configuration.pinethreads = false;
-    }
-    if( configuration.pinethreads )
-    {
-#     pragma omp parallel
-      {
-        cpu_set_t thread_cpu_aff;
-        CPU_ZERO(&thread_cpu_aff);
-        int tid = omp_get_thread_num();
-        CPU_SET(cpus[tid], &thread_cpu_aff);
-        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &thread_cpu_aff);
-      }
     }
   }
   // get the real core count (not the cpumask)
@@ -287,6 +277,20 @@ int main(int argc,char*argv[])
   // ===============================================
 
 
+  // =========== optional thread pinning ===========
+  if( configuration.pinethreads )
+  {
+#   pragma omp parallel
+    {
+      cpu_set_t thread_cpu_aff;
+      CPU_ZERO(&thread_cpu_aff);
+      int tid = omp_get_thread_num();
+      CPU_SET(cpu_ids[ ( tid + rank * configuration.threadrotate ) % cpu_ids.size() ], &thread_cpu_aff);
+      pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &thread_cpu_aff);
+    }
+  }
+  // ===============================================
+
 
   // =========== configure logging system ===========
   configure_logging(
@@ -298,12 +302,36 @@ int main(int argc,char*argv[])
     rank,nb_procs);
   // ===============================================
 
-    // get number of available GPUs, if any 
+  // get number of available GPUs, if any 
 # ifdef XSTAMP_CUDA_VERSION
   int n_gpus = 0;
   checkCudaErrors( cudaGetDeviceCount(&n_gpus) );
   if( n_gpus <= 0 ) { onika::memory::GenericHostAllocator::set_cuda_enabled( false ); }
 # endif
+
+  // generate a compact string representing cpu set assigned to current process
+  std::string core_config;
+  {
+    std::ostringstream oss;
+    int cs=-1, ce=-1;
+    for(auto c:cpu_ids)
+    {
+      if(cs==-1) cs=ce=c;
+      else
+      {
+        if(c==(ce+1)) ++ce;
+        else
+        {
+          if(cs>=0) oss<<" "<<cs;
+          if(ce>cs) oss<<"-"<<ce;
+          cs=ce=c;
+        }
+      }
+    }
+    if(cs>=0) oss<<" "<<cs;
+    if(ce>cs) oss<<"-"<<ce;
+    core_config = oss.str();
+  }
 
   // host system info
   lout << endl
@@ -313,7 +341,7 @@ int main(int argc,char*argv[])
 #      endif
        <<endl
        << "MPI     : "<< format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
-       << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<")"<<endl
+       << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
        << "OpenMP  : "<< format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< xstamp_get_omp_version_string() 
                       << ( ( configuration.omp_max_nesting > 1 ) ? format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
