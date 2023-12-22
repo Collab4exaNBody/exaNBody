@@ -22,6 +22,7 @@ namespace ns { \
     name& operator = (const name&)=default; \
     name& operator = (name&&)=default; \
     name& operator = (const name##Enum& v) { m_value=v; return *this; } \
+    inline int value() const { return m_value; } \
     inline bool operator == ( const name##Enum & x ) const { return m_value == x; } \
     inline bool operator == ( const name & x ) const { return m_value == x.m_value; } \
     inline bool operator != ( const name##Enum & x ) const { return m_value != x; } \

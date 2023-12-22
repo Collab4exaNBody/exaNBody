@@ -39,7 +39,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
-    void block_parallel_for_gpu_kernel( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
     {
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
@@ -54,6 +54,14 @@ namespace onika
         if( i < N ) { func( i ); }
       }
       while( i < N );
+    }
+
+    template< class FuncT>
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    void block_parallel_for_gpu_kernel_regulargrid( const FuncT func , GPUKernelExecutionScratch* )
+    {
+      func( ONIKA_CU_BLOCK_IDX );
     }
 
     template<class FuncT>
@@ -168,9 +176,9 @@ namespace onika
         {
           exec_ctx->check_initialize();
           const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
-          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
-                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
-                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+//          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+//                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
+//                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
 
           auto custream = exec_ctx->m_cuda_stream;        
           exec_ctx->gpu_kernel_start();
@@ -184,7 +192,10 @@ namespace onika
                if constexpr ( functor_has_gpu_prolog ) { func( exec_ctx, block_parallel_for_gpu_prolog_t{} ); }
           else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
 
-          ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel, N, func, scratch );
+
+//        ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel_workstealing, N, func, scratch );
+          ONIKA_CU_LAUNCH_KERNEL(       N,BlockSize,0,custream, block_parallel_for_gpu_kernel_regulargrid ,    func, scratch );
+
 
                if constexpr ( functor_has_gpu_epilog ) { func( exec_ctx, block_parallel_for_gpu_epilog_t{} ); }
           else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
