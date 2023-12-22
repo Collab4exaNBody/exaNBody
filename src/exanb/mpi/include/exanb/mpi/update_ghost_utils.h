@@ -8,6 +8,7 @@
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/core/yaml_enum.h>
 
 namespace exanb
 {
@@ -224,7 +225,6 @@ namespace exanb
         }              
       }
     };
-
 
   } // template utilities used only inside UpdateGhostsNode
 
