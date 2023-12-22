@@ -8,7 +8,13 @@
 #include <onika/cuda/cuda.h>
 
 #define EXANB_UNITS_V2 1
-// #define EXANB_LEGACY_UNITS_DEPRECATED 1 // will soon be uncommented and will generate warnings if you use UnityConverterHelper::convert(...)
+//#define EXANB_UNITS_DEPRECATED [[deprecated]]
+
+#ifdef EXANB_UNITS_DEPRECATED
+#define EXANB_LEGACY_UNITS_DEPRECATED 1
+#else
+#define EXANB_UNITS_DEPRECATED /**/
+#endif
 
 namespace exanb
 {
@@ -16,6 +22,10 @@ namespace exanb
   namespace units
   {
 
+    /*
+     * Defines different kinds of units.
+     * ENERGY is a special kind, not stored in quantities, as it is converted to length^2 * mass / time^2
+     */
     enum UnitClass
     {
       LENGTH,
@@ -31,6 +41,9 @@ namespace exanb
       OTHER = -1
     };
     
+    /*
+     * unit classes as strings
+     */
     static inline constexpr const char* g_unit_class_str[NUMBER_OF_UNIT_CLASSES+1] = {
       "LENGTH",
       "MASS",
@@ -43,9 +56,15 @@ namespace exanb
       "ENERGY"
     };
     
+    // shortcuts to particular values
     static inline constexpr auto elementaryChargeCoulomb = legacy_constant::elementaryCharge;
     static inline constexpr auto undefined_value = std::numeric_limits<double>::quiet_NaN();
     
+    /*
+     * A unit defined by its class (length, mass, etc.) ,
+     * its conversion factor to its IS system counterpart
+     * and its full and short name.
+     */
     struct UnitDefinition
     {
       UnitClass m_class = OTHER;
@@ -113,24 +132,23 @@ namespace exanb
     /*********************************************************************/
     /*********************************************************************/
 
+    /*
+     * A UnitSystem is a set of units, one per type (class) of unit
+     */
     struct UnitSystem
     {
       UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES];
     };
 
+    /*
+     * powers associated with units of each class 
+     */
     struct UnitPowers
     {
       double m_powers[NUMBER_OF_UNIT_CLASSES] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
     };
-
-/*
-    namespace symbols
-    {
-      using m = meter;
-    }
-*/
       
-    // list of all definitions
+    // list of all available unit definitions
     static inline constexpr UnitDefinition all_units[] = {
       meter, millimeter, micron, nanometer, angstrom,
       kilogram, gram, atomic_mass_unit,
@@ -141,9 +159,13 @@ namespace exanb
       candela,
       radian, degree,
       joule, electron_volt, calorie, kcalorie };
-      
+    
+    // number of available unit definitions 
     static inline constexpr int number_of_units = sizeof(all_units) / sizeof(UnitDefinition);
     
+    /*
+     * return a unit definition given a unit's short name
+     */
     inline UnitDefinition unit_from_symbol( const std::string& s )
     {
       if( s.empty() ) return no_unity;
@@ -151,6 +173,9 @@ namespace exanb
       return unknown;
     }
 
+    /*
+     * International System units
+     */
     static inline constexpr UnitSystem SI =
     { { meter
       , kilogram
@@ -164,7 +189,7 @@ namespace exanb
   }
 
   /************ backward compatibility layer ***********/  
-  struct EnumUnities
+  struct EXANB_UNITS_DEPRECATED EnumUnities
   {
     units::UnitDefinition m_unit;
     inline constexpr EnumUnities(const units::UnitDefinition& u) : m_unit(u) {}
@@ -192,6 +217,10 @@ namespace exanb
 
   namespace units
   {
+  
+    /*
+     * Internal unit system, as defined by application through its exanb/internal_units.h header file
+     */
     static inline constexpr UnitSystem internal_unit_system =
     { { INTERNAL_UNIT_LENGTH,
         INTERNAL_UNIT_MASS,
@@ -202,6 +231,18 @@ namespace exanb
         INTERNAL_UNIT_LUMINOUS_INTENSITY,
         INTERNAL_UNIT_ANGLE} };
       
+    /*
+     * A Quantity is a value expressed with a certain set of units (at most one unit per unit class) and associated powers
+     * Quantity has an implicit conversion operator to double, wich converts expressed value to application's internal unit system
+     * Exemple :
+     * using namespace exanb::units;
+     * Quantity q = EXANB_QUANTITY( 3.2 * (g^3) / s ); // EXANB_QUANTITY macro allows to use short name unit definitons in online expressions
+     * Quantity r = 3.2 * (gram^3) / second; // same as above
+     * double a = q;
+     * double b = q.convert(); // same as above
+     * double c = q.convert( internal_unit_system ); // same as above
+     * double x = q.convert( SI ); // converts to Internal System units based value
+     */
     struct Quantity
     {
       double m_value = 0.0;
@@ -230,9 +271,13 @@ namespace exanb
         return convert( IUS );
       }
       
-      //ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
+      ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
     };
 
+    /*
+     * Multiplies 2 quantities.
+     * Converts qrhs units to the units used in qlhs if needed.
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const Quantity& qrhs )
     {
       Quantity q = qlhs;
@@ -264,6 +309,10 @@ namespace exanb
       return q;
     }
 
+    /*
+     * Raise a quantity to a power.
+     * For instance, if q = 2 * m * (s^-2) then q^2 = 4 * (m^2) * (s^-4)
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const Quantity& qlhs , double power )
     {
       Quantity q = qlhs;
@@ -275,6 +324,9 @@ namespace exanb
       return q;
     }
 
+    /*
+     * When a scalar value mutliplies a UnitDefinition, it builds up a quantity
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const UnitDefinition& U )
     {
       Quantity q = { value };
@@ -283,6 +335,7 @@ namespace exanb
         q.m_system.m_units[ U.m_class ] = U;
         q.m_unit_powers.m_powers[ U.m_class ] = 1.0;
       }
+      // energy is dispatched to other units
       else if( U.m_class == ENERGY )
       {
         q.m_value *= U.m_to_si;
@@ -300,11 +353,18 @@ namespace exanb
       return q;
     }
 
+    /*
+     * When a UnitDefinition is raised to a power, it builds up a quantity with value=1.0
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator ^ ( const UnitDefinition& U , double power )
     {
       return ( 1.0 * U ) ^ power;
     }
 
+    /*
+     * Scalar multiplication of a quantity.
+     * Exemple : 5.0 * ( 1.0 * m * (s^-2) ) = 5.0 * m * (s^-2)
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( double value , const Quantity& qrhs )
     {
       Quantity q = qrhs;
@@ -312,26 +372,41 @@ namespace exanb
       return q;
     }
 
+    /*
+     * equivalent to building a quantity from 1.0 * UnitDefinition, and the nmultiplying the two quantities
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator * ( const Quantity& qlhs , const UnitDefinition& U )
     {
       return qlhs * ( 1.0 * U );
     }
 
+    /*
+     * qa / qb = qa * ( qb^-1 )
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( const Quantity& qlhs , const Quantity& qrhs )
     {
       return qlhs * ( qrhs ^ -1.0 );
     }
 
+    /*
+     * qa / U = qa * ( ( 1.0 * U ) ^-1 )
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( const Quantity& qlhs , const UnitDefinition& U )
     {
       return qlhs * ( ( 1.0 * U ) ^ -1.0 );
     }
 
+    /*
+     * x / U = x * ( ( 1.0 * U ) ^-1 )
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( double x , const UnitDefinition& U )
     {
       return x * ( ( 1.0 * U ) ^ -1.0 );
     }
 
+    /*
+     * x / q = x * ( q^-1 )
+     */
     ONIKA_HOST_DEVICE_FUNC inline Quantity operator / ( double x , const Quantity& qrhs )
     {
       return x * ( qrhs ^ -1.0 );
@@ -341,17 +416,15 @@ namespace exanb
     std::ostream& units_power_to_stream (std::ostream& out, const Quantity& q);
     std::ostream& operator << (std::ostream& out, const exanb::units::Quantity& q);
 
+    // utulity functions to builds quantities from strings (i.e. YAML)
     Quantity make_quantity( double value , const std::string& units_and_powers );
     Quantity quantity_from_string(const std::string& s, bool& conversion_done);
     Quantity quantity_from_string(const std::string& s);
   }
 
   /************ backward compatibility layer ***********/  
-  struct UnityConverterHelper
+  struct EXANB_UNITS_DEPRECATED UnityConverterHelper
   {
-#   ifdef EXANB_LEGACY_UNITS_DEPRECATED
-    [[deprecated]]
-#   endif
     static inline double convert( double value, const std::string& units_and_powers )
     {
       return units::make_quantity(value,units_and_powers).convert();
