@@ -77,7 +77,9 @@ namespace exanb
     {    
       using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT>;
-          
+      using ParForOpts = onika::parallel::BlockParallelForOptions;
+      using onika::parallel::block_parallel_for;
+
       // prerequisites
       MPI_Comm comm = *mpi;
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
@@ -150,7 +152,7 @@ namespace exanb
                                                , ghost_comm_buffers->recvbuf_size(p)
                                                , ( (*staging_buffer) && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
           send_pack_async[p] = parallel_execution_context(p);
-          onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , *gpu_buffer_pack , *async_buffer_pack );
+          block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , ParForOpts{ .enable_gpu = *gpu_buffer_pack , .async = *async_buffer_pack } );
           if( p != rank ) { ++ active_send_packs; }
         }
       }
@@ -228,7 +230,7 @@ namespace exanb
                                                 , ( (*staging_buffer) && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr
                                                 , UpdateValueFunctor{} };
         recv_unpack_async[p] = parallel_execution_context(p);
-        onika::parallel::block_parallel_for( cells_to_receive, unpack_functors[p], recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            
+        onika::parallel::block_parallel_for( cells_to_receive, unpack_functors[p], recv_unpack_async[p] , ParForOpts{ .enable_gpu = *gpu_buffer_pack , .async = *async_buffer_pack } );            
       };
       // *** end of packet decoding lamda ***
 
