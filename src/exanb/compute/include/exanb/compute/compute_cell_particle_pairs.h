@@ -102,6 +102,9 @@ namespace exanb
     bool async = false
     )
   {
+    using onika::parallel::BlockParallelForOptions;
+    using onika::parallel::block_parallel_for;
+
     static constexpr onika::IntConst<4> const_4{};
     static constexpr onika::IntConst<8> const_8{};
 
@@ -134,16 +137,17 @@ namespace exanb
     auto cells = grid.cells();
     auto cellprof = grid.cell_profiler();
     const unsigned int cs = optional.nbh.m_chunk_size;
+    const BlockParallelForOptions opts = { .enable_gpu = enable_gpu , .async = async };
     switch( cs )
     {
       case 4:
-        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , opts );
         break;
       case 8:
-        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , opts );
         break;
       default:
-        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , opts );
         break;
     }
   }

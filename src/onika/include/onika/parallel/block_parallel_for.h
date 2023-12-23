@@ -1,5 +1,4 @@
 #pragma once
-
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
@@ -145,23 +144,30 @@ namespace onika
 
     }
 
+    struct BlockParallelForOptions
+    {
+      ParallelExecutionStreamCallback* user_cb = nullptr;
+      void * return_data = nullptr;
+      size_t return_data_size = 0;
+      bool enable_gpu = true;
+      bool async = false;
+    };
+
     template< class FuncT >
     static inline void block_parallel_for(
         uint64_t N
       , const FuncT& func
       , ParallelExecutionContext * exec_ctx = nullptr
-      , bool enable_gpu = true
-      , bool async = false
-      , ParallelExecutionStreamCallback* user_cb = nullptr
-      , void * return_data = nullptr
-      , size_t return_data_size = 0)
-    {
+      , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
+    {    
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
       [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
       [[maybe_unused]] static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
       [[maybe_unused]] static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
       [[maybe_unused]] static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
     
+      const auto [ user_cb , return_data , return_data_size , enable_gpu , async ] = opts;
+
       if( user_cb != nullptr )
       {
         user_cb->m_exec_ctx = exec_ctx;
@@ -225,7 +231,7 @@ namespace onika
 
       block_parallel_for_omp_kernel( N, func, exec_ctx, prefered_num_tasks, async, user_cb );
     }
-
+    
   }
 
 }

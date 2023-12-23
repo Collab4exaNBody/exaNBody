@@ -90,7 +90,10 @@ namespace exanb
     onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
     bool async = false )
   {
+    using onika::parallel::BlockParallelForOptions;
+    using onika::parallel::block_parallel_for;   
     using CellsT = typename GridT::CellParticles;
+    
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
     const IJK block_dims = dims - (2*gl);
@@ -107,7 +110,7 @@ namespace exanb
       enable_gpu = true;
     }
     
-    onika::parallel::block_parallel_for( N, ComputeCellParticlesFunctor<CellsT*,FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , enable_gpu , async );
+    block_parallel_for( N, ComputeCellParticlesFunctor<CellsT*,FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu , .async=async } );
   }
 }
 
