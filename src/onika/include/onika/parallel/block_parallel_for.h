@@ -144,6 +144,10 @@ namespace onika
 
     }
 
+
+    /*
+     * block_parallel_for options struct
+     */
     struct BlockParallelForOptions
     {
       ParallelExecutionStreamCallback* user_cb = nullptr;
