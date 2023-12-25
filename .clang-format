@@ -1,6 +1,7 @@
 ---
 Language:        Cpp
 # BasedOnStyle:  LLVM
+AlignConsecutiveShortCaseStatements: true
 AccessModifierOffset: -2
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: false
@@ -66,6 +67,8 @@ ForEachMacros:
   - foreach
   - Q_FOREACH
   - BOOST_FOREACH
+  - GRID_FOR_BEGIN
+  - GRID_OMP_FOR_BEGIN
 IncludeBlocks:   Preserve
 IncludeCategories:
   - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
