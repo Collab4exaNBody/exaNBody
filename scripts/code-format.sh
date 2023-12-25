@@ -10,10 +10,10 @@ sed -e 's/[ \t]*#[ \t]*pragma[ \t]\+\(.*\)/_Pragma(\"\1\");/g'   \
     -e 's/[ \t]*#[ \t]*define[ \t]*\(.*\)/PPDEFINE(R"EOF(\1)EOF");/g'                \
     | \
 clang-format \
-#    | \
-#sed \
-#    -e 's/ \([ \t]*\)_Pragma(\"\(.*\)\")/#\1pragma \2/g' \
-#    -e 's/_Pragma(\"\(.*\)\")/#pragma \1/g'
+    | \
+sed \
+    -e 's/ \([ \t]*\)_Pragma(\"\(.*\)\");/#\1pragma \2/g' \
+    -e 's/_Pragma(\"\(.*\)\");/#pragma \1/g'
 #    -e 's/ \([ \t]*\)PPIF_BEGIN(\(.*\))/#\1\2/g'            \
 #    -e 's/PPIF_BEGIN(\(.*\))/#if\1/g'                         \
 #    -e 's/ \([ \t]*\)PPIF_END()/#\1endif/g'              \
