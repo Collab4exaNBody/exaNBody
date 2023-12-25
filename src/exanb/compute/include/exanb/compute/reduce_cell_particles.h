@@ -110,6 +110,8 @@ namespace exanb
     onika::parallel::ParallelExecutionContext * exec_ctx = nullptr ,
     onika::parallel::ParallelExecutionStreamCallback* user_cb = nullptr )
   {
+    using onika::parallel::block_parallel_for;
+    using ParForOpts = onika::parallel::BlockParallelForOptions;
     using CellsT = typename GridT::CellParticles;
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
@@ -130,7 +132,7 @@ namespace exanb
     }
     
     ReduceCellParticlesFunctor<CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
-    onika::parallel::block_parallel_for( N, pfor_op , exec_ctx , enable_gpu , ( user_cb != nullptr ) , user_cb , &reduced_val, sizeof(ResultT) );
+    block_parallel_for( N, pfor_op , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) , .enable_gpu = enable_gpu , .async = ( user_cb != nullptr ) } );
   }
 
 }
