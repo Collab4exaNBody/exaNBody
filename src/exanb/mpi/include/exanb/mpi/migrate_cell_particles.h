@@ -21,10 +21,11 @@
 #include <list>
 #include <algorithm>
 
+
 #include <exanb/mpi/data_types.h>
 
 #define ENFORCE_ASSERTION_CHECK 1
-//#define MIGRATE_CELL_DEBUG_PROFILING 1
+// #define MIGRATE_CELL_DEBUG_PROFILING 1
 
 #ifdef ENFORCE_ASSERTION_CHECK
 #include <onika/force_assert.h>
