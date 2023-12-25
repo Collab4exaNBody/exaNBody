@@ -10,7 +10,7 @@
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
-#include <exanb/core/thread.h>
+#include "exanb/core/thread.h"
 
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
