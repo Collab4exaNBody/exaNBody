@@ -10,7 +10,7 @@
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
-#include <exanb/core/thread.h>
+#include "exanb/core/thread.h"
 
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
@@ -21,10 +21,11 @@
 #include <list>
 #include <algorithm>
 
+
 #include <exanb/mpi/data_types.h>
 
 #define ENFORCE_ASSERTION_CHECK 1
-//#define MIGRATE_CELL_DEBUG_PROFILING 1
+// #define MIGRATE_CELL_DEBUG_PROFILING 1
 
 #ifdef ENFORCE_ASSERTION_CHECK
 #include <onika/force_assert.h>
