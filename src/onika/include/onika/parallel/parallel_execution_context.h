@@ -16,21 +16,14 @@ namespace onika
 
     struct GPUKernelExecutionScratch
     {
-      static constexpr size_t MAX_COUNTERS = 4; // only one is used so far, for dynamic attribution of cell indices
-      static constexpr size_t RESERVED_COUNTERS = 1;
-      static constexpr size_t CELL_COUNTER_IDX = 0;
-      //static constexpr size_t MAX_RETURN_SIZE = 64;
-      static constexpr size_t MAX_RETURN_SIZE = 64*9;
-      static constexpr size_t FREE_COUNTERS = MAX_COUNTERS - RESERVED_COUNTERS;
-      //static constexpr size_t FREE_BYTES = FREE_COUNTERS * sizeof( unsigned long long int );
-      static constexpr size_t FREE_BYTES = FREE_COUNTERS * sizeof( double );
-  //    static constexpr size_t FREE_BYTES = FREE_COUNTERS * (64*9);
+      static constexpr size_t SCRATCH_BUFFER_SIZE = 2048; // total device side temporary buffer
+      static constexpr size_t MAX_COUNTERS = 8; // only one is used so far, for dynamic attribution of cell indices
+      static constexpr size_t MAX_RETURN_SIZE = 640;
+      static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE - MAX_RETURN_SIZE - MAX_COUNTERS * sizeof(unsigned long long);
 
-      unsigned char return_data[MAX_RETURN_SIZE];
       unsigned long long int counters[MAX_COUNTERS];
-
-      ONIKA_HOST_DEVICE_FUNC inline unsigned long long int * cell_idx_counter() { return counters+CELL_COUNTER_IDX; }
-      ONIKA_HOST_DEVICE_FUNC inline unsigned long long int * free_counters() { return counters+RESERVED_COUNTERS; }
+      char return_data[MAX_RETURN_SIZE];
+      char functor_data[MAX_FUNCTOR_SIZE];
     };
 
     struct ParallelExecutionContext;

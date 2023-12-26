@@ -190,6 +190,36 @@ namespace onika
       ONIKA_DEVICE_FUNC virtual ~BlockParallelForGPUAdapter() {}
     };
 
+    class BlockParallelForGenericFunctor
+    {
+      BlockParallelForGPUFunctor* m_func = nullptr;
+    public:
+      ONIKA_DEVICE_FUNC inline void operator () (size_t i) const { (*m_func) (i); }
+      ONIKA_DEVICE_FUNC inline void operator () (size_t start, size_t end) const { (*m_func) (start,end); }
+      ONIKA_DEVICE_FUNC inline void operator () (size_t* __restrict__ indices, size_t count) const { (*m_func) (indices,count); }
+    };
+
+    template< class FuncT>
+    ONIKA_DEVICE_KERNEL_FUNC
+    void initialize_functor_adapter( const FuncT func , GPUKernelExecutionScratch* scratch )
+    {
+      static_assert( sizeof(BlockParallelForGPUAdapter<FuncT>) < scratch.MAX_FUNCTOR_SIZE );
+      if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
+      {
+        BlockParallelForGPUFunctor* func_adapter = new(scratch->functor_data) BlockParallelForGPUAdapter<FuncT>( func );
+        assert( (void*)scratch->functor_data == (void*)func_adapter );
+      }
+    }
+
+    ONIKA_DEVICE_KERNEL_FUNC
+    void finalize_functor_adapter( GPUKernelExecutionScratch* scratch )
+    {
+      if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
+      {
+        reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data ) -> ~BlockParallelForGPUFunctor();
+      }
+    }
+
     template< class FuncT >
     static inline void block_parallel_for(
         uint64_t N
@@ -247,7 +277,9 @@ namespace onika
           }
           else
           {
+            ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,initialize_functor_adapter,func,scratch);
             ONIKA_CU_LAUNCH_KERNEL(       N,BlockSize,0,custream, block_parallel_for_gpu_kernel_regulargrid ,    func, scratch );
+            ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,finalize_functor_adapter,scratch);
           }
 
                if constexpr ( functor_has_gpu_epilog ) { func( exec_ctx, block_parallel_for_gpu_epilog_t{} ); }
