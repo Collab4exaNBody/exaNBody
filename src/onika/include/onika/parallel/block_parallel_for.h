@@ -38,7 +38,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
-    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
+    static void block_parallel_for_gpu_kernel_workstealing( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
     {
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
@@ -58,7 +58,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
-    void block_parallel_for_gpu_kernel_regulargrid( const FuncT func , GPUKernelExecutionScratch* )
+    static void block_parallel_for_gpu_kernel_regulargrid( const FuncT func , GPUKernelExecutionScratch* )
     {
       func( ONIKA_CU_BLOCK_IDX );
     }
@@ -165,7 +165,7 @@ namespace onika
       {
         for(;start<end;start++) this->operator () (start);
       }
-      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t* __restrict__ indices, size_t count) const
+      ONIKA_DEVICE_FUNC virtual inline void operator () (const size_t* __restrict__ indices, size_t count) const
       {
         for(size_t i=0;i<count;i++) this->operator () (indices[i]);
       }
@@ -183,7 +183,7 @@ namespace onika
       {
         for(;start<end;start++) m_func(start);
       }
-      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t* __restrict__ indices, size_t count) const
+      ONIKA_DEVICE_FUNC virtual inline void operator () (const size_t* __restrict__ indices, size_t count) const
       {
         for(size_t i=0;i<count;i++) m_func(indices[i]);
       }
@@ -196,14 +196,14 @@ namespace onika
     public:
       ONIKA_DEVICE_FUNC inline void operator () (size_t i) const { (*m_func) (i); }
       ONIKA_DEVICE_FUNC inline void operator () (size_t start, size_t end) const { (*m_func) (start,end); }
-      ONIKA_DEVICE_FUNC inline void operator () (size_t* __restrict__ indices, size_t count) const { (*m_func) (indices,count); }
+      ONIKA_DEVICE_FUNC inline void operator () (const size_t* __restrict__ indices, size_t count) const { (*m_func) (indices,count); }
     };
 
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
-    void initialize_functor_adapter( const FuncT func , GPUKernelExecutionScratch* scratch )
+    static void initialize_functor_adapter( const FuncT func , GPUKernelExecutionScratch* scratch )
     {
-      static_assert( sizeof(BlockParallelForGPUAdapter<FuncT>) < scratch.MAX_FUNCTOR_SIZE );
+      static_assert( sizeof(BlockParallelForGPUAdapter<FuncT>) < GPUKernelExecutionScratch::MAX_FUNCTOR_SIZE );
       if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
       {
         BlockParallelForGPUFunctor* func_adapter = new(scratch->functor_data) BlockParallelForGPUAdapter<FuncT>( func );
@@ -212,7 +212,7 @@ namespace onika
     }
 
     ONIKA_DEVICE_KERNEL_FUNC
-    void finalize_functor_adapter( GPUKernelExecutionScratch* scratch )
+    static void finalize_functor_adapter( GPUKernelExecutionScratch* scratch )
     {
       if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
       {
