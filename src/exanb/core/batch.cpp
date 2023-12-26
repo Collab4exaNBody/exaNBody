@@ -1,6 +1,5 @@
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_task.h>
 #include <exanb/core/log.h>
 #include <exanb/core/string_utils.h>
 

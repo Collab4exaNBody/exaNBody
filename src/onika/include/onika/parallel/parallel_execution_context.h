@@ -104,6 +104,20 @@ namespace onika
       double m_total_async_cpu_execution_time = 0.0;
 
       double m_total_gpu_execution_time = 0.0;
+      
+      
+      // ============ global configuration variables ===============
+      static int s_parallel_task_core_mult;
+      static int s_parallel_task_core_add;
+      static int s_gpu_sm_mult; // if -1, s_parallel_task_core_mult is used
+      static int s_gpu_sm_add;  // if -1, s_parallel_task_core_add is used instead
+      static int s_gpu_block_size;
+      
+      static inline int parallel_task_core_mult() { return s_parallel_task_core_mult; }
+      static inline int parallel_task_core_add() { return s_parallel_task_core_add; }
+      static inline int gpu_sm_mult() { return ( s_gpu_sm_mult >= 0 ) ? s_gpu_sm_mult : parallel_task_core_mult() ; }
+      static inline int gpu_sm_add() { return ( s_gpu_sm_add >= 0 ) ? s_gpu_sm_add : parallel_task_core_add() ; }
+      static inline int gpu_block_size() { return  s_gpu_block_size; }
     };
 
   }

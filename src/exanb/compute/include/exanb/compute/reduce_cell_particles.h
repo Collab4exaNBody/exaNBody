@@ -1,6 +1,5 @@
 #pragma once
 
-#include <onika/task/parallel_task_config.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>

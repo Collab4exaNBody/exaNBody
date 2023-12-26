@@ -10,6 +10,13 @@ namespace onika
   namespace parallel
   {
 
+    // global configuration variables
+    int ParallelExecutionContext::s_parallel_task_core_mult = 4;
+    int ParallelExecutionContext::s_parallel_task_core_add = 0;
+    int ParallelExecutionContext::s_gpu_sm_mult = -1; // if -1, s_parallel_task_core_mult is used
+    int ParallelExecutionContext::s_gpu_sm_add = -1;  // if -1, s_parallel_task_core_add is used instead
+    int ParallelExecutionContext::s_gpu_block_size = 128;
+
     ParallelExecutionContext::~ParallelExecutionContext()
     {
       if( m_start_evt != nullptr )

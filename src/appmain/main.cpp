@@ -16,7 +16,7 @@
 //#include "exanb/debug/debug_particle_id.h"
 
 #include <onika/omp/ompt_interface.h>
-#include <onika/task/parallel_task_config.h>
+#include <onika/parallel/parallel_execution_context.h>
 
 #include <iostream>
 #include <iomanip>
@@ -670,23 +670,14 @@ int main(int argc,char*argv[])
       });
   }
 
-
-
-
-  // configure Onika sub-sytem
-  onika::task::ParallelTaskConfig::s_dag_bulk_task_factor  = configuration.onika.dag_bulk_task_factor;
-  onika::task::ParallelTaskConfig::s_dag_tasks_per_thread  = configuration.onika.dag_tasks_per_thread;
-  onika::task::ParallelTaskConfig::s_dag_max_batch_size    = configuration.onika.dag_max_batch_size;
-  onika::task::ParallelTaskConfig::s_dag_reduce            = configuration.onika.dag_reduce;
-  onika::task::ParallelTaskConfig::s_dag_reorder           = configuration.onika.dag_reorder;
-  onika::task::ParallelTaskConfig::s_dag_scheduler         = configuration.onika.dag_scheduler;
-  onika::task::ParallelTaskConfig::s_dag_scheduler_tied    = configuration.onika.dag_scheduler_tied;
-  onika::task::ParallelTaskConfig::s_dag_scheduler_yield   = configuration.onika.dag_scheduler_yield;
-  onika::task::ParallelTaskConfig::s_dag_diagnostics       = configuration.onika.dag_diagnostics;
-  onika::task::ParallelTaskConfig::s_gpu_sm_mult           = configuration.onika.gpu_sm_mult;
-  onika::task::ParallelTaskConfig::s_gpu_sm_add            = configuration.onika.gpu_sm_add;
-  onika::task::ParallelTaskConfig::s_gpu_block_size        = configuration.onika.gpu_block_size;
-  onika::task::ParallelTaskConfig::s_dag_graph_mt          = configuration.onika.dag_graph_mt;
+  /**********************************/
+  /***** Onika sub-sytem config *****/
+  /**********************************/
+  onika::parallel::ParallelExecutionContext::s_parallel_task_core_mult = configuration.onika.parallel_task_core_mult;
+  onika::parallel::ParallelExecutionContext::s_parallel_task_core_add  = configuration.onika.parallel_task_core_add;
+  onika::parallel::ParallelExecutionContext::s_gpu_sm_mult             = configuration.onika.gpu_sm_mult;
+  onika::parallel::ParallelExecutionContext::s_gpu_sm_add              = configuration.onika.gpu_sm_add;
+  onika::parallel::ParallelExecutionContext::s_gpu_block_size          = configuration.onika.gpu_block_size;
 
   /**********************************/
   /********* run simulation *********/

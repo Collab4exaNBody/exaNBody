@@ -8,8 +8,8 @@
 #include <onika/omp/ompt_interface.h>
 #include <onika/omp/ompt_thread_context.h>
 #include <onika/omp/ompt_task_timing.h>
+#include <onika/omp/tag_utils.h>
 #include <onika/macro_utils.h>
-#include <onika/task/tag_utils.h>
 
 //#include <unordered_map>
 //#include <unordered_set>
@@ -110,7 +110,7 @@ namespace omp
     out<<pointer_short_name(tinfo)<<"(ctx=";
     if(OpenMPToolInterace::user_app_ctx_printer != nullptr ) (*OpenMPToolInterace::user_app_ctx_printer)(tinfo->app_ctx,out) ;
     else out <<pointer_short_name(tinfo->app_ctx);
-    out<<",tag='"<<task::tag_filter_out_path(tinfo->tag)<<"',th="<<pointer_short_name(tinfo->thread_ctx)<<")";
+    out<<",tag='"<< tag_filter_out_path(tinfo->tag)<<"',th="<<pointer_short_name(tinfo->thread_ctx)<<")";
 //#   ifndef NDEBUG
 //    out<<" alloc_site="<<tinfo->allocation_call_site;
 //#   endif

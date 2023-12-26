@@ -31,6 +31,7 @@ else()
 endif()
 
 option(ONIKA_CU_ENABLE_KERNEL_BOUNDS "Use NVCC directive to restrict kernel launch bounds" OFF)
+set(ONIKA_TASKS_PER_CORE "4" CACHE STRING "Number of OpenMP tasks per thread")
 set(ONIKA_CU_MAX_THREADS_PER_BLOCK "128" CACHE STRING "Maximum number of threads per Cuda block")
 set(ONIKA_CU_MIN_BLOCKS_PER_SM "6" CACHE STRING "Minimum number of blocks per SM")
 if(ONIKA_CU_ENABLE_KERNEL_BOUNDS)
@@ -38,7 +39,7 @@ if(ONIKA_CU_ENABLE_KERNEL_BOUNDS)
 else()
   set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CU_ENABLE_KERNEL_BOUNDS=0)
 endif()
-set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CU_MAX_THREADS_PER_BLOCK=${ONIKA_CU_MAX_THREADS_PER_BLOCK} -DONIKA_CU_MIN_BLOCKS_PER_SM=${ONIKA_CU_MIN_BLOCKS_PER_SM})
+set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CU_MAX_THREADS_PER_BLOCK=${ONIKA_CU_MAX_THREADS_PER_BLOCK} -DONIKA_CU_MIN_BLOCKS_PER_SM=${ONIKA_CU_MIN_BLOCKS_PER_SM} -DONIKA_TASKS_PER_CORE=${ONIKA_TASKS_PER_CORE})
 
 if(ONIKA_HAVE_OPENMP_TOOLS)
   message(STATUS "OpenMP Tools enabled")
@@ -104,20 +105,8 @@ if(ONIKA_MEMORY_ZERO_ALLOC)
   set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_MEMORY_ZERO_ALLOC=1)  
 endif()
 
-# generate static openmp task scheduler
-include(GenerateOpenMPTaskLambda)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gen/include/onika/task)
-GenerateOpenMPTaskLambda(${CMAKE_CURRENT_BINARY_DIR}/gen/include/onika/task/static_depend_lambda.h ${ONIKA_OMP_MAX_DEPENDS})
-set(ONIKA_GEN_INC_DIRS ${CMAKE_CURRENT_BINARY_DIR}/gen/include)
-
-# generate general purpose OpenMP dynamic depend dispatcher
-include(GenOMPDynamicDependDispatch)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gen/src)
-GenOMPDynamicDependDispatch(${CMAKE_CURRENT_BINARY_DIR}/gen/src/dynamic_depend_dispatch.cpp ${ONIKA_OMP_MAX_DEPENDS})
-set(ONIKA_GEN_SRCS ${CMAKE_CURRENT_BINARY_DIR}/gen/src/dynamic_depend_dispatch.cpp)
-
 # setup include dirs
-set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${ONIKA_GEN_INC_DIRS})
+set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # compile main lib
 file(GLOB onika_SRCS src/*.cpp)
@@ -139,8 +128,6 @@ target_link_libraries(trace_convert onika ${OpenMP_CXX_LIBRARIES} ${YAML_CPP_LIB
 # install files
 install(TARGETS onika DESTINATION lib)
 install(DIRECTORY include/onika DESTINATION include)
-install(DIRECTORY ${ONIKA_GEN_INC_DIRS}/onika DESTINATION include)
-
 
 # ==================
 # === test suite ===
