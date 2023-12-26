@@ -1,4 +1,5 @@
 #pragma once
+
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
@@ -38,6 +39,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    [[maybe_unused]]
     static void block_parallel_for_gpu_kernel_workstealing( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
     {
       // avoid use of compute buffer when possible
@@ -58,6 +60,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    [[maybe_unused]]
     static void block_parallel_for_gpu_kernel_regulargrid( const FuncT func , GPUKernelExecutionScratch* )
     {
       func( ONIKA_CU_BLOCK_IDX );
@@ -199,11 +202,18 @@ namespace onika
       ONIKA_DEVICE_FUNC inline void operator () (const size_t* __restrict__ indices, size_t count) const { (*m_func) (indices,count); }
     };
 
+    template<long long FunctorSize, long long MaxSize, class FuncT>
+    struct AssertFunctorSizeFitIn
+    {
+      std::enable_if_t< (FunctorSize <= MaxSize) , int > x = 0;
+    };
+
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
+    [[maybe_unused]]
     static void initialize_functor_adapter( const FuncT func , GPUKernelExecutionScratch* scratch )
     {
-      static_assert( sizeof(BlockParallelForGPUAdapter<FuncT>) < GPUKernelExecutionScratch::MAX_FUNCTOR_SIZE );
+      [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(BlockParallelForGPUAdapter<FuncT>) , GPUKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_functor_size = {};
       if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
       {
         BlockParallelForGPUFunctor* func_adapter = new(scratch->functor_data) BlockParallelForGPUAdapter<FuncT>( func );
@@ -212,6 +222,7 @@ namespace onika
     }
 
     ONIKA_DEVICE_KERNEL_FUNC
+    [[maybe_unused]]
     static void finalize_functor_adapter( GPUKernelExecutionScratch* scratch )
     {
       if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
