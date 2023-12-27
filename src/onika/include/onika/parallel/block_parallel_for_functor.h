@@ -62,15 +62,7 @@ namespace onika
     }
 
     ONIKA_DEVICE_KERNEL_FUNC
-    [[maybe_unused]]
-    static void finalize_functor_adapter( GPUKernelExecutionScratch* scratch )
-    {
-      if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
-      {
-        reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data ) -> ~BlockParallelForGPUFunctor();
-      }
-    }
-
+    void finalize_functor_adapter( GPUKernelExecutionScratch* scratch );
 
   }
 }
