@@ -50,7 +50,7 @@ namespace onika
           std::cerr << "Fatal error: no Cuda context, cannot initialize device scratch mem" << std::endl;
           std::abort();
         }
-        m_cuda_scratch = onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch>::New( m_cuda_ctx->m_devices[0]);
+        m_cuda_scratch = onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch>::New( m_cuda_ctx->m_devices[0] );
       }
     }
     

@@ -25,6 +25,8 @@ namespace onika
       char return_data[MAX_RETURN_SIZE];
       char functor_data[MAX_FUNCTOR_SIZE];
     };
+    
+    static_assert( sizeof(GPUKernelExecutionScratch) == GPUKernelExecutionScratch::SCRATCH_BUFFER_SIZE );
 
     struct ParallelExecutionContext;
 
@@ -74,17 +76,17 @@ namespace onika
         retrieve_return_data( result , sizeof(T) );
       }
 
-    // members
+      // members
       onika::cuda::CudaContext* m_cuda_ctx = nullptr;
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
 
       unsigned int m_streamIndex = 0;
-      
+
       // desired number of tasks.
       // m_omp_num_tasks == 0 means no task (opens and then close its own parallel region).
       // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single/master->taskgroup), thus uses taskloop construcut underneath
       unsigned int m_omp_num_tasks = 0;
-      
+
       std::mutex m_kernel_count_mutex;
       std::condition_variable m_kernel_count_condition;
       uint64_t m_omp_kernel_exec_count = 0;
@@ -95,9 +97,7 @@ namespace onika
       cudaEvent_t m_stop_evt = nullptr;
       
       double m_total_async_cpu_execution_time = 0.0;
-
       double m_total_gpu_execution_time = 0.0;
-      
       
       // ============ global configuration variables ===============
       static int s_parallel_task_core_mult;

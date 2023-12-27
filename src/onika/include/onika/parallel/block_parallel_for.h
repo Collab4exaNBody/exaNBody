@@ -190,16 +190,16 @@ namespace onika
                if constexpr ( functor_has_gpu_prolog ) { func( exec_ctx, block_parallel_for_gpu_prolog_t{} ); }
           else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
 
+          ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,initialize_functor_adapter,func,scratch);
           if( fixed_gpu_grid_size )
           {
             ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel_workstealing, N, scratch );
           }
           else
           {
-            ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,initialize_functor_adapter,func,scratch);
-            ONIKA_CU_LAUNCH_KERNEL(       N,BlockSize,0,custream, block_parallel_for_gpu_kernel_regulargrid    , scratch );
-            ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,finalize_functor_adapter,scratch);
+            ONIKA_CU_LAUNCH_KERNEL(N,BlockSize,0,custream, block_parallel_for_gpu_kernel_regulargrid, scratch );
           }
+          ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,finalize_functor_adapter,scratch);
 
                if constexpr ( functor_has_gpu_epilog ) { func( exec_ctx, block_parallel_for_gpu_epilog_t{} ); }
           else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
