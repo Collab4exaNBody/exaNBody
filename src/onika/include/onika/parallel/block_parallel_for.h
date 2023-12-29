@@ -44,7 +44,7 @@ namespace onika
       , ParallelExecutionContext * exec_ctx
       , unsigned int num_tasks = 0
       , bool async = false
-      , ParallelExecutionStreamCallback* user_cb = nullptr
+      , ParallelExecutionCallback* user_cb = nullptr
       )
     {
       [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
@@ -131,7 +131,7 @@ namespace onika
      */
     struct BlockParallelForOptions
     {
-      ParallelExecutionStreamCallback* user_cb = nullptr;
+      ParallelExecutionCallback* user_cb = nullptr;
       void * return_data = nullptr;
       size_t return_data_size = 0;
       bool enable_gpu = true;

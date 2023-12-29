@@ -8,6 +8,39 @@ namespace onika
   namespace parallel
   {
 
+    class BlockParallelForHostFunctor
+    {
+    public:
+      virtual inline void operator () (size_t i) const =0;
+      virtual inline void operator () (size_t start, size_t end) const
+      {
+        for(;start<end;start++) this->operator () (start);
+      }
+      virtual inline void operator () (const size_t* __restrict__ indices, size_t count) const
+      {
+        for(size_t i=0;i<count;i++) this->operator () (indices[i]);
+      }
+      virtual ~BlockParallelForHostFunctor() {}
+    };
+
+    template<class FuncT>
+    class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
+    {
+      const FuncT m_func;
+    public:
+      inline BlockParallelForGPUAdapter( const FuncT& f ) : m_func(f) {}
+      virtual inline void operator () (size_t i) const { m_func(i); }
+      virtual inline void operator () (size_t start, size_t end) const
+      {
+        for(;start<end;start++) m_func(start);
+      }
+      virtual inline void operator () (const size_t* __restrict__ indices, size_t count) const
+      {
+        for(size_t i=0;i<count;i++) m_func(indices[i]);
+      }
+      virtual ~BlockParallelForHostAdapter() {}
+    };
+
     class BlockParallelForGPUFunctor
     {
     public:
@@ -21,7 +54,6 @@ namespace onika
         for(size_t i=0;i<count;i++) this->operator () (indices[i]);
       }
       ONIKA_DEVICE_FUNC virtual ~BlockParallelForGPUFunctor() {}
-
     };
 
     template<class FuncT>

@@ -19,6 +19,7 @@ namespace onika
 
     ParallelExecutionContext::~ParallelExecutionContext()
     {
+/*
       if( m_start_evt != nullptr )
       {
         checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_start_evt ) );
@@ -29,6 +30,7 @@ namespace onika
         checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_stop_evt ) );
         m_stop_evt = nullptr;
       }
+*/
     }
      
     bool ParallelExecutionContext::has_gpu_context() const
@@ -59,18 +61,17 @@ namespace onika
       if( m_cuda_ctx != nullptr )
       {
         init_device_scratch();
-        
+        /*
         m_cuda_stream = m_cuda_ctx->getThreadStream(m_streamIndex);
-
         if( m_start_evt == nullptr )
         {
           checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_start_evt ) );
         }
-
         if( m_stop_evt == nullptr )
         {
           checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_stop_evt ) );
         }
+        */
       }
     }
 
@@ -80,34 +81,47 @@ namespace onika
       return m_cuda_scratch->return_data;
     }
 
-    void ParallelExecutionContext::reset_counters()
+    void ParallelExecutionContext::set_reset_counters(bool rst)
     {
+      m_reset_counters = rst;
+      /*
       if( m_cuda_ctx != nullptr )
       {
         checkCudaErrors( ONIKA_CU_MEMSET( m_cuda_scratch.get(), 0, sizeof(GPUKernelExecutionScratch), m_cuda_stream ) );
       }
+      */
     }
 
-    void ParallelExecutionContext::set_return_data( const void* ptr, size_t sz )
+    void ParallelExecutionContext::set_return_data_input( const void* ptr, size_t sz )
     {
       if( sz > GPUKernelExecutionScratch::MAX_RETURN_SIZE )
       {
-        std::cerr << "Fatal error: return type size too large" << std::endl;
+        std::cerr << "Fatal error: return data size too large" << std::endl;
         std::abort();
       }
-      checkCudaErrors( ONIKA_CU_MEMCPY( m_cuda_scratch->return_data, ptr , sz , m_cuda_stream ) );
+      m_return_data_input = ptr;
+      m_return_data_size = sz;
+      // checkCudaErrors( ONIKA_CU_MEMCPY( m_cuda_scratch->return_data, ptr , sz , m_cuda_stream ) );
     }
     
-    void ParallelExecutionContext::retrieve_return_data( void* ptr, size_t sz )
-    {
+    void ParallelExecutionContext::set_return_data_output( void* ptr, size_t sz )
+    {      
       if( sz > GPUKernelExecutionScratch::MAX_RETURN_SIZE )
       {
-        std::cerr << "Fatal error: return type size too large" << std::endl;
+        std::cerr << "Fatal error: return data size too large" << std::endl;
         std::abort();
       }
-      checkCudaErrors( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
+      if( m_return_data_input != nullptr && m_return_data_size != 0 && m_return_data_size != sz )
+      {
+        std::cerr << "Fatal error: return data size mismatch" << std::endl;
+        std::abort();
+      }
+      // checkCudaErrors( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
     }
 
+    
+
+/*
     // enqueue start event to associated GPU execution stream and increments number of executing GPU kernels
     // maximum number of executing GPU kernels is 1
     void ParallelExecutionContext::gpu_kernel_start()
@@ -259,6 +273,7 @@ namespace onika
       cb->m_cu_stream = stream;
       ( * cb->m_user_callback ) ( cb->m_exec_ctx , cb->m_user_data );
     }
+*/
 
   }
 
