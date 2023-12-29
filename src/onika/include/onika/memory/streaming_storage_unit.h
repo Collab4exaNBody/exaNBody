@@ -60,7 +60,9 @@ namespace onika
         {
           if( free_count == alloc_count )
           {
+            // are we lucky enough so that cursor hasn't changed since we looked at it ?
             bool alloc_ok = m_cursor_pair.compare_exchange_weak( p , sz<<32 , std::memory_order_relaxed , std::memory_order_relaxed );
+            // if so, replace its value with a reset state + allocation os sz bytes
             if( alloc_ok )
             {
               * reinterpret_cast<StreamingStorageUnitT**>(m_buffer+payload_sz) = this;

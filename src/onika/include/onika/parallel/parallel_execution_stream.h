@@ -41,7 +41,6 @@ namespace onika
     };
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionContext& pec );
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec );
-
   }
 
 }

@@ -48,8 +48,7 @@ namespace onika
     {
       enum ExecutionTarget
       {
-        EXECUTION_TARGET_HOST_SEQ ,
-        EXECUTION_TARGET_HOST_OPENMP ,
+        EXECUTION_TARGET_OPENMP ,
         EXECUTION_TARGET_CUDA
       };
     
@@ -73,17 +72,22 @@ namespace onika
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
       HostKernelExecutionScratch m_host_scratch;
 
-      double m_total_async_cpu_execution_time = 0.0;
-      double m_total_gpu_execution_time = 0.0;
-
       // additional information about what to do before/after kernel execution
+      ParallelExecutionCallback m_execution_end_callback = {};
       const void * m_return_data_input = nullptr;
       void * m_return_data_output = nullptr;
       size_t m_return_data_size = 0;
-      ExecutionTarget m_execution_target = EXECUTION_TARGET_HOST_SEQ;
+      ExecutionTarget m_execution_target = EXECUTION_TARGET_OPENMP;
       unsigned int m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
       unsigned int m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
       bool m_reset_counters = false;
+
+      // executuion profiling 
+      cudaEvent_t m_start_evt;
+      cudaEvent_t m_stop_evt;
+      double m_total_async_cpu_execution_time = 0.0;
+      double m_total_gpu_execution_time = 0.0;
+
 
       ~ParallelExecutionContext();
       bool has_gpu_context() const;
