@@ -39,9 +39,8 @@ namespace onika
 
     struct ParallelExecutionCallback
     {
-      void(*m_func)(ParallelExecutionContext*,void*) = nullptr;
+      void(*m_func)(void*) = nullptr;
       void *m_data = nullptr;
-      ParallelExecutionCallback* m_chained_callback = nullptr;
     };
 
     struct ParallelExecutionContext
@@ -64,6 +63,9 @@ namespace onika
       // if m_omp_num_tasks > 0, assume we're in a parallel region running on a single thread (parallel->single/master->taskgroup),
       // thus uses taskloop construcut underneath
       unsigned int m_omp_num_tasks = 0;
+      
+      // allows chaining, for stream queues
+      ParallelExecutionContext* m_next = nullptr;
       
       // this lock prevents reuse of this execution context before execution has fully completed
       std::mutex m_kernel_count_mutex;
@@ -120,6 +122,9 @@ namespace onika
         static_assert( sizeof(T) <= GPUKernelExecutionScratch::MAX_RETURN_SIZE , "return type size too large" );
         set_return_data_output( result , sizeof(T) );
       }
+      
+      // callback trampoline function
+      static void execution_end_callback( cudaStream_t stream,  cudaError_t status, void*  userData );
       
       // ============ global configuration variables ===============
       static int s_parallel_task_core_mult;

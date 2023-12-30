@@ -11,36 +11,37 @@ namespace onika
     class BlockParallelForGPUFunctor
     {
     public:
-      ONIKA_DEVICE_FUNC virtual void operator () (size_t i) const =0;
-      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t start, size_t end) const
-      {
-        for(;start<end;start++) this->operator () (start);
-      }
-      ONIKA_DEVICE_FUNC virtual inline void operator () (const size_t* __restrict__ indices, size_t count) const
-      {
-        for(size_t i=0;i<count;i++) this->operator () (indices[i]);
-      }
+      ONIKA_DEVICE_FUNC virtual inline void operator () (block_parallel_for_prolog_t) const {}
+      ONIKA_DEVICE_FUNC virtual inline void operator () (block_parallel_for_epilog_t) const {}
+      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t i) const {}
+      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t i, size_t end) const { for(;i<end;i++) this->operator () (i); }
+      ONIKA_DEVICE_FUNC virtual inline void operator () (const size_t* __restrict__ idx, size_t N) const { for(size_t i=0;i<N;i++) this->operator () (idx[i]); }
       ONIKA_DEVICE_FUNC virtual inline ~BlockParallelForGPUFunctor() {}
     };
 
     template<class FuncT>
     class BlockParallelForGPUAdapter : public BlockParallelForGPUFunctor
     {
+      static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
+      static inline constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_prolog_t>;
+      static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
+      static inline constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_gpu_epilog_t>;
       const FuncT m_func;
     public:
       ONIKA_DEVICE_FUNC inline BlockParallelForGPUAdapter( const FuncT& f ) : m_func(f) {}
-      ONIKA_DEVICE_FUNC inline void operator () (size_t i) const override final
+      ONIKA_DEVICE_FUNC inline void operator () (block_parallel_for_prolog_t) const override final
       {
-        m_func(i);
+        if constexpr (functor_has_gpu_prolog) { m_func(block_parallel_for_gpu_prolog_t{}); }
+        else if constexpr (functor_has_prolog) { m_func(block_parallel_for_prolog_t{}); }
       }
-      ONIKA_DEVICE_FUNC inline void operator () (size_t start, size_t end) const override final
+      ONIKA_DEVICE_FUNC inline void operator () (block_parallel_for_epilog_t) const override final
       {
-        for(;start<end;start++) m_func(start);
+        if constexpr (functor_has_gpu_epilog) { m_func(block_parallel_for_gpu_epilog_t{}); }
+        else if constexpr (functor_has_epilog) { m_func(block_parallel_for_epilog_t{}); }
       }
-      ONIKA_DEVICE_FUNC inline void operator () (const size_t* __restrict__ indices, size_t count) const override final
-      {
-        for(size_t i=0;i<count;i++) m_func(indices[i]);
-      }
+      ONIKA_DEVICE_FUNC inline void operator () (size_t i) const override final { m_func(i); }
+      ONIKA_DEVICE_FUNC inline void operator () (size_t i, size_t end) const override final { for(;i<end;i++) m_func(i); }
+      ONIKA_DEVICE_FUNC inline void operator () (const size_t* __restrict__ idx, size_t N) const override final { for(size_t i=0;i<N;i++) m_func(idx[i]); }
       ONIKA_DEVICE_FUNC inline ~BlockParallelForGPUAdapter() override final {}
     };
 
@@ -59,6 +60,7 @@ namespace onika
       if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
       {
         BlockParallelForGPUFunctor* func_adapter = new(scratch->functor_data) BlockParallelForGPUAdapter<FuncT>( func );
+        (*func_adapter) ( /* what ParallelExecutionContext ? it is not GPU accessible*/ ... );
         assert( (void*)scratch->functor_data == (void*)func_adapter );
       }
     }
@@ -69,78 +71,42 @@ namespace onika
     class BlockParallelForHostFunctor
     {
     public:
-      virtual void to_stream(size_t N, ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const =0;
-      virtual void operator () (size_t i) const =0;
-      virtual inline void operator () (size_t start, size_t end) const
-      {
-        for(;start<end;start++) this->operator () (start);
-      }
-      virtual inline void operator () (const size_t* __restrict__ indices, size_t count) const
-      {
-        for(size_t i=0;i<count;i++) this->operator () (indices[i]);
-      }
+      virtual inline void operator () (block_parallel_for_prolog_t) const {}
+      virtual inline void operator () (block_parallel_for_epilog_t) const {}
+      virtual inline void stream_init_gpu_functor(ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const {}
+      virtual inline void operator () (size_t i) const {}
+      virtual inline void operator () (size_t i, size_t end) const { for(;i<end;i++) this->operator () (i); }
+      virtual inline void operator () (const size_t* __restrict__ idx, size_t N) const { for(size_t i=0;i<N;i++) this->operator () (idx[i]); }
       virtual ~BlockParallelForHostFunctor() {}
     };
 
     template<class FuncT>
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
     {
+      static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
+      static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
+      static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
+      static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
       const FuncT m_func;
     public:
       inline BlockParallelForGPUAdapter( const FuncT& f ) : m_func(f) {}
-      // this version will work for stream based execution, another version will be needed for graph based execution
-      inline void to_stream(size_t N, ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const override final
+      inline void operator () (block_parallel_for_prolog_t) const override final
       {
-        switch( pec->m_execution_target )
-        {
-          case EXECUTION_TARGET_OPENMP :
-          {
-          }
-          break;
-          case EXECUTION_TARGET_CUDA :
-          {
-            checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec-m_start_evt, pes->m_cu_stream ) );
-            if( pec->m_return_data_input != nullptr && pec->m_return_data_size > 0 )
-            {
-              checkCudaErrors( ONIKA_CU_MEMCPY( pec->m_cuda_scratch->return_data, pec->m_return_data_input , pec->m_return_data_size , pes->m_cu_stream ) );
-            }
-            ONIKA_CU_LAUNCH_KERNEL(1,1,0,pes->m_cu_stream,initialize_functor_adapter,m_func,pec->m_cuda_scratch.get());
-            if( pec->m_grid_size > 0 )
-            {
-              ONIKA_CU_LAUNCH_KERNEL(pec->m_grid_size,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec->m_cuda_scratch.get() );
-            }
-            else
-            {
-              ONIKA_CU_LAUNCH_KERNEL(N,pec->m_block_size,0,pes->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, pec->m_cuda_scratch.get() );
-            }
-            ONIKA_CU_LAUNCH_KERNEL(1,1,0,pes->m_cu_stream,finalize_functor_adapter,pec->m_cuda_scratch.get());
-            if( pec->m_return_data_output != nullptr && pec->m_return_data_size > 0 )
-            {
-              checkCudaErrors( ONIKA_CU_MEMCPY( pec->m_return_data_output , pec->m_cuda_scratch->return_data , pec->m_return_data_size , pes->m_cu_stream ) );
-            }
-            checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec-m_stop_evt, pes->m_cu_stream ) );
-            
-            ... optional user end of execution callback .. must be called right after end of execution
-            ... profiling information gather callback ... can be called at the synchronization point of the stream
-          }
-          break;          
-        }
+        if constexpr (functor_has_cpu_prolog) { m_func(block_parallel_for_cpu_prolog_t{}); }
+        else if constexpr (functor_has_prolog) { m_func(block_parallel_for_prolog_t{}); }
       }
-      
-      inline void operator () (size_t i) const override final
+      inline void operator () (block_parallel_for_epilog_t) const override final
       {
-        m_func(i);
+        if constexpr (functor_has_cpu_epilog) { m_func(block_parallel_for_cpu_epilog_t{}); }
+        else if constexpr (functor_has_epilog) { m_func(block_parallel_for_epilog_t{}); }
       }
-      
-      inline void operator () (size_t start, size_t end) const override final
+      inline void stream_init_gpu_functor(ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const override final
       {
-        for(;start<end;start++) m_func(start);
-      }
-      
-      inline void operator () (const size_t* __restrict__ indices, size_t count) const override final
-      {
-        for(size_t i=0;i<count;i++) m_func(indices[i]);
-      }
+        ONIKA_CU_LAUNCH_KERNEL(1,1,0,pes->m_cu_stream,initialize_functor_adapter,m_func,pec->m_cuda_scratch.get());        
+      }      
+      inline void operator () (size_t i) const override final { m_func(i); }
+      inline void operator () (size_t i, size_t end) const override final { for(;i<end;i++) m_func(i); }
+      inline void operator () (const size_t* __restrict__ idx, size_t N) const override final { for(size_t i=0;i<N;i++) m_func(idx[i]); }
       inline ~BlockParallelForHostAdapter() override final {}
     };
 

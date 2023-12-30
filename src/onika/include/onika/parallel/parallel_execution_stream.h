@@ -20,26 +20,34 @@ namespace onika
     struct ParallelExecutionStreamQueue
     {
       ParallelExecutionStream* m_stream = nullptr;
-      ParallelExecutionCallback m_callback = {};
+      ParallelExecutionContext* m_queue = nullptr;
+
       ParallelExecutionStreamQueue() = default;
       inline ParallelExecutionStreamQueue(ParallelExecutionStream* st, ParallelExecutionCallback cb) : m_stream(st) , m_callback(cb) {}
       inline ParallelExecutionStreamQueue(ParallelExecutionStreamQueue && o)
         : m_stream( std::move(o.m_stream) )
-        , m_callback( std::move(o.m_callback) )
+        , m_queue( std::move(o.m_queue) )
       {
         o.m_stream = nullptr;
-        o.m_callback = ParallelExecutionCallback{};
+        o.m_queue = nullptr;
       }
       inline ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o)
       {
         m_stream = std::move(o.m_stream);
-        m_callback = std::move(o.m_callback);
+        m_queue = std::move(o.m_queue);
         o.m_stream = nullptr;
-        o.m_callback = ParallelExecutionCallback{};
+        o.m_queue = nullptr;
       }
-      ~ParallelExecutionStreamQueue(); // triggers stream synchronization and callbacks
+      
+      // triggers stream synchronization and callbacks
+      ~ParallelExecutionStreamQueue();
     };
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionContext& pec );
+    
+    // just a shorcut to start building a stream queue when a parallel operation is pushed onto a stream
+    inline
+    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionContext& pec ) { return ParallelExecutionStreamQueue{&pes} << pec ; }
+    
+    // real implementation of how a parallel operation is pushed onto a stream queue
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec );
   }
 
