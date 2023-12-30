@@ -54,26 +54,29 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     [[maybe_unused]]
-    static void initialize_functor_adapter( const FuncT func , GPUKernelExecutionScratch* scratch )
+    static void gpu_functor_initialize( const FuncT func , GPUKernelExecutionScratch* scratch )
     {
       [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(BlockParallelForGPUAdapter<FuncT>) , GPUKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_functor_size = {};
-      if( ONIKA_CU_THREAD_IDX == 0 && ONIKA_CU_BLOCK_IDX == 0 )
+      assert( ONIKA_CU_GRID_SIZE == 1 && ONIKA_CU_BLOCK_IDX == 0 );
+      ONIKA_CU_BLOCK_SHARED BlockParallelForGPUFunctor* func_adapter;
+      if( ONIKA_CU_THREAD_IDX == 0 )
       {
-        BlockParallelForGPUFunctor* func_adapter = new(scratch->functor_data) BlockParallelForGPUAdapter<FuncT>( func );
-        (*func_adapter) ( /* what ParallelExecutionContext ? it is not GPU accessible*/ ... );
+        func_adapter = new(scratch->functor_data) BlockParallelForGPUAdapter<FuncT>( func );
         assert( (void*)scratch->functor_data == (void*)func_adapter );
       }
+      ONIKA_CU_BLOCK_SYNC();
+      (*func_adapter) ( block_parallel_for_prolog_t{} );
     }
 
     ONIKA_DEVICE_KERNEL_FUNC
-    void finalize_functor_adapter( GPUKernelExecutionScratch* scratch );
+    void gpu_functor_finalize( GPUKernelExecutionScratch* scratch );
 
     class BlockParallelForHostFunctor
     {
     public:
       virtual inline void operator () (block_parallel_for_prolog_t) const {}
       virtual inline void operator () (block_parallel_for_epilog_t) const {}
-      virtual inline void stream_init_gpu_functor(ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const {}
+      virtual inline void stream_gpu_initialize(ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const {}
       virtual inline void operator () (size_t i) const {}
       virtual inline void operator () (size_t i, size_t end) const { for(;i<end;i++) this->operator () (i); }
       virtual inline void operator () (const size_t* __restrict__ idx, size_t N) const { for(size_t i=0;i<N;i++) this->operator () (idx[i]); }
@@ -100,9 +103,9 @@ namespace onika
         if constexpr (functor_has_cpu_epilog) { m_func(block_parallel_for_cpu_epilog_t{}); }
         else if constexpr (functor_has_epilog) { m_func(block_parallel_for_epilog_t{}); }
       }
-      inline void stream_init_gpu_functor(ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const override final
+      inline void stream_gpu_initialize(ParallelExecutionContext* pec , ParrallelExecutionStream* pes) const override final
       {
-        ONIKA_CU_LAUNCH_KERNEL(1,1,0,pes->m_cu_stream,initialize_functor_adapter,m_func,pec->m_cuda_scratch.get());        
+        ONIKA_CU_LAUNCH_KERNEL(1,pec->m_block_size,0,pes->m_cu_stream,gpu_functor_initialize,m_func,pec->m_cuda_scratch.get());        
       }      
       inline void operator () (size_t i) const override final { m_func(i); }
       inline void operator () (size_t i, size_t end) const override final { for(;i<end;i++) m_func(i); }

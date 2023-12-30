@@ -43,6 +43,14 @@ namespace onika
       void *m_data = nullptr;
     };
 
+    // abstract parallel space indices
+    struct ParallelExecutionSpace
+    {
+      long long int m_start = 0;
+      long long int m_end = 0;
+      long long int * __restrict__ m_idx = nullptr;
+    };
+
     struct ParallelExecutionContext
     {
       enum ExecutionTarget
@@ -78,10 +86,11 @@ namespace onika
       ParallelExecutionCallback m_execution_end_callback = {};
       const void * m_return_data_input = nullptr;
       void * m_return_data_output = nullptr;
-      size_t m_return_data_size = 0;
+      unsigned int m_return_data_size = 0;
       ExecutionTarget m_execution_target = EXECUTION_TARGET_OPENMP;
       unsigned int m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
       unsigned int m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
+      ParallelExecutionSpace m_parallel_space = {};
       bool m_reset_counters = false;
 
       // executuion profiling 
