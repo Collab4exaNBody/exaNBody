@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cassert>
 #include <atomic>
+#include <deque>
 
 #include <onika/omp/ompt_task_timing.h>
 #include <onika/omp/ompt_task_info.h>
@@ -232,8 +233,11 @@ namespace exanb
 
     // access GPUExecution context for this operator
     void set_gpu_enabled(bool en);
-    onika::parallel::ParallelExecutionContext* parallel_execution_context(unsigned int id=0);
-    void account_gpu_execution(double t);
+    // Warning! : this methods has a wrong name, for backward compatibility purposes
+
+    // each call allocates a new context to be used to build up a new parallel operation
+    onika::parallel::ParallelExecutionContext* parallel_execution_context();
+    onika::parallel::ParallelExecutionStream& parallel_execution_stream(unsigned int id=0);
     
     // free resources associated to slots
     void free_all_resources();
@@ -291,7 +295,7 @@ namespace exanb
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_parallel_execution_contexts;
+    std::deque< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_parallel_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;

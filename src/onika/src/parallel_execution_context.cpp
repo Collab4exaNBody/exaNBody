@@ -17,20 +17,30 @@ namespace onika
     int ParallelExecutionContext::s_gpu_sm_add = -1;  // if -1, s_parallel_task_core_add is used instead
     int ParallelExecutionContext::s_gpu_block_size = 128;
 
+    ParallelExecutionContext::reset()
+    {
+      // reset to default state
+      m_cuda_ctx = nullptr;
+      m_default_stream = nullptr;
+      m_omp_num_tasks = 0;
+      m_next = nullptr;
+      m_execution_end_callback = ParallelExecutionCallback{};
+      m_finalize = ParallelExecutionFinalize{};
+      m_return_data_input = nullptr;
+      m_return_data_output = nullptr;
+      m_return_data_size = 0;
+      m_execution_target = EXECUTION_TARGET_OPENMP;
+      m_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
+      m_grid_size = 0; // =0 means that grid size will adapt to number of tasks and workstealing is deactivated. >0 means fixed grid size with workstealing based load balancing
+      m_parallel_space = ParallelExecutionSpace{};
+      m_reset_counters = false;
+      m_total_async_cpu_execution_time = 0.0;
+      m_total_gpu_execution_time = 0.0;
+    }
+
     ParallelExecutionContext::~ParallelExecutionContext()
     {
-/*
-      if( m_start_evt != nullptr )
-      {
-        checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_start_evt ) );
-        m_start_evt = nullptr;
-      }
-      if( m_stop_evt != nullptr )
-      {
-        checkCudaErrors( ONIKA_CU_DESTROY_EVENT( m_stop_evt ) );
-        m_stop_evt = nullptr;
-      }
-*/
+      reset();
     }
      
     bool ParallelExecutionContext::has_gpu_context() const
@@ -54,42 +64,6 @@ namespace onika
         }
         m_cuda_scratch = onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch>::New( m_cuda_ctx->m_devices[0] );
       }
-    }
-    
-    void ParallelExecutionContext::check_initialize()
-    {
-      if( m_cuda_ctx != nullptr )
-      {
-        init_device_scratch();
-        /*
-        m_cuda_stream = m_cuda_ctx->getThreadStream(m_streamIndex);
-        if( m_start_evt == nullptr )
-        {
-          checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_start_evt ) );
-        }
-        if( m_stop_evt == nullptr )
-        {
-          checkCudaErrors( ONIKA_CU_CREATE_EVENT( m_stop_evt ) );
-        }
-        */
-      }
-    }
-
-    void* ParallelExecutionContext::get_device_return_data_ptr()
-    {
-      init_device_scratch();
-      return m_cuda_scratch->return_data;
-    }
-
-    void ParallelExecutionContext::set_reset_counters(bool rst)
-    {
-      m_reset_counters = rst;
-      /*
-      if( m_cuda_ctx != nullptr )
-      {
-        checkCudaErrors( ONIKA_CU_MEMSET( m_cuda_scratch.get(), 0, sizeof(GPUKernelExecutionScratch), m_cuda_stream ) );
-      }
-      */
     }
 
     void ParallelExecutionContext::set_return_data_input( const void* ptr, size_t sz )

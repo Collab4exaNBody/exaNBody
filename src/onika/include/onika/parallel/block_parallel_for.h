@@ -131,103 +131,75 @@ namespace onika
      */
     struct BlockParallelForOptions
     {
-      ParallelExecutionCallback* user_cb = nullptr;
+      ParallelExecutionCallback user_cb = {};
       void * return_data = nullptr;
       size_t return_data_size = 0;
       bool enable_gpu = true;
-      bool async = false;
       bool fixed_gpu_grid_size = false;
     };
 
     template< class FuncT >
-    static inline void block_parallel_for(
+    static inline
+    ParallelExecutionWrapper
+    block_parallel_for(
         uint64_t N
       , const FuncT& func
-      , ParallelExecutionContext * exec_ctx = nullptr
+      , ParallelExecutionContext * pec
       , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
     {    
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
-      [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
-      [[maybe_unused]] static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
-      [[maybe_unused]] static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
-      [[maybe_unused]] static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
+      static_assert( sizeof(BlockParallelForHostAdapter<FuncT>) <= HostKernelExecutionScratch::MAX_FUNCTOR_SIZE );
+
+      assert( pec != nullptr );
     
       const auto [ user_cb
                  , return_data 
                  , return_data_size 
                  , enable_gpu 
-                 , async 
                  , fixed_gpu_grid_size
                  ] = opts;
 
-      if( user_cb != nullptr )
-      {
-        user_cb->m_exec_ctx = exec_ctx;
-      }
+      // construct virtual functor adapter inplace, using reserved functor space
+      new(pec->m_host_scratch.functor_data) BlockParallelForHostAdapter<FuncT>( func );
+
+      pec->m_execution_end_callback = user_cb;
+      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
     
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
-        bool allow_cuda_exec = enable_gpu && ( exec_ctx != nullptr );
-        if( allow_cuda_exec ) allow_cuda_exec = ( exec_ctx->m_cuda_ctx != nullptr );
-        if( allow_cuda_exec ) allow_cuda_exec = exec_ctx->m_cuda_ctx->has_devices();
+        bool allow_cuda_exec = enable_gpu ;
+        if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );
+        if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();
         if( allow_cuda_exec )
         {
-          exec_ctx->check_initialize();
-          const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
-          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+          pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_CUDA;
+          pec->m_block_size = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
+          pec->m_grid_size = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
                                       * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
                                       + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+          if( ! fixed_gpu_grid_size )
+          { 
+            pec->m_grid_size = 0;
+          }
+          pec->m_reset_counters = fixed_gpu_grid_size;
 
-          auto custream = exec_ctx->m_cuda_stream;        
-          exec_ctx->gpu_kernel_start();
-          exec_ctx->reset_counters();
           if( return_data != nullptr && return_data_size > 0 )
           {
-            exec_ctx->set_return_data( return_data , return_data_size );
-          }          
-          auto * scratch = exec_ctx->m_cuda_scratch.get();
-
-               if constexpr ( functor_has_gpu_prolog ) { func( exec_ctx, block_parallel_for_gpu_prolog_t{} ); }
-          else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
-
-          ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,initialize_functor_adapter,func,scratch);
-          if( fixed_gpu_grid_size )
-          {
-            ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel_workstealing, N, scratch );
+            pec->set_return_data_input( return_data , return_data_size );
+            pec->set_return_data_output( return_data , return_data_size );
           }
           else
           {
-            ONIKA_CU_LAUNCH_KERNEL(N,BlockSize,0,custream, block_parallel_for_gpu_kernel_regulargrid, scratch );
+            pec->set_return_data_input( nullptr , 0 );
+            pec->set_return_data_output( nullptr , 0 );
           }
-          ONIKA_CU_LAUNCH_KERNEL(1,1,0,custream,finalize_functor_adapter,scratch);
-
-               if constexpr ( functor_has_gpu_epilog ) { func( exec_ctx, block_parallel_for_gpu_epilog_t{} ); }
-          else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }
-
-          if( return_data != nullptr && return_data_size > 0 )
-          {
-            exec_ctx->retrieve_return_data( return_data , return_data_size );
-          }
-          exec_ctx->gpu_kernel_end();
-          exec_ctx->register_stream_callback( user_cb );
-          if( ! async ) { exec_ctx->wait(); }
-
-          return;
+          return {*pec};
         }
       }
 
       // ================== CPU / OpenMP execution path ====================
-
-      int prefered_num_tasks = 0;
-      if( exec_ctx != nullptr ) prefered_num_tasks = exec_ctx->m_omp_num_tasks;
-
-      // allow tasking mode, means we're in a parallel/single[/taskgroup] scope
-      if( prefered_num_tasks > 0 )
-      {
-        prefered_num_tasks = prefered_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
-      }
-
-      block_parallel_for_omp_kernel( N, func, exec_ctx, prefered_num_tasks, async, user_cb );
+      pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
+      return {*pec};
     }
     
   }

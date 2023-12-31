@@ -12,9 +12,11 @@ namespace onika
     // multiple kernel execution concurrency can be handled manually using several streams (same as Cuda stream)
     struct ParallelExecutionStream
     {
-//      static constexpr unsigned int MAX_PARALLEL_EXECUTION_STREAMS = 1024;
-      unsigned int m_stream_id = 0;
+      // GPU device context, null if non device available for parallel execution
+      // any parallel executiion enqueued to this stream must have either a null CudaContext or the same context as the stream
+      onika::cuda::CudaContext* m_cuda_ctx = nullptr; 
       cudaStream_t m_cu_stream = 0;
+      unsigned int m_stream_id = 0;
     };
 
     struct ParallelExecutionStreamQueue
@@ -45,7 +47,7 @@ namespace onika
     
     // just a shorcut to start building a stream queue when a parallel operation is pushed onto a stream
     inline
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionContext& pec ) { return ParallelExecutionStreamQueue{&pes} << pec ; }
+    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionWrapper && pew ) { return ParallelExecutionStreamQueue{&pes} << pew.pec ; }
     
     // real implementation of how a parallel operation is pushed onto a stream queue
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec );

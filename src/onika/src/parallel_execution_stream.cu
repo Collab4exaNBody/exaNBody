@@ -30,7 +30,7 @@ namespace onika
               for(uint64_t i=0;i<N;i++) { func( i ); }
             }
             func( block_parallel_for_epilog_t{} );
-            pec.m_total_async_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
+            pec.m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
             if( pec.m_execution_end_callback.m_func != nullptr )
             {
               (* pec.m_execution_end_callback.m_func) ( ptr_pec->m_execution_end_callback.m_data );
@@ -38,21 +38,23 @@ namespace onika
           }
           else
           {
+            // preferred number of tasks : trade off between overhead (less is better) and load balancing (more is better)
+            const unsigned int num_tasks = pec->m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
             // enclose a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
             auto * ptr_pec = &pec;
             // refrenced variables must be privately copied, because the task may run after this function ends
-#           pragma omp task default(none) firstprivate(ptr_pec,N) depend(inout:pes.m_stream[0])
+#           pragma omp task default(none) firstprivate(ptr_pec,num_tasks,N) depend(inout:pes.m_stream[0])
             {
               const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( ptr_pec->m_host_scratch.functor_data );
               const auto T0 = std::chrono::high_resolution_clock::now();
               func( block_parallel_for_prolog_t{} );              
               // implicit taskgroup, ensures taskloop has completed before enclosing task ends
               // all refrenced variables can be shared because of implicit enclosing taskgroup
-#             pragma omp taskloop default(none) shared(ptr_pec,func,N) num_tasks(ptr_pec->m_omp_num_tasks)
+#             pragma omp taskloop default(none) shared(ptr_pec,num_tasks,func,N) num_tasks(num_tasks)
               for(uint64_t i=0;i<N;i++) { func( i ); }
               // here all tasks of taskloop have completed, since notaskgroup clause is not specified              
               func( block_parallel_for_epilog_t{} );            
-              ptr_pec->m_total_async_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
+              ptr_pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
               if( ptr_pec->m_execution_end_callback.m_func != nullptr )
               {
                 (* ptr_pec->m_execution_end_callback.m_func) ( ptr_pec->m_execution_end_callback.m_data );
@@ -65,6 +67,15 @@ namespace onika
         
         case EXECUTION_TARGET_CUDA :
         {
+          if( pes.m_cuda_ctx == nullptr || pes.m_cuda_ctx != pec.m_cuda_ctx )
+          {
+            std::cerr << "Mismatch Cuda context, cannot queue parallel execution to this stream" << std::endl;
+            std::abort();
+          }
+        
+          // if device side scratch space hasn't be allocated yet, do it now
+          pec->init_device_scratch();
+          
           // insert start event for profiling
           checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec.m_start_evt, pes.m_cu_stream ) );
 
@@ -138,7 +149,10 @@ namespace onika
         {}
         
         // Cuda wait
-        ONIKA_CU_STREAM_SYNCHRONIZE( m_stream->m_cu_stream );
+        if( m_stream->m_cuda_ctx != nullptr )
+        {
+          ONIKA_CU_STREAM_SYNCHRONIZE( m_stream->m_cu_stream );
+        }
         
         // collect execution times
         auto* pec = m_queue;
@@ -147,9 +161,12 @@ namespace onika
           float Tgpu = 0.0;
           ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt);
           pec->m_total_gpu_execution_time = Tgpu;
-          pec->push_execution_time();
           auto* next = pec->m_next;
-          pec_free( pec );
+          if( pec->m_finalize.m_func != nullptr )
+          {
+            // may account for elapsed time, and free pec allocated memory
+            ( * pec->m_finalize.m_func ) ( pec , pec->m_finalize.m_data );
+          }
           pec = next;
         }
         m_queue = nullptr;

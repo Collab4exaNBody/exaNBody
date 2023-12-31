@@ -511,20 +511,19 @@ namespace exanb
     m_gpu_execution_allowed = b;
   }
 
-  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
+  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
   {
-    if( id >= m_parallel_execution_contexts.size() )
-    {
-      m_parallel_execution_contexts.resize( id+1 );
-    }
-    if( m_parallel_execution_contexts[id] == nullptr )
-    {
+    .. attention, beaucoup de choses à initialiser
+    notamment num_tasks (tasking or not)
+    callback pour liberer le pec et recuperer les temps d'execution, etc, etc.
+    peut-etre appeler la methode reset, ca peut etre bien ...
+    /*
       m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::ParallelExecutionContext >();
       m_parallel_execution_contexts[id]->m_streamIndex = id;
       m_parallel_execution_contexts[id]->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
       m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
-    }
-    return m_parallel_execution_contexts[id].get();
+    */
+    return ...;
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )

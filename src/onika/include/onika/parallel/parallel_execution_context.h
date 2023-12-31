@@ -43,12 +43,25 @@ namespace onika
       void *m_data = nullptr;
     };
 
+    struct ParallelExecutionFinalize
+    {
+      void(*m_func)(ParallelExecutionContext*,void*) = nullptr;
+      void *m_data = nullptr;
+    };
+
     // abstract parallel space indices
     struct ParallelExecutionSpace
     {
       long long int m_start = 0;
       long long int m_end = 0;
       long long int * __restrict__ m_idx = nullptr;
+    };
+
+    // temporarily holds ParallelExecutionContext instance until it is either queued in a stream or graph execution flow,
+    // or destroyed, in which case it inserts instance onto the default stream queue
+    struct ParallelExecutionWrapper
+    {
+      ParallelExecutionContext& pec;
     };
 
     struct ParallelExecutionContext
@@ -75,15 +88,13 @@ namespace onika
       // allows chaining, for stream queues
       ParallelExecutionContext* m_next = nullptr;
       
-      // this lock prevents reuse of this execution context before execution has fully completed
-      std::mutex m_kernel_count_mutex;
-
       // device side scratch memory for counters, return_data and functor_data
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
       HostKernelExecutionScratch m_host_scratch;
 
       // additional information about what to do before/after kernel execution
       ParallelExecutionCallback m_execution_end_callback = {};
+      ParallelExecutionFinalize m_finalize = {};
       const void * m_return_data_input = nullptr;
       void * m_return_data_output = nullptr;
       unsigned int m_return_data_size = 0;
@@ -96,17 +107,12 @@ namespace onika
       // executuion profiling 
       cudaEvent_t m_start_evt;
       cudaEvent_t m_stop_evt;
-      double m_total_async_cpu_execution_time = 0.0;
+      double m_total_cpu_execution_time = 0.0;
       double m_total_gpu_execution_time = 0.0;
-
 
       ~ParallelExecutionContext();
       bool has_gpu_context() const;
       void init_device_scratch();
-      void check_initialize();
-
-      // tells to reset scratch counters to 0 before scheduling parallel kernel
-      void set_reset_counters(bool reset);
       
       // device side return_data ptr
       void* get_device_return_data_ptr();
