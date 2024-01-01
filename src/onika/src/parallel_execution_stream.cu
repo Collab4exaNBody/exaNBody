@@ -5,6 +5,40 @@ namespace onika
   namespace parallel
   {
 
+    ParallelExecutionWrapper::~ParallelExecutionWrapper()
+    {
+      if( m_pec != nullptr )
+      {
+        ( * ppec->m_default_stream ) << (*this);
+      }
+    }
+
+    ParallelExecutionStreamQueue::ParallelExecutionStreamQueue(ParallelExecutionStream* st) : m_stream(st) , m_queue(nullptr) {}
+    
+    ParallelExecutionStreamQueue::ParallelExecutionStreamQueue(ParallelExecutionStreamQueue && o)
+      : m_stream( std::move(o.m_stream) )
+      , m_queue( std::move(o.m_queue) )
+    {
+      o.m_stream = nullptr;
+      o.m_queue = nullptr;
+    }
+    
+    ParallelExecutionStreamQueue::ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o)
+    {
+      m_stream = std::move(o.m_stream);
+      m_queue = std::move(o.m_queue);
+      o.m_stream = nullptr;
+      o.m_queue = nullptr;
+    }
+
+    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionWrapper && pew )
+    {
+      auto ppec = pew.m_pec;
+      assert( ppec != nullptr );
+      pew.m_pec = nullptr;
+      return ParallelExecutionStreamQueue{&pes} << (*ppec) ;
+    }
+
     // real implementation of how a parallel operation is pushed onto a stream queue
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec )
     {
@@ -167,6 +201,7 @@ namespace onika
             // may account for elapsed time, and free pec allocated memory
             ( * pec->m_finalize.m_func ) ( pec , pec->m_finalize.m_data );
           }
+          reinterpret_cast<BlockParallelForHostFunctor*>(pec->m_host_scratch.functor_data)-> ~BlockParallelForHostFunctor();
           pec = next;
         }
         m_queue = nullptr;

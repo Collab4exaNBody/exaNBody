@@ -8,6 +8,14 @@ namespace onika
   namespace parallel
   {
 
+    // temporarily holds ParallelExecutionContext instance until it is either queued in a stream or graph execution flow,
+    // or destroyed, in which case it inserts instance onto the default stream queue
+    struct ParallelExecutionWrapper
+    {
+      ParallelExecutionContext* m_pec = nullptr;
+      ~ParallelExecutionWrapper();
+    };
+
     // allows asynchronous sequential execution of parallel executions queued in the same stream
     // multiple kernel execution concurrency can be handled manually using several streams (same as Cuda stream)
     struct ParallelExecutionStream
@@ -25,29 +33,14 @@ namespace onika
       ParallelExecutionContext* m_queue = nullptr;
 
       ParallelExecutionStreamQueue() = default;
-      inline ParallelExecutionStreamQueue(ParallelExecutionStream* st, ParallelExecutionCallback cb) : m_stream(st) , m_callback(cb) {}
-      inline ParallelExecutionStreamQueue(ParallelExecutionStreamQueue && o)
-        : m_stream( std::move(o.m_stream) )
-        , m_queue( std::move(o.m_queue) )
-      {
-        o.m_stream = nullptr;
-        o.m_queue = nullptr;
-      }
-      inline ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o)
-      {
-        m_stream = std::move(o.m_stream);
-        m_queue = std::move(o.m_queue);
-        o.m_stream = nullptr;
-        o.m_queue = nullptr;
-      }
-      
-      // triggers stream synchronization and callbacks
+      ParallelExecutionStreamQueue(ParallelExecutionStream* st);
+      ParallelExecutionStreamQueue(ParallelExecutionStreamQueue && o);
+      ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o);
       ~ParallelExecutionStreamQueue();
     };
     
     // just a shorcut to start building a stream queue when a parallel operation is pushed onto a stream
-    inline
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionWrapper && pew ) { return ParallelExecutionStreamQueue{&pes} << pew.pec ; }
+    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionWrapper && pew );
     
     // real implementation of how a parallel operation is pushed onto a stream queue
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec );

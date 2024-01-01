@@ -422,6 +422,9 @@ namespace exanb
     
     if( do_profiling )
     {
+      m_total_gpu_time = 0.0;
+      m_total_async_cpu_time = 0.0;
+
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_begin_task_context2( tsk_ctx, this );
 #     else
@@ -442,19 +445,8 @@ namespace exanb
     if( do_profiling )
     { 
       ONIKA_CU_PROF_RANGE_POP();
-
-      double total_gpu_time = 0.0;
-      double total_async_cpu_time = 0.0;
-      for(auto gpuctx:m_parallel_execution_contexts)
-      {
-        if( gpuctx != nullptr )
-        {
-          total_gpu_time += gpuctx->collect_gpu_execution_time();
-          total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
-        }
-      }
-      m_gpu_times.push_back( total_gpu_time ); // account for 0 (no GPU or async) execution times, to avoid asymetry between mpi processes
-      m_async_cpu_times.push_back( total_async_cpu_time );
+      m_gpu_times.push_back( m_total_gpu_time ); // account for 0 (no GPU or async) execution times, to avoid asymetry between mpi processes
+      m_async_cpu_times.push_back( m_total_async_cpu_time );
 
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       onika_ompt_end_task_context2( tsk_ctx, this );
@@ -511,19 +503,66 @@ namespace exanb
     m_gpu_execution_allowed = b;
   }
 
+  void OperatorNode::finalize_parallel_execution(ParallelExecutionContext* pec, void * v_self)
+  {
+    OperatorNode* self = reinterpret_cast<OperatorNode*>( v_self );
+    assert( self != nullptr );
+    assert( pec != nullptr );
+    const std::lock_guard<std::mutex> lock(self->m_parallel_execution_access);
+    self->m_total_gpu_time += pec->m_total_gpu_execution_time;
+    self->m_total_async_cpu_time += pec->m_total_cpu_execution_time;
+    pec->reset();
+    auto it = m_allocated_parallel_execution_contexts.find( pec );
+    assert( it != m_allocated_parallel_execution_contexts.end() );
+    m_free_parallel_execution_contexts.push_back( *it );
+    m_allocated_parallel_execution_contexts.erase( it );
+  }
+
+  onika::parallel::ParallelExecutionStream& OperatorNode::parallel_execution_stream(unsigned int id)
+  {
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    if( id >= m_parallel_execution_streams.size() )
+    {
+      m_parallel_execution_streams.resize( id+1 , nullptr );
+    }
+    if( m_parallel_execution_streams[id] == nullptr )
+    {
+      m_parallel_execution_streams[id] = std::make_shared< onika::parallel::ParallelExecutionStream >();
+      m_parallel_execution_streams[id]->m_cuda_ctx = global_cuda_ctx();
+      if( m_parallel_execution_streams[id]->m_cuda_ctx != nullptr )
+      {
+        m_parallel_execution_streams[id]->m_cu_stream = m_parallel_execution_streams[id]->m_cuda_ctx->getThreadStream(id);
+      }
+      m_parallel_execution_streams[id]->m_stream_id = id;
+    }
+    return * m_parallel_execution_streams[id];
+  }
+
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
   {
-    .. attention, beaucoup de choses à initialiser
-    notamment num_tasks (tasking or not)
-    callback pour liberer le pec et recuperer les temps d'execution, etc, etc.
-    peut-etre appeler la methode reset, ca peut etre bien ...
-    /*
-      m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::ParallelExecutionContext >();
-      m_parallel_execution_contexts[id]->m_streamIndex = id;
-      m_parallel_execution_contexts[id]->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
-      m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
-    */
-    return ...;
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    if( m_free_parallel_execution_contexts.empty() )
+    {
+      m_free_parallel_execution_contexts.push_back( std::make_shared< onika::parallel::ParallelExecutionContext >() );
+    }
+    auto pec = m_free_parallel_execution_contexts.back();
+    m_allocated_parallel_execution_contexts.insert( pec );
+    m_free_parallel_execution_contexts.pop_back();
+
+    pec->reset();
+    pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
+    pec->m_default_stream = parallel_execution_stream();
+    pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
+    if( pec->m_cuda_ctx != nullptr && pec->m_start_evt == nullptr )
+    {
+      ONIKA_CU_CREATE_EVENT( pec->m_start_evt );
+    }
+    if( pec->m_cuda_ctx != nullptr && pec->m_stop_evt == nullptr )
+    {
+      ONIKA_CU_CREATE_EVENT( pec->m_stop_evt );
+    }
+    pec->m_finalize = ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this };
+    return pec.get();
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )

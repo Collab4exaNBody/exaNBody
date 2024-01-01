@@ -261,6 +261,8 @@ namespace exanb
     std::vector<double> m_exec_times;
     std::vector<double> m_gpu_times;
     std::vector<double> m_async_cpu_times;
+    double m_total_gpu_time = 0.0;
+    double m_total_async_cpu_time = 0.0;
     ssize_t m_resident_mem_inc = 0;
 
     // debug stream wrapper to enable log filtering
@@ -268,6 +270,7 @@ namespace exanb
 
   private:
 
+    static void finalize_parallel_execution(ParallelExecutionContext* pec, void * v_self);
     static void task_start_callback( const onika::omp::OpenMPToolTaskTiming& evt );
     static void task_stop_callback( const onika::omp::OpenMPToolTaskTiming& evt );
   
@@ -295,7 +298,10 @@ namespace exanb
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    std::deque< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_parallel_execution_contexts;
+    std::mutex m_parallel_execution_access;
+    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams
+    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_free_parallel_execution_contexts;
+    std::unordered_set< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_allocated_parallel_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;

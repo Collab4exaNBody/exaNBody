@@ -57,12 +57,7 @@ namespace onika
       long long int * __restrict__ m_idx = nullptr;
     };
 
-    // temporarily holds ParallelExecutionContext instance until it is either queued in a stream or graph execution flow,
-    // or destroyed, in which case it inserts instance onto the default stream queue
-    struct ParallelExecutionWrapper
-    {
-      ParallelExecutionContext& pec;
-    };
+    struct ParallelExecutionStream;
 
     struct ParallelExecutionContext
     {
@@ -105,8 +100,8 @@ namespace onika
       bool m_reset_counters = false;
 
       // executuion profiling 
-      cudaEvent_t m_start_evt;
-      cudaEvent_t m_stop_evt;
+      cudaEvent_t m_start_evt = nullptr;
+      cudaEvent_t m_stop_evt = nullptr;
       double m_total_cpu_execution_time = 0.0;
       double m_total_gpu_execution_time = 0.0;
 

@@ -199,7 +199,7 @@ namespace onika
 
       // ================== CPU / OpenMP execution path ====================
       pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
-      return {*pec};
+      return {pec};
     }
     
   }
