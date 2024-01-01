@@ -82,7 +82,9 @@ namespace onika
 namespace exanb
 {
   template<class GridT, class FuncT, class FieldSetT>
-  static inline void compute_cell_particles(
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particles(
     GridT& grid,
     bool enable_ghosts,
     const FuncT& func,
@@ -110,7 +112,7 @@ namespace exanb
       enable_gpu = true;
     }
     
-    block_parallel_for( N, ComputeCellParticlesFunctor<CellsT*,FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu , .async=async } );
+    return block_parallel_for( N, ComputeCellParticlesFunctor<CellsT*,FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu } );
   }
 }
 

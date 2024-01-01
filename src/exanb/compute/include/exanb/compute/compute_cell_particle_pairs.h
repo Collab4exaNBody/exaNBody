@@ -88,7 +88,9 @@ namespace exanb
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class FieldSetT , class PosFieldsT = DefaultPositionFields >
-  static inline void compute_cell_particle_pairs(
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particle_pairs(
     GridT& grid,
     double rcut,
     bool enable_ghosts,
@@ -137,17 +139,17 @@ namespace exanb
     auto cells = grid.cells();
     auto cellprof = grid.cell_profiler();
     const unsigned int cs = optional.nbh.m_chunk_size;
-    const BlockParallelForOptions opts = { .enable_gpu = enable_gpu , .async = async };
+    const BlockParallelForOptions opts = { .enable_gpu = enable_gpu };
     switch( cs )
     {
       case 4:
-        block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , opts );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , opts );
         break;
       case 8:
-        block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , opts );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , opts );
         break;
       default:
-        block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , opts );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , opts );
         break;
     }
   }
