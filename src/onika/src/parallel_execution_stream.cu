@@ -1,15 +1,50 @@
 #include <onika/parallel/parallel_execution_stream.h>
+#include <onika/parallel/block_parallel_for_functor.h>
 
 namespace onika
 {
   namespace parallel
   {
 
+    // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch )
+    {
+      // avoid use of compute buffer when possible
+      const auto & func = * reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data );
+      ONIKA_CU_BLOCK_SHARED unsigned int i;
+      do
+      {
+        if( ONIKA_CU_THREAD_IDX == 0 )
+        {
+          i = ONIKA_CU_ATOMIC_ADD( scratch->counters[0] , 1u );
+          //printf("processing cell #%d\n",int(cell_a_no_gl));
+        }
+        ONIKA_CU_BLOCK_SYNC();
+        if( i < N ) { func( i ); }
+      }
+      while( i < N );
+    }
+
+    // GPU execution kernel for adaptable size grid, a.k.a. conventional Cuda kernel execution on N element blocks
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    void block_parallel_for_gpu_kernel_regulargrid( GPUKernelExecutionScratch* scratch )
+    {
+      const auto & func = * reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data );
+      func( ONIKA_CU_BLOCK_IDX );
+    }
+
+
+    // ==================== ParallelExecutionStream scheduling implementation ====================
+    
     ParallelExecutionWrapper::~ParallelExecutionWrapper()
     {
       if( m_pec != nullptr )
       {
-        ( * ppec->m_default_stream ) << (*this);
+        ParallelExecutionStreamQueue{m_pec->m_default_stream} << ParallelExecutionWrapper{m_pec};
+        m_pec = nullptr;
       }
     }
 
@@ -23,7 +58,7 @@ namespace onika
       o.m_queue = nullptr;
     }
     
-    ParallelExecutionStreamQueue::ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o)
+    ParallelExecutionStreamQueue& ParallelExecutionStreamQueue::operator = (ParallelExecutionStreamQueue && o)
     {
       m_stream = std::move(o.m_stream);
       m_queue = std::move(o.m_queue);
@@ -31,24 +66,20 @@ namespace onika
       o.m_queue = nullptr;
     }
 
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionWrapper && pew )
-    {
-      auto ppec = pew.m_pec;
-      assert( ppec != nullptr );
-      pew.m_pec = nullptr;
-      return ParallelExecutionStreamQueue{&pes} << (*ppec) ;
-    }
-
     // real implementation of how a parallel operation is pushed onto a stream queue
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec )
+    ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionWrapper && pew )
     {
-      assert( ptr_pec->m_parallel_space.m_start == 0 && ptr_pec->m_parallel_space.m_idx == nullptr );
-      const size_t N = ptr_pec->m_parallel_space.m_end;
+      assert( pew.m_pec != nullptr );
+      auto & pec = * pew.m_pec;
+      pew.m_pec = nullptr;
+
+      assert( pec.m_parallel_space.m_start == 0 && pec.m_parallel_space.m_idx == nullptr );
+      const size_t N = pec.m_parallel_space.m_end;
       const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec.m_host_scratch.functor_data );
       
-      switch( pec->m_execution_target )
+      switch( pec.m_execution_target )
       {
-        case EXECUTION_TARGET_OPENMP :
+        case ParallelExecutionContext::EXECUTION_TARGET_OPENMP :
         {
           if( pec.m_omp_num_tasks == 0 )
           {
@@ -67,13 +98,13 @@ namespace onika
             pec.m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
             if( pec.m_execution_end_callback.m_func != nullptr )
             {
-              (* pec.m_execution_end_callback.m_func) ( ptr_pec->m_execution_end_callback.m_data );
+              (* pec.m_execution_end_callback.m_func) ( pec.m_execution_end_callback.m_data );
             }
           }
           else
           {
             // preferred number of tasks : trade off between overhead (less is better) and load balancing (more is better)
-            const unsigned int num_tasks = pec->m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
+            const unsigned int num_tasks = pec.m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
             // enclose a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
             auto * ptr_pec = &pec;
             // refrenced variables must be privately copied, because the task may run after this function ends
@@ -99,63 +130,63 @@ namespace onika
         }
         break;
         
-        case EXECUTION_TARGET_CUDA :
+        case ParallelExecutionContext::EXECUTION_TARGET_CUDA :
         {
-          if( pes.m_cuda_ctx == nullptr || pes.m_cuda_ctx != pec.m_cuda_ctx )
+          if( pes.m_stream->m_cuda_ctx == nullptr || pes.m_stream->m_cuda_ctx != pec.m_cuda_ctx )
           {
             std::cerr << "Mismatch Cuda context, cannot queue parallel execution to this stream" << std::endl;
             std::abort();
           }
         
           // if device side scratch space hasn't be allocated yet, do it now
-          pec->init_device_scratch();
+          pec.init_device_scratch();
           
           // insert start event for profiling
-          checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec.m_start_evt, pes.m_cu_stream ) );
+          checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec.m_start_evt, pes.m_stream->m_cu_stream ) );
 
           // copy in return data intial value. mainly useful for reduction where you might want to start reduction with a given initial value
           if( pec.m_return_data_input != nullptr && pec.m_return_data_size > 0 )
           {
-            checkCudaErrors( ONIKA_CU_MEMCPY( pec.m_cuda_scratch->return_data, pec.m_return_data_input , pec.m_return_data_size , pes.m_cu_stream ) );
+            checkCudaErrors( ONIKA_CU_MEMCPY( pec.m_cuda_scratch->return_data, pec.m_return_data_input , pec.m_return_data_size , pes.m_stream->m_cu_stream ) );
           }
 
           // sets all scratch counters to 0
           if( pec.m_reset_counters || pec.m_grid_size > 0 )
           {
-            checkCudaErrors( ONIKA_CU_MEMSET( pec.m_cuda_scratch->counters, 0, GPUKernelExecutionScratch::MAX_COUNTERS * sizeof(unsigned long long int), pes.m_cu_stream ) );
+            checkCudaErrors( ONIKA_CU_MEMSET( pec.m_cuda_scratch->counters, 0, GPUKernelExecutionScratch::MAX_COUNTERS * sizeof(unsigned long long int), pes.m_stream->m_cu_stream ) );
           }
 
           // Instantiaite device side functor : calls constructor with a placement new using scratch "functor_data" space
           // then call functor prolog if available
-          func.stream_gpu_initialize( &pec , &pes );
+          func.stream_gpu_initialize( &pec , pes.m_stream );
           
           // launch compute kernel
           if( pec.m_grid_size > 0 )
           {
-            ONIKA_CU_LAUNCH_KERNEL(pec.m_grid_size,pec.m_block_size,0,pes.m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec.m_cuda_scratch.get() );
+            ONIKA_CU_LAUNCH_KERNEL(pec.m_grid_size,pec.m_block_size,0,pes.m_stream->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec.m_cuda_scratch.get() );
           }
           else
           {
-            ONIKA_CU_LAUNCH_KERNEL(N,pec.m_block_size,0,pes.m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, pec.m_cuda_scratch.get() );
+            ONIKA_CU_LAUNCH_KERNEL(N,pec.m_block_size,0,pes.m_stream->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, pec.m_cuda_scratch.get() );
           }
           
           // executes prolog through functor, if available, then call device functor destructor
-          ONIKA_CU_LAUNCH_KERNEL(1,pec.m_block_size,0,pes.m_cu_stream,gpu_functor_finalize,pec.m_cuda_scratch.get());
+          ONIKA_CU_LAUNCH_KERNEL(1,pec.m_block_size,0,pes.m_stream->m_cu_stream,gpu_functor_finalize,pec.m_cuda_scratch.get());
           
           // copy out return data to host space at given pointer
           if( pec.m_return_data_output != nullptr && pec.m_return_data_size > 0 )
           {
-            checkCudaErrors( ONIKA_CU_MEMCPY( pec.m_return_data_output , pec.m_cuda_scratch->return_data , pec.m_return_data_size , pes.m_cu_stream ) );
+            checkCudaErrors( ONIKA_CU_MEMCPY( pec.m_return_data_output , pec.m_cuda_scratch->return_data , pec.m_return_data_size , pes.m_stream->m_cu_stream ) );
           }
           
           // inserts a callback to stream if user passed one in
           if( pec.m_execution_end_callback.m_func != nullptr )
           {
-            checkCudaErrors( cudaStreamAddCallback(pes.m_cu_stream, ParallelExecutionContext::execution_end_callback , &pec , 0 ) );
+            checkCudaErrors( cudaStreamAddCallback(pes.m_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , &pec , 0 ) );
           }
           
           // inserts stop event to account for total execution time
-          checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec.m_stop_evt, pes.m_cu_stream ) );
+          checkCudaErrors( ONIKA_CU_STREAM_EVENT( pec.m_stop_evt, pes.m_stream->m_cu_stream ) );
         }
         break;          
         

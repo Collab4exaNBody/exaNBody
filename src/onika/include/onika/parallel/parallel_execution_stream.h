@@ -1,5 +1,6 @@
 #pragma once
 
+#include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
 
 namespace onika
@@ -38,12 +39,9 @@ namespace onika
       ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o);
       ~ParallelExecutionStreamQueue();
     };
-    
-    // just a shorcut to start building a stream queue when a parallel operation is pushed onto a stream
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStream& pes , ParallelExecutionWrapper && pew );
-    
+        
     // real implementation of how a parallel operation is pushed onto a stream queue
-    ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionContext& pec );
+    ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionWrapper && pew );
   }
 
 }

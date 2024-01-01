@@ -105,6 +105,7 @@ namespace onika
       double m_total_cpu_execution_time = 0.0;
       double m_total_gpu_execution_time = 0.0;
 
+      void reset();
       ~ParallelExecutionContext();
       bool has_gpu_context() const;
       void init_device_scratch();

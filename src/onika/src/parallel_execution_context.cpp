@@ -17,7 +17,7 @@ namespace onika
     int ParallelExecutionContext::s_gpu_sm_add = -1;  // if -1, s_parallel_task_core_add is used instead
     int ParallelExecutionContext::s_gpu_block_size = 128;
 
-    ParallelExecutionContext::reset()
+    void ParallelExecutionContext::reset()
     {
       // reset to default state
       m_cuda_ctx = nullptr;
