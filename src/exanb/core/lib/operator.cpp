@@ -40,6 +40,15 @@ namespace exanb
   /*std::vector<ProfilingFunctionSet>*/ ProfilingFunctionSet OperatorNode::s_profiling_functions;
   size_t OperatorNode::s_global_instance_index = 0;
 
+  OperatorNode::~OperatorNode()
+  {
+    assert( m_allocated_parallel_execution_contexts.empty() );
+    for(auto pec : m_free_parallel_execution_contexts)
+    {
+      assert( pec != nullptr );
+      delete pec;
+    }
+  }
 
   void OperatorNode::finalize()
   {
@@ -503,7 +512,7 @@ namespace exanb
     m_gpu_execution_allowed = b;
   }
 
-  void OperatorNode::finalize_parallel_execution(ParallelExecutionContext* pec, void * v_self)
+  void OperatorNode::finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self)
   {
     OperatorNode* self = reinterpret_cast<OperatorNode*>( v_self );
     assert( self != nullptr );
@@ -512,13 +521,13 @@ namespace exanb
     self->m_total_gpu_time += pec->m_total_gpu_execution_time;
     self->m_total_async_cpu_time += pec->m_total_cpu_execution_time;
     pec->reset();
-    auto it = m_allocated_parallel_execution_contexts.find( pec );
-    assert( it != m_allocated_parallel_execution_contexts.end() );
-    m_free_parallel_execution_contexts.push_back( *it );
-    m_allocated_parallel_execution_contexts.erase( it );
+    auto it = self->m_allocated_parallel_execution_contexts.find( pec );
+    assert( it != self->m_allocated_parallel_execution_contexts.end() );
+    self->m_free_parallel_execution_contexts.push_back( *it );
+    self->m_allocated_parallel_execution_contexts.erase( it );
   }
 
-  onika::parallel::ParallelExecutionStream& OperatorNode::parallel_execution_stream(unsigned int id)
+  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
   {
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( id >= m_parallel_execution_streams.size() )
@@ -535,7 +544,7 @@ namespace exanb
       }
       m_parallel_execution_streams[id]->m_stream_id = id;
     }
-    return * m_parallel_execution_streams[id];
+    return { m_parallel_execution_streams[id].get() };
   }
 
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
@@ -543,7 +552,7 @@ namespace exanb
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( m_free_parallel_execution_contexts.empty() )
     {
-      m_free_parallel_execution_contexts.push_back( std::make_shared< onika::parallel::ParallelExecutionContext >() );
+      m_free_parallel_execution_contexts.push_back( new onika::parallel::ParallelExecutionContext() );
     }
     auto pec = m_free_parallel_execution_contexts.back();
     m_allocated_parallel_execution_contexts.insert( pec );
@@ -551,7 +560,7 @@ namespace exanb
 
     pec->reset();
     pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
-    pec->m_default_stream = parallel_execution_stream();
+    pec->m_default_stream = parallel_execution_stream().m_stream;
     pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     if( pec->m_cuda_ctx != nullptr && pec->m_start_evt == nullptr )
     {
@@ -561,8 +570,8 @@ namespace exanb
     {
       ONIKA_CU_CREATE_EVENT( pec->m_stop_evt );
     }
-    pec->m_finalize = ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this };
-    return pec.get();
+    pec->m_finalize = onika::parallel::ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this };
+    return pec;
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )

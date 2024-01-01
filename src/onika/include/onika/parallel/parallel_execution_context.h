@@ -52,9 +52,9 @@ namespace onika
     // abstract parallel space indices
     struct ParallelExecutionSpace
     {
-      long long int m_start = 0;
-      long long int m_end = 0;
-      long long int * __restrict__ m_idx = nullptr;
+      uint64_t m_start = 0;
+      uint64_t m_end = 0;
+      uint64_t * __restrict__ m_idx = nullptr;
     };
 
     struct ParallelExecutionStream;

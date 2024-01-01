@@ -24,6 +24,7 @@
 #include <onika/omp/ompt_task_info.h>
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_stream.h>
 
 namespace exanb
 {
@@ -96,7 +97,7 @@ namespace exanb
 
     // unique constrtuctor is the default one
     OperatorNode() = default;
-    virtual ~OperatorNode() = default;
+    virtual ~OperatorNode();
     
     // to be called when operator will no longer be executed, before it is destructed
     virtual void finalize();
@@ -237,7 +238,7 @@ namespace exanb
 
     // each call allocates a new context to be used to build up a new parallel operation
     onika::parallel::ParallelExecutionContext* parallel_execution_context();
-    onika::parallel::ParallelExecutionStream& parallel_execution_stream(unsigned int id=0);
+    onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
     
     // free resources associated to slots
     void free_all_resources();
@@ -270,7 +271,7 @@ namespace exanb
 
   private:
 
-    static void finalize_parallel_execution(ParallelExecutionContext* pec, void * v_self);
+    static void finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self);
     static void task_start_callback( const onika::omp::OpenMPToolTaskTiming& evt );
     static void task_stop_callback( const onika::omp::OpenMPToolTaskTiming& evt );
   
@@ -299,9 +300,9 @@ namespace exanb
 
     // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
     std::mutex m_parallel_execution_access;
-    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams
-    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_free_parallel_execution_contexts;
-    std::unordered_set< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_allocated_parallel_execution_contexts;
+    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams;
+    std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
+    std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;
     
     // Operator protection after compilation
     bool m_compiled = false;

@@ -27,9 +27,9 @@ namespace onika
         if constexpr (functor_has_gpu_epilog) { m_func(block_parallel_for_gpu_epilog_t{}); }
         else if constexpr (functor_has_epilog) { m_func(block_parallel_for_epilog_t{}); }
       }
-      ONIKA_DEVICE_FUNC inline void operator () (size_t i) const override final { m_func(i); }
-      ONIKA_DEVICE_FUNC inline void operator () (size_t i, size_t end) const override final { for(;i<end;i++) m_func(i); }
-      ONIKA_DEVICE_FUNC inline void operator () (const size_t* __restrict__ idx, size_t N) const override final { for(size_t i=0;i<N;i++) m_func(idx[i]); }
+      ONIKA_DEVICE_FUNC inline void operator () (uint64_t i) const override final { m_func(i); }
+      ONIKA_DEVICE_FUNC inline void operator () (uint64_t i, uint64_t end) const override final { for(;i<end;i++) m_func(i); }
+      ONIKA_DEVICE_FUNC inline void operator () (const uint64_t* __restrict__ idx, uint64_t N) const override final { for(uint64_t i=0;i<N;i++) m_func(idx[i]); }
       ONIKA_DEVICE_FUNC inline ~BlockParallelForGPUAdapter() override final {}
     };
 
@@ -73,9 +73,9 @@ namespace onika
       {
         ONIKA_CU_LAUNCH_KERNEL(1,pec->m_block_size,0,pes->m_cu_stream,gpu_functor_initialize,m_func,pec->m_cuda_scratch.get());        
       }      
-      inline void operator () (size_t i) const override final { m_func(i); }
-      inline void operator () (size_t i, size_t end) const override final { for(;i<end;i++) m_func(i); }
-      inline void operator () (const size_t* __restrict__ idx, size_t N) const override final { for(size_t i=0;i<N;i++) m_func(idx[i]); }
+      inline void operator () (uint64_t i) const override final { m_func(i); }
+      inline void operator () (uint64_t i, uint64_t end) const override final { for(;i<end;i++) m_func(i); }
+      inline void operator () (const uint64_t* __restrict__ idx, uint64_t N) const override final { for(uint64_t i=0;i<N;i++) m_func(idx[i]); }
       inline ~BlockParallelForHostAdapter() override final {}
     };
 

@@ -64,6 +64,7 @@ namespace onika
       m_queue = std::move(o.m_queue);
       o.m_stream = nullptr;
       o.m_queue = nullptr;
+      return *this;
     }
 
     // real implementation of how a parallel operation is pushed onto a stream queue
@@ -207,7 +208,7 @@ namespace onika
 
     ParallelExecutionStreamQueue::~ParallelExecutionStreamQueue()
     {
-      if( m_stream != nullptr )
+      if( m_stream != nullptr && m_queue != nullptr )
       {
         // OpenMP wait
 #       pragma omp task default(none) depend(in:m_stream[0]) if(0)

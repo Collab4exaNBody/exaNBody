@@ -27,9 +27,9 @@ namespace onika
     public:
       ONIKA_DEVICE_FUNC virtual inline void operator () (block_parallel_for_prolog_t) const {}
       ONIKA_DEVICE_FUNC virtual inline void operator () (block_parallel_for_epilog_t) const {}
-      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t i) const {}
-      ONIKA_DEVICE_FUNC virtual inline void operator () (size_t i, size_t end) const { for(;i<end;i++) this->operator () (i); }
-      ONIKA_DEVICE_FUNC virtual inline void operator () (const size_t* __restrict__ idx, size_t N) const { for(size_t i=0;i<N;i++) this->operator () (idx[i]); }
+      ONIKA_DEVICE_FUNC virtual inline void operator () (uint64_t i) const {}
+      ONIKA_DEVICE_FUNC virtual inline void operator () (uint64_t i, uint64_t end) const { for(;i<end;i++) this->operator () (i); }
+      ONIKA_DEVICE_FUNC virtual inline void operator () (const uint64_t* __restrict__ idx, size_t N) const { for(uint64_t i=0;i<N;i++) this->operator () (idx[i]); }
       ONIKA_DEVICE_FUNC virtual inline ~BlockParallelForGPUFunctor() {}
     };
 
@@ -48,9 +48,9 @@ namespace onika
       virtual inline void operator () (block_parallel_for_prolog_t) const {}
       virtual inline void operator () (block_parallel_for_epilog_t) const {}
       virtual inline void stream_gpu_initialize(ParallelExecutionContext*,ParallelExecutionStream*) const {}
-      virtual inline void operator () (size_t i) const {}
-      virtual inline void operator () (size_t i, size_t end) const { for(;i<end;i++) this->operator () (i); }
-      virtual inline void operator () (const size_t* __restrict__ idx, size_t N) const { for(size_t i=0;i<N;i++) this->operator () (idx[i]); }
+      virtual inline void operator () (uint64_t i) const {}
+      virtual inline void operator () (uint64_t i, uint64_t end) const { for(;i<end;i++) this->operator () (i); }
+      virtual inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const { for(uint64_t i=0;i<N;i++) this->operator () (idx[i]); }
       virtual inline ~BlockParallelForHostFunctor() {}
     };
 

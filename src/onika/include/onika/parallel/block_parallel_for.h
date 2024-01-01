@@ -5,6 +5,7 @@
 #include <onika/cuda/device_storage.h>
 #include <onika/soatl/field_id.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for_adapter.h>
 #include <onika/lambda_tools.h>
 #include <onika/stream_utils.h>
@@ -53,7 +54,7 @@ namespace onika
       const auto [ user_cb
                  , return_data 
                  , return_data_size 
-                 , enable_gpu 
+                 , enable_gpu
                  , fixed_gpu_grid_size
                  ] = opts;
 
@@ -91,7 +92,7 @@ namespace onika
             pec->set_return_data_input( nullptr , 0 );
             pec->set_return_data_output( nullptr , 0 );
           }
-          return {*pec};
+          return {pec};
         }
       }
 

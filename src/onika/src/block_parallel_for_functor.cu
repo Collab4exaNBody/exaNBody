@@ -6,7 +6,7 @@ namespace onika
   {
 
     ONIKA_DEVICE_KERNEL_FUNC
-    void finalize_functor_adapter( GPUKernelExecutionScratch* scratch )
+    void gpu_functor_finalize( GPUKernelExecutionScratch* scratch )
     {
       assert( ONIKA_CU_GRID_SIZE == 1 && ONIKA_CU_BLOCK_IDX == 0 );
       const auto & func = * reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data );
