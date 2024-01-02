@@ -49,7 +49,7 @@ namespace onika
       (*func_adapter) ( block_parallel_for_prolog_t{} );
     }
 
-    template<class FuncT>
+    template<class FuncT, bool GPUSupport>
     class BlockParallelForHostAdapter : public BlockParallelForHostFunctor
     {
       static inline constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_prolog_t>;
@@ -71,8 +71,16 @@ namespace onika
       }
       inline void stream_gpu_initialize(ParallelExecutionContext* pec , ParallelExecutionStream* pes) const override final
       {
-        ONIKA_CU_LAUNCH_KERNEL(1,pec->m_block_size,0,pes->m_cu_stream,gpu_functor_initialize,m_func,pec->m_cuda_scratch.get());        
-      }      
+        if constexpr ( GPUSupport )
+        {
+          ONIKA_CU_LAUNCH_KERNEL(1,pec->m_block_size,0,pes->m_cu_stream,gpu_functor_initialize,m_func,pec->m_cuda_scratch.get());
+        }
+        else
+        {
+          std::cerr << "Internal error: called stream_gpu_initialize with no GPU support" << std::endl;
+          std::abort();
+        }
+      }
       inline void operator () (uint64_t i) const override final { m_func(i); }
       inline void operator () (uint64_t i, uint64_t end) const override final { for(;i<end;i++) m_func(i); }
       inline void operator () (const uint64_t* __restrict__ idx, uint64_t N) const override final { for(uint64_t i=0;i<N;i++) m_func(idx[i]); }

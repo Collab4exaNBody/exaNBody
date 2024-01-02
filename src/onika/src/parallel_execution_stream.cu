@@ -54,12 +54,15 @@ namespace onika
       : m_stream( std::move(o.m_stream) )
       , m_queue( std::move(o.m_queue) )
     {
+      std::lock_guard lk( m_stream->m_mutex );
       o.m_stream = nullptr;
       o.m_queue = nullptr;
     }
     
     ParallelExecutionStreamQueue& ParallelExecutionStreamQueue::operator = (ParallelExecutionStreamQueue && o)
     {
+      wait();
+      std::lock_guard lk( o.m_stream->m_mutex );
       m_stream = std::move(o.m_stream);
       m_queue = std::move(o.m_queue);
       o.m_stream = nullptr;
@@ -70,6 +73,9 @@ namespace onika
     // real implementation of how a parallel operation is pushed onto a stream queue
     ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionWrapper && pew )
     {
+      assert( pes.m_stream != nullptr );
+      std::lock_guard lk( pes.m_stream->m_mutex );
+
       assert( pew.m_pec != nullptr );
       auto & pec = * pew.m_pec;
       pew.m_pec = nullptr;
@@ -82,6 +88,7 @@ namespace onika
       {
         case ParallelExecutionContext::EXECUTION_TARGET_OPENMP :
         {
+          pes.m_stream->m_omp_execution_count.fetch_add(1);
           if( pec.m_omp_num_tasks == 0 )
           {
             const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec.m_host_scratch.functor_data );
@@ -101,6 +108,7 @@ namespace onika
             {
               (* pec.m_execution_end_callback.m_func) ( pec.m_execution_end_callback.m_data );
             }
+            pes.m_stream->m_omp_execution_count.fetch_sub(1);
           }
           else
           {
@@ -108,8 +116,9 @@ namespace onika
             const unsigned int num_tasks = pec.m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
             // enclose a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
             auto * ptr_pec = &pec;
+            auto * ptr_str = pes.m_stream;
             // refrenced variables must be privately copied, because the task may run after this function ends
-#           pragma omp task default(none) firstprivate(ptr_pec,num_tasks,N) depend(inout:pes.m_stream[0])
+#           pragma omp task default(none) firstprivate(ptr_pec,ptr_str,num_tasks,N) depend(inout:pes.m_stream[0])
             {
               const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( ptr_pec->m_host_scratch.functor_data );
               const auto T0 = std::chrono::high_resolution_clock::now();
@@ -125,6 +134,7 @@ namespace onika
               {
                 (* ptr_pec->m_execution_end_callback.m_func) ( ptr_pec->m_execution_end_callback.m_data );
               }
+              ptr_str->m_omp_execution_count.fetch_sub(1);
             }
           }
 
@@ -206,13 +216,59 @@ namespace onika
       return std::move(pes);
     }
 
-    ParallelExecutionStreamQueue::~ParallelExecutionStreamQueue()
+    bool ParallelExecutionStreamQueue::empty() const
+    {
+      if( m_stream == nullptr ) return true;
+      std::lock_guard lk( m_stream->m_mutex );
+      return m_queue == nullptr;
+    }
+
+    bool ParallelExecutionStreamQueue::has_stream() const
+    {
+      return m_stream != nullptr;
+    }
+
+    bool ParallelExecutionStreamQueue::query_status()
+    {
+      std::lock_guard lk( m_stream->m_mutex );
+      if( m_stream == nullptr || m_queue == nullptr )
+      {
+        return true;
+      }
+      if( m_stream->m_omp_execution_count.load() > 0 )
+      {
+        return false;
+      }
+      if( m_stream->m_cuda_ctx != nullptr && m_queue != nullptr )
+      {
+        assert( m_queue->m_stop_evt != nullptr );
+        if( cudaEventQuery( m_queue->m_stop_evt ) != cudaSuccess )
+        {
+          return false;
+        }
+      }
+      wait();
+      return true;
+    }
+    
+    void ParallelExecutionStreamQueue::wait()
     {
       if( m_stream != nullptr && m_queue != nullptr )
       {
+        std::lock_guard lk( m_stream->m_mutex );
+
         // OpenMP wait
-#       pragma omp task default(none) depend(in:m_stream[0]) if(0)
-        {}
+        if( m_stream->m_omp_execution_count.load() > 0 )
+        {
+#         pragma omp task default(none) depend(in:m_stream[0]) if(0)
+          {
+            if( m_stream->m_omp_execution_count.load() > 0 )
+            {
+              std::cerr<<"Internal error : unterminated OpenMP tasks in queue remain"<<std::endl;
+              std::abort();
+            }
+          }
+        }
         
         // Cuda wait
         if( m_stream->m_cuda_ctx != nullptr )
@@ -236,9 +292,15 @@ namespace onika
           reinterpret_cast<BlockParallelForHostFunctor*>(pec->m_host_scratch.functor_data)-> ~BlockParallelForHostFunctor();
           pec = next;
         }
+        
         m_queue = nullptr;
-        m_stream = nullptr;
       }
+    }
+
+    ParallelExecutionStreamQueue::~ParallelExecutionStreamQueue()
+    {
+      wait();
+      m_stream = nullptr;
     }
 
   }

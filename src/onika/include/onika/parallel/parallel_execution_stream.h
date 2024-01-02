@@ -2,6 +2,8 @@
 
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <mutex>
+#include <atomic>
 
 namespace onika
 {
@@ -25,7 +27,9 @@ namespace onika
       // any parallel executiion enqueued to this stream must have either a null CudaContext or the same context as the stream
       onika::cuda::CudaContext* m_cuda_ctx = nullptr; 
       cudaStream_t m_cu_stream = 0;
-      unsigned int m_stream_id = 0;
+      uint32_t m_stream_id = 0;
+      std::atomic<uint32_t> m_omp_execution_count = 0;
+      std::mutex m_mutex;
     };
 
     struct ParallelExecutionStreamQueue
@@ -38,6 +42,10 @@ namespace onika
       ParallelExecutionStreamQueue(ParallelExecutionStreamQueue && o);
       ParallelExecutionStreamQueue& operator = (ParallelExecutionStreamQueue && o);
       ~ParallelExecutionStreamQueue();
+      void wait();
+      bool query_status();
+      bool empty() const;
+      bool has_stream() const;
     };
         
     // real implementation of how a parallel operation is pushed onto a stream queue

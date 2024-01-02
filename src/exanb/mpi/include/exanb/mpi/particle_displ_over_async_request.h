@@ -19,7 +19,7 @@ namespace exanb
     unsigned long long m_particles_over = 0;
     unsigned long long m_all_particles_over = 0; 
     
-    onika::parallel::ParallelExecutionStreamCallback m_reduction_end_callback = {nullptr,nullptr,nullptr,0};
+    onika::parallel::ParallelExecutionCallback m_reduction_end_callback = {};
     
     std::mutex m_request_mutex;
     std::condition_variable m_request_cond;
@@ -52,7 +52,7 @@ namespace exanb
         m_request_started = false;
         m_comm = MPI_COMM_NULL;
         m_request = MPI_REQUEST_NULL;
-        m_reduction_end_callback = onika::parallel::ParallelExecutionStreamCallback{nullptr,nullptr,nullptr,0};
+        m_reduction_end_callback = onika::parallel::ParallelExecutionCallback{};
       }
       assert( m_all_particles_over >= m_particles_over );
       return m_all_particles_over;

@@ -47,8 +47,8 @@ namespace onika
       , const BlockParallelForOptions& opts = BlockParallelForOptions{} )
     {    
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
-      [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(BlockParallelForGPUAdapter <FuncT>) , GPUKernelExecutionScratch ::MAX_FUNCTOR_SIZE , FuncT > _check_gpu_functor_size = {};
-      [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(BlockParallelForHostAdapter<FuncT>) , HostKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_cpu_functor_size = {};
+      using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , BlockParallelForFunctorTraits<FuncT>::CudaCompatible >;
+      [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(HostFunctorAdapter) , HostKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_cpu_functor_size = {};
       assert( pec != nullptr );
     
       const auto [ user_cb
@@ -59,13 +59,14 @@ namespace onika
                  ] = opts;
 
       // construct virtual functor adapter inplace, using reserved functor space
-      new(pec->m_host_scratch.functor_data) BlockParallelForHostAdapter<FuncT>( func );
+      new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
       pec->m_execution_end_callback = user_cb;
       pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
     
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
+        [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(BlockParallelForGPUAdapter <FuncT>) , GPUKernelExecutionScratch ::MAX_FUNCTOR_SIZE , FuncT > _check_gpu_functor_size = {};
         bool allow_cuda_exec = enable_gpu ;
         if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );
         if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();

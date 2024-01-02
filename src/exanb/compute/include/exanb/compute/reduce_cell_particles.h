@@ -101,14 +101,16 @@ namespace exanb
   // ==== OpenMP parallel for style implementation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class FuncT, class ResultT, class FieldSetT>
-  static inline void reduce_cell_particles(
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  reduce_cell_particles(
     GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
     FieldSetT cpfields ,
-    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr ,
-    onika::parallel::ParallelExecutionStreamCallback* user_cb = nullptr )
+    onika::parallel::ParallelExecutionContext * exec_ctx ,
+    onika::parallel::ParallelExecutionCallback user_cb = {} )
   {
     using onika::parallel::block_parallel_for;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -120,19 +122,17 @@ namespace exanb
 
     ResultT* target_reduced_value_ptr = &reduced_val;
     CellsT * cells = grid.cells();
-    bool enable_gpu = false;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
     {
-      if(exec_ctx!=nullptr && exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
+      if( exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
       {
-        enable_gpu = true;
         grid.check_cells_are_gpu_addressable();
         target_reduced_value_ptr = (ResultT*) exec_ctx->get_device_return_data_ptr();
       }
     }
     
     ReduceCellParticlesFunctor<CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
-    block_parallel_for( N, pfor_op , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) , .enable_gpu = enable_gpu , .async = ( user_cb != nullptr ) } );
+    return block_parallel_for( N, pfor_op , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) } );
   }
 
 }

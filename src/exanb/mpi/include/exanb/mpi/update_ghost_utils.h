@@ -5,7 +5,7 @@
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/core/yaml_enum.h>
@@ -47,8 +47,8 @@ namespace exanb
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       std::vector<size_t> send_buffer_offsets;
       std::vector<size_t> recv_buffer_offsets;
-      std::vector< onika::parallel::ParallelExecutionContext* > send_pack_async;
-      std::vector< onika::parallel::ParallelExecutionContext* > recv_unpack_async;    
+      std::vector< onika::parallel::ParallelExecutionStreamQueue > send_pack_async;
+      std::vector< onika::parallel::ParallelExecutionStreamQueue > recv_unpack_async;    
       onika::memory::CudaMMVector<uint8_t> send_buffer;
       onika::memory::CudaMMVector<uint8_t> recv_buffer;
             
@@ -56,8 +56,8 @@ namespace exanb
       {
         send_buffer_offsets.assign( nprocs + 1 , 0  );
         recv_buffer_offsets.assign( nprocs + 1 , 0  );
-        send_pack_async.assign( nprocs , nullptr );
-        recv_unpack_async.assign( nprocs , nullptr );
+        send_pack_async.resize( nprocs );
+        recv_unpack_async.resize( nprocs );
       }
             
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components )

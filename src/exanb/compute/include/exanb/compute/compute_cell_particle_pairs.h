@@ -98,10 +98,8 @@ namespace exanb
     const ComputePairBufferFactoryT& cpbuf_factory,
     const FuncT& func,
     FieldSetT cpfields,
-    PosFieldsT posfields = PosFieldsT{},
-    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
-    bool enable_gpu = true,
-    bool async = false
+    onika::parallel::ParallelExecutionContext * exec_ctx ,
+    PosFieldsT posfields = PosFieldsT{}
     )
   {
     using onika::parallel::BlockParallelForOptions;
@@ -120,36 +118,27 @@ namespace exanb
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
 
-    // check if cells allocated in unified memory in case we may execute on the GPU
-    if( exec_ctx == nullptr )
+    if( ComputePairTraits<FuncT>::CudaCompatible )
     {
-      enable_gpu = false;
-    }
-    if( enable_gpu && ComputePairTraits<FuncT>::CudaCompatible )
-    {
-      if( exec_ctx != nullptr ) 
+      if( exec_ctx->has_gpu_context() )
       {
-        if( exec_ctx->has_gpu_context() )
-        {
-          if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
-        }
+        if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
       }
     }
 
     auto cells = grid.cells();
     auto cellprof = grid.cell_profiler();
     const unsigned int cs = optional.nbh.m_chunk_size;
-    const BlockParallelForOptions opts = { .enable_gpu = enable_gpu };
     switch( cs )
     {
       case 4:
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , opts );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx );
         break;
       case 8:
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , opts );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx );
         break;
       default:
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , opts );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx );
         break;
     }
   }
