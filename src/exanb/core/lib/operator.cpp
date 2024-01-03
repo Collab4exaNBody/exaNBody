@@ -42,7 +42,16 @@ namespace exanb
 
   OperatorNode::~OperatorNode()
   {
-    assert( m_allocated_parallel_execution_contexts.empty() );
+    if( ! m_allocated_parallel_execution_contexts.empty() )
+    {
+      std::ostringstream oss;
+      oss << "m_allocated_parallel_execution_contexts is not empty :";
+      for(auto pec : m_allocated_parallel_execution_contexts)
+      {
+        oss << " @"<<(void*)pec<<" from "<<pec->m_tag;
+      }
+      fatal_error() << oss.str() << std::endl;
+    }
     for(auto pec : m_free_parallel_execution_contexts)
     {
       assert( pec != nullptr );
@@ -527,9 +536,8 @@ namespace exanb
     self->m_allocated_parallel_execution_contexts.erase( it );
   }
 
-  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
+  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream_nolock(unsigned int id)
   {
-    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     if( id >= m_parallel_execution_streams.size() )
     {
       m_parallel_execution_streams.resize( id+1 , nullptr );
@@ -546,6 +554,12 @@ namespace exanb
     }
     return { m_parallel_execution_streams[id].get() };
   }
+  
+  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
+  {
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    return parallel_execution_stream_nolock(id);
+  }
 
   onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
   {
@@ -559,8 +573,9 @@ namespace exanb
     m_free_parallel_execution_contexts.pop_back();
 
     pec->reset();
+    pec->m_tag = m_tag.get();
     pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
-    pec->m_default_stream = parallel_execution_stream().m_stream;
+    pec->m_default_stream = parallel_execution_stream_nolock().m_stream;
     pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     if( pec->m_cuda_ctx != nullptr && pec->m_start_evt == nullptr )
     {

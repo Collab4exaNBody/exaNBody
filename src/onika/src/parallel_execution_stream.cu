@@ -55,7 +55,6 @@ namespace onika
       : m_stream( std::move(o.m_stream) )
       , m_queue( std::move(o.m_queue) )
     {
-      std::lock_guard lk( m_stream->m_mutex );
       o.m_stream = nullptr;
       o.m_queue = nullptr;
     }
@@ -63,7 +62,6 @@ namespace onika
     ParallelExecutionStreamQueue& ParallelExecutionStreamQueue::operator = (ParallelExecutionStreamQueue && o)
     {
       wait();
-      std::lock_guard lk( o.m_stream->m_mutex );
       m_stream = std::move(o.m_stream);
       m_queue = std::move(o.m_queue);
       o.m_stream = nullptr;
@@ -283,8 +281,11 @@ namespace onika
         while(pec!=nullptr)
         {
           float Tgpu = 0.0;
-          ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt);
-          pec->m_total_gpu_execution_time = Tgpu;
+          if( pec->m_execution_target == ParallelExecutionContext::EXECUTION_TARGET_CUDA )
+          {
+            ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt);
+            pec->m_total_gpu_execution_time = Tgpu;
+          }
           auto* next = pec->m_next;
           if( pec->m_finalize.m_func != nullptr )
           {

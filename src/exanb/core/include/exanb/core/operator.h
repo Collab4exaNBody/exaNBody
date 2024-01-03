@@ -238,6 +238,7 @@ namespace exanb
 
     // each call allocates a new context to be used to build up a new parallel operation
     onika::parallel::ParallelExecutionContext* parallel_execution_context();
+    onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream_nolock(unsigned int id=0);
     onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
     
     // free resources associated to slots

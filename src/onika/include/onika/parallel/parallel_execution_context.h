@@ -83,6 +83,9 @@ namespace onika
       // allows chaining, for stream queues
       ParallelExecutionContext* m_next = nullptr;
       
+      // keep track of creation site
+      const char* m_tag = nullptr;
+      
       // device side scratch memory for counters, return_data and functor_data
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
       HostKernelExecutionScratch m_host_scratch;

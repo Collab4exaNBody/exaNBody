@@ -59,8 +59,7 @@ namespace exanb
         std::abort();
       }
 
-      const bool gpu_enabled = parallel_execution_context()->has_gpu_context();
-
+      const bool gpu_enabled = (global_cuda_ctx() != nullptr) ? global_cuda_ctx()->has_devices() : false ;
       static constexpr std::false_type no_z_order = {};
       if( domain->xform_is_identity() )
       {
