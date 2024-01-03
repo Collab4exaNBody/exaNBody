@@ -68,6 +68,11 @@ namespace onika
       }
     }
 
+    void* ParallelExecutionContext::get_device_return_data_ptr()
+    {
+      return m_cuda_scratch->return_data;
+    }
+
     void ParallelExecutionContext::set_return_data_input( const void* ptr, size_t sz )
     {
       if( sz > GPUKernelExecutionScratch::MAX_RETURN_SIZE )
