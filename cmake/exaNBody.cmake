@@ -13,23 +13,6 @@ macro(exaNBodyStartApplication)
   set(XNB_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/exaNBody)
   set(USTAMP_APPS_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-  #message(STATUS "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
-  #message(STATUS "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}")
-  #message(STATUS "XNB_BINARY_DIR=${XNB_BINARY_DIR}")
-  #message(STATUS "XNB_APP_NAME=${XNB_APP_NAME}")
-  #message(STATUS "USTAMP_APPS_DIR=${USTAMP_APPS_DIR}")
-
-  # ========================================
-  # === Compiler toolchain configuration ===
-  # ========================================
-  # C++ standard
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS NO)
-  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 70)
-  endif()
-
   # ===========================
   # === CMake customization ===
   # ===========================

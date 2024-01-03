@@ -1,5 +1,6 @@
 #include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for_functor.h>
+#include <onika/parallel/stream_utils.h>
 
 namespace onika
 {
@@ -260,11 +261,12 @@ namespace onika
         // OpenMP wait
         if( m_stream->m_omp_execution_count.load() > 0 )
         {
-#         pragma omp task default(none) depend(in:m_stream[0]) if(0)
+          auto * st = m_stream;
+#         pragma omp task default(none) firstprivate(st) depend(in:st[0]) if(0)
           {
-            if( m_stream->m_omp_execution_count.load() > 0 )
+            if( st->m_omp_execution_count.load() > 0 )
             {
-              std::cerr<<"Internal error : unterminated OpenMP tasks in queue remain"<<std::endl;
+              log_err()<<"Internal error : unterminated OpenMP tasks in queue remain"<<std::endl;
               std::abort();
             }
           }

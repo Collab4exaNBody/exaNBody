@@ -1,16 +1,28 @@
 # ======================================
 # === Parallel Data Movement library ===
 # ======================================
-cmake_minimum_required (VERSION 3.10)
-project(onika VERSION 1.0 LANGUAGES CXX)
+cmake_minimum_required (VERSION 3.18)
 
-# =======================================
-# === CMake & toolchain configuration ===
-# =======================================
+# ========================================
+# === Compiler toolchain configuration ===
+# ========================================
 # C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS NO)
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES 86)
+endif()
+
+# ==========================
+# === project definition ===
+# ==========================
+project(onika VERSION 1.1 LANGUAGES CXX CUDA)
+
+# =======================================
+# === CMake & toolchain configuration ===
+# =======================================
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(GenerateBenchmarkSOATL)
 
@@ -92,7 +104,8 @@ if(ONIKA_USE_CUDA)
     set(CUDA_LIBRARY_DIR ${CUDA_ROOT}/lib64)
     set(CUDA_LIBRARIES cudart)
     set(ONIKA_CUDA_USER_FLAGS "" CACHE STRING "Extra Cuda flags")
-    set(ONIKA_CUDA_COMPILE_FLAGS -Wall --std=c++17 --extended-lambda --Werror cross-execution-space-call -ccbin ${CMAKE_CXX_COMPILER} -allow-unsupported-compiler -arch=compute_${XSTAMP_CUDA_ARCH} -code=sm_${XSTAMP_CUDA_ARCH} -dc ${ONIKA_CUDA_USER_FLAGS})
+#    set(ONIKA_CUDA_COMPILE_FLAGS -Wall --std=c++17 --extended-lambda --Werror cross-execution-space-call -ccbin ${CMAKE_CXX_COMPILER} -allow-unsupported-compiler -arch=compute_${XSTAMP_CUDA_ARCH} -code=sm_${XSTAMP_CUDA_ARCH} -dc ${ONIKA_CUDA_USER_FLAGS})
+    set(ONIKA_CUDA_COMPILE_FLAGS --Werror cross-execution-space-call ${ONIKA_CUDA_USER_FLAGS})
   endif()
   set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
   set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CUDA_INCLUDE_DIR})
@@ -115,9 +128,11 @@ file(GLOB onika_SRCS src/*.cpp src/*.cu)
 add_library(onika SHARED ${onika_SRCS} ${ONIKA_GEN_SRCS})
 target_include_directories(onika PRIVATE ${ONIKA_INCLUDE_DIRS})
 target_compile_definitions(onika PRIVATE ${ONIKA_DEFINITIONS})
-target_compile_options(onika PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}> $<$<COMPILE_LANGUAGE:CXX>:-Wall ${OpenMP_CXX_FLAGS}>)
+target_compile_options(onika PRIVATE -Wall ${OpenMP_CXX_FLAGS} $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}>) # $<$<COMPILE_LANGUAGE:CXX>: opts... >
+target_compile_features(onika PRIVATE cuda_std_14)
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
 target_link_libraries(onika ${ONIKA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
+set_target_properties(onika PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_SEPARABLE_COMPILATION ON)
 
 # compile tools
 add_executable(trace_convert src/tools/trace_convert.cpp)
