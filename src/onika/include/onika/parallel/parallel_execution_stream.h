@@ -201,6 +201,8 @@ namespace onika
 
     };
 
+
+
     // temporarily holds ParallelExecutionContext instance until it is either queued in a stream or graph execution flow,
     // or destroyed, in which case it inserts instance onto the default stream queue
     struct ParallelExecutionWrapper
@@ -208,7 +210,9 @@ namespace onika
       ParallelExecutionContext* m_pec = nullptr;
       inline ~ParallelExecutionWrapper();      
     };
-        
+
+
+
     // real implementation of how a parallel operation is pushed onto a stream queue
     inline ParallelExecutionStreamQueue operator << ( ParallelExecutionStreamQueue && pes , ParallelExecutionWrapper && pew )
     {
@@ -356,6 +360,8 @@ namespace onika
       
       return std::move(pes);
     }
+
+
 
     inline ParallelExecutionWrapper::~ParallelExecutionWrapper()
     {

@@ -127,6 +127,7 @@ namespace exanb
       if( exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
       {
         grid.check_cells_are_gpu_addressable();
+        exec_ctx->init_device_scratch();
         target_reduced_value_ptr = (ResultT*) exec_ctx->get_device_return_data_ptr();
       }
     }
