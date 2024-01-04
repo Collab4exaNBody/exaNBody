@@ -10,14 +10,14 @@ cmake_minimum_required (VERSION 3.18)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS NO)
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-  set(CMAKE_CUDA_ARCHITECTURES 86)
-endif()
+#if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+#  set(CMAKE_CUDA_ARCHITECTURES 86)
+#endif()
 
 # ==========================
 # === project definition ===
 # ==========================
-project(onika VERSION 1.1 LANGUAGES CXX CUDA)
+project(onika VERSION 1.1 LANGUAGES CXX) #CUDA
 
 # =======================================
 # === CMake & toolchain configuration ===
@@ -122,15 +122,15 @@ endif()
 set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # compile main lib
-file(GLOB onika_SRCS src/*.cpp src/*.cu)
+file(GLOB onika_SRCS src/*.cpp) #src/*.cu
 add_library(onika SHARED ${onika_SRCS} ${ONIKA_GEN_SRCS})
 target_include_directories(onika PRIVATE ${ONIKA_INCLUDE_DIRS})
 target_compile_definitions(onika PRIVATE ${ONIKA_DEFINITIONS})
-target_compile_options(onika PRIVATE -Wall ${OpenMP_CXX_FLAGS} $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}>)
-target_compile_features(onika PRIVATE cuda_std_17)
+target_compile_options(onika PRIVATE -Wall ${OpenMP_CXX_FLAGS}) # $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}>)
+#target_compile_features(onika PRIVATE cuda_std_17)
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
 target_link_libraries(onika ${ONIKA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
-set_target_properties(onika PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_SEPARABLE_COMPILATION ON)
+#set_target_properties(onika PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_SEPARABLE_COMPILATION ON)
 
 # compile tools
 add_executable(trace_convert src/tools/trace_convert.cpp)

@@ -114,6 +114,7 @@ namespace exanb
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
 
+/*
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t ) const
       {
@@ -122,6 +123,7 @@ namespace exanb
           ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size );
         }
       }
+*/
       
       inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
       {
@@ -179,7 +181,7 @@ namespace exanb
       GridCellValueType * m_cell_scalars = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
-
+/*
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t ) const
       {
@@ -188,7 +190,7 @@ namespace exanb
           ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size );
         }        
       }
-      
+*/      
       inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )

@@ -353,7 +353,7 @@ void communication_scheme_from_ids(
     }
 
 #   ifndef NDEBUG
-    for(int i=0;i<localElementCountBefore;i++)
+    for(unsigned int i=0;i<localElementCountBefore;i++)
     {
       assert( partial_recv_indices[i]>=0 );
       assert( send_indices[i]>=0 && static_cast<size_type>(send_indices[i])<localElementCountBefore );

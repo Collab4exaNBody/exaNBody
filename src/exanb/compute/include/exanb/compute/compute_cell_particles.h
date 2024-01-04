@@ -51,9 +51,10 @@ namespace exanb
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
       const unsigned int n = m_cells[cell_a].size();
+      //if( ONIKA_CU_THREAD_IDX == 0 ) printf("GPU: cell particles functor: cell #%d @%d,%d,%d : %d particles\n",int(cell_a),int(cell_a_loc.i),int(cell_a_loc.j),int(cell_a_loc.k),int(n));
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
       {
-			  if constexpr (  !ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx )
+			  if constexpr ( !ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx )
 				{
 	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
