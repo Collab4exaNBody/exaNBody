@@ -11,7 +11,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     [[maybe_unused]] static
-    void gpu_functor_initialize( __grid_constant__ const FuncT func )
+    void gpu_functor_initialize( ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
     }
 
@@ -19,7 +19,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     [[maybe_unused]] static
-    void gpu_functor_finalize( __grid_constant__ const FuncT func )
+    void gpu_functor_finalize( ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
     }
 
@@ -28,7 +28,7 @@ namespace onika
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     [[maybe_unused]] static
-    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, __grid_constant__ const FuncT func )
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch, ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
@@ -52,7 +52,7 @@ namespace onika
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
     [[maybe_unused]] static
-    void block_parallel_for_gpu_kernel_regulargrid( __grid_constant__ const FuncT func )
+    void block_parallel_for_gpu_kernel_regulargrid( ONIKA_CU_GRID_CONSTANT const FuncT func )
     {
       func( ONIKA_CU_BLOCK_IDX );
     }

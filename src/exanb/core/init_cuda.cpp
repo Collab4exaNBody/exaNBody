@@ -100,7 +100,19 @@ namespace exanb
         
         if( device_limits.has_value() )
         {
-          for( const auto& dl : *device_limits )
+          auto m = *device_limits;
+          if( m.find("query_all") != m.end() )
+          {
+            m.clear();
+            m["cudaLimitStackSize"] = "-1";
+            m["cudaLimitPrintfFifoSize"] = "-1";
+            m["cudaLimitMallocHeapSize"] = "-1";
+            m["cudaLimitDevRuntimeSyncDepth"] = "-1";
+            m["cudaLimitDevRuntimePendingLaunchCount"] = "-1";
+            m["cudaLimitMaxL2FetchGranularity"] = "-1";
+            m["cudaLimitPersistingL2CacheSize"] = "-1";
+          }
+          for( const auto& dl : m )
           {
             cudaLimit limit;
                  if( dl.first == "cudaLimitStackSize"                    ) limit = cudaLimitStackSize;
@@ -115,6 +127,7 @@ namespace exanb
               fatal_error() << "Cuda unknown limit '"<<dl.first<<"'"<<std::endl;
             }
             long in_value = std::stol( dl.second );
+            
             if( in_value >= 0 )
             {
               checkCudaErrors( cudaDeviceSetLimit( limit , in_value ) ); 

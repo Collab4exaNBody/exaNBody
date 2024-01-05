@@ -51,6 +51,7 @@ namespace onika
 # endif
 
 
+#   define ONIKA_CU_GRID_CONSTANT       __grid_constant__
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
 #   define ONIKA_CU_THREAD_LOCAL        __local__
 #   define ONIKA_CU_BLOCK_SHARED        __shared__
@@ -116,6 +117,7 @@ namespace onika
     using onika_cu_memory_order_t = std::memory_order;
     using gpu_device_execution_t = std::false_type;
 
+#   define ONIKA_CU_GRID_CONSTANT       /**/
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/
 #   define ONIKA_CU_BLOCK_SHARED        /**/
 #   define ONIKA_CU_THREAD_LOCAL        /**/
