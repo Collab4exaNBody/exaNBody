@@ -70,9 +70,10 @@ namespace onika
             auto * st = m_stream;
 #           pragma omp task default(none) firstprivate(st) depend(in:st[0]) if(0)
             {
-              if( st->m_omp_execution_count.load() > 0 )
+              int n = st->m_omp_execution_count.load();
+              if( n > 0 )
               {
-                log_err()<<"Internal error : unterminated OpenMP tasks in queue remain"<<std::endl;
+                log_err()<<"Internal error : unterminated OpenMP tasks ("<<n<<") in queue remain"<<std::endl;
                 std::abort();
               }
             }
@@ -167,64 +168,22 @@ namespace onika
       auto & pec = * pew.m_pec;
       pew.m_pec = nullptr;
 
-      assert( pec.m_parallel_space.m_start == 0 && pec.m_parallel_space.m_idx == nullptr );
-      const size_t N = pec.m_parallel_space.m_end;
       const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec.m_host_scratch.functor_data );
       
       switch( pec.m_execution_target )
       {
         case ParallelExecutionContext::EXECUTION_TARGET_OPENMP :
         {
-          pes.m_stream->m_omp_execution_count.fetch_add(1);
           if( pec.m_omp_num_tasks == 0 )
           {
-            const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( pec.m_host_scratch.functor_data );
-#           ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
-            omp_set_num_threads( omp_get_max_threads() );
-#           endif
-            const auto T0 = std::chrono::high_resolution_clock::now();
-            func( block_parallel_for_prolog_t{} );
-#           pragma omp parallel
-            {
-#             pragma omp for schedule(dynamic)
-              for(uint64_t i=0;i<N;i++) { func( i ); }
-            }
-            func( block_parallel_for_epilog_t{} );
-            pec.m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-            if( pec.m_execution_end_callback.m_func != nullptr )
-            {
-              (* pec.m_execution_end_callback.m_func) ( pec.m_execution_end_callback.m_data );
-            }
-            pes.m_stream->m_omp_execution_count.fetch_sub(1);
+            func.execute_omp_parallel_region( &pec , pes.m_stream );
           }
           else
           {
             // preferred number of tasks : trade off between overhead (less is better) and load balancing (more is better)
             const unsigned int num_tasks = pec.m_omp_num_tasks * onika::parallel::ParallelExecutionContext::parallel_task_core_mult() + onika::parallel::ParallelExecutionContext::parallel_task_core_add() ;
-            // enclose a taskgroup inside a task, so that we can wait for a single task which itself waits for the completion of the whole taskloop
-            auto * ptr_pec = &pec;
-            auto * ptr_str = pes.m_stream;
-            // refrenced variables must be privately copied, because the task may run after this function ends
-#           pragma omp task default(none) firstprivate(ptr_pec,ptr_str,num_tasks,N) depend(inout:pes.m_stream[0])
-            {
-              const auto & func = * reinterpret_cast<BlockParallelForHostFunctor*>( ptr_pec->m_host_scratch.functor_data );
-              const auto T0 = std::chrono::high_resolution_clock::now();
-              func( block_parallel_for_prolog_t{} );              
-              // implicit taskgroup, ensures taskloop has completed before enclosing task ends
-              // all refrenced variables can be shared because of implicit enclosing taskgroup
-#             pragma omp taskloop default(none) shared(ptr_pec,num_tasks,func,N) num_tasks(num_tasks)
-              for(uint64_t i=0;i<N;i++) { func( i ); }
-              // here all tasks of taskloop have completed, since notaskgroup clause is not specified              
-              func( block_parallel_for_epilog_t{} );            
-              ptr_pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
-              if( ptr_pec->m_execution_end_callback.m_func != nullptr )
-              {
-                (* ptr_pec->m_execution_end_callback.m_func) ( ptr_pec->m_execution_end_callback.m_data );
-              }
-              ptr_str->m_omp_execution_count.fetch_sub(1);
-            }
+            func.execute_omp_tasks( &pec , pes.m_stream , num_tasks );
           }
-
         }
         break;
         

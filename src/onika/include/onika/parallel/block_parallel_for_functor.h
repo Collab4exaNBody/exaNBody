@@ -31,9 +31,13 @@ namespace onika
     class BlockParallelForHostFunctor
     {
     public:
-      // Host execution interface
-      virtual inline void operator () (block_parallel_for_prolog_t) const {}
-      virtual inline void operator () (block_parallel_for_epilog_t) const {}
+      // Host batch execution interface
+      virtual inline void execute_prolog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
+      virtual inline void execute_omp_parallel_region( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
+      virtual inline void execute_omp_tasks( ParallelExecutionContext* pec, ParallelExecutionStream* pes, unsigned int num_tasks ) const {}
+      virtual inline void execute_epilog( ParallelExecutionContext* pec, ParallelExecutionStream* pes ) const {}
+
+      // Host individual task execution interface
       virtual inline void operator () (uint64_t i) const {}
       virtual inline void operator () (uint64_t i, uint64_t end) const { for(;i<end;i++) this->operator () (i); }
       virtual inline void operator () (const uint64_t * __restrict__ idx, uint64_t N) const { for(uint64_t i=0;i<N;i++) this->operator () (idx[i]); }
