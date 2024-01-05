@@ -92,7 +92,7 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          printf("stream GPU initialization (%s)\n",pec->m_tag);
+          //printf("stream GPU initialization (%s)\n",pec->m_tag);
           ONIKA_CU_LAUNCH_KERNEL(1,pec->m_block_size,0,pes->m_cu_stream,gpu_functor_initialize,m_func);
         }
         else { std::cerr << "called stream_gpu_initialize with no GPU support" << std::endl; std::abort(); }
@@ -104,7 +104,7 @@ namespace onika
         {
           assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
           const size_t N = pec->m_parallel_space.m_end;
-          printf("stream GPU Kernel (%s) N=%d\n",pec->m_tag,int(N));
+          //printf("stream GPU Kernel (%s) N=%d\n",pec->m_tag,int(N));
           // launch compute kernel
           if( pec->m_grid_size > 0 )
           {
@@ -122,7 +122,7 @@ namespace onika
       {
         if constexpr ( GPUSupport )
         {
-          printf("stream functor initialization (%s)\n",pec->m_tag);
+          //printf("stream functor initialization (%s)\n",pec->m_tag);
           ONIKA_CU_LAUNCH_KERNEL(1,pec->m_block_size,0,pes->m_cu_stream,gpu_functor_finalize,m_func);
         }
         else { std::cerr << "called stream_gpu_finalize with no GPU support" << std::endl; std::abort(); }
