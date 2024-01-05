@@ -59,6 +59,7 @@ namespace onika
                  ] = opts;
 
       // construct virtual functor adapter inplace, using reserved functor space
+      //printf("inplace construction of host adapter, size=%d\n", int(sizeof(HostFunctorAdapter)) );
       new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
       pec->m_execution_end_callback = user_cb;
@@ -66,7 +67,6 @@ namespace onika
     
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
-        [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(BlockParallelForGPUAdapter <FuncT>) , GPUKernelExecutionScratch ::MAX_FUNCTOR_SIZE , FuncT > _check_gpu_functor_size = {};
         bool allow_cuda_exec = enable_gpu ;
         if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );
         if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();

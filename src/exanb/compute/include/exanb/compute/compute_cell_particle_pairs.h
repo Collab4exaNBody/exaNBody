@@ -10,6 +10,8 @@
 
 namespace exanb
 {
+  
+
   template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
   struct ComputeParticlePairFunctor
   {
@@ -42,6 +44,8 @@ namespace exanb
       {
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
+      //printf("ComputeParticlePairFunctor: cell #%d @%d,%d,%d\n",int(cell_a),int(cell_a_loc.i),int(cell_a_loc.j),int(cell_a_loc.k) );
+      //ONIKA_CU_BLOCK_SYNC();
       m_cell_profiler.start_cell_profiling(cell_a);
       compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cs, symmetrical, m_cpfields, m_posfields , prefer_compute_buffer );
       m_cell_profiler.end_cell_profiling(cell_a);

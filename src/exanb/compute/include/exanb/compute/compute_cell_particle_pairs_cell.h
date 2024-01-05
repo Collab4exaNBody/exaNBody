@@ -42,7 +42,8 @@ namespace exanb
   template< class CellT, class CST, bool Symetric
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class PosFieldsT, bool PreferComputeBuffer, class... field_ids>
-  ONIKA_HOST_DEVICE_FUNC static inline void compute_cell_particle_pairs_cell(
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void compute_cell_particle_pairs_cell(
     CellT* cells,
     IJK dims,
     IJK loc_a,
@@ -241,6 +242,7 @@ namespace exanb
       }
       
     }
+    
   }
 
 }

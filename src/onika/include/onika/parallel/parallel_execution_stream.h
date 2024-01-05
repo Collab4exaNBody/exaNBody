@@ -13,62 +13,6 @@ namespace onika
   namespace parallel
   {
 
-    // GPU execution kernel for fixed size grid, using workstealing element assignment to blocks
-    ONIKA_DEVICE_KERNEL_FUNC
-    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
-    [[maybe_unused]] static
-    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, GPUKernelExecutionScratch* scratch )
-    {
-      // avoid use of compute buffer when possible
-      const auto & func = * reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data );
-/*
-      if( ONIKA_CU_THREAD_IDX == 0 )
-      {
-        static constexpr int sz = sizeof(BlockParallelForGPUFunctor);
-        printf("GPU: call(%d) functor @%p , scratch @%p , size=%d",int(ONIKA_CU_BLOCK_IDX),&func,scratch,sz);
-        for(int i=0;i<sz;i++) printf("%c%02X" , ((i%16)==0) ? '\n' : ' ' , int(scratch->functor_data[i])&0xFF );
-        printf("\n");
-      }
-      ONIKA_CU_BLOCK_SYNC();
-*/
-      ONIKA_CU_BLOCK_SHARED unsigned int i;
-      do
-      {
-        if( ONIKA_CU_THREAD_IDX == 0 )
-        {
-          i = ONIKA_CU_ATOMIC_ADD( scratch->counters[0] , 1u );
-          //printf("processing cell #%d\n",int(cell_a_no_gl));
-        }
-        ONIKA_CU_BLOCK_SYNC();
-        if( i < N )
-        {
-          // if( ONIKA_CU_THREAD_IDX == 0 ) printf("processing cell #%d\n",i);
-          func( i );
-        }
-      }
-      while( i < N );
-    }
-
-    // GPU execution kernel for adaptable size grid, a.k.a. conventional Cuda kernel execution on N element blocks
-    ONIKA_DEVICE_KERNEL_FUNC
-    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
-    [[maybe_unused]] static
-    void block_parallel_for_gpu_kernel_regulargrid( GPUKernelExecutionScratch* scratch )
-    {
-      const auto & func = * reinterpret_cast<BlockParallelForGPUFunctor*>( scratch->functor_data );
-/*
-      if( ONIKA_CU_THREAD_IDX == 0 )
-      {
-        static constexpr int sz = sizeof(BlockParallelForGPUFunctor);
-        printf("GPU: call(%d) functor @%p , scratch @%p , size=%d",int(ONIKA_CU_BLOCK_IDX),&func,scratch->functor_data,sz);
-        for(int i=0;i<sz;i++) printf("%c%02X" , ((i%16)==0) ? '\n' : ' ' , int(scratch->functor_data[i])&0xFF );
-        printf("\n");
-      }
-      ONIKA_CU_BLOCK_SYNC();
-*/      
-      func( ONIKA_CU_BLOCK_IDX );
-    }
-
     // allows asynchronous sequential execution of parallel executions queued in the same stream
     // multiple kernel execution concurrency can be handled manually using several streams (same as Cuda stream)
     struct ParallelExecutionStream
@@ -314,19 +258,8 @@ namespace onika
           // Instantiaite device side functor : calls constructor with a placement new using scratch "functor_data" space
           // then call functor prolog if available
           func.stream_gpu_initialize( &pec , pes.m_stream );
-          
-          // launch compute kernel
-          if( pec.m_grid_size > 0 )
-          {
-            ONIKA_CU_LAUNCH_KERNEL(pec.m_grid_size,pec.m_block_size,0,pes.m_stream->m_cu_stream, block_parallel_for_gpu_kernel_workstealing, N, pec.m_cuda_scratch.get() );
-          }
-          else
-          {
-            ONIKA_CU_LAUNCH_KERNEL(N,pec.m_block_size,0,pes.m_stream->m_cu_stream, block_parallel_for_gpu_kernel_regulargrid, pec.m_cuda_scratch.get() );
-          }
-          
-          // executes prolog through functor, if available, then call device functor destructor
-          ONIKA_CU_LAUNCH_KERNEL(1,pec.m_block_size,0,pes.m_stream->m_cu_stream,gpu_functor_finalize,pec.m_cuda_scratch.get());
+          func.stream_gpu_kernel( &pec , pes.m_stream );
+          func.stream_gpu_finalize( &pec , pes.m_stream );
           
           // copy out return data to host space at given pointer
           if( pec.m_return_data_output != nullptr && pec.m_return_data_size > 0 )
