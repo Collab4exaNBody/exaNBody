@@ -358,27 +358,14 @@ namespace exanb
     }
   }
 
-  // if one implements generate_tasks, then it is backward compatible with sequential/parallel operator execution
-  void OperatorNode::execute()
+  void OperatorNode::set_task_group_mode( bool m )
   {
-    m_omp_task_mode = true;
-  
-#   pragma omp parallel
-    {
-#     pragma omp master
-      {
-#       pragma omp taskgroup
-        {
-          generate_tasks();          
-        } // --- end of task group ---
-      } // --- end of single ---
-    } // --- end of parallel section ---
+    m_omp_task_mode = m;
   }
   
-  void OperatorNode::generate_tasks()
+  bool OperatorNode::task_group_mode() const
   {
-    lerr << "Fatal: OperatorNode::generate_tasks not implemented in "<<pathname() << std::endl;
-    std::abort();
+    return m_omp_task_mode;
   }
 
   ::onika::omp::OpenMPTaskInfo* OperatorNode::profile_begin_section(const char* tag)
@@ -418,7 +405,8 @@ namespace exanb
     onika_ompt_declare_task_context(tsk_ctx);
     
     const bool do_profiling = global_profiling() && profiling();
-    const bool mem_prof = global_mem_profiling() && is_terminal();
+    const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
+    const bool mem_prof = global_mem_profiling() && is_terminal() && ( !task_group_mode() || open_new_task_region );
     
     if( s_debug_execution )
     {
@@ -458,7 +446,28 @@ namespace exanb
 
     // sequential execution of fork-join parallel components
     // except if OperatorNode derived class implements generate_tasks instead of execute, in which case, task parallelism mode is used
-    this->execute();
+  
+    if( open_new_task_region )
+    {
+#     pragma omp parallel
+      {
+#       pragma omp master
+        {
+#         pragma omp taskgroup
+          {
+            execute();
+          } // --- end of task group ---
+        } // --- end of single ---
+      } // --- end of parallel section ---
+      
+      ... cascade end of execution epilog for all children
+      ... ajouter un marqueur de celui qui est responasble d'ouvrir la section parallele
+      ... c'est aussi celui qui devra appeler la finalisation des objets enfants (peut-etre meme leur method finalize)
+    }
+    else
+    {
+      execute();
+    }
 
     if( do_profiling )
     { 
@@ -495,11 +504,11 @@ namespace exanb
       else lout<<pathname()<<" END"<<std::endl;
     }
 
-    bool may_finalize = !is_looping() ;
+    bool may_finalize = !is_looping() && !task_group_mode();
     auto * p = parent();
     while( p != nullptr )
     {
-      may_finalize = may_finalize && !p->is_looping();
+      may_finalize = may_finalize && ( ! p->is_looping() && ! task_group_mode() );
       p = p->parent();
     }
     if(may_finalize)

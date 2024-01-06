@@ -106,8 +106,7 @@ namespace exanb
 
     // called from outside, calls execute internally
     virtual void run(); // called internally
-    virtual void execute();        // implemented by developper to create its own parallel regions (discouraged) 
-    virtual void generate_tasks(); // implemented by developper to create tasks executed asynchronously
+    virtual void execute();
     
     virtual bool is_looping() const;
     
@@ -237,6 +236,8 @@ namespace exanb
     // Warning! : this methods has a wrong name, for backward compatibility purposes
 
     // each call allocates a new context to be used to build up a new parallel operation
+    void set_task_group_mode( bool m );
+    bool task_group_mode() const;
     onika::parallel::ParallelExecutionContext* parallel_execution_context();
     onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream_nolock(unsigned int id=0);
     onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
@@ -311,7 +312,7 @@ namespace exanb
     // profiling
     bool m_profiling = true;
     
-    // allow OpenMP task creation
+    // allow OpenMP task creation and shared parallel operation stream queues across several operators when activated at a batch level
     bool m_omp_task_mode = false;
     
     // allow gpu execution for this particular instance
