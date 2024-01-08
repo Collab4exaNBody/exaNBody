@@ -23,9 +23,13 @@ namespace exanb
 
   class InitCuda : public OperatorNode
   {
+    using DeviceLimitsMap = std::map<std::string,std::string>;
+  
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( bool     , single_gpu  , INPUT , true ); // how to partition GPUs inside groups of contiguous MPI ranks
+    ADD_SLOT( long     , rotate_gpu  , INPUT , 0 );    // shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node.
     ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
+    ADD_SLOT( DeviceLimitsMap , device_limits  , INPUT , OPTIONAL );
     ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true );
 
   public:
@@ -60,7 +64,7 @@ namespace exanb
         int gpu_first_device = 0;
         if( *single_gpu )
         {
-          gpu_first_device = rank % n_gpus;
+          gpu_first_device = ( rank + (*rotate_gpu) ) % n_gpus;
           cuda_ctx->m_devices.resize(1);
         }
         else
@@ -91,6 +95,49 @@ namespace exanb
               lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
               checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
               break;
+          }
+        }
+        
+        if( device_limits.has_value() )
+        {
+          auto m = *device_limits;
+          if( m.find("query_all") != m.end() )
+          {
+            m.clear();
+            m["cudaLimitStackSize"] = "-1";
+            m["cudaLimitPrintfFifoSize"] = "-1";
+            m["cudaLimitMallocHeapSize"] = "-1";
+            m["cudaLimitDevRuntimeSyncDepth"] = "-1";
+            m["cudaLimitDevRuntimePendingLaunchCount"] = "-1";
+            m["cudaLimitMaxL2FetchGranularity"] = "-1";
+            m["cudaLimitPersistingL2CacheSize"] = "-1";
+          }
+          for( const auto& dl : m )
+          {
+            cudaLimit limit;
+                 if( dl.first == "cudaLimitStackSize"                    ) limit = cudaLimitStackSize;
+            else if( dl.first == "cudaLimitPrintfFifoSize"               ) limit = cudaLimitPrintfFifoSize;
+            else if( dl.first == "cudaLimitMallocHeapSize"               ) limit = cudaLimitMallocHeapSize;
+            else if( dl.first == "cudaLimitDevRuntimeSyncDepth"          ) limit = cudaLimitDevRuntimeSyncDepth;
+            else if( dl.first == "cudaLimitDevRuntimePendingLaunchCount" ) limit = cudaLimitDevRuntimePendingLaunchCount;
+            else if( dl.first == "cudaLimitMaxL2FetchGranularity"        ) limit = cudaLimitMaxL2FetchGranularity;
+            else if( dl.first == "cudaLimitPersistingL2CacheSize"        ) limit = cudaLimitPersistingL2CacheSize;
+            else
+            {
+              fatal_error() << "Cuda unknown limit '"<<dl.first<<"'"<<std::endl;
+            }
+            long in_value = std::stol( dl.second );
+            
+            if( in_value >= 0 )
+            {
+              checkCudaErrors( cudaDeviceSetLimit( limit , in_value ) ); 
+            }
+            else
+            {
+              size_t value = 0;
+              checkCudaErrors( cudaDeviceGetLimit ( &value, limit ) );
+              lout << dl.first << " = " << value << std::endl;
+            }
           }
         }
 
