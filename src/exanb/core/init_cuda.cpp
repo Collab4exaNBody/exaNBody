@@ -26,7 +26,7 @@ namespace exanb
     using DeviceLimitsMap = std::map<std::string,std::string>;
   
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( bool     , single_gpu  , INPUT , true ); // how to partition GPUs inside groups of contiguous MPI ranks
+    ADD_SLOT( bool     , mpi_even_only  , INPUT , false ); // if true, only even MPI ranks will have access to GPUS
     ADD_SLOT( long     , rotate_gpu  , INPUT , 0 );    // shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node.
     ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
     ADD_SLOT( DeviceLimitsMap , device_limits  , INPUT , OPTIONAL );
@@ -61,15 +61,26 @@ namespace exanb
       {
         cuda_ctx = std::make_shared<onika::cuda::CudaContext>();
       
-        int gpu_first_device = 0;
-        if( *single_gpu )
+        // multiple GPU per MPI process is not supported by now, because it hasn't been tested for years
+        // we replace it with a new feature to allocate GPUs only on even MPI processes, to allow for use of both CPU only and GPU accelerated processes
+        int gpu_first_device = ( rank + (*rotate_gpu) ) % n_gpus;
+        if( *mpi_even_only )
         {
-          gpu_first_device = ( rank + (*rotate_gpu) ) % n_gpus;
-          cuda_ctx->m_devices.resize(1);
+          if( (rank%2) == 0 )
+          {
+            gpu_first_device = ( (rank/2) + (*rotate_gpu) ) % n_gpus;
+            cuda_ctx->m_devices.resize(1);
+          }
+          else
+          {
+            gpu_first_device=0;
+            n_gpus=0;
+            cuda_ctx->m_devices.clear();
+          }
         }
         else
         {
-          cuda_ctx->m_devices.resize(n_gpus);
+          cuda_ctx->m_devices.resize(1);
         }
       
         int ndev = cuda_ctx->m_devices.size();
