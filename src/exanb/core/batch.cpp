@@ -670,7 +670,7 @@ namespace exanb
   
       if( batch_node["parallel"] )
       {
-        ldbg << "concurent parallel batch '"<<tmp_operator_name<<"'"<< std::endl;
+        ::exanb::ldbg << "concurent parallel batch '"<<tmp_operator_name<<"'"<< std::endl;
         batch->set_parallel_execution( batch_node["parallel"].as<bool>() );
         if( batch->parallel_execution() )
         {
@@ -684,8 +684,8 @@ namespace exanb
       if( batch_node["task_group"] )
       {
         bool tg = batch_node["task_group"].as<bool>();
-        set_task_group_mode( tg );
-        ldbg << "task group mode for batch '"<<tmp_operator_name<<"' = "<<std::boolalpha<<tg <<std::endl;
+        batch->set_task_group_mode( tg );
+        ::exanb::ldbg << "task group mode for batch '"<<tmp_operator_name<<"' = "<<std::boolalpha<<tg <<std::endl;
       }
       
       oplist_node = batch_node["body"];

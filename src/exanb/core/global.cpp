@@ -26,7 +26,6 @@ namespace exanb
   class GlobalVariableOperatorNode : public OperatorNode
   {
   public:
-    inline void generate_tasks() override final {}
     inline void execute() override final {}
   };
 

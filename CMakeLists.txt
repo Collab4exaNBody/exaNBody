@@ -1,7 +1,7 @@
 # ===============
 # === Project ===
 # ===============
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 project(exaNBody LANGUAGES C CXX)
 
 get_filename_component(XNB_ROOT_DIR ${CMAKE_INSTALL_PREFIX} ABSOLUTE)

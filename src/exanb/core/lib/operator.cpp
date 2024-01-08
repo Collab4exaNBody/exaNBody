@@ -460,9 +460,11 @@ namespace exanb
         } // --- end of single ---
       } // --- end of parallel section ---
       
-      ... cascade end of execution epilog for all children
-      ... ajouter un marqueur de celui qui est responasble d'ouvrir la section parallele
-      ... c'est aussi celui qui devra appeler la finalisation des objets enfants (peut-etre meme leur method finalize)
+      // FIXME: synchronize from all stream to default stream, and enqueue finalization to default stream
+      
+      // here enqueue synchronization to default stream (stream 0)
+      // and then enqueue finalization function
+      
     }
     else
     {
@@ -545,12 +547,24 @@ namespace exanb
     self->m_allocated_parallel_execution_contexts.erase( it );
   }
 
-  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream_nolock(unsigned int id)
+  std::shared_ptr<onika::parallel::ParallelExecutionStream> OperatorNode::parallel_execution_stream_nolock(unsigned int id)
   {
+    if( m_task_group_ancestor == nullptr )
+    {
+      m_task_group_ancestor = this;
+      while( m_task_group_ancestor->task_group_mode() && m_task_group_ancestor->parent()!=nullptr && m_task_group_ancestor->parent()->task_group_mode() ) m_task_group_ancestor = m_task_group_ancestor->parent();
+    }
+
     if( id >= m_parallel_execution_streams.size() )
     {
       m_parallel_execution_streams.resize( id+1 , nullptr );
     }
+
+    if( m_task_group_ancestor != this )
+    {
+      m_parallel_execution_streams[id] = m_task_group_ancestor->parallel_execution_stream_lock(id);
+    }
+
     if( m_parallel_execution_streams[id] == nullptr )
     {
       m_parallel_execution_streams[id] = std::make_shared< onika::parallel::ParallelExecutionStream >();
@@ -561,18 +575,25 @@ namespace exanb
       }
       m_parallel_execution_streams[id]->m_stream_id = id;
     }
-    return { m_parallel_execution_streams[id].get() };
+    
+    return m_parallel_execution_streams[id];
   }
-  
-  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
+
+  std::shared_ptr<onika::parallel::ParallelExecutionStream> OperatorNode::parallel_execution_stream_lock(unsigned int id)
   {
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
     return parallel_execution_stream_nolock(id);
   }
 
-  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
+  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
   {
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    return { parallel_execution_stream_nolock(id).get() };
+  }
+
+  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
+  {
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);    
     if( m_free_parallel_execution_contexts.empty() )
     {
       m_free_parallel_execution_contexts.push_back( new onika::parallel::ParallelExecutionContext() );
@@ -584,7 +605,7 @@ namespace exanb
     pec->reset();
     pec->m_tag = m_tag.get();
     pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
-    pec->m_default_stream = parallel_execution_stream_nolock().m_stream;
+    pec->m_default_stream = parallel_execution_stream_nolock().get();
     pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
     if( pec->m_cuda_ctx != nullptr && pec->m_start_evt == nullptr )
     {

@@ -106,7 +106,7 @@ namespace exanb
 
     // called from outside, calls execute internally
     virtual void run(); // called internally
-    virtual void execute();
+    virtual void execute() =0;
     
     virtual bool is_looping() const;
     
@@ -239,7 +239,8 @@ namespace exanb
     void set_task_group_mode( bool m );
     bool task_group_mode() const;
     onika::parallel::ParallelExecutionContext* parallel_execution_context();
-    onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream_nolock(unsigned int id=0);
+    std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_nolock(unsigned int id=0);
+    std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_lock(unsigned int id=0);
     onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
     
     // free resources associated to slots
@@ -294,14 +295,17 @@ namespace exanb
     std::string m_name;
     std::unique_ptr<char[]> m_tag = nullptr; // a unique string pointer equivalent to pathname()
     OperatorNode* m_parent = nullptr;
+
     std::string m_backtrace; // stored to facilitate debugging
 
     // auxiliary slot registration
     std::unordered_set<OperatorSlotBase*> m_slots;
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
-    // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
+    // Parallel execution context and streams:
+    // contains necessary resources to globalize parallel executions accross diferent operators and allow asynchornous parallel executions.
     std::mutex m_parallel_execution_access;
+    OperatorNode* m_task_group_ancestor = nullptr; // highest ancestor creator of the encapsulating task group
     std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams;
     std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
     std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;

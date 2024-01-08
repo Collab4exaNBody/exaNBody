@@ -8,7 +8,6 @@ namespace exanb
   {  
     inline NoOperationNode() { set_profiling(false); }
     inline void execute() override final {}
-    inline void generate_tasks() override final {}
   };
  
   // === register factories ===  
