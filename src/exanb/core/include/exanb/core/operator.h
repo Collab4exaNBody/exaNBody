@@ -148,9 +148,6 @@ namespace exanb
     // thus, outter slot connections can be done later on.
     virtual void compile();
 
-    // collect spawn tasks execution times to get a global operator execution time
-    virtual double collect_execution_time();
-
     // virtual std::shared_ptr<OperatorNode> clone() const;
     // ==================
 
@@ -241,6 +238,7 @@ namespace exanb
     std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_nolock(unsigned int id=0);
     std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_lock(unsigned int id=0);
     onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
+    void wait_all_parallel_execution_streams();
     
     // free resources associated to slots
     void free_all_resources();

@@ -69,9 +69,6 @@ namespace exanb
 
     static std::shared_ptr<OperatorNode> make_operator_batch(const YAML::Node& batch_node, const OperatorNodeFlavor& flavor);
 
-  protected:
-    double collect_execution_time() override final;
-
   private:
     void set_rebind_name( const std::string& k , const std::string& otherk );
     const std::string& rebind_name( const std::string& k ) const;

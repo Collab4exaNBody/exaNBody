@@ -396,11 +396,19 @@ namespace exanb
     this->initialize_slots_resource();
   }
 
+  void OperatorNode::wait_all_parallel_execution_streams()
+  {
+    for(auto & pes : m_parallel_execution_streams)
+    {
+      if( pes != nullptr ) pes->wait();
+    }
+  }
 
   void OperatorNode::run()
   {
     const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
 
+    wait_all_parallel_execution_streams();
 
     // sequential execution of fork-join parallel components
     // except if OperatorNode derived class implements generate_tasks instead of execute, in which case, task parallelism mode is used
@@ -411,13 +419,12 @@ namespace exanb
       {
 #       pragma omp master
         {
-          ... need synchronization points here
           run_prolog();
 #         pragma omp taskgroup
           {
             execute();
           } // --- end of task group ---
-          ...  here
+          wait_all_parallel_execution_streams();          
           run_epilog();
         } // --- end of single ---
       } // --- end of parallel section ---
@@ -427,20 +434,14 @@ namespace exanb
       // here enqueue synchronization to default stream (stream 0)
       // and then enqueue finalization function
     }
-    else if( task_group_mode() )
-    {
-      ... and here
-      run_prolog(); // FIXME: not enough if in nested task_group
-      execute();
-      run_epilog();
-    }
     else
     {
-      run_prolog(); // FIXME: not enough if in nested task_group
+      run_prolog();
       execute();
+      // not correct : we dont' want to force synchronization here, just triggers call to run_epilog when all previously issued tasks are completed
+      wait_all_parallel_execution_streams();
       run_epilog();
     }
-
   }
 
   void OperatorNode::run_epilog()
