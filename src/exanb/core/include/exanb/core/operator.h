@@ -105,9 +105,12 @@ namespace exanb
     // ==== main interface, executes the operator =======
 
     // called from outside, calls execute internally
-    virtual void run(); // called internally
+    virtual void run_prolog();
+    virtual void run(); 
+    virtual void run_epilog();
     virtual void execute() =0;
     
+    virtual inline bool nested_parallel_mode() const { return false; }
     virtual bool is_looping() const;
     
     virtual inline std::string documentation() const { return std::string(); }
@@ -227,10 +230,6 @@ namespace exanb
     void profile_task_start( const onika::omp::OpenMPToolTaskTiming& evt_info );
     void profile_task_stop( const onika::omp::OpenMPToolTaskTiming& evt_info );
 
-    // user functions to mark a specific region of code
-    ::onika::omp::OpenMPTaskInfo* profile_begin_section(const char* tag);
-    void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
-
     // access GPUExecution context for this operator
     void set_gpu_enabled(bool en);
     // Warning! : this methods has a wrong name, for backward compatibility purposes
@@ -265,8 +264,10 @@ namespace exanb
     std::vector<double> m_exec_times;
     std::vector<double> m_gpu_times;
     std::vector<double> m_async_cpu_times;
+    TimeStampT m_run_start_time;
     double m_total_gpu_time = 0.0;
     double m_total_async_cpu_time = 0.0;
+    ssize_t m_resident_mem = 0;
     ssize_t m_resident_mem_inc = 0;
 
     // debug stream wrapper to enable log filtering
@@ -309,7 +310,7 @@ namespace exanb
     std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams;
     std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
     std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;
-    
+        
     // Operator protection after compilation
     bool m_compiled = false;
 

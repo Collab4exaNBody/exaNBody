@@ -58,8 +58,8 @@ namespace exanb
     bool is_looping() const override final;
     void finalize() override final;
     
-    inline void set_parallel_execution(bool p) { m_parallel_execution=p; }
-    inline bool parallel_execution() const { return m_parallel_execution; }
+    inline void set_nested_parallel_mode(bool p) { m_nested_parallel_mode=p; }
+    inline bool nested_parallel_mode() const override final { return m_nested_parallel_mode; }
     inline void set_parallel_cores(const std::vector<double>& partition) { m_parallel_cores = partition; }    
         
     void push_back( std::shared_ptr<OperatorNode> op );
@@ -76,16 +76,10 @@ namespace exanb
     void set_rebind_name( const std::string& k , const std::string& otherk );
     const std::string& rebind_name( const std::string& k ) const;
     const std::string& rebind_reverse_name( const std::string& k ) const;
-
-    // executes sub operators sequentially
-    void execute_sequential_ops();
   
     // inner operators
     std::vector< std::shared_ptr<OperatorNode> > m_ops;
-    
-    // account for successive iterations when collecting execution times
-    double m_previous_iteration_time = 0.0;
-    
+        
     // batch level slot renaming
     std::map< std::string, std::string > m_rebind;
     std::map< std::string, std::string > m_rebind_reverse;
@@ -96,7 +90,7 @@ namespace exanb
     
     // OpenMP nested parallelism control
     std::vector<double> m_parallel_cores;
-    bool m_parallel_execution = false;
+    bool m_nested_parallel_mode = false;
     
     // condition inverter
     bool m_condition_inv = false;
@@ -249,7 +243,10 @@ namespace exanb
   // call this once, when no more push_back has to be done
   void OperatorBatchNode::compile()
   {
-    assert( ! compiled() );
+    if( compiled() )
+    {
+      fatal_error() << "OperatorNode cannot be re-compiled" << std::endl;
+    }
 
     for(auto op_it=m_ops.begin(); op_it!=m_ops.end(); ++op_it )
     {
@@ -414,15 +411,6 @@ namespace exanb
     if( eval_condition() )
     {
       this->OperatorNode::run();
-    }    
-  }
-
-  void OperatorBatchNode::execute_sequential_ops()
-  {
-    for(const auto& f : m_ops)
-    {
-//      std::cout << "run "<< f->name() << std::endl;
-      f->run(); 
     }
   }
 
@@ -442,7 +430,7 @@ namespace exanb
         2. allow sub operators not to create a parallel section, but rather create tasks.
            subsequent operators will be able to provide tasks for execution in a common task group
       */
-      if( parallel_execution() )
+      if( nested_parallel_mode() )
       {      
         int num_threads = omp_get_max_threads();
         int n_ops = m_ops.size();
@@ -478,7 +466,7 @@ namespace exanb
       }
       else
       {
-        execute_sequential_ops();
+        for(const auto& f : m_ops) f->run();
       }
       
       ++ iteration_count;
@@ -486,41 +474,8 @@ namespace exanb
       if( is_looping() ) { continue_loop = eval_condition(); }
       else { continue_loop = false; }
       
-      if( continue_loop )
-      {
-        m_previous_iteration_time += this->collect_execution_time();
-      }
     }
 
-#   ifndef NDEBUG
-    if( is_looping() )
-    {
-#     pragma omp critical(OperatorBatchNode_loop_dbg_message)
-      {
-        ldbg << format_string("%*s",(depth()-1)*2,"") << name() << " (executed "<< iteration_count << " iterations)" << std::endl ;
-      }
-    }
-#   endif
-  }
-
-  double OperatorBatchNode::collect_execution_time()
-  {
-#   ifdef ONIKA_HAVE_OPENMP_TOOLS
-    bool do_profiling = global_profiling() && profiling();
-    if( do_profiling )
-    {
-      auto t = m_task_exec_time_accum.exchange(0) / 1000000.0;
-      for(auto op : m_ops) { t += op->collect_execution_time(); }
-      if( t > 0.0 ) { m_exec_times.push_back( t ); }
-      t += m_previous_iteration_time;
-      m_previous_iteration_time = 0.0;
-      return t;
-    }
-    else
-#   endif
-    {
-      return 0.0;
-    }
   }
 
   LogStreamWrapper& OperatorBatchNode::pretty_print(LogStreamWrapper& out, int details, int indent, ProfilePrintParameters& ppp, ParallelValueStatsFunc pstat )
@@ -671,8 +626,8 @@ namespace exanb
       if( batch_node["parallel"] )
       {
         ::exanb::ldbg << "concurent parallel batch '"<<tmp_operator_name<<"'"<< std::endl;
-        batch->set_parallel_execution( batch_node["parallel"].as<bool>() );
-        if( batch->parallel_execution() )
+        batch->set_nested_parallel_mode( batch_node["parallel"].as<bool>() );
+        if( batch->nested_parallel_mode() )
         {
           if( batch_node["cores"] )
           {

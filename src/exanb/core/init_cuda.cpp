@@ -85,7 +85,7 @@ namespace exanb
 
         int ndev = cuda_ctx->m_devices.size();
 
-        lout <<"ndev="<<ndev<<std::endl;
+        ldbg <<"ndev="<<ndev<<std::endl;
         for(int d=0;d<ndev;d++) cuda_ctx->m_devices[d].device_id = gpu_first_device + d;
         
         const int max_threads = omp_get_max_threads();

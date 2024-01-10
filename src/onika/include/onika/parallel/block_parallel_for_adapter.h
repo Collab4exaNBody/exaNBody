@@ -162,14 +162,17 @@ namespace onika
           assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
           const size_t N = pec->m_parallel_space.m_end;
           const auto T0 = std::chrono::high_resolution_clock::now();
-          execute_prolog( pec , pes );             
-          // implicit taskgroup, ensures taskloop has completed before enclosing task ends
-          // all refrenced variables can be shared because of implicit enclosing taskgroup
-          const auto & func = m_func;
-#         pragma omp taskloop default(none) shared(pec,num_tasks,func,N) num_tasks(num_tasks)
-          for(uint64_t i=0;i<N;i++)
+          execute_prolog( pec , pes );
+          if( N > 0 )
           {
-            func( i );
+            // implicit taskgroup, ensures taskloop has completed before enclosing task ends
+            // all refrenced variables can be shared because of implicit enclosing taskgroup
+            const auto & func = m_func;
+  #         pragma omp taskloop default(none) shared(pec,num_tasks,func,N) num_tasks(num_tasks)
+            for(uint64_t i=0;i<N;i++)
+            {
+              func( i );
+            }
           }
           // here all tasks of taskloop have completed, since notaskgroup clause is not specified              
           execute_epilog( pec , pes );          
