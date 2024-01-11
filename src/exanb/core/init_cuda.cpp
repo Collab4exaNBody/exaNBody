@@ -26,11 +26,11 @@ namespace exanb
     using DeviceLimitsMap = std::map<std::string,std::string>;
   
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( bool     , mpi_even_only  , INPUT , false ); // if true, only even MPI ranks will have access to GPUS
-    ADD_SLOT( long     , rotate_gpu  , INPUT , 0 );    // shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node.
-    ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
-    ADD_SLOT( DeviceLimitsMap , device_limits  , INPUT , OPTIONAL );
-    ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true );
+    ADD_SLOT( bool     , mpi_even_only  , INPUT , false , DocString{"if set to true, only even MPI will be assigned a GPU device. device id assigned is then (rank/2)%ndev instead of rank%ndev (ndev being number of GPUs per node)"} );
+    ADD_SLOT( long     , rotate_gpu  , INPUT , 0 , DocString{"shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node"});
+    ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL , DocString{"configures shared memory bank size. can be 4 or 8"} );
+    ADD_SLOT( DeviceLimitsMap , device_limits  , INPUT , OPTIONAL , DocString{"queries or set device limits. see Cuda documentation of cudaDeviceSetLimit for a list of configurable limits. if value is -1, the device limit is queried ond printed instead of being set. if limit name is 'all', all limits are queried."} );
+    ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true , DocString{"if set to false, Cuda support is disabled even if support has been compiled in"} );
 
   public:
 
