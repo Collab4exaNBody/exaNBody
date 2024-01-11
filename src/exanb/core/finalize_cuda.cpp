@@ -20,7 +20,7 @@ namespace exanb
     {
 #     ifdef XSTAMP_CUDA_VERSION
       auto cuda_ctx = global_cuda_ctx();
-      if( *enable_cuda && cuda_ctx->has_devices() )
+      if( cuda_ctx != nullptr && *enable_cuda && cuda_ctx->has_devices() )
       {
         checkCudaErrors( cudaDeviceSynchronize() );
         for(const auto &dev : cuda_ctx->m_devices)
