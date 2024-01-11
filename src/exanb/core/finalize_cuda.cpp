@@ -20,24 +20,27 @@ namespace exanb
     {
 #     ifdef XSTAMP_CUDA_VERSION
       auto cuda_ctx = global_cuda_ctx();
-      if( *enable_cuda && cuda_ctx->has_devices() )
+      if( cuda_ctx != nullptr )
       {
-        checkCudaErrors( cudaDeviceSynchronize() );
-        for(const auto &dev : cuda_ctx->m_devices)
+        if( *enable_cuda && cuda_ctx->has_devices() )
         {
-          for(const auto& f : dev.m_finalize_destructors) f();
-        }
-        for(auto s:cuda_ctx->m_threadStream)
-        {
-          if( s != 0 )
+          checkCudaErrors( cudaDeviceSynchronize() );
+          for(const auto &dev : cuda_ctx->m_devices)
           {
-            checkCudaErrors( cudaStreamDestroy( s ) );
+            for(const auto& f : dev.m_finalize_destructors) f();
           }
+          for(auto s:cuda_ctx->m_threadStream)
+          {
+            if( s != 0 )
+            {
+              checkCudaErrors( cudaStreamDestroy( s ) );
+            }
+          }
+          cuda_ctx->m_threadStream.clear();
+          cuda_ctx->m_threadStream.shrink_to_fit();
+          cuda_ctx->m_devices.clear(); // calls destructors which frees Cuda resources
+          cuda_ctx->m_devices.shrink_to_fit();
         }
-        cuda_ctx->m_threadStream.clear();
-        cuda_ctx->m_threadStream.shrink_to_fit();
-        cuda_ctx->m_devices.clear(); // calls destructors which frees Cuda resources
-        cuda_ctx->m_devices.shrink_to_fit();
       }
       set_global_cuda_ctx( nullptr );
 #     endif
