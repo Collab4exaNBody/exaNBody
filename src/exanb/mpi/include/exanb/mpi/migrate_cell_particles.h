@@ -865,7 +865,8 @@ namespace exanb
 #     pragma omp parallel
       {
       
-#     pragma omp master
+//#     pragma omp master
+      if( omp_get_thread_num() == 0 )
       {
       
       // ======================= MPI progression loop ===============================
