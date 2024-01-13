@@ -49,11 +49,13 @@ namespace exanb
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
       const auto& flist = *fields;
+      const auto& pnames = *plot_names;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      auto name_filter = [&pnames] ( const std::string& name ) -> const std::string& { auto it=pnames.find(name); if(it!=pnames.end()) return it.second; else return name; } ;
       auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
       using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
       ParticleAcessor pacc = {grid->cells()};
-      slice_grid_particles( *mpi, *grid, domain->xform(), *direction, *thickness, *plots, pacc, field_selector, pecfunc, grid_fields... );
+      slice_grid_particles( *mpi, *grid, domain->xform(), *direction, *thickness, *plots, pacc, field_selector, name_filter, pecfunc, grid_fields... );
     }
 
     template<class... fid>

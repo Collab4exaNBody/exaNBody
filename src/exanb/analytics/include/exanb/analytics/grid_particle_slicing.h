@@ -33,15 +33,13 @@ namespace exanb
       }
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_thread_block_t ) const
       {
-        long a, b;
-        ONIKA_CU_ATOMIC_MIN( a , b );
-        //ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
-        //ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
+        ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
+        ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
       }
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_global_t ) const
       {
-        //ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
-        //ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
+        ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
+        ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
       }
     };
 
