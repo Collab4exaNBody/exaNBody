@@ -43,6 +43,10 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
+      static constexpr bool call_func_without_idx = lambda_is_compatible_with_v<FuncT,void, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+      static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+      static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+
       size_t cell_a = i;
       IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
       cell_a_loc = cell_a_loc + m_ghost_layers;
@@ -53,13 +57,18 @@ namespace exanb
       const unsigned int n = m_cells[cell_a].size();
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
       {
-			  if constexpr (  !ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx )
+			  if constexpr ( call_func_without_idx )
 				{
+          static_assert( ! ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx );
 	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
-				else
+				else if constexpr ( call_func_with_cell_idx )
 				{
 	        m_func(cell_a, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+				}
+				else if constexpr ( call_func_with_cell_particle_idx )
+				{
+	        m_func(cell_a, p, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
       }
     }
