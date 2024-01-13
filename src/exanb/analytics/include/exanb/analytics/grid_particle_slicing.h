@@ -135,9 +135,9 @@ namespace exanb
     const Vec3d& direction,
     double thickness,
     onika::Plot1DSet& plots,
-    const ParticleAcessorT& pacc,
-    const FieldSelectorT& field_selector,
-    const ParallelExecutionFuncT& parallel_execution_context,
+    ParticleAcessorT pacc,
+    FieldSelectorT field_selector,
+    ParallelExecutionFuncT parallel_execution_context,
     const FieldsOrCombiners& ... fc )
   {
     using namespace SliceParticleFieldTools;

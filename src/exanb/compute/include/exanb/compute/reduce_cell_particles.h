@@ -102,7 +102,7 @@ namespace exanb
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class FuncT, class ResultT, class FieldSetT>
   static inline void reduce_cell_particles(
-    GridT& grid,
+    const GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
@@ -117,7 +117,7 @@ namespace exanb
     const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
     ResultT* target_reduced_value_ptr = &reduced_val;
-    CellsT * cells = grid.cells();
+    const CellsT * cells = grid.cells();
     bool enable_gpu = false;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
     {
@@ -129,7 +129,7 @@ namespace exanb
       }
     }
     
-    ReduceCellParticlesFunctor<CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
+    ReduceCellParticlesFunctor<const CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
     onika::parallel::block_parallel_for( N, pfor_op , exec_ctx , enable_gpu , ( user_cb != nullptr ) , user_cb , &reduced_val, sizeof(ResultT) );
   }
 
