@@ -9,6 +9,7 @@
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
+#include <onika/lambda_tools.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -43,6 +44,7 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
+      using onika::lambda_is_compatible_with_v;
       static constexpr bool call_func_without_idx = lambda_is_compatible_with_v<FuncT,void, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
       static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
       static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
