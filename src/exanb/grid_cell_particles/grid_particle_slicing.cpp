@@ -137,8 +137,9 @@ namespace exanb
     ADD_SLOT( Domain     , domain     , INPUT , REQUIRED );
     ADD_SLOT( double     , thickness  , INPUT , 1.0 );
     ADD_SLOT( Vec3d      , direction  , INPUT , Vec3d{1,0,0} );
-    ADD_SLOT( long       , resolution , INPUT , 1 );
-    ADD_SLOT( StringList , fields     , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to project"} );
+    ADD_SLOT( long       , resolution , INPUT , 1024 );
+    ADD_SLOT( StringList , fields     , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
+    ADD_SLOT( StringMap  , plot_names , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
     ADD_SLOT( Plot1DSet  , plots      , INPUT_OUTPUT );
 
   public:
