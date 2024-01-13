@@ -1,3 +1,5 @@
+#pragma once
+
 #include <map>
 #include <vector>
 #include <string>
@@ -6,7 +8,7 @@
 namespace onika
 {
 
-  using Plot1D = std::CudaMMVector< std::pair<double,double> >;
+  using Plot1D = onika::memory::CudaMMVector< std::pair<double,double> >;
 
   struct Plot1DSet
   {

@@ -7,6 +7,7 @@ add_subdirectory(logic)
 add_subdirectory(amr)
 add_subdirectory(particle_neighbors)
 add_subdirectory(grid_cell_particles)
+add_subdirectory(analytics)
 add_subdirectory(io)
 add_subdirectory(debug)
 
