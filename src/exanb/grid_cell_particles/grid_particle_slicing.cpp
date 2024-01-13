@@ -6,6 +6,9 @@
 #include <exanb/core/basic_types.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <onika/plot1d.h>
+#include <exanb/compute/compute_cell_particles.h>
+#include <exanb/compute/reduce_cell_particles.h>
 
 #include <regex>
 #include <mpi.h>
@@ -16,40 +19,6 @@
 
 namespace exanb
 {
-  
-  struct Plot1DSet
-  {
-    std::map< std::string , std::vector< std::pair<double,double> > > m_plots;
-  };
-
-  struct DirectionalMinMaxDistanceFunctor
-  {
-    const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
-    const Vec3d m_direction = {1.0 , 0.0 , 0.0 };
-    ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , double rx, double ry, double rz , reduce_thread_local_t={} ) const
-    {
-      double pos = dot( m_xform * Vec3d{rx,ry,rz} , m_direction );
-      pos_min_max.first = min( pos_min_max.first , pos );
-      pos_min_max.second = max( pos_min_max.second , pos );
-    }
-    ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_thread_block_t ) const
-    {
-      ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
-      ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
-    }
-    ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_global_t ) const
-    {
-      ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
-      ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
-    }
-  };
-
-  template<> struct ReduceCellParticlesTraits<exanb::DirectionalMinMaxDistanceFunctor>
-  {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
-    static inline constexpr bool RequiresCellParticleIndex = false;
-    static inline constexpr bool CudaCompatible = true;
-  };
 
   namespace SliceParticleFieldTools
   {
@@ -57,21 +26,44 @@ namespace exanb
     template<class T> struct FieldTypeScalarWeighting<T, std::is_same_v<typeof(T{}*1.0),double> > : std::true_type {}; 
     template<class T> static inline constexpr bool type_scalar_weighting_v = FieldTypeScalarWeighting<T>::value ;
 
-    template<ParticleFieldAccessorT,FieldT>
+    struct DirectionalMinMaxDistanceFunctor
+    {
+      const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
+      const Vec3d m_direction = {1.0 , 0.0 , 0.0 };
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , double rx, double ry, double rz , reduce_thread_local_t={} ) const
+      {
+        double pos = dot( m_xform * Vec3d{rx,ry,rz} , m_direction );
+        pos_min_max.first = min( pos_min_max.first , pos );
+        pos_min_max.second = max( pos_min_max.second , pos );
+      }
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_thread_block_t ) const
+      {
+        ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
+        ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
+      }
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_global_t ) const
+      {
+        ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
+        ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
+      }
+    };
+
+    template<class ParticleFieldAccessorT,class FieldT>
     struct SliceAccumulatorFunctor
     {
       const ParticleFieldAccessorT m_pacc;
       const FieldT m_field;
       const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
       const Vec3d m_direction = { 1.0 , 0.0 , 0.0 };
-      const double pos_min = 0.0;
-      const double pos_max = 0.0;
-      const long m_resolution = 1024;
+      const double m_thickness = 1.0;
+      const double m_start = 0.0;
+      const long m_resolution = 1;
       std::pair<double,double> * __restrict__ m_slice_data = nullptr;
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t c, unsigned int p, double rx, double ry, double rz ) const
       {
+        using onika::cuda::clamp;
         const double pos = dot( m_xform * Vec3d{rx,ry,rz} , m_direction );
-        const long slice = clamp( static_cast<long>( m_resolution * ( pos - pos_min ) / ( pos_max - pos_min ) ) , 0l , m_resolution-1l );
+        const long slice = clamp( static_cast<long>( ( pos - m_start ) / m_thickness ) , 0l , m_resolution-1l );
         const double value = m_pacc.get(c,p,m_field);
         ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].first , 1.0 );
         ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].second , value );
@@ -87,12 +79,11 @@ namespace exanb
     const Vec3d m_direction = {1.0 , 0.0 , 0.0 };
     const double m_thickness = 1.0;
     const double m_start = 0.0;
-    const double m_end = 0.0;
     const long m_resolution = 1024;
 
     MPI_Comm m_comm;
     OperatorNode* m_op = nullptr;
-    Plot1DSet& m_plot_set;
+    onika::Plot1DSet & m_plot_set;
     std::function<bool(const std::string&)> m_field_selector;
     
     template<class GridT, class FidT >
@@ -111,7 +102,7 @@ namespace exanb
           m_slice_count.assign( m_resolution , 0 );
           auto & plot_data = m_plot_set.m_plots[ name ];
           plot_data.assign( m_resolution , { 0.0 , 0.0 } );
-          SliceAccumulatorFunctor<ParticleFieldAccessorT,FidT> func = { m_pacc, proj_field, m_xform,  m_direction, m_start, m_end, m_resolution, plot_data.data() };
+          SliceAccumulatorFunctor<ParticleFieldAccessorT,FidT> func = { m_pacc, proj_field, m_xform,  m_direction, m_thickness, m_start, m_resolution, plot_data.data() };
           compute_cell_particles( grid , false , func , slice_field_set , m_op->parallel_execution_context() );
           MPI_Allreduce( MPI_IN_PLACE, plot_data.data() , m_resolution * 2 , MPI_DOUBLE , MPI_SUM , m_comm );
           for(long i=0;i<m_resolution;i++)
@@ -125,11 +116,26 @@ namespace exanb
     }
   };
 
+  template<>
+  struct ReduceCellParticlesTraits<SliceParticleFieldTools::DirectionalMinMaxDistanceFunctor>
+  {
+    static inline constexpr bool RequiresBlockSynchronousCall = false;
+    static inline constexpr bool RequiresCellParticleIndex = false;
+    static inline constexpr bool CudaCompatible = true;
+  };
+
+  template<class ParticleFieldAccessorT,class FieldT>
+  struct ComputeCellParticlesTraits< SliceParticleFieldTools::SliceAccumulatorFunctor<ParticleFieldAccessorT,FieldT> >
+  {
+    static inline constexpr bool CudaCompatible = true;
+  };
+
 
   template< class GridT >
   class GridParticleSlicing : public OperatorNode
   {
     using StringList = std::vector<std::string>;
+    using Plot1DSet = onika::Plot1DSet;
     static constexpr FieldSet<field::_rx,field::_ry,field::_rz> reduce_field_set {};
     
     ADD_SLOT( MPI_Comm   , mpi        , INPUT , MPI_COMM_WORLD );
@@ -137,7 +143,6 @@ namespace exanb
     ADD_SLOT( Domain     , domain     , INPUT , REQUIRED );
     ADD_SLOT( double     , thickness  , INPUT , 1.0 );
     ADD_SLOT( Vec3d      , direction  , INPUT , Vec3d{1,0,0} );
-    ADD_SLOT( long       , resolution , INPUT , 1024 );
     ADD_SLOT( StringList , fields     , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
     ADD_SLOT( StringMap  , plot_names , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
     ADD_SLOT( Plot1DSet  , plots      , INPUT_OUTPUT );
@@ -164,11 +169,12 @@ namespace exanb
         pos_min_max.second = tmp[1];
       }
 
-      ldbg << "min="<< pos_min_max.first << " , max=" << pos_min_max.second << std::endl;
+      long resolution = std::ceil( ( pos_min_max.second - pos_min_max.first ) / (*thickness) );
+      ldbg << "min="<< pos_min_max.first << " , max=" << pos_min_max.second << " , resolution = "<< resolution << std::endl;
       
       // project particle quantities to cells
       using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
-      SliceParticleField<ParticleAcessor> slice_fields = { {grid->cells()} , domain->xform() , dir , *thickness , pos_min_max.first, pos_min_max.second , *resolution , *plots , field_selector };
+      SliceParticleField<ParticleAcessor> slice_fields = { {grid->cells()} , domain->xform() , dir , *thickness , pos_min_max.first , resolution , *plots , field_selector };
       apply_grid_field_set( *grid, slice_fields , GridT::field_set );
     }
 
@@ -176,7 +182,7 @@ namespace exanb
     // -----------------------------------------------
     inline std::string documentation() const override final
     {
-      return R"EOF(project particle quantities onto a set of regularly spaced slices)EOF";
+      return R"EOF(create 1D Plots from particles fields, averaging those fields by slices of given orientation and thickness)EOF";
     }    
 
   };
