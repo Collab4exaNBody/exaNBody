@@ -8,6 +8,7 @@
 #include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
 #include <onika/plot1d.h>
 #include <exanb/analytics/grid_particle_slicing.h>
+#include <exanb/fields.h>
 
 #include <regex>
 #include <type_traits>
@@ -51,7 +52,7 @@ namespace exanb
       const auto& flist = *fields;
       const auto& pnames = *plot_names;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-      auto name_filter = [&pnames] ( const std::string& name ) -> const std::string& { auto it=pnames.find(name); if(it!=pnames.end()) return it.second; else return name; } ;
+      auto name_filter = [&pnames] ( const std::string& name ) -> const std::string& { auto it=pnames.find(name); if(it!=pnames.end()) return it->second; else return name; } ;
       auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
       using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
       ParticleAcessor pacc = {grid->cells()};

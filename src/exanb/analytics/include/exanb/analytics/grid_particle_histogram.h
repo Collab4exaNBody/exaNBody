@@ -7,6 +7,7 @@
 #include <exanb/compute/reduce_cell_particles.h>
 
 #include <regex>
+#include <cmath>
 #include <type_traits>
 #include <mpi.h>
 
@@ -49,8 +50,9 @@ namespace exanb
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( double value ) const
       {
         using onika::cuda::clamp;
-        const long bin = clamp( static_cast<long>( floor( m_resolution * (value-m_min) / (m_max-m_min) ) ) , 0l , m_resolution - 1l );
-        ONIKA_CU_ATOMIC_ADD( m_slice_data[bin].second , 1.0 );
+        long bin = m_resolution * (value-m_min) / (m_max-m_min);
+        bin = clamp( bin , 0l , m_resolution - 1l );
+        ONIKA_CU_ATOMIC_ADD( m_histogram_data[bin].second , 1.0 );
       }
     };
 
@@ -59,16 +61,17 @@ namespace exanb
     {
       const long m_resolution = 1024;
       MPI_Comm m_comm;
-      ParallelExecutionFuncT& parallel_execution_context;
+      ParallelExecutionFuncT parallel_execution_context;
       onika::Plot1DSet & m_plot_set;
       std::function<bool(const std::string&)> m_field_selector;
+      std::function<std::string(const std::string&)> name_filter;
 
       template<class GridT, class FidT >
       inline void operator () ( const GridT& grid , const FidT& proj_field )
       {
         using namespace ParticleHistogramTools;
-        using field_type = decltype( typename FidT::value_type );
-        static constexpr FieldSet< FidT > hist_field_set = {};
+        using field_type = typename FidT::value_type;
+        static constexpr FieldSet< typename FidT::Id > hist_field_set = {};
         
         if constexpr ( std::is_arithmetic_v<field_type> )
         {
@@ -77,18 +80,18 @@ namespace exanb
           {
             std::cout << "Histogram field "<<name<<std::endl;
             std::pair<double,double> value_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
-            ValueMinMaxFunctor func = {};
-            reduce_cell_particles( grid , false , func , value_min_max , hist_field_set , parallel_execution_context() );
+            ValueMinMaxFunctor min_max_func = {};
+            reduce_cell_particles( grid , false , min_max_func , value_min_max , hist_field_set , parallel_execution_context() );
             {
               double tmp[2] = { - value_min_max.first , value_min_max.second };
-              MPI_Allreduce( MPI_IN_PLACE, tmp , 2 , MPI_DOUBLE , MPI_MAX , comm );
+              MPI_Allreduce( MPI_IN_PLACE, tmp , 2 , MPI_DOUBLE , MPI_MAX , m_comm );
               value_min_max.first = -tmp[0];
               value_min_max.second = tmp[1];
             }
             auto & plot_data = m_plot_set.m_plots[ name ];
             plot_data.assign( m_resolution , { 0.0 , 0.0 } );
-            HistogramAccumulatorFunctor func = { value_min_max.first, value_min_max.second, m_resolution, plot_data.data() };
-            compute_cell_particles( grid , false , func , hist_field_set , parallel_execution_context() );
+            HistogramAccumulatorFunctor hist_func = { value_min_max.first, value_min_max.second, m_resolution, plot_data.data() };
+            compute_cell_particles( grid , false , hist_func , hist_field_set , parallel_execution_context() );
             MPI_Allreduce( MPI_IN_PLACE, plot_data.data() , m_resolution * 2 , MPI_DOUBLE , MPI_SUM , m_comm );
             const double s = ( value_min_max.second - value_min_max.first ) / m_resolution;
             for(long i=0;i<m_resolution;i++)
@@ -110,7 +113,7 @@ namespace exanb
     static inline constexpr bool CudaCompatible = true;
   };
 
-  template<class ParticleFieldAccessorT,class FieldT>
+  template<>
   struct ComputeCellParticlesTraits< ParticleHistogramTools::HistogramAccumulatorFunctor >
   {
     static inline constexpr bool CudaCompatible = true;
@@ -123,6 +126,7 @@ namespace exanb
     long resolution,
     onika::Plot1DSet& plots,
     std::function<bool(const std::string&)> field_selector,
+    std::function<std::string(const std::string&)> name_filter,
     ParallelExecutionFuncT parallel_execution_context,
     const FieldsOrCombiners& ... fc )
   {
@@ -132,7 +136,7 @@ namespace exanb
     
     // project particle quantities to cells
     using Histogrammer = HistogramParticleField<ParallelExecutionFuncT>;
-    Histogrammer func = { resolution, comm, parallel_execution_context , plots, field_selector };
+    Histogrammer func = { resolution, comm, parallel_execution_context , plots, field_selector, name_filter };
     apply_grid_fields( grid, func , fc ... );
   }
 

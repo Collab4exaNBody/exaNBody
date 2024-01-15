@@ -79,6 +79,7 @@ namespace exanb
       ParallelExecutionFuncT& parallel_execution_context;
       onika::Plot1DSet & m_plot_set;
       std::function<bool(const std::string&)> m_field_selector;
+      std::function<std::string(const std::string&)> name_filter;
       
       template<class GridT, class FidT >
       inline void operator () ( const GridT& grid , const FidT& proj_field )
@@ -125,7 +126,7 @@ namespace exanb
     static inline constexpr bool CudaCompatible = true;
   };
 
-  template<class GridT, class ParticleAcessorT, class FieldSelectorT, class ParallelExecutionFuncT, class... FieldsOrCombiners>
+  template<class GridT, class ParticleAcessorT, class ParallelExecutionFuncT, class... FieldsOrCombiners>
   static inline void slice_grid_particles(
     MPI_Comm comm,
     const GridT& grid,
@@ -134,7 +135,8 @@ namespace exanb
     double thickness,
     onika::Plot1DSet& plots,
     ParticleAcessorT pacc,
-    FieldSelectorT field_selector,
+    std::function<bool(const std::string&)> field_selector,
+    std::function<std::string(const std::string&)> name_filter,
     ParallelExecutionFuncT parallel_execution_context,
     const FieldsOrCombiners& ... fc )
   {
@@ -156,7 +158,7 @@ namespace exanb
     
     // project particle quantities to cells
     using GridParticleSlicer = SliceParticleField<ParticleAcessorT,ParallelExecutionFuncT>;
-    GridParticleSlicer slicer = { pacc, xform, dir, thickness, pos_min_max.first, resolution, comm, parallel_execution_context , plots, field_selector };
+    GridParticleSlicer slicer = { pacc, xform, dir, thickness, pos_min_max.first, resolution, comm, parallel_execution_context , plots, field_selector, name_filter };
     apply_grid_fields( grid, slicer , fc ... );
   }
 

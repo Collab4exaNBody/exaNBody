@@ -5,6 +5,7 @@
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/analytics/grid_particle_histogram.h>
+#include <exanb/fields.h>
 
 #include <mpi.h>
 
@@ -12,21 +13,50 @@ namespace exaStamp
 {
 
   template<class GridT>
-  struct GridParticleHistogram : public OperatorNode
-  {
-    using ValueType = typename onika::soatl::FieldId<HistField>::value_type ;
-      
+  class GridParticleHistogram : public OperatorNode
+  {      
+    using StringList = std::vector<std::string>;
+    using Plot1DSet = onika::Plot1DSet;
+    using StringMap = std::map<std::string,std::string>;
+
     ADD_SLOT( MPI_Comm   , mpi       , INPUT , REQUIRED );
     ADD_SLOT( GridT      , grid      , INPUT , REQUIRED );
-    ADD_SLOT( long       , resolution   , INPUT , 1024 );
+    ADD_SLOT( long       , samples   , INPUT , 1024 );
     ADD_SLOT( StringList , fields     , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
     ADD_SLOT( StringMap  , plot_names , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
     ADD_SLOT( Plot1DSet  , plots      , INPUT_OUTPUT );
 
-    inline void execute () override final
-    {
-      static constexpr onika::soatl::FieldId<HistField> hist_field{};
+  public:
+    inline void execute ()  override final
+    {    
+      execute_on_field_set(grid->field_set);
     }
+    
+  private:
+    template<class... GridFields>
+    inline void execute_on_fields( const GridFields& ... grid_fields) 
+    {
+      const auto& flist = *fields;
+      const auto& pnames = *plot_names;
+      auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      auto name_filter = [&pnames] ( const std::string& name ) -> const std::string& { auto it=pnames.find(name); if(it!=pnames.end()) return it->second; else return name; } ;
+      auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
+      grid_particles_histogram( *mpi, *grid,  *samples, *plots, field_selector, name_filter, pecfunc, grid_fields... );
+    }
+
+    template<class... fid>
+    inline void execute_on_field_set( FieldSet<fid...> ) 
+    {
+      execute_on_fields( onika::soatl::FieldId<fid>{} ... );
+    }
+
+    // -----------------------------------------------
+    // -----------------------------------------------
+    inline std::string documentation() const override final
+    {
+      return R"EOF(create 1D Plots from histograms of particle field values)EOF";
+    }    
+
   };
 
   // === register factories ===  
