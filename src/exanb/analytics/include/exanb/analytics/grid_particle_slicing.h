@@ -79,7 +79,7 @@ namespace exanb
       ParallelExecutionFuncT& parallel_execution_context;
       onika::Plot1DSet & m_plot_set;
       std::function<bool(const std::string&)> m_field_selector;
-      std::function<std::string(const std::string&)> name_filter;
+      std::function<bool(const std::string&)> m_field_average;
       
       template<class GridT, class FidT >
       inline void operator () ( const GridT& grid , const FidT& proj_field )
@@ -99,10 +99,17 @@ namespace exanb
             SliceAccumulatorFunctor<ParticleFieldAccessorT,FidT> func = { m_pacc, proj_field, m_xform,  m_direction, m_thickness, m_start, m_resolution, plot_data.data() };
             compute_cell_particles( grid , false , func , slice_field_set , parallel_execution_context() );
             MPI_Allreduce( MPI_IN_PLACE, plot_data.data() , m_resolution * 2 , MPI_DOUBLE , MPI_SUM , m_comm );
+            const bool avg = m_field_average(name);
             for(long i=0;i<m_resolution;i++)
             {
-              if( plot_data[i].first > 0.0 ) plot_data[i].second /= plot_data[i].first;
-              else plot_data[i].second = 0.0;
+              if( plot_data[i].first > 0.0 )
+              {
+                if( avg ) plot_data[i].second /= plot_data[i].first;
+              }
+              else
+              {
+                plot_data[i].second = 0.0;
+              }
               plot_data[i].first = m_start + (i+0.5) * m_thickness;
             }
           }
@@ -136,7 +143,7 @@ namespace exanb
     onika::Plot1DSet& plots,
     ParticleAcessorT pacc,
     std::function<bool(const std::string&)> field_selector,
-    std::function<std::string(const std::string&)> name_filter,
+    std::function<bool(const std::string&)> field_average,
     ParallelExecutionFuncT parallel_execution_context,
     const FieldsOrCombiners& ... fc )
   {
@@ -158,7 +165,7 @@ namespace exanb
     
     // project particle quantities to cells
     using GridParticleSlicer = SliceParticleField<ParticleAcessorT,ParallelExecutionFuncT>;
-    GridParticleSlicer slicer = { pacc, xform, dir, thickness, pos_min_max.first, resolution, comm, parallel_execution_context , plots, field_selector, name_filter };
+    GridParticleSlicer slicer = { pacc, xform, dir, thickness, pos_min_max.first, resolution, comm, parallel_execution_context , plots, field_selector, field_average };
     apply_grid_fields( grid, slicer , fc ... );
   }
 

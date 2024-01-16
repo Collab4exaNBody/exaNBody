@@ -64,7 +64,6 @@ namespace exanb
       ParallelExecutionFuncT parallel_execution_context;
       onika::Plot1DSet & m_plot_set;
       std::function<bool(const std::string&)> m_field_selector;
-      std::function<std::string(const std::string&)> name_filter;
 
       template<class GridT, class FidT >
       inline void operator () ( const GridT& grid , const FidT& proj_field )
@@ -126,7 +125,6 @@ namespace exanb
     long resolution,
     onika::Plot1DSet& plots,
     std::function<bool(const std::string&)> field_selector,
-    std::function<std::string(const std::string&)> name_filter,
     ParallelExecutionFuncT parallel_execution_context,
     const FieldsOrCombiners& ... fc )
   {
@@ -136,7 +134,7 @@ namespace exanb
     
     // project particle quantities to cells
     using Histogrammer = HistogramParticleField<ParallelExecutionFuncT>;
-    Histogrammer func = { resolution, comm, parallel_execution_context , plots, field_selector, name_filter };
+    Histogrammer func = { resolution, comm, parallel_execution_context , plots, field_selector };
     apply_grid_fields( grid, func , fc ... );
   }
 

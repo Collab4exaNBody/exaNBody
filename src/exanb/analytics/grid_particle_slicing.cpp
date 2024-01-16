@@ -29,14 +29,15 @@ namespace exanb
     using StringMap = std::map<std::string,std::string>;
     static constexpr FieldSet<field::_rx,field::_ry,field::_rz> reduce_field_set {};
     
-    ADD_SLOT( MPI_Comm   , mpi        , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( GridT      , grid       , INPUT , REQUIRED );
-    ADD_SLOT( Domain     , domain     , INPUT , REQUIRED );
-    ADD_SLOT( double     , thickness  , INPUT , 1.0 );
-    ADD_SLOT( Vec3d      , direction  , INPUT , Vec3d{1,0,0} );
-    ADD_SLOT( StringList , fields     , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
-    ADD_SLOT( StringMap  , plot_names , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
-    ADD_SLOT( Plot1DSet  , plots      , INPUT_OUTPUT );
+    ADD_SLOT( MPI_Comm   , mpi       , INPUT , MPI_COMM_WORLD );
+    ADD_SLOT( GridT      , grid      , INPUT , REQUIRED );
+    ADD_SLOT( Domain     , domain    , INPUT , REQUIRED );
+    ADD_SLOT( double     , thickness , INPUT , 1.0 );
+    ADD_SLOT( Vec3d      , direction , INPUT , Vec3d{1,0,0} );
+    ADD_SLOT( StringList , fields    , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
+    ADD_SLOT( StringMap  , caption   , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
+    ADD_SLOT( StringList , average   , INPUT , StringMap{} , DocString{"for each fields, indicate if normalization is needed (divide by number of cnotributions)"} );
+    ADD_SLOT( Plot1DSet  , plots     , INPUT_OUTPUT );
 
   public:
 
@@ -49,14 +50,20 @@ namespace exanb
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
+      ldbg << "grid_particle_slicing: fields =";
+      for(const auto& f: *fields) ldbg << " "<< f;
+      ldbg << std::endl;
+      
       const auto& flist = *fields;
-      const auto& pnames = *plot_names;
-      auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-      auto name_filter = [&pnames] ( const std::string& name ) -> const std::string& { auto it=pnames.find(name); if(it!=pnames.end()) return it->second; else return name; } ;
+      const auto& avg = *average;
+      auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; };
+      auto field_average = [&avg] ( const std::string& name ) -> bool { for(const auto& f:avg) if( std::regex_match(name,std::regex(f)) ) return true; return false; };
       auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
       using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
       ParticleAcessor pacc = {grid->cells()};
-      slice_grid_particles( *mpi, *grid, domain->xform(), *direction, *thickness, *plots, pacc, field_selector, name_filter, pecfunc, grid_fields... );
+      slice_grid_particles( *mpi, *grid, domain->xform(), *direction, *thickness, *plots, pacc, field_selector, field_average, pecfunc, grid_fields... );
+      for(const auto& f: *fields) { plots->m_captions[ f ] = f; }
+      for(const auto& c: *caption) { plots->m_captions[ c.first ] = c.second; }
     }
 
     template<class... fid>

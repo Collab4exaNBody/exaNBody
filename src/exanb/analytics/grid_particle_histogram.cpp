@@ -22,9 +22,9 @@ namespace exaStamp
     ADD_SLOT( MPI_Comm   , mpi       , INPUT , REQUIRED );
     ADD_SLOT( GridT      , grid      , INPUT , REQUIRED );
     ADD_SLOT( long       , samples   , INPUT , 1024 );
-    ADD_SLOT( StringList , fields     , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
-    ADD_SLOT( StringMap  , plot_names , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
-    ADD_SLOT( Plot1DSet  , plots      , INPUT_OUTPUT );
+    ADD_SLOT( StringList , fields    , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
+    ADD_SLOT( StringMap  , caption   , INPUT , StringMap{} , DocString{"map plot names to optional captions"} );
+    ADD_SLOT( Plot1DSet  , plots     , INPUT_OUTPUT );
 
   public:
     inline void execute ()  override final
@@ -37,11 +37,11 @@ namespace exaStamp
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
       const auto& flist = *fields;
-      const auto& pnames = *plot_names;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-      auto name_filter = [&pnames] ( const std::string& name ) -> const std::string& { auto it=pnames.find(name); if(it!=pnames.end()) return it->second; else return name; } ;
       auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
-      grid_particles_histogram( *mpi, *grid,  *samples, *plots, field_selector, name_filter, pecfunc, grid_fields... );
+      grid_particles_histogram( *mpi, *grid,  *samples, *plots, field_selector, pecfunc, grid_fields... );
+      for(const auto& f: *fields) { plots->m_captions[ f ] = f; }
+      for(const auto& c: *caption) { plots->m_captions[ c.first ] = c.second; }
     }
 
     template<class... fid>
