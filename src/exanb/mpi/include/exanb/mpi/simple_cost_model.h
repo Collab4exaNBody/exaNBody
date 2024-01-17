@@ -27,8 +27,7 @@ namespace exanb
   class SimpleCostModel : public OperatorNode
   {
     using has_weighting_field_t = typename GridT:: template HasField <WeightingFieldT>;
-    static constexpr bool has_weighting_field = has_weighting_field_t::value;
-    static constexpr onika::soatl::FieldId<WeightingFieldT> WeightingField{};
+    static inline constexpr bool has_weighting_field = has_weighting_field_t::value;
     using DoubleVector = std::vector<double>;
 
     ADD_SLOT( GridT , grid ,INPUT);
@@ -111,12 +110,15 @@ namespace exanb
           const size_t N = cells[cell_i].size();
           double np = N;
           if constexpr ( has_weighting_field )
-          if ( cweight != nullptr )
           {
-            np = 0.0;
-            for(size_t j=0;j<N;j++)
+            static constexpr onika::soatl::FieldId<WeightingFieldT> WeightingField = {};
+            if ( cweight != nullptr )
             {
-              np += cweight[ static_cast<unsigned long>( cells[cell_i][WeightingField][j] ) ];
+              np = 0.0;
+              for(size_t j=0;j<N;j++)
+              {
+                np += cweight[ static_cast<unsigned long>( cells[cell_i][WeightingField][j] ) ];
+              }
             }
           }
 

@@ -131,7 +131,7 @@ namespace exanb
     
     size_t total_full_pairs = 0;
     size_t total_partial_pairs = 0;
-    size_t n_resolution_pairs = unique_pair_count(max_res+1);
+    [[maybe_unused]] size_t n_resolution_pairs = unique_pair_count(max_res+1);
     n_resolution_pairs = 0;
     
     for(int res_b=1;res_b<=max_res;res_b++)

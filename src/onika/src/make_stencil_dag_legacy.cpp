@@ -175,7 +175,7 @@ namespace onika
       ssize_t max_dist = 0;
       do
       {
-        assert( conv_max_passes > 0 ); // ensures there's no cycle
+        if( conv_max_passes <= 0 ) std::abort(); // ensures there's no cycle
         -- conv_max_passes;
         conv_max_dist = true;
         max_dist = -1;

@@ -692,7 +692,7 @@ namespace exanb
       std::vector<double> gpu_min_time, gpu_max_time, gpu_avg_time;
       size_t gpu_total_exec_count = m_gpu_times.size();
       double gpu_total_exec_time = 0.0;
-      double gpu_avg_inbalance = 0.0;
+      [[maybe_unused]] double gpu_avg_inbalance = 0.0;
       double gpu_max_inbalance = 0.0;
       // check GPU executions counts consistency
       {

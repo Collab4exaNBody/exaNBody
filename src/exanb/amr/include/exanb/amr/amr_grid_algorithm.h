@@ -373,7 +373,7 @@ namespace exanb
     sub_grid_start.assign( n_cells + 1 , 0 );
 
     //m_sub_grid_side.resize( n_cells );
-    size_t total_grid_size = 0;
+    [[maybe_unused]] size_t total_grid_size = 0;
     sub_grid_start[0] = 0;
 
     int max_res = 0;

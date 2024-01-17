@@ -237,12 +237,12 @@ void taskgroup_termination()
 
 void outside_taskgroup_dependence()
 {
-  int task_A = 0;
-  int task_B = 0;
-  int task_C = 0;
-  int task_D = 0;
-  int task_E = 0;
-  int task_F = 0;
+  [[maybe_unused]] int task_A = 0;
+  [[maybe_unused]] int task_B = 0;
+  [[maybe_unused]] int task_C = 0;
+  [[maybe_unused]] int task_D = 0;
+  [[maybe_unused]] int task_E = 0;
+  [[maybe_unused]] int task_F = 0;
 
 # pragma omp parallel
   {
@@ -342,7 +342,7 @@ void taskset_termination_detection()
 #   pragma omp single
     {
       
-#     pragma omp task default(none) shared(taskgroup_counter,cout)
+#     pragma omp task default(none) shared(nb_tasks,taskgroup_counter,cout)
       {
         int c = taskgroup_counter.load( std::memory_order_relaxed );
         do
@@ -433,9 +433,9 @@ void taskgroup_in_task()
 {
   int group_A=0;
 
-  int task_A1=0;
-  int task_B1=0;
-  int task_C1=0;
+  [[maybe_unused]] int task_A1=0;
+  [[maybe_unused]] int task_B1=0;
+  [[maybe_unused]] int task_C1=0;
 
   using std::cout;
   using std::endl;

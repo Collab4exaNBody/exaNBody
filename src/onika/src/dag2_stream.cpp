@@ -159,9 +159,9 @@ namespace onika
                                 ZeroArray<size_t,Nd>::zero , gscaling , 0. , width , gsize + wave_margin*2 ) << "] ;\n";
         }
       }
-      double posavg = 0.0;
-      for(const auto& p:node_coords) posavg += p.first;
-      posavg /= n_cells;
+      // double posavg = 0.0;
+      // for(const auto& p:node_coords) posavg += p.first;
+      // posavg /= n_cells;
       // ************************************************************************
 
       auto compute_bb = [&](int dd, double bb[4]) -> void

@@ -414,7 +414,7 @@ namespace exanb
   // execute this batch
   void OperatorBatchNode::execute()
   {
-    size_t iteration_count = 0;
+    //size_t iteration_count = 0;
     bool continue_loop = true;
 
     while( continue_loop )
@@ -466,7 +466,7 @@ namespace exanb
         for(const auto& f : m_ops) f->run();
       }
       
-      ++ iteration_count;
+      // ++ iteration_count;
       
       if( is_looping() ) { continue_loop = eval_condition(); }
       else { continue_loop = false; }

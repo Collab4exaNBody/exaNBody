@@ -111,7 +111,7 @@ template<typename... T>
 static inline void check_simd_pointers( size_t N, T* ... arraypack )
 {
 	check_pointers_aliasing(N,arraypack...);
-	size_t addr;
+	[[maybe_unused]] size_t addr;
 	TEMPLATE_LIST_BEGIN
 		addr = reinterpret_cast<size_t>(arraypack) ,
 		assert( ( addr % SimdRequirements<T>::alignment ) == 0 && "Address does not have correct alignment" )

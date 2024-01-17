@@ -195,7 +195,7 @@ namespace onika
       inline void operator () (uint64_t i) const override final { m_func(i); }
       inline void operator () (uint64_t i, uint64_t end) const override final { for(;i<end;i++) m_func(i); }
       inline void operator () (const uint64_t* __restrict__ idx, uint64_t N) const override final { for(uint64_t i=0;i<N;i++) m_func(idx[i]); }
-      inline ~BlockParallelForHostAdapter() override final {}
+      inline ~BlockParallelForHostAdapter() override {}
     };
 
 

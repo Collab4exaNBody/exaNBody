@@ -65,7 +65,6 @@ macro(exaNBodyStartApplication)
   # CPU cores detection
   message(STATUS "Host hardware : partition ${HOST_HW_PARTITION} has ${HOST_HW_CORES} core(s) and ${HOST_HW_THREADS} thread(s)")
 
-
   # =======================================
   # === Third party tools and libraries ===
   # =======================================
@@ -96,10 +95,22 @@ macro(exaNBodyStartApplication)
     find_package(yaml-cpp REQUIRED)
   endif()
 
+  if(XNB_ENABLE_HIP)
+    if(NOT ROCM_INSTALL_ROOT)
+      set(ROCM_INSTALL_ROOT "/opt/rocm")
+    endif()
+    list(APPEND CMAKE_MODULE_PATH "${ROCM_INSTALL_ROOT}/share/rocm/cmake")
+    find_package(ROCM REQUIRED)
+    enable_language(HIP)
+  endif()
+
   find_package(OpenMP REQUIRED)
 
-  if(OpenMP_CXX_VERSION GREATER_EQUAL 2.0)
+  if(OpenMP_CXX_VERSION)
     set(XSTAMP_OMP_FLAGS -DXSTAMP_OMP_VERSION=${OpenMP_CXX_VERSION})
+  else()
+    message(STATUS "OpenMP version not found, setting it to 3.0")
+    set(XSTAMP_OMP_FLAGS -DXSTAMP_OMP_VERSION=3.0)
   endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     set(XSTAMP_OMP_NUM_THREADS_WORKAROUND_DEFAULT ON)
@@ -146,18 +157,20 @@ macro(exaNBodyStartApplication)
   # ===================================
   # ============ Cuda =================
   # ===================================
-  option(XSTAMP_BUILD_CUDA "Enable Cuda Acceleration" OFF)
-  set(ONIKA_FORCE_CUDA_OPTION ON)
-  set(ONIKA_USE_CUDA ${XSTAMP_BUILD_CUDA})
-  if(XSTAMP_BUILD_CUDA)
-    enable_language(CUDA)
-    message(STATUS "Exastamp uses CUDA ${CMAKE_CUDA_COMPILER_VERSION} (arch ${CMAKE_CUDA_ARCHITECTURES})")
-    set(XSTAMP_CUDA_COMPILE_DEFINITIONS -DXSTAMP_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
-    get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
-    set(CUDA_ROOT ${CUDA_BIN}/..)
-    set(CUDA_INCLUDE_DIR ${CUDA_ROOT}/include)
-    set(CUDA_LIBRARY_DIR ${CUDA_ROOT}/lib64)
-    set(CUDA_LIBRARIES cudart)
+  if(NOT XNB_ENABLE_HIP)
+    option(XSTAMP_BUILD_CUDA "Enable Cuda Acceleration" OFF)
+    set(ONIKA_FORCE_CUDA_OPTION ON)
+    set(ONIKA_USE_CUDA ${XSTAMP_BUILD_CUDA})
+    if(XSTAMP_BUILD_CUDA)
+      enable_language(CUDA)
+      message(STATUS "Exastamp uses CUDA ${CMAKE_CUDA_COMPILER_VERSION} (arch ${CMAKE_CUDA_ARCHITECTURES})")
+      set(XSTAMP_CUDA_COMPILE_DEFINITIONS -DXSTAMP_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
+      get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
+      set(CUDA_ROOT ${CUDA_BIN}/..)
+      set(CUDA_INCLUDE_DIR ${CUDA_ROOT}/include)
+      set(CUDA_LIBRARY_DIR ${CUDA_ROOT}/lib64)
+      set(CUDA_LIBRARIES cudart)
+    endif()
   endif()
 
   # ======================================================
