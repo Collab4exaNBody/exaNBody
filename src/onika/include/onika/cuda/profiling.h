@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cuda_runtime.h>
 #include <onika/cuda/cuda.h>
+#include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
 
 namespace onika

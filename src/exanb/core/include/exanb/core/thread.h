@@ -11,7 +11,7 @@
 #include <functional>
 
 #include <onika/debug.h>
-#include <onika/cuda/cuda.h>
+#include <onika/cuda/cuda_context.h>
 
 namespace exanb
 {

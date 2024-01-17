@@ -41,8 +41,8 @@ namespace onika
     ParallelExecutionContext::~ParallelExecutionContext()
     {
       reset();
-      if( m_start_evt != nullptr ) { ONIKA_CU_DESTROY_EVENT( m_start_evt ); }
-      if( m_stop_evt != nullptr ) { ONIKA_CU_DESTROY_EVENT( m_stop_evt ); }      
+      if( m_start_evt != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_start_evt ) ); }
+      if( m_stop_evt  != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_stop_evt  ) ); }
     }
      
     bool ParallelExecutionContext::has_gpu_context() const
@@ -100,7 +100,7 @@ namespace onika
       // ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
     }
 
-    void ParallelExecutionContext::execution_end_callback( cudaStream_t stream,  cudaError_t status, void*  userData )
+    void ParallelExecutionContext::execution_end_callback( onikaStream_t stream,  onikaError_t status, void*  userData )
     {
       const ParallelExecutionContext * pec = reinterpret_cast<const ParallelExecutionContext *>( userData );
       if( pec != nullptr && pec->m_execution_end_callback.m_func != nullptr )

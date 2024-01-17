@@ -101,8 +101,8 @@ namespace onika
       bool m_reset_counters = false;
 
       // executuion profiling 
-      cudaEvent_t m_start_evt = nullptr;
-      cudaEvent_t m_stop_evt = nullptr;
+      onikaEvent_t m_start_evt = nullptr;
+      onikaEvent_t m_stop_evt = nullptr;
       double m_total_cpu_execution_time = 0.0;
       double m_total_gpu_execution_time = 0.0;
 
@@ -136,7 +136,7 @@ namespace onika
       }
       
       // callback trampoline function
-      static void execution_end_callback( cudaStream_t stream,  cudaError_t status, void*  userData );
+      static void execution_end_callback( onikaStream_t stream,  onikaError_t status, void*  userData );
       
       // ============ global configuration variables ===============
       static int s_parallel_task_core_mult;

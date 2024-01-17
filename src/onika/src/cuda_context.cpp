@@ -17,7 +17,7 @@ namespace onika
       return m_devices.size();
     }
     
-    cudaStream_t CudaContext::getThreadStream(unsigned int tid)
+    onikaStream_t CudaContext::getThreadStream(unsigned int tid)
     {
       if( tid >= m_threadStream.size() )
       {

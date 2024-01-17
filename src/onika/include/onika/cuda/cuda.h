@@ -10,6 +10,15 @@
 #include <thread>
 #include <onika/macro_utils.h>
 
+#ifdef ONIKA_CUDA_VERSION
+#ifdef ONIKA_HIP_VERSION
+#include <hip/hip_runtime.h>
+#else
+#include <cuda_runtime.h>
+#endif
+#endif
+
+
 #ifndef ONIKA_CU_MAX_THREADS_PER_BLOCK
 #define ONIKA_CU_MAX_THREADS_PER_BLOCK 128
 #endif
@@ -40,11 +49,19 @@ namespace onika
     using onika_cu_memory_order_t = std::memory_order;
 
     /************** start of Cuda code definitions ***************/
-#   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
+#   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
     using gpu_device_execution_t = std::true_type;
 
-    [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort() { __threadfence(); __trap(); __builtin_unreachable(); }
+    [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort()
+    {
+#     if defined(__HIP_DEVICE_COMPILE__)
+      abort();
+#     else
+      __threadfence(); __trap();
+#     endif
+      __builtin_unreachable();
+    }
 
 #   define ONIKA_CU_GRID_CONSTANT       __grid_constant__
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
@@ -80,7 +97,17 @@ namespace onika
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! atomicCAS((uint32_t*)&(f),0,1) )
 #   define ONIKA_CU_ATOMIC_FLAG_CLEAR(f) * (volatile uint32_t *) &(f) = 0
 
+#   if defined(__HIP_DEVICE_COMPILE__)
+    __device__ inline void _hip_nanosleep(long long nanosecs)
+    {
+      static constexpr long long ticks_per_nanosec = 1;
+      const long long start = clock64();
+      while( ( clock64() - start ) < (nanosecs*ticks_per_nanosec) );
+    }
+#   define ONIKA_CU_NANOSLEEP(ns) _hip_nanosleep(ns)
+#   else
 #   define ONIKA_CU_NANOSLEEP(ns) __nanosleep(ns)
+#   endif
 
 #   define ONIKA_CU_CLOCK() clock64()
 #   define ONIKA_CU_CLOCK_ELAPSED(a,b) ((b)-(a))
@@ -183,7 +210,7 @@ namespace onika { namespace cuda { namespace _details {
 
 
 /************** begin cuda-c code definitions ***************/
-#   if defined(__CUDACC__) || defined(__HIPCC__)
+#   if defined(__CUDACC__) || defined(__HIPCC__)
 
 #   define ONIKA_DEVICE_KERNEL_FUNC __global__
 #   if ONIKA_CU_ENABLE_KERNEL_BOUNDS == 1

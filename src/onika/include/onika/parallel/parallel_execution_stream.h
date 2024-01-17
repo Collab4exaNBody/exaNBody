@@ -20,7 +20,7 @@ namespace onika
       // GPU device context, null if non device available for parallel execution
       // any parallel executiion enqueued to this stream must have either a null CudaContext or the same context as the stream
       onika::cuda::CudaContext* m_cuda_ctx = nullptr; 
-      cudaStream_t m_cu_stream = 0;
+      onikaStream_t m_cu_stream = 0;
       uint32_t m_stream_id = 0;
       std::atomic<uint32_t> m_omp_execution_count = 0;
       std::mutex m_mutex;
@@ -135,7 +135,7 @@ namespace onika
         if( m_stream->m_cuda_ctx != nullptr && m_queue != nullptr )
         {
           assert( m_queue->m_stop_evt != nullptr );
-          if( cudaEventQuery( m_queue->m_stop_evt ) != cudaSuccess )
+          if( ONIKA_CU_EVENT_QUERY( m_queue->m_stop_evt ) != onikaSuccess )
           {
             return false;
           }
@@ -241,7 +241,7 @@ namespace onika
           // inserts a callback to stream if user passed one in
           if( pec.m_execution_end_callback.m_func != nullptr )
           {
-            ONIKA_CU_CHECK_ERRORS( cudaStreamAddCallback(pes.m_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , &pec , 0 ) );
+            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK(pes.m_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , &pec , 0 ) );
           }
           
           // inserts stop event to account for total execution time

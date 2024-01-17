@@ -2,10 +2,8 @@
 #include <malloc.h>
 
 #ifdef ONIKA_CUDA_VERSION
-#include <cuda_runtime.h>
+#include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
-//#include <helper_cuda.h>
-//#include <helper_functions.h>
 #endif
 
 #include <onika/memory/allocator.h>
@@ -117,7 +115,7 @@ namespace onika
 #         endif
 #         ifdef ONIKA_CUDA_VERSION
           // lout << "cudaFree(@"<<ptr<<","<<s<<") a="<<alignment<<std::endl;
-          ONIKA_CU_CHECK_ERRORS( cudaFree(info.alloc_base) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
 #         else
           std::cerr << "Free memory with type CUDA_HOST but cuda is not available" << std::endl;
           std::abort();
@@ -151,7 +149,7 @@ namespace onika
         {
 #         if defined(ONIKA_CUDA_VERSION)
           ptr = nullptr;
-          ONIKA_CU_CHECK_ERRORS( cudaMallocManaged( &ptr, s + add_info_size ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC_MANAGED( &ptr, s + add_info_size ) );
           auto pa = reinterpret_cast<uint8_t*>(ptr) - (uint8_t*)nullptr;
           if( ( pa % a ) != 0 )
           {
