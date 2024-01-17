@@ -1,7 +1,14 @@
 #pragma once
 
 #ifdef ONIKA_CUDA_VERSION
+#ifdef ONIKA_HIP_VERSION
+#include <hip_runtime.h>
+#define ONIKA_CU_MALLOC(devPtrPtr,N) hipMalloc(devPtrPtr,N)
+#define ONIKA_CU_FREE(devPtr) hipFree(devPtr)
+#else
 #include <cuda_runtime.h>
+#define ONIKA_CU_MALLOC(devPtrPtr,N) cudaMalloc(devPtrPtr,N)
+#define ONIKA_CU_FREE(devPtr) cudaFree(devPtr)
 #endif // ONIKA_CUDA_VERSION
 
 #include <onika/memory/memory_usage.h>
@@ -33,8 +40,8 @@ namespace onika
       static inline CudaDeviceStorage<T> New(CudaDevice& dev, size_t n = 1)
       {
         T* devPtr = nullptr;
-#       ifdef ONIKA_CUDA_VERSION
-          cudaMalloc( & devPtr , sizeof(T) * n );
+#       if defined(ONIKA_CUDA_VERSION) || defined(ONIKA_HIP_VERSION)
+          ONIKA_CU_MALLOC( & devPtr , sizeof(T) * n );
 #       else
           devPtr = new T [ n ];
 #       endif
@@ -52,8 +59,8 @@ namespace onika
             delete m_shared;
             if( m_ptr != nullptr )
             {
-#           ifdef ONIKA_CUDA_VERSION
-              cudaFree( m_ptr );
+#           if defined(ONIKA_CUDA_VERSION) || defined(ONIKA_HIP_VERSION)
+              ONIKA_CU_FREE( m_ptr );
 #           else
               delete [] m_ptr;
 #           endif

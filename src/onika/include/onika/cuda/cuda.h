@@ -39,17 +39,12 @@ namespace onika
 
     using onika_cu_memory_order_t = std::memory_order;
 
-
     /************** start of Cuda code definitions ***************/
-#   ifdef __CUDA_ARCH__
+#   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
     using gpu_device_execution_t = std::true_type;
 
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort() { __threadfence(); __trap(); __builtin_unreachable(); }
-# if __CUDA_ARCH__ < 600
-#error atomicAdd(double) not available
-# endif
-
 
 #   define ONIKA_CU_GRID_CONSTANT       __grid_constant__
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
@@ -101,7 +96,7 @@ namespace onika
 #   define ONIKA_CU_ABORT() ::onika::cuda::__onika_cu_abort()
 
 
-/************** end of Cuda code definitions ***************/
+/************** end of Device code definitions ***************/
 #else 
 /************** start of HOST code definitions ***************/
 
@@ -188,7 +183,7 @@ namespace onika { namespace cuda { namespace _details {
 
 
 /************** begin cuda-c code definitions ***************/
-#   ifdef __CUDACC__
+#   if defined(__CUDACC__) || defined(__HIPCC__)
 
 #   define ONIKA_DEVICE_KERNEL_FUNC __global__
 #   if ONIKA_CU_ENABLE_KERNEL_BOUNDS == 1
@@ -224,15 +219,26 @@ namespace onika { namespace cuda { namespace _details {
 /***************************************************************/
 /************************ Cuda API calls ***********************/
 /***************************************************************/
-# ifdef ONIKA_CUDA_VERSION
-#   define ONIKA_CU_CREATE_EVENT(EVT) cudaEventCreate(&EVT)
-#   define ONIKA_CU_DESTROY_EVENT(EVT) cudaEventDestroy(EVT)
-#   define ONIKA_CU_STREAM_EVENT(EVT,STREAM) cudaEventRecord(EVT,STREAM)
-#   define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) cudaEventElapsedTime(&T,EVT1,EVT2)
-#   define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  cudaStreamSynchronize(STREAM)
-#   define ONIKA_CU_SET_DEVICE(dev)  cudaSetDevice(dev)
-#   define ONIKA_CU_MEMSET(p,v,n,...) cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_MEMCPY(d,s,n,...) cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+# ifdef ONIKA_CUDA_VERSION // defined for any GPU backend accelerator
+#   ifdef ONIKA_HIP_VERSION // defined only for HIP backend
+#     define ONIKA_CU_CREATE_EVENT(EVT) hipEventCreate(&EVT)
+#     define ONIKA_CU_DESTROY_EVENT(EVT) hipEventDestroy(EVT)
+#     define ONIKA_CU_STREAM_EVENT(EVT,STREAM) hipEventRecord(EVT,STREAM)
+#     define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) hipEventElapsedTime(&T,EVT1,EVT2)
+#     define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  hipStreamSynchronize(STREAM)
+#     define ONIKA_CU_SET_DEVICE(dev)  hipSetDevice(dev)
+#     define ONIKA_CU_MEMSET(p,v,n,...) hipMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#     define ONIKA_CU_MEMCPY(d,s,n,...) hipMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#   else
+#     define ONIKA_CU_CREATE_EVENT(EVT) cudaEventCreate(&EVT)
+#     define ONIKA_CU_DESTROY_EVENT(EVT) cudaEventDestroy(EVT)
+#     define ONIKA_CU_STREAM_EVENT(EVT,STREAM) cudaEventRecord(EVT,STREAM)
+#     define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) cudaEventElapsedTime(&T,EVT1,EVT2)
+#     define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  cudaStreamSynchronize(STREAM)
+#     define ONIKA_CU_SET_DEVICE(dev)  cudaSetDevice(dev)
+#     define ONIKA_CU_MEMSET(p,v,n,...) cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#     define ONIKA_CU_MEMCPY(d,s,n,...) cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
+#   endif
 # else
 #   define ONIKA_CU_CREATE_EVENT(EVT) _fake_cuda_api_noop(EVT=nullptr)
 #   define ONIKA_CU_DESTROY_EVENT(EVT) _fake_cuda_api_noop(EVT=nullptr)
@@ -251,7 +257,7 @@ namespace onika { namespace cuda { namespace _details {
 /****************** Cuda hardware intrinsics *******************/
 /***************************************************************/
 
-#   ifdef __CUDA_ARCH__
+#   if defined(__CUDA_ARCH__)
     __noinline__  __device__ inline unsigned int get_smid(void)
     {
       unsigned int ret;

@@ -45,15 +45,15 @@ namespace onika
     inline int max_overlapped_blocks_per_sm(unsigned int BlockSize, FuncT func , Args ... args)
     {
       SMOverlapCounters * d_counters = nullptr;
-      checkCudaErrors( cudaMalloc(&d_counters , sizeof(SMOverlapCounters) ) );
-      checkCudaErrors( cudaMemset(d_counters, 0, sizeof(SMOverlapCounters) ) );
+      ONIKA_CU_CHECK_ERRORS( cudaMalloc(&d_counters , sizeof(SMOverlapCounters) ) );
+      ONIKA_CU_CHECK_ERRORS( cudaMemset(d_counters, 0, sizeof(SMOverlapCounters) ) );
 
       max_overlapped_blocks_per_sm_kernel<<< CUDA_MAX_SM_COUNT*8 , BlockSize >>>( d_counters, func, args... );
-      checkCudaErrors( cudaDeviceSynchronize() );
+      ONIKA_CU_CHECK_ERRORS( cudaDeviceSynchronize() );
       
       SMOverlapCounters h_counters;
-      checkCudaErrors( cudaMemcpy(&h_counters, d_counters, sizeof(SMOverlapCounters), cudaMemcpyDeviceToHost) );
-      checkCudaErrors( cudaFree(d_counters) );
+      ONIKA_CU_CHECK_ERRORS( cudaMemcpy(&h_counters, d_counters, sizeof(SMOverlapCounters), cudaMemcpyDeviceToHost) );
+      ONIKA_CU_CHECK_ERRORS( cudaFree(d_counters) );
 
       int max_overlap = 0;
       for(unsigned int i=0;i<CUDA_MAX_SM_COUNT;i++)

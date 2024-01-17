@@ -303,9 +303,9 @@ int main(int argc,char*argv[])
   // ===============================================
 
   // get number of available GPUs, if any 
-# ifdef XSTAMP_CUDA_VERSION
+# ifdef XNB_CUDA_VERSION
   int n_gpus = 0;
-  checkCudaErrors( cudaGetDeviceCount(&n_gpus) );
+  ONIKA_CU_CHECK_ERRORS( cudaGetDeviceCount(&n_gpus) );
   if( n_gpus <= 0 ) { onika::memory::GenericHostAllocator::set_cuda_enabled( false ); }
 # endif
 
@@ -346,8 +346,8 @@ int main(int argc,char*argv[])
                       << ( ( configuration.omp_max_nesting > 1 ) ? format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
-# ifdef XSTAMP_CUDA_VERSION
-       lout << "Cuda    : v"<< USTAMP_STR(XSTAMP_CUDA_VERSION);
+# ifdef XNB_CUDA_VERSION
+       lout << "Cuda    : v"<< USTAMP_STR(XNB_CUDA_VERSION);
        if(n_gpus==0) lout<< " (no GPU)"<< endl;
        else if(n_gpus==1) lout<< " (1 GPU)"<< endl;
        else lout<< " ("<< n_gpus<<" GPUs)"<< endl;

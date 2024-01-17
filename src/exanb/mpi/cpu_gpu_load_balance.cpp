@@ -13,7 +13,7 @@
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/cpu_gpu_partition.h>
 
-#ifdef XSTAMP_CUDA_VERSION
+#ifdef XNB_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
 #endif
 
@@ -50,7 +50,7 @@ namespace exanb
       }
       GRID_FOR_END
    
-#     ifdef XSTAMP_CUDA_VERSION
+#     ifdef XNB_CUDA_VERSION
       if( parallel_execution_context()->has_gpu_context() )
       {
         //const size_t n_cells = grid_cell_count(grid_dims);

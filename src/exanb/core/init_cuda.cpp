@@ -5,7 +5,7 @@
 #include <exanb/core/string_utils.h>
 #include <exanb/core/value_streamer.h>
 
-#ifdef XSTAMP_CUDA_VERSION
+#ifdef XNB_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
 #include <cuda_runtime.h>
@@ -44,7 +44,7 @@ namespace exanb
 
       lout << "=========== Cuda ================"<<std::endl;
 
-#     ifdef XSTAMP_CUDA_VERSION
+#     ifdef XNB_CUDA_VERSION
 
       std::shared_ptr<onika::cuda::CudaContext> cuda_ctx = nullptr;
 
@@ -99,16 +99,16 @@ namespace exanb
         
         if( ndev > 0 )
         {
-          checkCudaErrors( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );
+          ONIKA_CU_CHECK_ERRORS( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );
           if( smem_bksize.has_value() )
           {
             switch( *smem_bksize )
             {
-              case 4 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
-              case 8 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
+              case 4 : ONIKA_CU_CHECK_ERRORS(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
+              case 8 : ONIKA_CU_CHECK_ERRORS(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
               default:
                 lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
-                checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
+                ONIKA_CU_CHECK_ERRORS(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
                 break;
             }
           }
@@ -145,12 +145,12 @@ namespace exanb
               
               if( in_value >= 0 )
               {
-                checkCudaErrors( cudaDeviceSetLimit( limit , in_value ) ); 
+                ONIKA_CU_CHECK_ERRORS( cudaDeviceSetLimit( limit , in_value ) ); 
               }
               else
               {
                 size_t value = 0;
-                checkCudaErrors( cudaDeviceGetLimit ( &value, limit ) );
+                ONIKA_CU_CHECK_ERRORS( cudaDeviceGetLimit ( &value, limit ) );
                 lout << dl.first << " = " << value << std::endl;
               }
             }
@@ -168,7 +168,7 @@ namespace exanb
 
         for(int i=0;i<ndev;i++)
         {
-          checkCudaErrors( cudaGetDeviceProperties( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
+          ONIKA_CU_CHECK_ERRORS( cudaGetDeviceProperties( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
           if( i==0 ) { device_name = cuda_ctx->m_devices[i].m_deviceProp.name; }
           else if( device_name != cuda_ctx->m_devices[i].m_deviceProp.name ) { lerr<<"WARNING: Mixed GPU devices"<<std::endl; }
           bool mm = cuda_ctx->m_devices[i].m_deviceProp.managedMemory;

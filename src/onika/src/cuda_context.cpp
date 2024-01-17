@@ -25,7 +25,7 @@ namespace onika
         m_threadStream.resize( tid+1 , 0 );
         for(;i<m_threadStream.size();i++)
         {
-          checkCudaErrors( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
         }
       }
       return m_threadStream[tid];

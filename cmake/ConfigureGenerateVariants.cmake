@@ -195,7 +195,7 @@ function(GenerateDirectorySourceFilesFunc dir var outtarget)
   
   foreach(srcfile ${sources})
     file(READ ${srcfile} srcdata)
-    if("${srcdata}" MATCHES "#[ \t]*pragma[ \t]+xstamp_cuda_enable" AND XSTAMP_BUILD_CUDA)
+    if("${srcdata}" MATCHES "#[ \t]*pragma[ \t]+xstamp_cuda_enable" AND XNB_BUILD_CUDA)
 #      message(STATUS "${srcfile} contains xstamp_cuda_enable")
       list(REMOVE_ITEM sources "${srcfile}")
       get_filename_component(srcfile_basename ${srcfile} NAME_WLE)

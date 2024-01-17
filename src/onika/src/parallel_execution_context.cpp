@@ -82,7 +82,7 @@ namespace onika
       }
       m_return_data_input = ptr;
       m_return_data_size = sz;
-      // checkCudaErrors( ONIKA_CU_MEMCPY( m_cuda_scratch->return_data, ptr , sz , m_cuda_stream ) );
+      // ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_cuda_scratch->return_data, ptr , sz , m_cuda_stream ) );
     }
     
     void ParallelExecutionContext::set_return_data_output( void* ptr, size_t sz )
@@ -97,7 +97,7 @@ namespace onika
         std::cerr << "Fatal error: return data size mismatch" << std::endl;
         std::abort();
       }
-      // checkCudaErrors( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
+      // ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
     }
 
     void ParallelExecutionContext::execution_end_callback( cudaStream_t stream,  cudaError_t status, void*  userData )
