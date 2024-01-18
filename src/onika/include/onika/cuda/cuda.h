@@ -133,7 +133,11 @@ namespace onika
 /************** start of HOST code definitions ***************/
 
     template<class T>
-    static inline __host__ __device__ T onika_omp_fetch_add(T* x , const T& a)
+    static inline
+#   ifdef __HIPCC__
+    __host__ __device__
+#   endif
+    T onika_omp_fetch_add(T* x , const T& a)
     {
       T r;
 #     pragma omp atomic capture

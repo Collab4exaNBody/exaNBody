@@ -16,7 +16,7 @@ namespace onika
   {
     inline void assertSuccess(onikaError_t code, const char *file, int line, bool abort_on_failure=true)
     {
-       if( code != hipSuccess ) 
+       if( code != onikaSuccess ) 
        {
           std::cerr << ONIKA_CU_NAME_STR << " error : " << ONIKA_CU_GET_ERROR_STRING(code) <<"\n"<< file << ":"<< line << "\n";
           if( abort_on_failure ) std::abort();

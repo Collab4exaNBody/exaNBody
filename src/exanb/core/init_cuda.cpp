@@ -205,7 +205,7 @@ namespace exanb
       set_global_cuda_ctx( cuda_ctx );
             
 #     else
-      lout <<"Cuda disabled"<<std::endl;
+      lout <<ONIKA_CU_NAME_STR << " disabled"<<std::endl;
 #     endif
       lout << "================================="<<std::endl<<std::endl;
     }
