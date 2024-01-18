@@ -305,7 +305,7 @@ int main(int argc,char*argv[])
   // get number of available GPUs, if any 
 # ifdef XNB_CUDA_VERSION
   int n_gpus = 0;
-  ONIKA_CU_CHECK_ERRORS( cudaGetDeviceCount(&n_gpus) );
+  ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
   if( n_gpus <= 0 ) { onika::memory::GenericHostAllocator::set_cuda_enabled( false ); }
 # endif
 

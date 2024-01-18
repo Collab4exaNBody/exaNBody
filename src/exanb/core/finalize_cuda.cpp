@@ -5,7 +5,6 @@
 
 #ifdef XNB_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
-#include <cuda_runtime.h>
 #include <onika/cuda/cuda_error.h>
 #endif
 
@@ -22,7 +21,7 @@ namespace exanb
       auto cuda_ctx = global_cuda_ctx();
       if( *enable_cuda && cuda_ctx->has_devices() )
       {
-        ONIKA_CU_CHECK_ERRORS( cudaDeviceSynchronize() );
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DEVICE_SYNCHRONIZE() );
         for(const auto &dev : cuda_ctx->m_devices)
         {
           for(const auto& f : dev.m_finalize_destructors) f();
@@ -31,7 +30,7 @@ namespace exanb
         {
           if( s != 0 )
           {
-            ONIKA_CU_CHECK_ERRORS( cudaStreamDestroy( s ) );
+            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_STREAM( s ) );
           }
         }
         cuda_ctx->m_threadStream.clear();

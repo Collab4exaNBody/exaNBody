@@ -580,14 +580,7 @@ namespace exanb
     pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
     pec->m_default_stream = parallel_execution_stream_nolock().get();
     pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
-    if( pec->m_cuda_ctx != nullptr && pec->m_start_evt == nullptr )
-    {
-      ONIKA_CU_CREATE_EVENT( pec->m_start_evt );
-    }
-    if( pec->m_cuda_ctx != nullptr && pec->m_stop_evt == nullptr )
-    {
-      ONIKA_CU_CREATE_EVENT( pec->m_stop_evt );
-    }
+    pec->initialize_stream_events();
     pec->m_finalize = onika::parallel::ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this };
     return pec;
   }

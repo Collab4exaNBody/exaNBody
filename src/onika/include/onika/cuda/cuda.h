@@ -63,7 +63,12 @@ namespace onika
       __builtin_unreachable();
     }
 
+#   ifdef __HIP_DEVICE_COMPILE__
+#   define ONIKA_CU_GRID_CONSTANT       /**/
+#   else
 #   define ONIKA_CU_GRID_CONSTANT       __grid_constant__
+#   endif
+
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
 #   define ONIKA_CU_THREAD_LOCAL        __local__
 #   define ONIKA_CU_BLOCK_SHARED        __shared__
@@ -104,7 +109,7 @@ namespace onika
       const long long start = clock64();
       while( ( clock64() - start ) < (nanosecs*ticks_per_nanosec) );
     }
-#   define ONIKA_CU_NANOSLEEP(ns) _hip_nanosleep(ns)
+#   define ONIKA_CU_NANOSLEEP(ns) ::onika::cuda::_hip_nanosleep(ns)
 #   else
 #   define ONIKA_CU_NANOSLEEP(ns) __nanosleep(ns)
 #   endif
@@ -128,7 +133,7 @@ namespace onika
 /************** start of HOST code definitions ***************/
 
     template<class T>
-    static inline T onika_omp_fetch_add(T* x , const T& a)
+    static inline __host__ __device__ T onika_omp_fetch_add(T* x , const T& a)
     {
       T r;
 #     pragma omp atomic capture
@@ -213,6 +218,12 @@ namespace onika { namespace cuda { namespace _details {
 #   if defined(__CUDACC__) || defined(__HIPCC__)
 
 #   define ONIKA_DEVICE_KERNEL_FUNC __global__
+#   ifdef __HIPCC__
+#   define ONIKA_STATIC_INLINE_KERNEL static
+#   else
+#   define ONIKA_STATIC_INLINE_KERNEL [[maybe_unused]] static
+#   endif
+
 #   if ONIKA_CU_ENABLE_KERNEL_BOUNDS == 1
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) __launch_bounds__(MaxThreadsPerBlock,MinBlocksPerSM)
 #   else
@@ -228,6 +239,7 @@ namespace onika { namespace cuda { namespace _details {
 /************** begin of HOST code definitions ***************/
 
 #   define ONIKA_DEVICE_FUNC /**/
+#   define ONIKA_STATIC_INLINE_KERNEL static inline
 #   define ONIKA_DEVICE_KERNEL_FUNC /**/
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) /**/
 #   define ONIKA_HOST_DEVICE_FUNC /**/
@@ -239,44 +251,6 @@ namespace onika { namespace cuda { namespace _details {
     }while(false)
 #   endif
 /************** end host code definitions ***************/
-
-
-
-
-/***************************************************************/
-/************************ Cuda API calls ***********************/
-/***************************************************************/
-# ifdef ONIKA_CUDA_VERSION // defined for any GPU backend accelerator
-#   ifdef ONIKA_HIP_VERSION // defined only for HIP backend
-#     define ONIKA_CU_CREATE_EVENT(EVT) hipEventCreate(&EVT)
-#     define ONIKA_CU_DESTROY_EVENT(EVT) hipEventDestroy(EVT)
-#     define ONIKA_CU_STREAM_EVENT(EVT,STREAM) hipEventRecord(EVT,STREAM)
-#     define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) hipEventElapsedTime(&T,EVT1,EVT2)
-#     define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  hipStreamSynchronize(STREAM)
-#     define ONIKA_CU_SET_DEVICE(dev)  hipSetDevice(dev)
-#     define ONIKA_CU_MEMSET(p,v,n,...) hipMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#     define ONIKA_CU_MEMCPY(d,s,n,...) hipMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   else
-#     define ONIKA_CU_CREATE_EVENT(EVT) cudaEventCreate(&EVT)
-#     define ONIKA_CU_DESTROY_EVENT(EVT) cudaEventDestroy(EVT)
-#     define ONIKA_CU_STREAM_EVENT(EVT,STREAM) cudaEventRecord(EVT,STREAM)
-#     define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) cudaEventElapsedTime(&T,EVT1,EVT2)
-#     define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  cudaStreamSynchronize(STREAM)
-#     define ONIKA_CU_SET_DEVICE(dev)  cudaSetDevice(dev)
-#     define ONIKA_CU_MEMSET(p,v,n,...) cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#     define ONIKA_CU_MEMCPY(d,s,n,...) cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   endif
-# else
-#   define ONIKA_CU_CREATE_EVENT(EVT) _fake_cuda_api_noop(EVT=nullptr)
-#   define ONIKA_CU_DESTROY_EVENT(EVT) _fake_cuda_api_noop(EVT=nullptr)
-#   define ONIKA_CU_STREAM_EVENT(EVT,STREAM) _fake_cuda_api_noop(EVT,STREAM)
-#   define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) _fake_cuda_api_noop(T=0.0f)
-#   define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM) _fake_cuda_api_noop(STREAM)
-#   define ONIKA_CU_SET_DEVICE(dev) _fake_cuda_api_noop(dev)
-#   define ONIKA_CU_MEMSET(p,v,n,...) std::memset(p,v,n)
-#   define ONIKA_CU_MEMCPY(d,s,n,...) std::memcpy(d,s,n)
-# endif
-
 
 
 

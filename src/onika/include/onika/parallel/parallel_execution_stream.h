@@ -51,7 +51,7 @@ namespace onika
         // Cuda wait
         if( m_cuda_ctx != nullptr )
         {
-          ONIKA_CU_STREAM_SYNCHRONIZE( m_cu_stream );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_SYNCHRONIZE( m_cu_stream ) );
         }
       }
     };
@@ -104,7 +104,7 @@ namespace onika
             float Tgpu = 0.0;
             if( pec->m_execution_target == ParallelExecutionContext::EXECUTION_TARGET_CUDA )
             {
-              ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt);
+              ONIKA_CU_CHECK_ERRORS( ONIKA_CU_EVENT_ELAPSED(Tgpu,pec->m_start_evt,pec->m_stop_evt) );
               pec->m_total_gpu_execution_time = Tgpu;
             }
             auto* next = pec->m_next;
@@ -241,7 +241,7 @@ namespace onika
           // inserts a callback to stream if user passed one in
           if( pec.m_execution_end_callback.m_func != nullptr )
           {
-            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK(pes.m_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , &pec , 0 ) );
+            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_STREAM_ADD_CALLBACK(pes.m_stream->m_cu_stream, ParallelExecutionContext::execution_end_callback , &pec ) );
           }
           
           // inserts stop event to account for total execution time

@@ -8,7 +8,6 @@
 #ifdef XNB_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
-#include <cuda_runtime.h>
 #endif
 
 #include <onika/memory/allocator.h>
@@ -42,14 +41,17 @@ namespace exanb
       MPI_Comm_size(comm,&nprocs);
       MPI_Comm_rank(comm,&rank);
 
-      lout << "=========== Cuda ================"<<std::endl;
+      lout << "=========== "<<ONIKA_CU_NAME_STR<<" ================"<<std::endl;
 
 #     ifdef XNB_CUDA_VERSION
 
       std::shared_ptr<onika::cuda::CudaContext> cuda_ctx = nullptr;
 
       int n_gpus = 0;
-      if( *enable_cuda ) cudaGetDeviceCount(&n_gpus);
+      if( *enable_cuda )
+      {
+        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
+      }
       if( n_gpus <= 0 )
       {
         lout <<"No GPU found"<<std::endl;
@@ -99,16 +101,16 @@ namespace exanb
         
         if( ndev > 0 )
         {
-          ONIKA_CU_CHECK_ERRORS( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_SET_DEVICE( cuda_ctx->m_devices[0].device_id ) );
           if( smem_bksize.has_value() )
           {
             switch( *smem_bksize )
             {
-              case 4 : ONIKA_CU_CHECK_ERRORS(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
-              case 8 : ONIKA_CU_CHECK_ERRORS(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
+              case 4 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeFourByte ) ); break;
+              case 8 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeEightByte ) ); break;
               default:
                 lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
-                ONIKA_CU_CHECK_ERRORS(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
+                ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeDefault ) );
                 break;
             }
           }
@@ -122,21 +124,13 @@ namespace exanb
               m["cudaLimitStackSize"] = "-1";
               m["cudaLimitPrintfFifoSize"] = "-1";
               m["cudaLimitMallocHeapSize"] = "-1";
-              m["cudaLimitDevRuntimeSyncDepth"] = "-1";
-              m["cudaLimitDevRuntimePendingLaunchCount"] = "-1";
-              m["cudaLimitMaxL2FetchGranularity"] = "-1";
-              m["cudaLimitPersistingL2CacheSize"] = "-1";
             }
             for( const auto& dl : m )
             {
-              cudaLimit limit;
-                   if( dl.first == "cudaLimitStackSize"                    ) limit = cudaLimitStackSize;
-              else if( dl.first == "cudaLimitPrintfFifoSize"               ) limit = cudaLimitPrintfFifoSize;
-              else if( dl.first == "cudaLimitMallocHeapSize"               ) limit = cudaLimitMallocHeapSize;
-              else if( dl.first == "cudaLimitDevRuntimeSyncDepth"          ) limit = cudaLimitDevRuntimeSyncDepth;
-              else if( dl.first == "cudaLimitDevRuntimePendingLaunchCount" ) limit = cudaLimitDevRuntimePendingLaunchCount;
-              else if( dl.first == "cudaLimitMaxL2FetchGranularity"        ) limit = cudaLimitMaxL2FetchGranularity;
-              else if( dl.first == "cudaLimitPersistingL2CacheSize"        ) limit = cudaLimitPersistingL2CacheSize;
+              onikaLimit_t limit;
+                   if( dl.first == "cudaLimitStackSize"                    ) limit = onikaLimitStackSize;
+              else if( dl.first == "cudaLimitPrintfFifoSize"               ) limit = onikaLimitPrintfFifoSize;
+              else if( dl.first == "cudaLimitMallocHeapSize"               ) limit = onikaLimitMallocHeapSize;
               else
               {
                 fatal_error() << "Cuda unknown limit '"<<dl.first<<"'"<<std::endl;
@@ -145,12 +139,12 @@ namespace exanb
               
               if( in_value >= 0 )
               {
-                ONIKA_CU_CHECK_ERRORS( cudaDeviceSetLimit( limit , in_value ) ); 
+                ONIKA_CU_CHECK_ERRORS( ONIKA_CU_SET_LIMIT( limit , in_value ) ); 
               }
               else
               {
                 size_t value = 0;
-                ONIKA_CU_CHECK_ERRORS( cudaDeviceGetLimit ( &value, limit ) );
+                ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_LIMIT ( &value, limit ) );
                 lout << dl.first << " = " << value << std::endl;
               }
             }
@@ -168,7 +162,7 @@ namespace exanb
 
         for(int i=0;i<ndev;i++)
         {
-          ONIKA_CU_CHECK_ERRORS( cudaGetDeviceProperties( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_PROPERTIES( & cuda_ctx->m_devices[i].m_deviceProp , i + gpu_first_device ) );
           if( i==0 ) { device_name = cuda_ctx->m_devices[i].m_deviceProp.name; }
           else if( device_name != cuda_ctx->m_devices[i].m_deviceProp.name ) { lerr<<"WARNING: Mixed GPU devices"<<std::endl; }
           bool mm = cuda_ctx->m_devices[i].m_deviceProp.managedMemory;

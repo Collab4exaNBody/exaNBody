@@ -44,7 +44,16 @@ namespace onika
       if( m_start_evt != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_start_evt ) ); }
       if( m_stop_evt  != nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_EVENT( m_stop_evt  ) ); }
     }
-     
+    
+    void ParallelExecutionContext::initialize_stream_events()
+    {
+      if( m_cuda_ctx != nullptr )
+      {
+        if( m_start_evt == nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_CREATE_EVENT( m_start_evt ) ); }
+        if( m_stop_evt  == nullptr ) { ONIKA_CU_CHECK_ERRORS( ONIKA_CU_CREATE_EVENT( m_stop_evt  ) ); }
+      }
+    }
+    
     bool ParallelExecutionContext::has_gpu_context() const
     {
       return m_cuda_ctx != nullptr;
