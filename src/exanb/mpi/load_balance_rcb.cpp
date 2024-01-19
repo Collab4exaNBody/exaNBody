@@ -329,66 +329,76 @@ namespace exanb
 
           assert( next_level_rank>=0 && next_level_rank<next_level_size );
 
-          BoxSplit bs;
+          Box1DSplit split[3];
           
-          bs.i_split = find_best_split(i_cost,left_size,right_size );
-          assert( bs.i_split.position >= 0 && static_cast<ssize_t>(bs.i_split.position) < block_dims.i );
+          split[0] = find_best_split(i_cost,left_size,right_size );
+          assert( split[0].position >= 0 && static_cast<ssize_t>(split[0].position) < block_dims.i );
+          split[0].surf = block_dims.j * block_dims.k;
+          split[0].valid = ( block_dims.i >= 2 ) && ( split[0].position>0 ) && ( static_cast<ssize_t>(split[0].position) < block_dims.i );
+          split[0].axis = 0;
+          
+          split[1] = find_best_split(j_cost,left_size,right_size );
+          assert( split[1].position >= 0 && static_cast<ssize_t>(split[1].position) < block_dims.j );
+          split[1].surf = block_dims.i * block_dims.k;
+          split[1].valid = ( block_dims.j >= 2 ) && ( split[1].position>0 ) && ( static_cast<ssize_t>(split[1].position) < block_dims.j );
+          split[1].axis = 1;
 
-          bs.j_split = find_best_split(j_cost,left_size,right_size );
-          assert( bs.j_split.position >= 0 && static_cast<ssize_t>(bs.j_split.position) < block_dims.j );
-
-          bs.k_split = find_best_split(k_cost,left_size,right_size );
-          assert( bs.k_split.position >= 0 && static_cast<ssize_t>(bs.k_split.position) < block_dims.k );
+          split[2] = find_best_split(k_cost,left_size,right_size );
+          assert( split[2].position >= 0 && static_cast<ssize_t>(split[2].position) < block_dims.k );
+          split[2].surf = block_dims.i * block_dims.j;
+          split[2].valid = ( block_dims.k >= 2 ) && ( split[2].position>0 ) && ( static_cast<ssize_t>(split[2].position) < block_dims.k );
+          split[2].axis = 2;
+          
+          auto split_better_than = [](const Box1DSplit& a, const Box1DSplit& b) -> bool
+          {
+            if( ! a.valid ) return false;
+            if( ! b.valid ) return true;
+            double max_wb = std::max( a.worst_balance , b.worst_balance );
+            if( max_wb == 0.0 ) return true;
+            double min_wb = std::min( a.worst_balance , b.worst_balance );
+            if( min_wb / max_wb > 0.95 ) return ( a.surf < b.surf );
+            else return ( a.worst_balance < b.worst_balance );
+          };
+          
+          std::sort( split , split+3 , split_better_than );
 	  
           GridBlock left_block = { block_start , block_end };
           GridBlock right_block = { block_start , block_end };
 
-          bool i_split_valid = ( block_dims.i >= 2 ) && ( bs.i_split.position>0 ) && ( static_cast<ssize_t>(bs.i_split.position) < block_dims.i );
-          bool j_split_valid = ( block_dims.j >= 2 ) && ( bs.j_split.position>0 ) && ( static_cast<ssize_t>(bs.j_split.position) < block_dims.j );
-          bool k_split_valid = ( block_dims.k >= 2 ) && ( bs.k_split.position>0 ) && ( static_cast<ssize_t>(bs.k_split.position) < block_dims.k );
-
-          long i_split_surf = block_dims.j * block_dims.k;
-          long j_split_surf = block_dims.i * block_dims.k;
-          long k_split_surf = block_dims.i * block_dims.j;
-
-          char split_choice = 'X';
-          if( i_split_valid && ( ( bs.i_split.worst_balance < bs.j_split.worst_balance && bs.i_split.worst_balance < bs.k_split.worst_balance )
-              || ( bs.i_split.worst_balance*0.95 < bs.j_split.worst_balance && bs.i_split.worst_balance*0.95 < bs.k_split.worst_balance && i_split_surf<j_split_surf && i_split_surf<k_split_surf) ) )
+          char split_choice = '?';
+          if( split[0].valid )
           {
-            split_choice = 'I';
-            //ldbg<<"--- level "<<level<<" split I at "<<bs.i_split.position<<" ---" << std::endl;
-            left_block.end.i = block_start.i + bs.i_split.position;
-            right_block.start.i = block_start.i + bs.i_split.position;
-          }
-          else if( j_split_valid && ( ( bs.j_split.worst_balance < bs.k_split.worst_balance ) || ( bs.j_split.worst_balance*0.95 < bs.k_split.worst_balance && j_split_surf<k_split_surf ) ) )
-          {
-            split_choice = 'J';
-            //ldbg<<"--- level "<<level<<" split J at "<<bs.j_split.position<<" ---" << std::endl;
-            left_block.end.j = block_start.j + bs.j_split.position;
-            right_block.start.j = block_start.j + bs.j_split.position;
-          }
-          else if( k_split_valid )
-          {
-            split_choice = 'K';
-            //ldbg<<"--- level "<<level<<" split K at "<<bs.k_split.position<<" ---" << std::endl;
-            left_block.end.k = block_start.k + bs.k_split.position;
-            right_block.start.k = block_start.k + bs.k_split.position;
+            if( split[0].axis == 0 )
+            {
+              split_choice = 'I';
+              left_block.end.i = block_start.i + split[0].position;
+              right_block.start.i = block_start.i + split[0].position;
+            }
+            else if( split[0].axis == 1 )
+            {
+              split_choice = 'J';
+              left_block.end.j = block_start.j + split[0].position;
+              right_block.start.j = block_start.j + split[0].position;
+            }
+            else if( split[0].axis == 2 )
+            {
+              split_choice = 'K';
+              left_block.end.k = block_start.k + split[0].position;
+              right_block.start.k = block_start.k + split[0].position;
+            }
           }
           else
           {
             ldbg << "impossible partitioning, splitting regardless of costs : dims="<<block_dims<< std::endl;
             if( block_dims.i >= block_dims.j && block_dims.i >= block_dims.k )
             {
-              //ldbg << "split I"  << std::endl;
               split_choice = 'I';
               assert( block_dims.i >= 2 );
               left_block.end.i = block_start.i + block_dims.i/2;
               right_block.start.i = left_block.end.i;
-              
             }
             else if( block_dims.j >= block_dims.i && block_dims.j >= block_dims.k )
             {
-              //ldbg << "split J"  << std::endl;
               split_choice = 'J';
               assert( block_dims.j >= 2 );
               left_block.end.j = block_start.j + block_dims.j/2;
@@ -396,7 +406,6 @@ namespace exanb
             }
             else
             {
-              //ldbg << "split K"  << std::endl;
               split_choice = 'K';
               assert( block_dims.k >= 2 );
               left_block.end.k = block_start.k + block_dims.k/2;
@@ -407,9 +416,9 @@ namespace exanb
           assert( ! is_empty(right_block) );
 
           ldbg << "split level "<<level
-               <<" : I="<<bs.i_split.worst_balance<<"/"<<i_split_surf <<"/"<<i_split_valid
-               <<" , J="<<bs.j_split.worst_balance<<"/"<<j_split_surf <<"/"<<j_split_valid
-               <<" , K="<<bs.k_split.worst_balance<<"/"<<k_split_surf <<"/"<<k_split_valid
+               <<" : [a="<<split[0].axis<<";p="<<split[0].position<<";wb="<<split[0].worst_balance<<";s="<<split[0].surf<<";v="<<split[0].valid<<"]"
+               <<" , [a="<<split[1].axis<<";p="<<split[1].position<<";wb="<<split[1].worst_balance<<";s="<<split[1].surf<<";v="<<split[1].valid<<"]"
+               <<" , [a="<<split[2].axis<<";p="<<split[2].position<<";wb="<<split[2].worst_balance<<";s="<<split[2].surf<<";v="<<split[2].valid<<"]"
                <<" -> "<< split_choice <<std::endl;
 
           //ldbg << "left  block = " << left_block << std::endl;
@@ -472,15 +481,11 @@ namespace exanb
 
     struct Box1DSplit
     {
-      size_t position;
-      double worst_balance;
-    };
-
-    struct BoxSplit
-    {
-      Box1DSplit i_split;
-      Box1DSplit j_split;
-      Box1DSplit k_split;
+      size_t position = 0;
+      double worst_balance = 0.0;
+      long surf = 0;
+      int axis = 0;
+      bool valid = false;
     };
 
     inline void print_histogram(std::vector<double>& values)
@@ -529,7 +534,7 @@ namespace exanb
         }
         //ldbg << "pos=" << p << ", best_worst_balance=" << best_worst_balance << ", worst_balance=" << worst_balance << std::endl;
       }
-      return { best_position , best_worst_balance };
+      return { best_position , best_worst_balance , -1 , -1 , false };
     }
 
   private:  
