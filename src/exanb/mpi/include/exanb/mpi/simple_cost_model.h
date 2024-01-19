@@ -49,7 +49,7 @@ namespace exanb
     using DoubleVector = std::vector<double>;
 
     ADD_SLOT( GridT , grid ,INPUT);
-    ADD_SLOT( DoubleVector , cost_model_coefs , INPUT_OUTPUT, DoubleVector({0.1,0.0,4.0,1.0}) , DocString{"Polynomial coefs for cost function. input is particle density per volume unit"} ); 
+    ADD_SLOT( DoubleVector , cost_model_coefs , INPUT_OUTPUT, DoubleVector({0.0,0.0,1.0,0.0}) , DocString{"Polynomial coefs for cost function coefficients. coefficients for resepctively X³ ,X², X and Const. X is particle density"} ); 
     ADD_SLOT( CostWeightMap , cost_weight_map , INPUT, OPTIONAL );
     
     ADD_SLOT( CellCosts , cell_costs ,OUTPUT );
