@@ -28,7 +28,7 @@ under the License.
 
 #include <exanb/io/vtk_writer.h>
 
-#include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 namespace exanb
 {

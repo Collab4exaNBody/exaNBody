@@ -112,11 +112,6 @@ namespace exanb
     static inline constexpr bool CudaCompatible = true;
   };
 
-  template<class FieldSetT> struct FieldAccessorTuple;
-  template<class... field_ids> struct FieldAccessorTuple< FieldSet<field_ids...> > { using type = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >; };
-  template<class FieldSetT> using field_accessor_tuple_from_field_set_t = typename FieldAccessorTuple<FieldSetT>::type;
-
-
   template<
     class GridT,
     class Field_X, class Field_Y, class Field_Z,

@@ -24,6 +24,7 @@ under the License.
 #include <onika/cuda/device_storage.h>
 #include <onika/soatl/field_id.h>
 #include <exanb/field_sets.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
@@ -145,7 +146,9 @@ namespace exanb
     const IJK block_dims = dims - (2*gl);
     const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
-    CellsT * cells = grid.cells();
+    using CellAccT = GridParticleFieldAccessor< CellsT * const >;
+    CellAccT gridacc = { grid.cells() };
+    
     bool enable_gpu = false;
     if constexpr ( ComputeCellParticlesTraits<FuncT>::CudaCompatible )
     {
@@ -157,8 +160,8 @@ namespace exanb
     }
 
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using PForFuncT = ComputeCellParticlesFunctor<CellsT*,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
-    return block_parallel_for( N, PForFuncT{cells,dims,gl,func,cpfields} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu } );
+    using PForFuncT = ComputeCellParticlesFunctor<CellAccT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
+    return block_parallel_for( N, PForFuncT{gridacc,dims,gl,func,cpfields} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu } );
   }
 
   template<class GridT, class FuncT, class... field_ids>

@@ -40,6 +40,7 @@ under the License.
 
 #include <onika/soatl/field_arrays.h>
 #include <onika/memory/memory_usage.h>
+#include <onika/flat_tuple.h>
 
 #ifndef XSTAMP_FIELD_ARRAYS_STORE_COUNT
 #define XSTAMP_FIELD_ARRAYS_STORE_COUNT 3
@@ -572,6 +573,12 @@ namespace exanb
   {
     apply_grid_fields( grid , f , onika::soatl::FieldId<fid>{} ... );
   }
+
+  // convert FieldSet to tuple of FieldId
+  template<class FieldSetT> struct FieldAccessorTupleFromFieldSet;
+  template<class... field_ids> struct FieldAccessorTupleFromFieldSet< FieldSet<field_ids...> > { using type = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >; };
+  template<class FieldSetT> using field_accessor_tuple_from_field_set_t = typename FieldAccessorTupleFromFieldSet<FieldSetT>::type;
+
 
 } // end of namespace exanb
 

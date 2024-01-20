@@ -25,7 +25,7 @@ under the License.
 #include <exanb/core/string_utils.h>
 
 #include <exanb/compute/field_combiners.h>
-#include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <exanb/io/vtk_writer.h>
 #include <exanb/io/vtk_writer_binary.h>
