@@ -29,6 +29,8 @@ under the License.
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/lambda_tools.h>
+#include <onika/flat_tuple.h>
+#include <utility>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -50,23 +52,24 @@ namespace exanb
     static inline constexpr bool UseCellIdx = false;
   };
 
-  template<class CellsT, class FuncT, class FieldSetT> struct ComputeCellParticlesFunctor;
+  template<class CellsT, class FuncT, class FieldAccTupleT , class IndexSequence> struct ComputeCellParticlesFunctor;
 
-  template<class CellsT, class FuncT, class... field_ids>
-  struct ComputeCellParticlesFunctor< CellsT, FuncT, FieldSet<field_ids...> >
+  template<class CellsT, class FuncT, class FieldAccTupleT, size_t ... FieldIndex >
+  struct ComputeCellParticlesFunctor< CellsT, FuncT, FieldAccTupleT , std::index_sequence<FieldIndex...> >
   {
+    static_assert( FieldAccTupleT::size() == sizeof...(FieldIndex) );
     CellsT m_cells;
     const IJK m_grid_dims = { 0, 0, 0 };
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
-    //const FieldSet<field_ids...> m_cpfields;
+    FieldAccTupleT m_cpfields;
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
       using onika::lambda_is_compatible_with_v;
-      static constexpr bool call_func_without_idx = lambda_is_compatible_with_v<FuncT,void, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
-      static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
-      static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+      static constexpr bool call_func_without_idx = lambda_is_compatible_with_v<FuncT,void, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
+      static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
+      static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
 
       size_t cell_a = i;
       IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
@@ -82,15 +85,15 @@ namespace exanb
 			  if constexpr ( call_func_without_idx )
 				{
           static_assert( ! ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx );
-	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+	        m_func( m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
 				}
 				else if constexpr ( call_func_with_cell_idx )
 				{
-	        m_func(cell_a, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+	        m_func(cell_a, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
 				}
 				else if constexpr ( call_func_with_cell_particle_idx )
 				{
-	        m_func(cell_a, p, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+	        m_func(cell_a, p, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
 				}
       }
     }
@@ -102,8 +105,8 @@ namespace onika
 {
   namespace parallel
   {
-    template<class CellsT, class FuncT, class FieldSetT>
-    struct BlockParallelForFunctorTraits< exanb::ComputeCellParticlesFunctor<CellsT,FuncT,FieldSetT> >
+    template<class CellsT, class FuncT, class FieldTupleT, class IndexSequenceT>
+    struct BlockParallelForFunctorTraits< exanb::ComputeCellParticlesFunctor<CellsT,FuncT,FieldTupleT,IndexSequenceT> >
     {
       static inline constexpr bool CudaCompatible = exanb::ComputeCellParticlesTraits<FuncT>::CudaCompatible;
     };
@@ -112,6 +115,7 @@ namespace onika
 
 namespace exanb
 {
+
   template<class GridT, class FuncT, class FieldSetT>
   static inline
   onika::parallel::ParallelExecutionWrapper
@@ -120,8 +124,17 @@ namespace exanb
     bool enable_ghosts,
     const FuncT& func,
     FieldSetT cpfields ,
-    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
-    bool async = false )
+    onika::parallel::ParallelExecutionContext * exec_ctx );
+
+  template<class GridT, class FuncT, class... FieldAccT>
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particles(
+    GridT& grid,
+    bool enable_ghosts,
+    const FuncT& func,
+    const onika::FlatTuple<FieldAccT...>& cpfields ,
+    onika::parallel::ParallelExecutionContext * exec_ctx )
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
@@ -142,8 +155,26 @@ namespace exanb
       }
       enable_gpu = true;
     }
-    
-    return block_parallel_for( N, ComputeCellParticlesFunctor<CellsT*,FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu } );
+
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    using PForFuncT = ComputeCellParticlesFunctor<CellsT*,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
+    return block_parallel_for( N, PForFuncT{cells,dims,gl,func,cpfields} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu } );
   }
+
+  template<class GridT, class FuncT, class... field_ids>
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particles(
+    GridT& grid,
+    bool enable_ghosts,
+    const FuncT& func,
+    FieldSet<field_ids...> cpfields ,
+    onika::parallel::ParallelExecutionContext * exec_ctx )
+  {
+    using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
+    FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx);
+  }
+
 }
 
