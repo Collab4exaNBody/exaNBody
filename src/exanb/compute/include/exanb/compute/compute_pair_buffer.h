@@ -40,9 +40,9 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
     void operator () (ComputeBufferT& tab, const Vec3d& dr, double d2,
-                                                    const FieldArraysT * cells, size_t cell_b, size_t p_b,
-                                                    const NbhDataT& nbh_data,
-                                                    std::integral_constant<bool,ForceCheck> force_check_overflow = {} ) const noexcept
+                      const FieldArraysT& cells, size_t cell_b, size_t p_b,
+                      const NbhDataT& nbh_data,
+                      std::integral_constant<bool,ForceCheck> force_check_overflow = {} ) const noexcept
     {
       tab.check_buffer_overflow( force_check_overflow );
       tab.d2[tab.count] = d2;

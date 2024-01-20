@@ -22,6 +22,7 @@ under the License.
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
 #include <onika/soatl/field_id.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
@@ -141,19 +142,20 @@ namespace exanb
     const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
     ResultT* target_reduced_value_ptr = &reduced_val;
-    CellsT * cells = grid.cells();
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
     {
       if( exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
       {
-        grid.check_cells_are_gpu_addressable();
         exec_ctx->init_device_scratch();
         target_reduced_value_ptr = (ResultT*) exec_ctx->get_device_return_data_ptr();
       }
     }
     
-    using PForFuncT = ReduceCellParticlesFunctor<CellsT*,FuncT,ResultT, onika::FlatTuple<FieldAccT...>, std::make_index_sequence<sizeof...(FieldAccT)> >;
-    PForFuncT pfor_op = { cells , dims , gl , func , target_reduced_value_ptr , cp_fields };
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    using CellAccT = GridParticleFieldAccessor< CellsT * const >;
+
+    using PForFuncT = ReduceCellParticlesFunctor<CellAccT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
+    PForFuncT pfor_op = { {grid.cells()} , dims , gl , func , target_reduced_value_ptr , cp_fields };
     return block_parallel_for( N, pfor_op , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) } );
   }
 

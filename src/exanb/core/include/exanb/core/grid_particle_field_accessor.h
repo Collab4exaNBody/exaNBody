@@ -21,6 +21,7 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/soatl/field_id.h>
 #include <onika/soatl/field_combiner.h>
+#include <onika/flat_tuple.h>
 
 namespace exanb
 {
@@ -34,6 +35,14 @@ namespace exanb
       static const char* name() { return "external"; }
     };
 */
+
+  template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields;
+  template<class... FieldAccT>
+  struct FieldAccessorTupleHasExternalFields< FlatTuple<FieldAccT...> >
+  {
+    value = ...
+  };
+  
 
   template<class CellsT> struct GridParticleFieldAccessor;
   template<class CellsT> struct GridParticleFieldAccessor1;
@@ -51,9 +60,9 @@ namespace exanb
     }
 
     template<class field_id>
-    ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( const onika::soatl::FieldId<field_id>& f ) const
+    ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( onika::soatl::FieldId<field_id> ) const
     {
-      return m_cells[m_cell_index][f];
+      return m_cells[m_cell_index][ onika::soatl::FieldId<field_id>{} ];
     }
 
     template<class FuncT , class... fids>
@@ -93,9 +102,9 @@ namespace exanb
     }
 
     template<class field_id>
-    ONIKA_HOST_DEVICE_FUNC inline auto get(size_t cell_i, size_t p_i, const onika::soatl::FieldId<field_id>& f ) const
+    ONIKA_HOST_DEVICE_FUNC inline auto get(size_t cell_i, size_t p_i, onika::soatl::FieldId<field_id> ) const
     {
-      return m_cells[cell_i][f][p_i];
+      return m_cells[cell_i][ onika::soatl::FieldId<field_id>{} ][p_i];
     }
 
     template<class FuncT , class... fids>

@@ -140,28 +140,16 @@ namespace exanb
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
     using CellsT = typename GridT::CellParticles;
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    using CellAccT = GridParticleFieldAccessor< CellsT * const >;
+    using PForFuncT = ComputeCellParticlesFunctor<CellAccT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
     const IJK block_dims = dims - (2*gl);
-    const size_t N = block_dims.i * block_dims.j * block_dims.k;
+    const size_t N = block_dims.i * block_dims.j * block_dims.k;    
 
-    using CellAccT = GridParticleFieldAccessor< CellsT * const >;
-    CellAccT gridacc = { grid.cells() };
-    
-    bool enable_gpu = false;
-    if constexpr ( ComputeCellParticlesTraits<FuncT>::CudaCompatible )
-    {
-      if(exec_ctx!=nullptr && exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
-      {
-        grid.check_cells_are_gpu_addressable();
-      }
-      enable_gpu = true;
-    }
-
-    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using PForFuncT = ComputeCellParticlesFunctor<CellAccT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
-    return block_parallel_for( N, PForFuncT{gridacc,dims,gl,func,cpfields} , exec_ctx , BlockParallelForOptions{ .enable_gpu=enable_gpu } );
+    return block_parallel_for( N, PForFuncT{ {grid.cells()} , dims , gl , func , cpfields } , exec_ctx );
   }
 
   template<class GridT, class FuncT, class... field_ids>

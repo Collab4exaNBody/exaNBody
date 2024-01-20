@@ -22,6 +22,7 @@ under the License.
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
@@ -149,7 +150,10 @@ namespace exanb
       }
     }
 
-    auto cells = grid.cells();
+    // using CellsT = typename GridT::CellParticles;
+    // GridParticleFieldAccessor< CellsT * const > cells = { grid.cells() };
+    auto * const cells = grid.cells();
+
     auto cellprof = grid.cell_profiler();
     const unsigned int cs = optional.nbh.m_chunk_size;
     switch( cs )
