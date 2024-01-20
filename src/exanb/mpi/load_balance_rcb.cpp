@@ -50,11 +50,12 @@ namespace exanb
 
   struct LoadBalanceRCBNode : public OperatorNode
   {
-    ADD_SLOT( MPI_Comm  , mpi         , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( Domain    , domain      , INPUT , REQUIRED );
-    ADD_SLOT( GridBlock , lb_block    , INPUT_OUTPUT );
-    ADD_SLOT( CellCosts , cell_costs  , INPUT , REQUIRED );
-    ADD_SLOT( double    , lb_inbalance, INPUT_OUTPUT);
+    ADD_SLOT( MPI_Comm  , mpi          , INPUT , MPI_COMM_WORLD );
+    ADD_SLOT( Domain    , domain       , INPUT , REQUIRED );
+    ADD_SLOT( GridBlock , lb_block     , INPUT_OUTPUT );
+    ADD_SLOT( CellCosts , cell_costs   , INPUT , REQUIRED );
+    ADD_SLOT( double    , lb_inbalance , INPUT_OUTPUT);
+    ADD_SLOT( bool      , verbose      , INPUT, false );
 
 #   ifdef __use_lib_zoltan
     ADD_SLOT( bool       , use_zoltan             , INPUT, true );
@@ -477,6 +478,19 @@ namespace exanb
       }
 
       ldbg << "domain = { "<<(*domain)<< " } , out_block={" << out_block << "} , inb="<< lb_inbalance << std::endl << std::flush;
+      
+      if( *verbose )
+      {
+        lout << "Domain grid size = "<<domain->grid_dimension()<<std::endl;
+        for(int p=0;p<np;p++)
+        {
+          if( rank == p )
+          {
+            std::cout << format_string("P%05d : ",p) << out_block << " : shape = "<< dimension(out_block) <<std::endl;
+          }
+          MPI_Barrier(comm);
+        }
+      }
     }
 
     struct Box1DSplit
