@@ -1,3 +1,4 @@
+/*
 Licensed to the Apache Software Foundation (ASF) under one
 or more contributor license agreements.  See the NOTICE file
 distributed with this work for additional information
@@ -14,3 +15,16 @@ software distributed under the License is distributed on an
 KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
+*/
+
+/*******************************************
+  Project initiated by :
+    Commissariat a l'Energie Atomique
+    CEA, DAM, DIF, F-91297 Arpajon, France
+  Thanks to main contributors :
+    - Thierry Carrard (CEA/DIF)
+    - Raphael Prat (CEA/DES)
+    - Paul Lafourcade (CEA/DIF)
+    - Jean-Pierre Perlat (CEA/DIF)
+********************************************/
+
