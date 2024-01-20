@@ -123,11 +123,11 @@ namespace onika
       
       inline bool query_status()    
       {
-        std::lock_guard lk( m_stream->m_mutex );
         if( m_stream == nullptr || m_queue == nullptr )
         {
           return true;
         }
+        std::lock_guard lk( m_stream->m_mutex );
         if( m_stream->m_omp_execution_count.load() > 0 )
         {
           return false;
