@@ -26,15 +26,17 @@ under the License.
 namespace exanb
 {
 
-  template<class CellsT, class FuncT> struct ExternalCellParticleFieldAccessor;
-/*
-    {
-      FuncT m_func;
-      using value_type = decltype(0,0,m_func(CellsT{}));
-      static const char* short_name() { return "external"; }
-      static const char* name() { return "external"; }
-    };
-*/
+  template<class FuncT, class FieldIdT> struct ExternalCellParticleFieldAccessor
+  {
+    FuncT m_func;
+    using field_id = FieldIdT;
+    using value_type = typename FuncT::value_type;
+    using reference_t = typename FuncT::reference_t;
+    // using unmutable_pointer_t = typename FuncT::unmutable_pointer_t;
+
+    static inline constexpr const char* short_name() { return field_id::short_name(); }
+    static inline constexpr const char* name() { return field_id::name(); }
+  };
 
   template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields;
   template<>
@@ -47,8 +49,8 @@ namespace exanb
   {
     static inline constexpr bool value = FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT...> >::value ;
   };
-  template<class CellsT, class FuncT, class... FieldAccT >
-  struct FieldAccessorTupleHasExternalFields< onika::FlatTuple< ExternalCellParticleFieldAccessor<CellsT,FuncT> , FieldAccT...> >
+  template<class FuncT, class FieldIdT, class... FieldAccT >
+  struct FieldAccessorTupleHasExternalFields< onika::FlatTuple< ExternalCellParticleFieldAccessor<FuncT,FieldIdT> , FieldAccT...> >
   {
     static inline constexpr bool value = true;
   };
@@ -81,8 +83,8 @@ namespace exanb
       return m_cells[m_cell_index][f];
     }
 
-    template<class FuncT>
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor2<CellsT, ExternalCellParticleFieldAccessor<CellsT,FuncT> > operator [] ( const ExternalCellParticleFieldAccessor<CellsT,FuncT>& f ) const
+    template<class FuncT, class FieldIdT>
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor2<CellsT, ExternalCellParticleFieldAccessor<FuncT,FieldIdT> > operator [] ( const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
     {
       return { m_cells , m_cell_index , f };
     }    
@@ -93,13 +95,12 @@ namespace exanb
   {
     CellsT m_cells;    
     const size_t m_cell_index;
-    const FieldAccT& m_acc_func;
-    ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( size_t particle_index ) const
+    const FieldAccT& m_field_acc;
+    ONIKA_HOST_DEVICE_FUNC inline typename FieldAccT::reference_t operator [] ( size_t particle_index ) const
     {
-      return m_acc_func( m_cell_index , particle_index , m_cells );
+      return m_field_acc.m_func( m_cell_index , particle_index , m_cells );
     }
   };
-
 
   template<class CellsT>
   struct GridParticleFieldAccessor
@@ -123,28 +124,54 @@ namespace exanb
       return m_cells[cell_i][f][p_i];
     }
 
-    template<class FuncT>
-    ONIKA_HOST_DEVICE_FUNC inline auto get(size_t cell_i, size_t p_i, const ExternalCellParticleFieldAccessor<CellsT,FuncT>& f ) const
+    template<class FuncT, class FieldIdT>
+    ONIKA_HOST_DEVICE_FUNC inline typename FuncT::reference_t get(size_t cell_i, size_t p_i, const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
     {
       return f.m_func( cell_i , p_i , m_cells );
     }    
   };
 
-
-
-  template<class T>
-  static inline const GridParticleFieldAccessor<T>& convert_cell_array_ptr_to_accessor( const GridParticleFieldAccessor<T>& cells )
+  template<class FieldIdT, bool ConstAccessor=false > struct GridExternalFieldFlatArrayAccessor
   {
-    return cells;
+    using value_type = typename FieldIdT::value_type;
+    using reference_t = std::conditional_t<ConstAccessor, const value_type & , value_type & >;
+    using unmutable_pointer_t = std::conditional_t<ConstAccessor, value_type const * const __restrict__ , value_type * const __restrict__ >;
+    
+    size_t const * const m_cell_particle_offset = nullptr;
+    unmutable_pointer_t m_data_array = nullptr;
+    
+    template<class CellsT>
+    ONIKA_HOST_DEVICE_FUNC
+    inline reference_t operator () ( size_t cell_i, size_t p_i , CellsT ) const
+    {
+      return m_data_array[ m_cell_particle_offset[cell_i] + p_i ];
+    }
   };
+
+  template<class GridT, class FieldIdT>
+  static inline auto make_external_field_flat_array_accessor( const GridT& grid, typename FieldIdT::value_type * const array , FieldIdT)
+  {
+    using ExternalFieldT = ExternalCellParticleFieldAccessor< GridExternalFieldFlatArrayAccessor<FieldIdT,false> , FieldIdT >;
+    return ExternalFieldT{ grid.cell_particle_offset_data() , array };
+  }
+
+  template<class GridT, class FieldIdT>
+  static inline auto make_external_field_flat_array_accessor( const GridT& grid, typename FieldIdT::value_type const * const array , FieldIdT)
+  {
+    using ExternalFieldT = ExternalCellParticleFieldAccessor< GridExternalFieldFlatArrayAccessor<FieldIdT,true> , FieldIdT >;
+    return ExternalFieldT{ grid.cell_particle_offset_data() , array };
+  }
+
+  // convert FieldSet to tuple of Field Accessor
+  template<class FieldSetT> struct FieldAccessorTupleFromFieldSet;
+  template<class... field_ids> struct FieldAccessorTupleFromFieldSet< FieldSet<field_ids...> > { using type = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >; };
+  template<class FieldSetT> using field_accessor_tuple_from_field_set_t = typename FieldAccessorTupleFromFieldSet<FieldSetT>::type;
+
+  template<class... field_ids , class... FieldAccessorT>
+  static inline auto make_field_tuple_from_field_set( FieldSet<field_ids...> , const FieldAccessorT& ... f )
+  {
+    return onika::FlatTuple< onika::soatl::FieldId<field_ids> ... , FieldAccessorT ... > { onika::soatl::FieldId<field_ids>{} ... , f ... };
+  }
   
-  template<class T>
-  static inline GridParticleFieldAccessor<T * const> convert_cell_array_ptr_to_accessor( T * const cells )
-  {
-    return { cells };
-  };
-
-//template<size_t A, size_t C, typename Al, size_t N, typename... Ids >
-
 } // end of namespace exanb
 
