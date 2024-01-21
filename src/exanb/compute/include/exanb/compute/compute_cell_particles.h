@@ -139,17 +139,19 @@ namespace exanb
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
-    using CellsT = typename GridT::CellParticles;
+    using CellT = typename GridT::CellParticles;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using CellAccT = GridParticleFieldAccessor< CellsT * const >;
-    using PForFuncT = ComputeCellParticlesFunctor<CellAccT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+    using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
     const IJK block_dims = dims - (2*gl);
     const size_t N = block_dims.i * block_dims.j * block_dims.k;    
 
-    return block_parallel_for( N, PForFuncT{ {grid.cells()} , dims , gl , func , cpfields } , exec_ctx );
+    CellsAccessorT cells = { grid.cells() };
+    PForFuncT pfor_func = { cells , dims , gl , func , cpfields };
+    return block_parallel_for( N, pfor_func, exec_ctx );
   }
 
   template<class GridT, class FuncT, class... field_ids>

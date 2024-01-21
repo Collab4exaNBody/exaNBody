@@ -128,6 +128,9 @@ namespace exanb
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    using CellT = typename GridT::CellParticles;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
 
     static constexpr onika::IntConst<4> const_4{};
     static constexpr onika::IntConst<8> const_8{};
@@ -150,12 +153,9 @@ namespace exanb
       }
     }
 
-    // using CellsT = typename GridT::CellParticles;
-    // GridParticleFieldAccessor< CellsT * const > cells = { grid.cells() };
-    auto * const cells = grid.cells();
-
     auto cellprof = grid.cell_profiler();
     const unsigned int cs = optional.nbh.m_chunk_size;
+    CellsAccessorT cells = { grid.cells() };
     switch( cs )
     {
       case 4:

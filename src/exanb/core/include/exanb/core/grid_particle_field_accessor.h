@@ -37,12 +37,22 @@ namespace exanb
 */
 
   template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields;
-  template<class... FieldAccT>
-  struct FieldAccessorTupleHasExternalFields< FlatTuple<FieldAccT...> >
+  template<>
+  struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<> >
   {
-    value = ...
+    static inline constexpr bool value = false;
   };
-  
+  template<class FieldAccT0, class... FieldAccT >
+  struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT0,FieldAccT...> >
+  {
+    static inline constexpr bool value = FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT...> >::value ;
+  };
+  template<class CellsT, class FuncT, class... FieldAccT >
+  struct FieldAccessorTupleHasExternalFields< onika::FlatTuple< ExternalCellParticleFieldAccessor<CellsT,FuncT> , FieldAccT...> >
+  {
+    static inline constexpr bool value = true;
+  };
+  template<class T> static inline constexpr bool field_tuple_has_external_fields_v = FieldAccessorTupleHasExternalFields<T>::value;
 
   template<class CellsT> struct GridParticleFieldAccessor;
   template<class CellsT> struct GridParticleFieldAccessor1;
