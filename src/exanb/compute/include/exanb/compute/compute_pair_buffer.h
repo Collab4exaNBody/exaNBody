@@ -20,9 +20,11 @@ under the License.
 
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
 #include <exanb/core/basic_types_def.h>
+#include <exanb/core/field_set_proto.h>
 
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda.h>
+#include <onika/soatl/field_tuple.h>
 #include <functional>
 
 // debug configuration
@@ -36,15 +38,13 @@ namespace exanb
   // Compute buffer post processing API
   struct DefaultComputePairBufferAppendFunc
   {  
-    template<class ComputeBufferT, class FieldArraysT, class NbhDataT, bool ForceCheck=false >
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
     void operator () (ComputeBufferT& tab, const Vec3d& dr, double d2,
-                      const FieldArraysT& cells, size_t cell_b, size_t p_b,
-                      const NbhDataT& nbh_data,
-                      std::integral_constant<bool,ForceCheck> force_check_overflow = {} ) const noexcept
+                      FieldArraysT cells, size_t cell_b, size_t p_b,
+                      const NbhDataT& nbh_data ) const noexcept
     {
-      tab.check_buffer_overflow( force_check_overflow );
       tab.d2[tab.count] = d2;
       tab.drx[tab.count] = dr.x;
       tab.dry[tab.count] = dr.y;
@@ -93,13 +93,41 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void copy(size_t src, size_t dst) noexcept { nbh[dst].first=nbh[src].first; nbh[dst].second=nbh[src].second; }
   };
 
+  template<size_t _MaxNeighbors , class FieldSetT > struct ComputePairBuffer2NbhFields;
+
+  template<size_t _MaxNeighbors , class... field_ids >
+  struct alignas(onika::memory::DEFAULT_ALIGNMENT) ComputePairBuffer2NbhFields<_MaxNeighbors , FieldSet<field_ids ...> >
+  {
+    static inline constexpr size_t MaxNeighbors = _MaxNeighbors;
+    static inline constexpr bool HasFields = true;
+    using FieldTupleT = onika::soatl::FieldTuple< field_ids ... >;
+    alignas(onika::memory::DEFAULT_ALIGNMENT) onika::soatl::FieldTuple< field_ids ... > m_fields[MaxNeighbors];
+    ONIKA_HOST_DEVICE_FUNC inline FieldTupleT& operator [] (size_t i ) noexcept { return m_fields[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline const FieldTupleT& operator [] (size_t i ) const noexcept { return m_fields[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline void set(size_t i , const FieldTupleT& tp ) noexcept { m_fields[i] = tp; }
+    ONIKA_HOST_DEVICE_FUNC inline const FieldTupleT& get(size_t i ) const noexcept { return m_fields[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline void copy(size_t src, size_t dst) noexcept { m_fields[dst] = m_fields[src]; }
+  };
+
+  template<size_t _MaxNeighbors>
+  struct alignas(onika::memory::DEFAULT_ALIGNMENT) ComputePairBuffer2NbhFields<_MaxNeighbors , FieldSet<> >
+  {
+    static inline constexpr size_t MaxNeighbors = _MaxNeighbors;
+    static inline constexpr bool HasFields = false;
+    using FieldTupleT = onika::soatl::FieldTuple<>;
+    ONIKA_HOST_DEVICE_FUNC inline void set(size_t,FieldTupleT) noexcept {}
+    ONIKA_HOST_DEVICE_FUNC inline FieldTupleT get(size_t) const noexcept { return {}; }
+    ONIKA_HOST_DEVICE_FUNC inline void copy(size_t,size_t) noexcept {}
+  };
+
   template<
-    bool UserNbhData=false,
-    bool UseNeighbors=false,
-    class _ExtendedStorage=NoExtraStorage,
-    class _BufferProcessFunc=DefaultComputePairBufferAppendFunc,
-    size_t _MaxNeighbors=exanb::MAX_PARTICLE_NEIGHBORS,
-    template<bool,size_t> class _UserNeighborDataBufferTmpl = ComputePairBuffer2Weights
+    bool                        UserNbhData                 = false,
+    bool                        UseNeighbors                = false,
+    class                       _ExtendedStorage            = NoExtraStorage,
+    class                       _BufferProcessFunc          = DefaultComputePairBufferAppendFunc,
+    size_t                      _MaxNeighbors               = exanb::MAX_PARTICLE_NEIGHBORS,
+    template<bool,size_t> class _UserNeighborDataBufferTmpl = ComputePairBuffer2Weights ,
+    class                       _NbhFieldSetT               = FieldSet<>
     >
   struct alignas(onika::memory::DEFAULT_ALIGNMENT) ComputePairBuffer2
   {
@@ -107,6 +135,10 @@ namespace exanb
     using BufferProcessFunc = _BufferProcessFunc;
     template<bool b, size_t n> using UserNeighborDataBufferTmpl = _UserNeighborDataBufferTmpl<b,n>;
     static inline constexpr size_t MaxNeighbors = _MaxNeighbors;
+    using NbhFieldSet = _NbhFieldSetT;
+    static inline constexpr NbhFieldSet nbh_field_set = {};
+    using CPBufNbhFields = ComputePairBuffer2NbhFields<MaxNeighbors,NbhFieldSet>;
+    using NbhFieldTuple = typename CPBufNbhFields::FieldTupleT;
   
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drx[MaxNeighbors];     // neighbor's relative position x to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double dry[MaxNeighbors];     // neighbor's relative position y to reference particle
@@ -115,6 +147,7 @@ namespace exanb
     ExtendedStorage ext;    
     UserNeighborDataBufferTmpl<UserNbhData,MaxNeighbors> nbh_data;
     ComputePairBuffer2Nbh<UseNeighbors,MaxNeighbors> nbh;
+    CPBufNbhFields nbh_pt;
     uint64_t cell; // current cell
     uint32_t part; // current particle
     int32_t count; // number of neighbors stored in buffer
@@ -130,29 +163,25 @@ namespace exanb
       d2[dst] = d2[src];
       nbh_data.copy(src,dst);
       nbh.copy(src,dst);
+      nbh_pt.copy(src,dst);
     }
 
-    template<bool ForceCheck=false>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
-    void check_buffer_overflow( std::integral_constant<bool,ForceCheck> = {} )
+    void check_buffer_overflow()
     {
 #     ifndef NDEBUG
-      static constexpr bool CheckBufferOverflow = true;
-#     else
-      static constexpr bool CheckBufferOverflow = ForceCheck;
-#     endif
-      if constexpr ( CheckBufferOverflow )
+      if( ssize_t(count) >= ssize_t(MaxNeighbors) )
       {
-        if( ssize_t(count) >= ssize_t(MaxNeighbors) )
-        {
-          printf("Compute buffer overflow : max capacity (%d) reached (count=%d,cell=%llu,part=%d)\n" , int(MaxNeighbors) , int(count) , static_cast<unsigned long long>(cell) , int(part) );
-          ONIKA_CU_ABORT();
-        }
+        printf("Compute buffer overflow : max capacity (%d) reached (count=%d,cell=%llu,part=%d)\n" , int(MaxNeighbors) , int(count) , static_cast<unsigned long long>(cell) , int(part) );
+        ONIKA_CU_ABORT();
       }
+#     endif
     }
-    
   };
+
+  template< class _NbhFieldSetT , size_t _MaxNeighbors = exanb::MAX_PARTICLE_NEIGHBORS , bool UserNbhData=false >
+  using SimpleNbhComputeBuffer = ComputePairBuffer2< UserNbhData, false, NoExtraStorage, DefaultComputePairBufferAppendFunc, _MaxNeighbors, ComputePairBuffer2Weights, _NbhFieldSetT >;
 
   // this allows to store the ComputeBufferType and a function to initialize it
   struct CPBufNullInit
