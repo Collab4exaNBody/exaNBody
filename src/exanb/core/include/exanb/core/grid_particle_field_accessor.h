@@ -30,6 +30,7 @@ namespace exanb
   {
     FuncT m_func;
     using field_id = FieldIdT;
+    using Id = typename FieldIdT::Id;
     using value_type = typename FuncT::value_type;
     using reference_t = typename FuncT::reference_t;
     // using unmutable_pointer_t = typename FuncT::unmutable_pointer_t;
@@ -71,6 +72,11 @@ namespace exanb
       return m_cells[m_cell_index].size();
     }
 
+    ONIKA_HOST_DEVICE_FUNC inline void set_tuple( size_t i, typename std::remove_pointer_t<CellsT>::TupleValueType const & tp ) const
+    {
+      m_cells[m_cell_index].set_tuple( i, tp );
+    }
+
     template<class field_id>
     ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( onika::soatl::FieldId<field_id> ) const
     {
@@ -105,7 +111,7 @@ namespace exanb
   template<class CellsT>
   struct GridParticleFieldAccessor
   {
-    CellsT m_cells;    
+    CellsT m_cells = nullptr;    
 
     ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor1<CellsT> operator [] (size_t cell_i) const
     {
@@ -131,14 +137,17 @@ namespace exanb
     }    
   };
 
+  /*
+   * Allows a particle field, stored as a flat 1D array, to be used as a particle field through the ExternalCellParticleFieldAccessor envelop
+   */
   template<class FieldIdT, bool ConstAccessor=false > struct GridExternalFieldFlatArrayAccessor
   {
     using value_type = typename FieldIdT::value_type;
     using reference_t = std::conditional_t<ConstAccessor, const value_type & , value_type & >;
-    using unmutable_pointer_t = std::conditional_t<ConstAccessor, value_type const * const __restrict__ , value_type * const __restrict__ >;
+    using pointer_t = std::conditional_t<ConstAccessor, value_type const * __restrict__ , value_type * __restrict__ >;
     
-    size_t const * const m_cell_particle_offset = nullptr;
-    unmutable_pointer_t m_data_array = nullptr;
+    size_t const * m_cell_particle_offset = nullptr;
+    pointer_t m_data_array = nullptr;
     
     template<class CellsT>
     ONIKA_HOST_DEVICE_FUNC
@@ -148,6 +157,7 @@ namespace exanb
     }
   };
 
+  // convinience function to build up a flat array acessor from a writable array
   template<class GridT, class FieldIdT>
   static inline auto make_external_field_flat_array_accessor( const GridT& grid, typename FieldIdT::value_type * const array , FieldIdT)
   {
@@ -155,6 +165,7 @@ namespace exanb
     return ExternalFieldT{ grid.cell_particle_offset_data() , array };
   }
 
+  // convinience function to build up a flat array acessor from a read-only array
   template<class GridT, class FieldIdT>
   static inline auto make_external_field_flat_array_accessor( const GridT& grid, typename FieldIdT::value_type const * const array , FieldIdT)
   {
@@ -167,11 +178,20 @@ namespace exanb
   template<class... field_ids> struct FieldAccessorTupleFromFieldSet< FieldSet<field_ids...> > { using type = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >; };
   template<class FieldSetT> using field_accessor_tuple_from_field_set_t = typename FieldAccessorTupleFromFieldSet<FieldSetT>::type;
 
+  // assembles fields contained in a FieldSet and other fields to a Field Accessor Tuple
   template<class... field_ids , class... FieldAccessorT>
   static inline auto make_field_tuple_from_field_set( FieldSet<field_ids...> , const FieldAccessorT& ... f )
   {
     return onika::FlatTuple< onika::soatl::FieldId<field_ids> ... , FieldAccessorT ... > { onika::soatl::FieldId<field_ids>{} ... , f ... };
   }
+  
+  // extract FieldId's low level ids from miscellaneous accessors, and build a FieldSet
+  template<class FieldSetT> struct FieldAccessorTupleToFieldSet;
+  template<class... FieldAccT> struct FieldAccessorTupleToFieldSet< onika::FlatTuple< FieldAccT... > > { using type = FieldSet< typename FieldAccT::Id ... >; };
+  template<class FieldSetT> using field_accessor_tuple_to_field_set_t = typename FieldAccessorTupleToFieldSet<FieldSetT>::type;
+  
+  template<class FieldAccT> using field_id_fom_acc_t = onika::soatl::FieldId< typename FieldAccT::Id >;
+  template<class FieldAccT> static inline constexpr field_id_fom_acc_t<FieldAccT> field_id_fom_acc_v = {};
   
 } // end of namespace exanb
 
