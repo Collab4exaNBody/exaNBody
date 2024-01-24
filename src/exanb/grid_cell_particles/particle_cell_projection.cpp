@@ -44,7 +44,7 @@ namespace exanb
     ADD_SLOT( double         , splat_size        , INPUT , REQUIRED );
     ADD_SLOT( long           , grid_subdiv       , INPUT , 1 );
     ADD_SLOT( GridCellValues , grid_cell_values  , INPUT );
-    ADD_SLOT( StringList  , fields            , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to project"} );
+    ADD_SLOT( StringList     , fields            , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to project"} );
 
   public:
 
@@ -54,19 +54,9 @@ namespace exanb
       using namespace ParticleCellProjectionTools;
       if( grid->number_of_cells() == 0 ) return;
 
-      const auto& flist = *fields;
-      auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-
-      // create cell value fields
-      std::vector<AddCellFieldInfo> fields_to_add;
-      CollectCellValueFieldToAdd collect_fields = {*grid_cell_values,fields_to_add,field_selector,*grid_subdiv};
-      apply_grid_field_set( *grid, collect_fields , GridT::field_set );
-      grid_cell_values->add_fields( fields_to_add );
-
-      // project particle quantities to cells
-      using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
-      ProjectCellValueField<ParticleAcessor> project_fields = { {grid->cells()} , *grid_cell_values,field_selector,*splat_size,*grid_subdiv};
-      apply_grid_field_set( *grid, project_fields , GridT::field_set );
+      auto proj_fields = make_field_tuple_from_field_set( grid->field_set );
+      auto field_selector = [flist = *fields] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      project_particle_fields_to_grid( ldbg, *grid, *grid_cell_values, *grid_subdiv, *splat_size, field_selector, proj_fields );
     }
 
     // -----------------------------------------------

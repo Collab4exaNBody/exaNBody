@@ -118,23 +118,6 @@ namespace exanb
       return { m_cells , cell_i };
     }
 
-    template<class field_id>
-    ONIKA_HOST_DEVICE_FUNC inline auto get(size_t cell_i, size_t p_i, onika::soatl::FieldId<field_id> ) const
-    {
-      return m_cells[cell_i][ onika::soatl::FieldId<field_id>{} ][p_i];
-    }
-
-    template<class FuncT , class... fids>
-    ONIKA_HOST_DEVICE_FUNC inline auto get(size_t cell_i, size_t p_i, const onika::soatl::FieldCombiner<FuncT,fids...>& f ) const
-    {
-      return m_cells[cell_i][f][p_i];
-    }
-
-    template<class FuncT, class FieldIdT>
-    ONIKA_HOST_DEVICE_FUNC inline typename FuncT::reference_t get(size_t cell_i, size_t p_i, const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
-    {
-      return f.m_func( cell_i , p_i , m_cells );
-    }    
   };
 
   /*
@@ -192,6 +175,19 @@ namespace exanb
   
   template<class FieldAccT> using field_id_fom_acc_t = onika::soatl::FieldId< typename FieldAccT::Id >;
   template<class FieldAccT> static inline constexpr field_id_fom_acc_t<FieldAccT> field_id_fom_acc_v = {};
+  
+  template<class StreamT, class FieldAccTupleT, size_t... I>
+  static inline StreamT& print_field_tuple(StreamT& out, const FieldAccTupleT& tp , std::index_sequence<I...> )
+  {
+    int s=0;
+    ( ... , ( out << (((s++)==0)?"":",") << tp.get(onika::tuple_index_t<I>{}).short_name() ) ) ;
+    return out;
+  }
+  template<class StreamT, class FieldAccTupleT>
+  static inline StreamT& print_field_tuple(StreamT& out, const FieldAccTupleT& tp)
+  {
+    return print_field_tuple(out,tp,std::make_index_sequence< onika::tuple_size_const_v<FieldAccTupleT> >{});
+  }
   
 } // end of namespace exanb
 
