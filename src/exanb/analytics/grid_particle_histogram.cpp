@@ -9,7 +9,7 @@
 
 #include <mpi.h>
 
-namespace exaStamp
+namespace exanb
 {
 
   template<class GridT>
