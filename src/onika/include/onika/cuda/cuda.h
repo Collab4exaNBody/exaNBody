@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <type_traits>
@@ -9,6 +27,7 @@
 #include <cstring>
 #include <thread>
 #include <onika/macro_utils.h>
+#include <onika/atomic.h>
 
 #ifndef ONIKA_CU_MAX_THREADS_PER_BLOCK
 #define ONIKA_CU_MAX_THREADS_PER_BLOCK 128
@@ -104,15 +123,6 @@ namespace onika
 #else 
 /************** start of HOST code definitions ***************/
 
-    template<class T>
-    static inline T onika_omp_fetch_add(T* x , const T& a)
-    {
-      T r;
-#     pragma omp atomic capture
-      { r = *x ; *x += a; }
-      return r;
-    }
-
     using onika_cu_memory_order_t = std::memory_order;
     using gpu_device_execution_t = std::false_type;
 
@@ -140,11 +150,10 @@ namespace onika
 
 #   define ONIKA_CU_ATOMIC_STORE(x,a,...) reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->store(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #   define ONIKA_CU_ATOMIC_LOAD(x,...) reinterpret_cast< const std::atomic<std::remove_cv_t<std::remove_reference_t<decltype(x)> > > * >(&(x))->load( __VA_ARGS__ )
-#   define ONIKA_CU_ATOMIC_ADD(x,a,...) ::onika::cuda::onika_omp_fetch_add( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-//reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->fetch_add(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_ATOMIC_SUB(x,a,...) reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->fetch_sub(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_ATOMIC_MIN(x,a,...) _Pragma("omp atomic update") (x) = ( ((x)<=(a))?(x):(a) )
-#   define ONIKA_CU_ATOMIC_MAX(x,a,...) _Pragma("omp atomic update") (x) = ( ((x)>=(a))?(x):(a) )
+#   define ONIKA_CU_ATOMIC_ADD(x,a,...) ::onika::capture_atomic_add( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_SUB(x,a,...) ::onika::capture_atomic_sub( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MIN(x,a,...) ::onika::capture_atomic_min( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MAX(x,a,...) ::onika::capture_atomic_max( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
 #   define ONIKA_CU_BLOCK_ATOMIC_ADD(x,a) (x) += (a)
 
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! (f).m_flag.test_and_set(std::memory_order_acquire) )

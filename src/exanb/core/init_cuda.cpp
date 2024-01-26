@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
@@ -23,10 +41,14 @@ namespace exanb
 
   class InitCuda : public OperatorNode
   {
+    using DeviceLimitsMap = std::map<std::string,std::string>;
+  
     ADD_SLOT( MPI_Comm , mpi         , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( bool     , single_gpu  , INPUT , true ); // how to partition GPUs inside groups of contiguous MPI ranks
-    ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL );
-    ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true );
+    ADD_SLOT( bool     , mpi_even_only  , INPUT , false , DocString{"if set to true, only even MPI will be assigned a GPU device. device id assigned is then (rank/2)%ndev instead of rank%ndev (ndev being number of GPUs per node)"} );
+    ADD_SLOT( long     , rotate_gpu  , INPUT , 0 , DocString{"shift gpu index : gpu device index assigned to an MPI process p, when single_gpu is active, is ( p + rotate_gpu ) % Ngpus. Ngpus being the number of GPUs per numa node"});
+    ADD_SLOT( long     , smem_bksize , INPUT , OPTIONAL , DocString{"configures shared memory bank size. can be 4 or 8"} );
+    ADD_SLOT( DeviceLimitsMap , device_limits  , INPUT , OPTIONAL , DocString{"queries or set device limits. see Cuda documentation of cudaDeviceSetLimit for a list of configurable limits. if value is -1, the device limit is queried ond printed instead of being set. if limit name is 'all', all limits are queried."} );
+    ADD_SLOT( bool     , enable_cuda , INPUT_OUTPUT , true , DocString{"if set to false, Cuda support is disabled even if support has been compiled in"} );
 
   public:
 
@@ -57,18 +79,31 @@ namespace exanb
       {
         cuda_ctx = std::make_shared<onika::cuda::CudaContext>();
       
-        int gpu_first_device = 0;
-        if( *single_gpu )
+        // multiple GPU per MPI process is not supported by now, because it hasn't been tested for years
+        // we replace it with a new feature to allocate GPUs only on even MPI processes, to allow for use of both CPU only and GPU accelerated processes
+        int gpu_first_device = ( rank + (*rotate_gpu) ) % n_gpus;
+        if( *mpi_even_only )
         {
-          gpu_first_device = rank % n_gpus;
-          cuda_ctx->m_devices.resize(1);
+          if( (rank%2) == 0 )
+          {
+            gpu_first_device = ( (rank/2) + (*rotate_gpu) ) % n_gpus;
+            cuda_ctx->m_devices.resize(1);
+          }
+          else
+          {
+            gpu_first_device=0;
+            n_gpus=0;
+            cuda_ctx->m_devices.clear();
+          }
         }
         else
         {
-          cuda_ctx->m_devices.resize(n_gpus);
+          cuda_ctx->m_devices.resize(1);
         }
-      
+
         int ndev = cuda_ctx->m_devices.size();
+
+        ldbg <<"ndev="<<ndev<<std::endl;
         for(int d=0;d<ndev;d++) cuda_ctx->m_devices[d].device_id = gpu_first_device + d;
         
         const int max_threads = omp_get_max_threads();
@@ -78,22 +113,68 @@ namespace exanb
         }
         ldbg << "support for a maximum of "<<max_threads<<" threads accessing "<<ndev<<" GPUs"<<std::endl;
         //cuda_ctx->m_threadStream.resize( ndev , 0 );
-        assert( ndev > 0 );
+        //assert( ndev > 0 );
         
-        checkCudaErrors( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );
-        if( smem_bksize.has_value() )
+        if( ndev > 0 )
         {
-          switch( *smem_bksize )
+          checkCudaErrors( cudaSetDevice( cuda_ctx->m_devices[0].device_id ) );
+          if( smem_bksize.has_value() )
           {
-            case 4 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
-            case 8 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
-            default:
-              lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
-              checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
-              break;
+            switch( *smem_bksize )
+            {
+              case 4 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeFourByte ) ); break;
+              case 8 : checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeEightByte ) ); break;
+              default:
+                lerr<<"Unsupported shared memory bank size "<<*smem_bksize<<", using default\n";
+                checkCudaErrors(  cudaDeviceSetSharedMemConfig( cudaSharedMemBankSizeDefault ) );
+                break;
+            }
           }
-        }
-
+        
+          if( device_limits.has_value() )
+          {
+            auto m = *device_limits;
+            if( m.find("query_all") != m.end() )
+            {
+              m.clear();
+              m["cudaLimitStackSize"] = "-1";
+              m["cudaLimitPrintfFifoSize"] = "-1";
+              m["cudaLimitMallocHeapSize"] = "-1";
+              m["cudaLimitDevRuntimeSyncDepth"] = "-1";
+              m["cudaLimitDevRuntimePendingLaunchCount"] = "-1";
+              m["cudaLimitMaxL2FetchGranularity"] = "-1";
+              m["cudaLimitPersistingL2CacheSize"] = "-1";
+            }
+            for( const auto& dl : m )
+            {
+              cudaLimit limit;
+                   if( dl.first == "cudaLimitStackSize"                    ) limit = cudaLimitStackSize;
+              else if( dl.first == "cudaLimitPrintfFifoSize"               ) limit = cudaLimitPrintfFifoSize;
+              else if( dl.first == "cudaLimitMallocHeapSize"               ) limit = cudaLimitMallocHeapSize;
+              else if( dl.first == "cudaLimitDevRuntimeSyncDepth"          ) limit = cudaLimitDevRuntimeSyncDepth;
+              else if( dl.first == "cudaLimitDevRuntimePendingLaunchCount" ) limit = cudaLimitDevRuntimePendingLaunchCount;
+              else if( dl.first == "cudaLimitMaxL2FetchGranularity"        ) limit = cudaLimitMaxL2FetchGranularity;
+              else if( dl.first == "cudaLimitPersistingL2CacheSize"        ) limit = cudaLimitPersistingL2CacheSize;
+              else
+              {
+                fatal_error() << "Cuda unknown limit '"<<dl.first<<"'"<<std::endl;
+              }
+              long in_value = std::stol( dl.second );
+              
+              if( in_value >= 0 )
+              {
+                checkCudaErrors( cudaDeviceSetLimit( limit , in_value ) ); 
+              }
+              else
+              {
+                size_t value = 0;
+                checkCudaErrors( cudaDeviceGetLimit ( &value, limit ) );
+                lout << dl.first << " = " << value << std::endl;
+              }
+            }
+          }
+        } // if has device(s)
+        
         int n_support_vmm = 0;
         long long totalGlobalMem = 0;
         int warpSize = 0;
@@ -101,7 +182,7 @@ namespace exanb
         int sharedMemPerBlock = 0;
         int clock_rate = 0;
         int l2_cache = 0;
-        std::string device_name;
+        std::string device_name = "no-device";
 
         for(int i=0;i<ndev;i++)
         {
@@ -129,12 +210,20 @@ namespace exanb
           lerr<<"GPUs don't support unified memory, cannot continue"<<std::endl;
           std::abort();
         }
-        onika::memory::GenericHostAllocator::set_cuda_enabled( true );
-
+        
         lout <<"GPUs : "<<ndev<< std::endl;
         lout <<"Type : "<<device_name << std::endl;
         lout <<"SMs  : "<<multiProcessorCount<<"x"<<warpSize<<" threads @ "<< std::defaultfloat<< clock_rate/1000000.0<<" Ghz" << std::endl;
-        lout <<"Mem  : "<< memory_bytes_string(totalGlobalMem/ndev) <<" (shared="<<memory_bytes_string(sharedMemPerBlock,"%g%s")<<" L2="<<memory_bytes_string(l2_cache,"%g%s")<<")" <<std::endl;
+
+        if( ndev > 0 )
+        {
+          onika::memory::GenericHostAllocator::set_cuda_enabled( true );
+          lout <<"Mem  : "<< memory_bytes_string(totalGlobalMem/ndev) <<" (shared="<<memory_bytes_string(sharedMemPerBlock,"%g%s")<<" L2="<<memory_bytes_string(l2_cache,"%g%s")<<")" <<std::endl;
+        }
+        else
+        {
+          cuda_ctx = nullptr;
+        }
       }
       
       set_global_cuda_ctx( cuda_ctx );

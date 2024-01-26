@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <exanb/core/operator.h>
@@ -10,7 +28,7 @@
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
-#include <exanb/core/thread.h>
+#include "exanb/core/thread.h"
 
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
@@ -21,10 +39,11 @@
 #include <list>
 #include <algorithm>
 
+
 #include <exanb/mpi/data_types.h>
 
 #define ENFORCE_ASSERTION_CHECK 1
-//#define MIGRATE_CELL_DEBUG_PROFILING 1
+// #define MIGRATE_CELL_DEBUG_PROFILING 1
 
 #ifdef ENFORCE_ASSERTION_CHECK
 #include <onika/force_assert.h>
@@ -333,7 +352,7 @@ namespace exanb
 #     pragma omp parallel
       {
 
-#       pragma omp single /*nowait*/
+#       pragma omp master /* replaced single with master, to ensure thread #0 issues MPI commands */ /* nowait clause has been removed */
         {
           for(int p=0;p<nprocs;p++)
           {
@@ -829,7 +848,7 @@ namespace exanb
 
             // ldbg << "internal copy of "<< it->size() << " particles"<<std::endl;
             auto* buf_ptr = & (*it);
-#           pragma omp task default(none) firstprivate(buf_ptr) shared(grid,out_ghost_layers,opt_data_helper)
+#           pragma omp task default(none) firstprivate(buf_ptr) shared(grid,opt_data_helper,out_ghost_layers)
             {
               NullLockArray nla;
               insert_particles_to_grid( grid , nla, *buf_ptr, out_ghost_layers, opt_data_helper );
@@ -857,10 +876,15 @@ namespace exanb
       //size_t n_unpacked_buffers_sync = 0;
       //size_t n_unpacked_buffers_async = 0;
 
+      /************ compact requests to avoid null values *******************/
+      std::vector<size_t> partner_idx( requests.size() , -1 );
+      for(size_t i=0;i<requests.size();i++) { partner_idx[i] = i; }
+
+      /********** request wait and received pack decoding *****************/
 #     pragma omp parallel
       {
       
-      if( omp_get_thread_num() == 0 )
+#     pragma omp master
       {
       
       // ======================= MPI progression loop ===============================
@@ -868,17 +892,42 @@ namespace exanb
       send_packet_count=0;
       while( active_senders>0 || send_packet_count<send_requests || send_cell_value_requests>0 || recv_cell_value_requests>0 )
       {
-        int reqidx = MPI_UNDEFINED;
+      
+        // compact active requests before calling MPI_waitany
+        size_t active_requests = 0;
+        for( active_requests=0; active_requests < requests.size() ; )
+        {
+          if( requests[active_requests] == MPI_REQUEST_NULL )
+          {
+            requests[active_requests] = requests.back(); requests.pop_back();
+            partner_idx[active_requests] = partner_idx.back(); partner_idx.pop_back();
+          }
+          else { ++ active_requests; }
+        }
+        ldbg << "compacted active requests = "<< active_requests << std::endl;
+        MIGRATE_CELL_PARTICLE_ASSERT( requests.size() == active_requests && partner_idx.size() == active_requests );
+        MIGRATE_CELL_PARTICLE_ASSERT( active_requests >= 1 );
+
         MPI_Status status;
-        MPI_Waitany( requests.size() /*total_requests*/ ,requests.data(),&reqidx,&status);
+        int compacted_reqidx = MPI_UNDEFINED;
+        if( active_requests > 1 )
+        {
+          MPI_Waitany( active_requests , requests.data() , &compacted_reqidx , &status );
+        }
+        else
+        {
+          MPI_Wait( & requests[0] , &status );
+          compacted_reqidx = 0;
+        }
+        const int reqidx = ( compacted_reqidx != MPI_UNDEFINED ) ? partner_idx[compacted_reqidx] : MPI_UNDEFINED ;
         
         if( reqidx != MPI_UNDEFINED )
         {
-          MIGRATE_CELL_PARTICLE_ASSERT( requests[reqidx] == MPI_REQUEST_NULL );
-          //ldbg << "request #"<<reqidx<<" finished"<<std::endl;
+          MIGRATE_CELL_PARTICLE_ASSERT( requests[compacted_reqidx] == MPI_REQUEST_NULL );
+          ldbg << "request #"<<reqidx<<" finished"<<std::endl;
           if( reqidx < ssize_t(send_requests) ) // a send has completed
           {
-            //ldbg<<"request #"<<reqidx<<" was a send"<<std::endl;
+            ldbg<<"request #"<<reqidx<<" was a send"<<std::endl;
             // free the corresponding send buffer;
             auto send_buffer_it = send_buffer_request_map.find(reqidx);
             MIGRATE_CELL_PARTICLE_ASSERT( send_buffer_it != send_buffer_request_map.end() );
@@ -891,7 +940,7 @@ namespace exanb
           else if( reqidx < static_cast<ssize_t>(send_requests+nprocs) ) // a receive has completed
           {
             int p = reqidx - send_requests; // p = the sender's rank
-            // ldbg<<"request #"<<reqidx<<" was a receive from P"<<p<<std::endl;
+            ldbg<<"request #"<<reqidx<<" was a receive from P"<<p<<std::endl;
             MIGRATE_CELL_PARTICLE_ASSERT(p!=rank && p>=0 && p<nprocs);
             int status_count = 0;
             MPI_Get_count(&status,MPI_CHAR,&status_count);
@@ -915,7 +964,7 @@ namespace exanb
               extra_recv_buffer_pos_hint = extra_buf.first + 1;
               std::swap( receive_buffer[p] , * extra_buf.second );
               //++ n_unpacked_buffers_async;
-#             pragma omp task default(none) firstprivate(extra_buf) shared(grid,out_ghost_layers,cell_locks_taskyield,extra_recv_buffer_ptrs,extra_rcv_bufs,opt_data_helper)
+#             pragma omp task default(none) firstprivate(extra_buf) shared(grid,cell_locks_taskyield,extra_recv_buffer_ptrs,extra_rcv_bufs,opt_data_helper,out_ghost_layers)
               {
                 insert_particles_to_grid( grid, cell_locks_taskyield, * extra_buf.second, out_ghost_layers, opt_data_helper );
                 give_receive_buffer_back( extra_recv_buffer_ptrs, extra_rcv_bufs, extra_buf );
@@ -932,7 +981,8 @@ namespace exanb
               size_t recv_packet_size = recv_particle_count[p] + 1;
               receive_buffer[p].clear(); // avoid copying discarded elements
               receive_buffer[p].resize( recv_packet_size );
-              MPI_Irecv( (char*) receive_buffer[p].data() , recv_packet_size*sizeof(ParticleTuple), MPI_CHAR, p, comm_tag, comm, & requests[send_requests+p] );
+              MIGRATE_CELL_PARTICLE_ASSERT( reqidx == ssize_t(send_requests+p) && partner_idx[compacted_reqidx] == size_t(send_requests+p) ); // ensures that we reuse the same request slot than the one we've just waited for
+              MPI_Irecv( (char*) receive_buffer[p].data() , recv_packet_size*sizeof(ParticleTuple), MPI_CHAR, p, comm_tag, comm, & requests[compacted_reqidx] );
             }
             else
             {
@@ -952,7 +1002,7 @@ namespace exanb
             {
               // its a cell value send, p is the destination processor
               int p = cell_reqidx;
-              // ldbg<<"request #"<<reqidx<<" was a cell value send to P"<<p<<std::endl;
+              ldbg<<"request #"<<reqidx<<" was a cell value send to P"<<p<<std::endl;
               MIGRATE_CELL_PARTICLE_ASSERT(p!=rank && p>=0 && p<nprocs);
               // ldbg << "sent cell values to P#"<<p<<std::endl;
               
@@ -965,7 +1015,7 @@ namespace exanb
             {
               // its a cell value receive, p is the source processor
               int p = cell_reqidx - nprocs;
-              // ldbg<<"request #"<<reqidx<<" was a cell value receive from P"<<p<<std::endl;
+              ldbg<<"request #"<<reqidx<<" was a cell value receive from P"<<p<<std::endl;
               MIGRATE_CELL_PARTICLE_ASSERT(p!=rank && p>=0 && p<nprocs);
               int status_count = 0;
               MPI_Get_count(&status,mpi_datatype<GridCellValueType>(),&status_count);

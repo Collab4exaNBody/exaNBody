@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <onika/cuda/cuda.h>
@@ -39,7 +57,7 @@ namespace onika
     template< class FuncT>
     ONIKA_DEVICE_KERNEL_FUNC
     ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
-    void block_parallel_for_gpu_kernel( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
+    void block_parallel_for_gpu_kernel_workstealing( uint64_t N, const FuncT func, GPUKernelExecutionScratch* scratch )
     {
       // avoid use of compute buffer when possible
       ONIKA_CU_BLOCK_SHARED unsigned int i;
@@ -56,6 +74,14 @@ namespace onika
       while( i < N );
     }
 
+    template< class FuncT>
+    ONIKA_DEVICE_KERNEL_FUNC
+    ONIKA_DEVICE_KERNEL_BOUNDS(ONIKA_CU_MAX_THREADS_PER_BLOCK,ONIKA_CU_MIN_BLOCKS_PER_SM)
+    void block_parallel_for_gpu_kernel_regulargrid( const FuncT func , GPUKernelExecutionScratch* )
+    {
+      func( ONIKA_CU_BLOCK_IDX );
+    }
+
     template<class FuncT>
     inline void block_parallel_for_omp_kernel(
         uint64_t N
@@ -66,9 +92,9 @@ namespace onika
       , ParallelExecutionStreamCallback* user_cb = nullptr
       )
     {
-      static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
       static constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_cpu_prolog_t>;
-      static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
       static constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_cpu_epilog_t>;
 
       if( exec_ctx != nullptr ) // for backward compatibility
@@ -149,10 +175,10 @@ namespace onika
       , size_t return_data_size = 0)
     {
       static_assert( lambda_is_compatible_with_v<FuncT,void,uint64_t> , "Functor in argument is incompatible with void(uint64_t) call signature" );
-      static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
-      static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
-      static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
-      static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_prolog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_prolog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_gpu_prolog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_prolog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_epilog_t>;
+      [[maybe_unused]] static constexpr bool functor_has_gpu_epilog = lambda_is_compatible_with_v<FuncT,void,ParallelExecutionContext*,block_parallel_for_gpu_epilog_t>;
     
       if( user_cb != nullptr )
       {
@@ -168,9 +194,9 @@ namespace onika
         {
           exec_ctx->check_initialize();
           const unsigned int BlockSize = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
-          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
-                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
-                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+//          const unsigned int GridSize = exec_ctx->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
+//                                      * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
+//                                      + onika::parallel::ParallelExecutionContext::gpu_sm_add();
 
           auto custream = exec_ctx->m_cuda_stream;        
           exec_ctx->gpu_kernel_start();
@@ -184,7 +210,10 @@ namespace onika
                if constexpr ( functor_has_gpu_prolog ) { func( exec_ctx, block_parallel_for_gpu_prolog_t{} ); }
           else if constexpr ( functor_has_prolog     ) { func( exec_ctx, block_parallel_for_prolog_t{}     ); }
 
-          ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel, N, func, scratch );
+
+//        ONIKA_CU_LAUNCH_KERNEL(GridSize,BlockSize,0,custream, block_parallel_for_gpu_kernel_workstealing, N, func, scratch );
+          ONIKA_CU_LAUNCH_KERNEL(       N,BlockSize,0,custream, block_parallel_for_gpu_kernel_regulargrid ,    func, scratch );
+
 
                if constexpr ( functor_has_gpu_epilog ) { func( exec_ctx, block_parallel_for_gpu_epilog_t{} ); }
           else if constexpr ( functor_has_epilog     ) { func( exec_ctx, block_parallel_for_epilog_t{}     ); }

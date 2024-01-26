@@ -1,3 +1,20 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+# 
+#   http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
 set_property(GLOBAL PROPERTY GLOBAL_XSTAMP_BUILT_PLUGINS "")
 
 function(xstamp_register_plugin PluginName)
@@ -85,7 +102,7 @@ function(xstamp_add_plugin PluginName dirname)
         if("${CUDA_CXX_COMPILER_FLAGS}" STREQUAL "")
           set(CUDA_CXX_COMPILER_FLAGS -Wall)
         endif()
-        set(${PluginName}_CU_OPTS --std=c++17 --extended-lambda -ccbin ${CMAKE_CXX_COMPILER} -allow-unsupported-compiler -arch=compute_${XSTAMP_CUDA_ARCH} -code=sm_${XSTAMP_CUDA_ARCH} ${XSTAMP_PLUGIN_CUDA_FLAGS} --compiler-options ${CUDA_CXX_COMPILER_FLAGS})
+        set(${PluginName}_CU_OPTS --std=c++17 --extended-lambda --Werror cross-execution-space-call -ccbin ${CMAKE_CXX_COMPILER} -allow-unsupported-compiler -arch=compute_${XSTAMP_CUDA_ARCH} -code=sm_${XSTAMP_CUDA_ARCH} ${XSTAMP_PLUGIN_CUDA_FLAGS} --compiler-options ${CUDA_CXX_COMPILER_FLAGS})
         set(${PluginName}_CXX_OPTS ${USTAMP_CXX_FLAGS} ${XSTAMP_PLUGIN_HOST_FLAGS} ${${PluginName}_COMPILE_OPTIONS})
       	target_compile_options(${CudaKernelTarget} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${${PluginName}_CU_OPTS}> $<$<COMPILE_LANGUAGE:CXX>:${${PluginName}_CXX_OPTS}>)
         target_link_libraries(${CudaKernelTarget} PRIVATE ${PLUGIN_CORE_LIBS} ${${PluginName}_LINK_LIBRARIES} ${LibTarget})

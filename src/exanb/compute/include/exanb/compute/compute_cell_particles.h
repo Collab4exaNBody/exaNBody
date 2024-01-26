@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <onika/cuda/cuda.h>
@@ -9,6 +27,7 @@
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
+#include <onika/lambda_tools.h>
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
@@ -43,6 +62,11 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
+      using onika::lambda_is_compatible_with_v;
+      static constexpr bool call_func_without_idx = lambda_is_compatible_with_v<FuncT,void, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+      static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+      static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype(m_cells[0][onika::soatl::FieldId<field_ids>{}][0]) ... >;
+
       size_t cell_a = i;
       IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
       cell_a_loc = cell_a_loc + m_ghost_layers;
@@ -53,13 +77,18 @@ namespace exanb
       const unsigned int n = m_cells[cell_a].size();
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
       {
-			  if constexpr (  !ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx )
+			  if constexpr ( call_func_without_idx )
 				{
+          static_assert( ! ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx );
 	        m_func( m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
-				else
+				else if constexpr ( call_func_with_cell_idx )
 				{
 	        m_func(cell_a, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
+				}
+				else if constexpr ( call_func_with_cell_particle_idx )
+				{
+	        m_func(cell_a, p, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... );
 				}
       }
     }
@@ -81,6 +110,7 @@ namespace onika
 
 namespace exanb
 {
+
   template<class GridT, class FuncT, class FieldSetT>
   static inline void compute_cell_particles(
     GridT& grid,
@@ -90,13 +120,12 @@ namespace exanb
     onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
     bool async = false )
   {
-    using CellsT = typename GridT::CellParticles;
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
     const IJK block_dims = dims - (2*gl);
     const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
-    CellsT * cells = grid.cells();
+    auto cells = grid.cells();
     bool enable_gpu = false;
     if constexpr ( ComputeCellParticlesTraits<FuncT>::CudaCompatible )
     {
@@ -107,7 +136,7 @@ namespace exanb
       enable_gpu = true;
     }
     
-    onika::parallel::block_parallel_for( N, ComputeCellParticlesFunctor<CellsT*,FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , enable_gpu , async );
+    onika::parallel::block_parallel_for( N, ComputeCellParticlesFunctor<decltype(cells),FuncT,FieldSetT>{cells,dims,gl,func} , exec_ctx , enable_gpu , async );
   }
 }
 

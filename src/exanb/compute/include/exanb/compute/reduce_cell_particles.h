@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <onika/cuda/cuda.h>
@@ -102,7 +120,7 @@ namespace exanb
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class FuncT, class ResultT, class FieldSetT>
   static inline void reduce_cell_particles(
-    GridT& grid,
+    const GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
@@ -117,7 +135,7 @@ namespace exanb
     const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
     ResultT* target_reduced_value_ptr = &reduced_val;
-    CellsT * cells = grid.cells();
+    const CellsT * cells = grid.cells();
     bool enable_gpu = false;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
     {
@@ -129,7 +147,7 @@ namespace exanb
       }
     }
     
-    ReduceCellParticlesFunctor<CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
+    ReduceCellParticlesFunctor<const CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
     onika::parallel::block_parallel_for( N, pfor_op , exec_ctx , enable_gpu , ( user_cb != nullptr ) , user_cb , &reduced_val, sizeof(ResultT) );
   }
 

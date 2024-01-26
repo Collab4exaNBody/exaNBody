@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
@@ -96,7 +114,8 @@ namespace exanb
       IJK domain_grid_dims = domain.grid_dimension();
       Vec3d domain_size = bounds_size( domain.bounds() );
 
-      ldbg <<"domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << "ghost_layers=" << ghost_layers << std::endl;
+      ldbg <<"UpdateGhostsCommScheme: --- begin ghost_comm_scheme ---" << std::endl;
+      ldbg <<"UpdateGhostsCommScheme: domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << " ghost_layers=" << ghost_layers << std::endl;
 
       // for periodic conditions we shift simulation box once to the right or to the left
       // FIXME: this could be more than 1 and less than -1, in case the nieghborhood distance is greater than the domain itself
@@ -234,12 +253,9 @@ namespace exanb
       size_t total_requests = 2 * nprocs;
       std::vector< MPI_Request > requests( total_requests , MPI_REQUEST_NULL );
       total_requests = 0;
-      //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
       // alocate receive buffers and start async receives and sends
-      //std::vector< std::vector<uint64_t> > receive_buffer( nprocs ); // receive buffer contains array of pairs (cell index,particle count)
-      ssize_t active_sends = 0;
-      ssize_t active_recvs = 0;
+      size_t active_recvs=0, active_sends=0;
       for(int p=0;p<nprocs;p++)
       {
         comm_scheme.m_partner[p].m_receives.resize( recv_count[p] );
@@ -307,7 +323,7 @@ namespace exanb
       }
       /********************************************************************/
 
-      ldbg << "--- end ghost_comm_scheme ---" << std::endl;
+      ldbg << "UpdateGhostsCommScheme: --- end ghost_comm_scheme ---" << std::endl;
     }
 
 
