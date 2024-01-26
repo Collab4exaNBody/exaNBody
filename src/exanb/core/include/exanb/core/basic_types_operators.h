@@ -79,8 +79,14 @@ namespace exanb
   
   ONIKA_HOST_DEVICE_FUNC inline Vec3d operator - (const Vec3d& a, const Vec3d& b)
   {
+    //printf("SUPPPP\n");
     return Vec3d{ a.x-b.x, a.y-b.y, a.z-b.z };
   }
+  
+  /**ONIKA_HOST_DEVICE_FUNC inline Vec3d operator - (const Vec3d a, const Vec3d b)
+  {
+  	return Vec3d{ a.x-b.x, a.y-b.y, a.z-b.z };
+  }*/
 
   ONIKA_HOST_DEVICE_FUNC inline Vec3d operator + (const Vec3d& a, const Vec3d& b)
   {
@@ -307,6 +313,7 @@ namespace exanb
 
   ONIKA_HOST_DEVICE_FUNC inline double dot(const Vec3d &u, const Vec3d &v)
   {
+    //printf("je suis ici?\n");
     return u.x*v.x + u.y*v.y + u.z*v.z;
   }
 
@@ -598,7 +605,46 @@ namespace exanb
         && mat.m21==0 && mat.m22==0 && mat.m23==0
         && mat.m31==0 && mat.m32==0 && mat.m33==0 ;
   }
-
+  
+  ONIKA_HOST_DEVICE_FUNC 
+  inline double get_Mat3d (const Mat3d &a, int i, int j)
+  {
+  	double res = 0;
+  	if(i == 0){
+  		if(j == 0) res = a.m11;
+  		if(j == 1) res = a.m12;
+  		if(j == 2) res = a.m13;
+	} else if(i == 1) {
+		if(j == 0) res = a.m21;
+		if(j == 1) res = a.m22;
+		if(j == 2) res = a.m23;
+	} else if(i == 2) {
+		if(j == 0) res = a.m31;
+		if(j == 1) res = a.m32;
+		if(j == 2) res = a.m33;
+	}
+	return res;
+  }
+  
+   ONIKA_HOST_DEVICE_FUNC 
+   inline void set_Mat3d (Mat3d &a, int i, int j, double s)
+  {
+  	if(i == 0){
+  		if(j == 0) a.m11 = s;
+  		if(j == 1) a.m12 = s;
+  		if(j == 2) a.m13 = s;
+	} else if(i == 1) {
+		if(j == 0) a.m21 = s;
+		if(j == 1) a.m22 = s;
+		if(j == 2) a.m23 = s;
+	} else if(i == 2) {
+		if(j == 0) a.m31 = s;
+		if(j == 1) a.m32 = s;
+		if(j == 2) a.m33 = s;
+	}
+  }
+  
+  
   inline double diff_l2_norm (const Mat3d& A, const Mat3d& B)
   {
     Mat3d D = A-B;

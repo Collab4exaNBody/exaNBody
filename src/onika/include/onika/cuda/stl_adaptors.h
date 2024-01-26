@@ -1,4 +1,4 @@
-#pragma once
+#pragma once 
 
 #include <vector>
 #include <onika/cuda/cuda.h>
@@ -55,6 +55,11 @@ namespace onika
       {
         return size_t( this->std::vector<T,A>::_M_impl._M_finish - this->std::vector<T,A>::_M_impl._M_start );
       }
+      
+      //ajout carlo
+      ONIKA_HOST_DEVICE_FUNC inline T& operator [] (int i) { return this->std::vector<T,A>::_M_impl._M_start+i; }
+      ONIKA_HOST_DEVICE_FUNC inline const T& operator [] (int i) const { return this->std::vector<T,A>::_M_impl._M_start+i; }
+      //ONIKA_HOST_DEVICE_FUNC inline const T get (int i) const { return this->(std::vector<T,A>::_M_impl._M_start+i) );
     };
       
     template<class T, class A>
@@ -80,10 +85,28 @@ namespace onika
       const CudaStdVectorAccess<T,A>* va = reinterpret_cast<const CudaStdVectorAccess<T,A>*>( &v );
       return va->_cusize();
     }
+    
+    template<class T, class A>
+    ONIKA_HOST_DEVICE_FUNC inline T& get ( std::vector<T,A>& v, int i )
+    {
+      static_assert( sizeof(CudaStdVectorAccess<T,A>) == sizeof(std::vector<T,A>) && alignof(CudaStdVectorAccess<T,A>) == alignof(std::vector<T,A>) );
+      CudaStdVectorAccess<T,A>* va = reinterpret_cast<CudaStdVectorAccess<T,A>*>( &v );
+      return va[i];
+    }
+    
+    template<class T, class A>
+    ONIKA_HOST_DEVICE_FUNC inline const T& get ( const std::vector<T,A>& v, int i )
+    {
+      static_assert( sizeof(CudaStdVectorAccess<T,A>) == sizeof(std::vector<T,A>) && alignof(CudaStdVectorAccess<T,A>) == alignof(std::vector<T,A>) );
+      const CudaStdVectorAccess<T,A>* va = reinterpret_cast<const CudaStdVectorAccess<T,A>*>( &v );
+      return va[i];
+    }
 
     template<class T> ONIKA_HOST_DEVICE_FUNC inline size_t vector_size( const VectorShallowCopy<T>& v ) { return v.size(); }
     template<class T> ONIKA_HOST_DEVICE_FUNC inline const T* vector_data( const VectorShallowCopy<T>& v ) { return v.data(); }
     template<class T> ONIKA_HOST_DEVICE_FUNC inline T* vector_data( VectorShallowCopy<T>& v ) { return v.data(); }
+    //template<class T> ONIKA_HOST_DEVICE_FUNC inline  T& vector_access( VectorShallowCopy<T>& v, size_t i ) { return v[i]; }
+    //template<class T> ONIKA_HOST_DEVICE_FUNC inline  const T& vector_access( VectorShallowCopy<T>& v, size_t i ) { return v[i]; }
 
     template<class Iterator, class T>
     ONIKA_HOST_DEVICE_FUNC inline Iterator lower_bound( Iterator begin , Iterator end , const T& x )

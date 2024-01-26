@@ -30,8 +30,11 @@ namespace exanb
   struct Vec3d
   {
     double x = 0.0;
+    //double* x = 0.0;
     double y = 0.0;
+    //double* y = 0.0;
     double z = 0.0;
+    //double* z = 0.0;
     ONIKA_HOST_DEVICE_FUNC inline bool operator < (const Vec3d& p) const
     {
       if(x<p.x) return true;
