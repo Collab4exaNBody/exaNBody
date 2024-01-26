@@ -162,7 +162,15 @@ namespace exanb
   template<class fsa, class fsb> using ConcatFieldSet = typename _ConcatFieldSet<fsa,fsb>::field_set;
   template<class fsa, class fsb> using MergeFieldSet = typename _ConcatFieldSet< fsa , RemoveFields<fsb,fsa> >::field_set;
 
-  
+
+  // ========================
+  // merge several field sets
+  // ========================
+  template<class... all_field_sets> struct _MergeAllFieldSets;
+  template<> struct _MergeAllFieldSets<> { using type = FieldSet<>; };
+  template<class fs1, class... other_fs> struct _MergeAllFieldSets<fs1,other_fs...> { using type = MergeFieldSet< fs1 , typename _MergeAllFieldSets<other_fs...>::type >; };
+  template<class... all_field_sets> using merge_all_field_sets_t = typename _MergeAllFieldSets<all_field_sets...>::type;
+
   // ==============================================
   // filter FieldSets with requirements (FieldSet)
   // the resulting FieldSets contain only those

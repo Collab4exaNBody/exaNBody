@@ -30,6 +30,7 @@ under the License.
 
 #include <exanb/core/cell_particles_from_field_set.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <cstdlib>
 #include <vector>
@@ -47,30 +48,71 @@ under the License.
 
 namespace exanb
 {
-  template<class GridFieldSet> class Grid;
 
-  template<typename... particle_field_ids>
-  class Grid< FieldSet<particle_field_ids...> > 
+  namespace grid_details
   {
-    static constexpr double c_epsilon = 1.0 / (1ull<<48) ; // approx. 3.5e-15
+    template<class FS1 , class OtherFSS> struct MergeFieldSetsToFieldSet;
+    template<class FS1 , class... OtherFS> struct MergeFieldSetsToFieldSet<FS1,FieldSets<OtherFS...> > { using type = merge_all_field_sets_t<FS1,OtherFS...>; };
+    template<class FS1 , class OtherFSS> using merge_optional_field_sets_t = typename MergeFieldSetsToFieldSet<FS1,OtherFSS>::type;
+    
+    template<class... fids> using cell_allocator_from_fields_t = 
+      onika::soatl::PackedFieldArraysAllocatorImpl<
+        onika::memory::DefaultAllocator, 
+        onika::memory::DEFAULT_ALIGNMENT, 
+        onika::memory::DEFAULT_CHUNK_SIZE,
+        fids...
+      > ;
+    template<class... fids> using cell_particles_from_fields_t = 
+      onika::soatl::FieldArraysWithAllocator< 
+        onika::memory::DEFAULT_ALIGNMENT, 
+        onika::memory::DEFAULT_CHUNK_SIZE, 
+        cell_allocator_from_fields_t<fids...>, 
+        std::min(size_t(XSTAMP_FIELD_ARRAYS_STORE_COUNT),size_t(sizeof...(fids))) , 
+        fids... 
+      >;
+
+    template<class FieldSetT> struct CellParticlesFromFieldSet;
+    template<class... fids> struct CellParticlesFromFieldSet< FieldSet<fids...> > { using type = cell_particles_from_fields_t<fids...>; };
+    template<class FieldSetT> using cell_particles_from_field_set_t = typename CellParticlesFromFieldSet<FieldSetT>::type;
+    
+    template<class FieldSetsT> struct OptionalStorageFromFieldSets;
+    template<class... FS> struct OptionalStorageFromFieldSets< FieldSets<FS...> >
+    {
+      using type = onika::FlatTuple< onika::memory::CudaMMVector< cell_particles_from_field_set_t<FS> > ... >;
+    };
+    template<class FieldSetsT> using optional_storage_from_field_sets_t = typename OptionalStorageFromFieldSets<FieldSetsT>::type; 
+  }
+
+  // pre-declaration, to allow only specializations with a FieldSet<...> as template parameter
+  template<class GridFieldSet , class OptionalFieldSetsT = FieldSets<> > class Grid;
+
+  template<class OptionalFieldSetsT, typename... particle_field_ids>
+  class Grid< FieldSet<particle_field_ids...> , OptionalFieldSetsT >
+  {  
+    static inline constexpr double c_epsilon = 1.0 / (1ull<<48) ; // approx. 3.5e-15
 
   public:
+    // set of optional field sets
+    using optional_field_sets_t = OptionalFieldSetsT;
+    using optional_storage_t = grid_details::optional_storage_from_field_sets_t<OptionalFieldSetsT>;
+    static inline constexpr size_t NumberOfOptionalFieldSets = onika::tuple_size_const_v< optional_storage_t >;
 
-    static constexpr size_t MaxStoredPointerCount = XSTAMP_FIELD_ARRAYS_STORE_COUNT;
-    static constexpr size_t StoredPointerCount = std::min( MaxStoredPointerCount , size_t(sizeof...(particle_field_ids)+3) );
+    // those fields are in the main storage (m_cells) and always present
+    using builtin_field_set_t = FieldSet<field::_rx,field::_ry,field::_rz, particle_field_ids...>;
 
-    using field_set_t = FieldSet<particle_field_ids...>;
-    static inline constexpr field_set_t field_set{};
-    
-    using CellParticlesAllocator = onika::soatl::PackedFieldArraysAllocatorImpl< onika::memory::DefaultAllocator, onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
-    using CellParticles = onika::soatl::FieldArraysWithAllocator< onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, CellParticlesAllocator, StoredPointerCount , field::_rx,field::_ry,field::_rz, particle_field_ids... >;
-    static_assert( std::is_same_v< CellParticles , cell_particles_from_field_set_t<field_set_t> > , "CellParticles type not as expected" );
+    // all fields available, including optional field packages
+    using field_set_t = grid_details::merge_optional_field_sets_t< builtin_field_set_t , optional_field_sets_t >;
+    static inline constexpr field_set_t field_set = {};
+
+    using CellParticlesAllocator = grid_details::cell_allocator_from_fields_t< field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
+    using CellParticles = grid_details::cell_particles_from_fields_t< field::_rx,field::_ry,field::_rz, particle_field_ids... >;
 
     static constexpr size_t Alignment = CellParticles::Alignment;
     static constexpr size_t ChunkSize = CellParticles::ChunkSize;
     using Fields = FieldSet< field::_rx,field::_ry,field::_rz,particle_field_ids...>;
     using ParticleTuple = onika::soatl::FieldTuple<field::_rx,field::_ry,field::_rz,particle_field_ids...>;
-    template<class _id> using HasField = typename CellParticles::template HasField < _id > ;
+    
+    template<class _id> using HasField = typename ParticleTuple::template HasField < _id >;
 
     // Grid's origin shall always be equal to domain's lower boundary.
     inline void set_origin(Vec3d o) { m_origin = o; }
@@ -256,6 +298,14 @@ namespace exanb
       m_cell_allocator = std::make_shared< AllocT >();
       m_cell_allocator->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
     }
+    
+    template<class... ids> inline auto field_accessors( FieldSet<ids...> )
+    {
+      // un pour chaque optional package
+      // m_cell_allocator = std::make_shared< AllocT >();
+      // m_cell_allocator->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
+      return onika::make_flat_tuple( );
+    }    
     
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
@@ -502,6 +552,10 @@ namespace exanb
     // storage of particles split into cubic cells.
     onika::memory::CudaMMVector< CellParticles > m_cells;
     std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> m_cell_allocator;
+    
+    // optional storage
+    optional_storage_t m_optional_storage;
+    onika::oarray_t< std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> , NumberOfOptionalFieldSets > m_optional_storage_allocators;
     
     // per grid profiling information, optional.
     GridComputeProfiling m_grid_compute_profiling;
