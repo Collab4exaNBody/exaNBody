@@ -120,6 +120,36 @@ namespace exanb
 
   };
 
+
+  /*
+   * Allows a particle field, stored as a flat 1D array, to be used as a particle field through the ExternalCellParticleFieldAccessor envelop
+   */
+  template<class CellsT, class FieldIdT, bool ConstAccessor=false > struct GridOptionalFieldAccessor
+  {
+    using value_type = typename FieldIdT::value_type;
+    using reference_t = std::conditional_t<ConstAccessor, const value_type & , value_type & >;
+    CellsT m_optional_cells = nullptr;
+    template<class BuiltinCellsT> ONIKA_HOST_DEVICE_FUNC inline reference_t operator () ( size_t cell_i, size_t p_i , BuiltinCellsT ) const
+    {
+      return m_optional_cells[cell_i][FieldIdT{}][p_i];
+    }
+  };
+
+  // convinience function to build up a flat array acessor from a writable array
+  template<class CellsT, class FieldIdT>
+  static inline auto make_optional_field_accessor( CellsT * const opt_cells , FieldIdT )
+  {
+    using ExternalFieldT = ExternalCellParticleFieldAccessor< GridOptionalFieldAccessor<CellsT *,FieldIdT,false> , FieldIdT >;
+    return ExternalFieldT{ opt_cells };
+  }
+
+  template<class CellsT, class FieldIdT>
+  static inline auto make_optional_field_accessor( CellsT const * const opt_cells , FieldIdT )
+  {
+    using ExternalFieldT = ExternalCellParticleFieldAccessor< GridOptionalFieldAccessor<CellsT const *,FieldIdT,true> , FieldIdT >;
+    return ExternalFieldT{ opt_cells };
+  }
+
   /*
    * Allows a particle field, stored as a flat 1D array, to be used as a particle field through the ExternalCellParticleFieldAccessor envelop
    */
@@ -132,9 +162,7 @@ namespace exanb
     size_t const * m_cell_particle_offset = nullptr;
     pointer_t m_data_array = nullptr;
     
-    template<class CellsT>
-    ONIKA_HOST_DEVICE_FUNC
-    inline reference_t operator () ( size_t cell_i, size_t p_i , CellsT ) const
+    template<class CellsT> ONIKA_HOST_DEVICE_FUNC inline reference_t operator () ( size_t cell_i, size_t p_i , CellsT ) const
     {
       return m_data_array[ m_cell_particle_offset[cell_i] + p_i ];
     }

@@ -34,9 +34,9 @@ namespace exanb
    
   // *** particle neighborhood ***
   // apply a functor on every pair of particles that are closer than specified distance
-  template<typename PartPairFuncT, typename GridFieldSetT >
+  template<typename PartPairFuncT, typename GridFieldSetT , class OptGridFieldSetsT>
   static inline void omp_grid_apply_particle_pair_nd(
-    Grid< GridFieldSetT >& grid,
+    Grid< GridFieldSetT , OptGridFieldSetsT >& grid,
     AmrGrid& amr,
     double max_dist,
     PartPairFuncT func,

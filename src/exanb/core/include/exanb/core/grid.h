@@ -80,7 +80,25 @@ namespace exanb
     {
       using type = onika::FlatTuple< onika::memory::CudaMMVector< cell_particles_from_field_set_t<FS> > ... >;
     };
-    template<class FieldSetsT> using optional_storage_from_field_sets_t = typename OptionalStorageFromFieldSets<FieldSetsT>::type; 
+    template<class FieldSetsT> using optional_storage_from_field_sets_t = typename OptionalStorageFromFieldSets<FieldSetsT>::type;
+
+    template<class fid, class FieldSetT> struct FieldSetContainsFieldId;
+    template<class fid, class... otherIds> struct FieldSetContainsFieldId<fid,FieldSet<otherIds...> > : public std::integral_constant<bool, ( ... || (std::is_same_v<fid,otherIds>) ) > {};
+    template<class fid, class FieldSetT> static inline constexpr bool field_set_contains_field_id_v = FieldSetContainsFieldId<fid,FieldSetT>::value;
+    
+    template<class fid, class FieldSetsT> struct FindOptionalPackageIndex;
+    template<class fid> struct FindOptionalPackageIndex< fid , FieldSets<> > { static inline constexpr int value = -1; };
+    template<class fid, class FS1, class... OFS> struct FindOptionalPackageIndex< fid , FieldSets<FS1,OFS...> >
+    {
+      static inline constexpr int nextvalue = FindOptionalPackageIndex< fid , FieldSets<OFS...> >::value;
+      static inline constexpr int value = field_set_contains_field_id_v< fid , FS1 > ? 0 : ( (nextvalue!=-1) ? (nextvalue+1) : -1 );
+    };
+    template<class fid, class FieldSetsT> static inline constexpr int optional_package_index_v = FindOptionalPackageIndex<fid,FieldSetsT>::value;
+
+    template<size_t idx, class FieldSetsT> struct FieldSetAtIndex;
+    template<class T, class... U > struct FieldSetAtIndex< 0 , FieldSets<T,U...> > { using type = T; };
+    template<size_t idx, class T, class... U > struct FieldSetAtIndex< idx , FieldSets<T,U...> > { using type = typename FieldSetAtIndex< idx-1 , FieldSets<U...> >::type; };
+    template<size_t idx, class FieldSetsT> using field_set_at_index_t = typename FieldSetAtIndex<idx,FieldSetsT>::type;
   }
 
   // pre-declaration, to allow only specializations with a FieldSet<...> as template parameter
@@ -101,7 +119,7 @@ namespace exanb
     using builtin_field_set_t = FieldSet<field::_rx,field::_ry,field::_rz, particle_field_ids...>;
 
     // all fields available, including optional field packages
-    using field_set_t = grid_details::merge_optional_field_sets_t< builtin_field_set_t , optional_field_sets_t >;
+    using field_set_t = builtin_field_set_t; //grid_details::merge_optional_field_sets_t< builtin_field_set_t , optional_field_sets_t >;
     static inline constexpr field_set_t field_set = {};
 
     using CellParticlesAllocator = grid_details::cell_allocator_from_fields_t< field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
@@ -284,7 +302,7 @@ namespace exanb
     {
       m_cell_allocator = a;
     }
-    
+
     template<class... ids> inline void set_cell_allocator_for_fields( FieldSet<ids...> )
     {
       using onika::soatl::pfa_allocator_impl_from_field_ids_t;
@@ -298,15 +316,76 @@ namespace exanb
       m_cell_allocator = std::make_shared< AllocT >();
       m_cell_allocator->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
     }
-    
-    template<class... ids> inline auto field_accessors( FieldSet<ids...> )
+
+    template<size_t I>
+    inline void set_optional_fields_allocator()
     {
-      // un pour chaque optional package
-      // m_cell_allocator = std::make_shared< AllocT >();
-      // m_cell_allocator->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
-      return onika::make_flat_tuple( );
-    }    
+      using namespace grid_details;
+      using onika::soatl::pfa_allocator_impl_from_field_ids_t;
+      using onika::memory::GenericHostAllocator;
+      using OptFieldSetT = field_set_at_index_t< I , optional_field_sets_t >;
+      using AllocT = pfa_allocator_impl_from_field_ids_t< onika::memory::DefaultAllocator, onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, OptFieldSetT >;
+      m_optional_storage_allocators[I] = std::make_shared< AllocT >();
+      m_optional_storage_allocators[I]->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
+    }
+
+    template<class FieldIdT> inline auto field_accessor( FieldIdT f )
+    {
+      static constexpr int opt_pkg_idx = grid_details::optional_package_index_v< typename FieldIdT::Id , optional_field_sets_t >;
+      static_assert( opt_pkg_idx>=0 || HasField< typename FieldIdT::Id >::value , "requested field must be available either in builtin or optional field sets" );
+      // std::cout << "field_accessor("<<f.short_name()<<") -> opt_pkg_idx = "<<opt_pkg_idx<<std::endl;
+      if constexpr ( opt_pkg_idx >= 0 )
+      {
+        if( m_optional_storage_allocators[opt_pkg_idx] == nullptr )
+        {
+          set_optional_fields_allocator<opt_pkg_idx>();
+        }
+        auto & storage = m_optional_storage.get(onika::tuple_index_t<opt_pkg_idx>{});
+        if( m_cells.empty() )
+        {
+          storage.clear();
+        }
+        else
+        {
+          const size_t n_cells = number_of_cells();
+          bool resized = ( storage.size() != n_cells );
+          storage.resize( n_cells );
+          for(size_t i=0;i<n_cells;i++)
+          {
+            resized = resized || ( storage[i].size() != m_cells[i].size() );
+            storage[i].resize( m_cells[i].size() , * m_optional_storage_allocators[opt_pkg_idx] );
+          }
+          if( resized )
+          {
+            std::cout << "re-allocate dynamic field package #"<<opt_pkg_idx<<" to provide field "<<FieldIdT::short_name()<<std::endl<<std::flush;
+          }
+        }
+        // std::cout << "Access to field "<<f.short_name()<<" from optional package #"<<opt_pkg_idx<<std::endl<<std::flush;
+        return make_optional_field_accessor( storage.data() , f );
+      }
+      else return f;
+    }
+
+    template<ssize_t OptPackageIndex = ssize_t(NumberOfOptionalFieldSets)-1 >
+    inline void clear_optional_fields( std::integral_constant<ssize_t,OptPackageIndex> = {} )
+    {
+      if constexpr ( OptPackageIndex >= 0 )
+      {
+        auto & storage = m_optional_storage.get(onika::tuple_index_t<OptPackageIndex>{});
+        for( auto & opt_cell : storage ) opt_cell.clear( * m_optional_storage_allocators[OptPackageIndex] );
+        storage.clear();
+        if constexpr ( OptPackageIndex > 0 )
+        {
+          clear_optional_fields( std::integral_constant<ssize_t,OptPackageIndex-1>{} );
+        }
+      }
+    }
     
+    template<class... ids, class... ext_fields> inline auto field_accessors( FieldSet<ids...> , const ext_fields & ... ef )
+    {
+      return onika::make_flat_tuple( field_accessor(onika::soatl::FieldId<ids>{}) ... , ef ... );
+    }
+
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
@@ -458,7 +537,8 @@ namespace exanb
 
     inline ~Grid()
     {
-      for(auto& cell : m_cells) { cell.clear( cell_allocator() ); }      
+      for(auto& cell : m_cells) { cell.clear( cell_allocator() ); }
+      clear_optional_fields();
     }
 
     inline Grid& operator = ( const Grid & other )
@@ -576,11 +656,11 @@ namespace exanb
   }
 
   // utility template to instantiate a grid with particle fields specified in a exanb::FieldSet
-  template<typename field_set> struct GridFromFieldSetHelper {};
-  template<typename... field_ids > struct GridFromFieldSetHelper< FieldSet<field_ids...> > { using type = Grid< FieldSet<field_ids...> >; };
+  template<class field_set, class opt_field_sets > struct GridFromFieldSetHelper {};
+  template<class opt_field_sets, class... field_ids > struct GridFromFieldSetHelper< FieldSet<field_ids...> , opt_field_sets > { using type = Grid< FieldSet<field_ids...> , opt_field_sets >; };
 
-  template<typename field_set>
-  using GridFromFieldSet = typename GridFromFieldSetHelper<field_set>::type ;
+  template<class field_set, class opt_field_sets = FieldSets<> >
+  using GridFromFieldSet = typename GridFromFieldSetHelper<field_set, opt_field_sets>::type ;
 
   template<typename GridT, class field_id>
   using GridHasField = typename GridT::CellParticles:: template HasField<field_id> ;

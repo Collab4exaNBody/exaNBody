@@ -28,6 +28,10 @@ namespace exanb
   using EnabledFieldSets = XSTAMP_ENABLED_FIELD_SETS ;
 # endif
 
+# ifndef XNB_GRID_OPTIONAL_FIELD_SETS
+# define XNB_GRID_OPTIONAL_FIELD_SETS ::exanb::FieldSets<>
+# endif
+
   // ====================== utlity functions =========================
   template<class... _ids>
   static inline constexpr FieldSet<_ids...> make_field_set( onika::soatl::FieldId<_ids> ... ) { return {}; }
@@ -248,7 +252,6 @@ namespace exanb
   };
   template<class field_set_a, class field_set_b> using FieldSetIntersection = typename _FieldSetIntersection<field_set_a,field_set_b>::type;
 
-  
   template<class field_set, class field_id> using AppendFieldId = typename _AppendFieldId<field_set,field_id>::field_set;
 
 }

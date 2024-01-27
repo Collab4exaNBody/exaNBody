@@ -37,24 +37,6 @@ namespace onika
   namespace soatl
   {
 
-    // virtual field Id to get element index in array
-/*
-    struct _FieldArrayElementIndex {};
-    template<> struct FieldId<_FieldArrayElementIndex>
-    {
-      using value_type = size_t;
-      using Id = _FieldArrayElementIndex;
-      static const char* name() { return "FieldArrayElementIndex"; }
-    };
-    using FieldArrayElementIndex = FieldId<_FieldArrayElementIndex>;
-    static constexpr FieldArrayElementIndex field_array_index = {};
-
-    struct FieldArrayElementIndexAccessor
-    {
-      ONIKA_HOST_DEVICE_FUNC inline size_t operator [] (size_t i) const { return i; }
-    };
-*/
-
     // field combiner array accessors
     template<class FuncT , class PointerTuple , class FieldIdxSeq> struct FieldArrayCombinerAccessor;
     template<class FuncT , class PointerTuple , std::size_t ... FieldIdx>

@@ -127,8 +127,8 @@ namespace exanb
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
-    assert( send_pack_async.size() == nprocs );
-    assert( recv_unpack_async.size() == nprocs );
+    assert( send_pack_async.size() == size_t(nprocs) );
+    assert( recv_unpack_async.size() == size_t(nprocs) );
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );

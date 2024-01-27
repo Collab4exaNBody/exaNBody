@@ -49,7 +49,7 @@ namespace exanb
     template<template<class> class _OperatorTemplate, class fs_head, class... other_fss >
     struct valid_template_field_sets< _OperatorTemplate , FieldSets<fs_head,other_fss...> >
     {
-      static constexpr bool instantiable_head = instantiable_grid_template< _OperatorTemplate , GridFromFieldSet<fs_head> >::value ;
+      static constexpr bool instantiable_head = instantiable_grid_template< _OperatorTemplate , GridFromFieldSet<fs_head,XNB_GRID_OPTIONAL_FIELD_SETS > >::value ;
       using type = typename PrependFieldSetIf<
         typename valid_template_field_sets< _OperatorTemplate , FieldSets<other_fss...> >::type
         , fs_head , instantiable_head >::type;
@@ -71,9 +71,9 @@ namespace exanb
     {
       static inline std::shared_ptr<OperatorNode> make_operator( const YAML::Node& node, const OperatorNodeFlavor& flavor )
       {
-        static constexpr bool all_have_memory_bytes_method = ( ... && (onika::memory::has_memory_bytes_method_v< GridFromFieldSet<_fs> > ) );
+        static constexpr bool all_have_memory_bytes_method = ( ... && (onika::memory::has_memory_bytes_method_v< GridFromFieldSet<_fs, XNB_GRID_OPTIONAL_FIELD_SETS> > ) );
         static_assert( all_have_memory_bytes_method , "a valid memory_bytes method is needed for proper memory usage accounting" );
-        return make_compatible_operator < _OperatorTemplate< GridFromFieldSet<_fs> > ... > (node,flavor);
+        return make_compatible_operator < _OperatorTemplate< GridFromFieldSet<_fs,XNB_GRID_OPTIONAL_FIELD_SETS > > ... > (node,flavor);
       }
     };
 
@@ -84,7 +84,7 @@ namespace exanb
       static inline void print_field_sets(StreamT& out , const std::string& prefix="- ", const std::string& mid="", const std::string& sufix="\n" )
       {
         std::string m="";
-        ( ... , (  out << prefix << m << pretty_short_type< GridFromFieldSet<FS> > () << sufix , m=mid ) );
+        ( ... , (  out << prefix << m << pretty_short_type< GridFromFieldSet<FS,XNB_GRID_OPTIONAL_FIELD_SETS > > () << sufix , m=mid ) );
       }
     };
 
