@@ -161,11 +161,12 @@ namespace exanb
     GridT& grid,
     bool enable_ghosts,
     const FuncT& func,
-    FieldSet<field_ids...> cpfields ,
+    FieldSet<field_ids...> cp_field_set ,
     onika::parallel::ParallelExecutionContext * exec_ctx )
   {
-    using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
-    FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    // using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
+    // FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    auto cp_fields = grid.field_accessors( cp_field_set );
     return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx);
   }
 

@@ -119,7 +119,7 @@ namespace exanb
     using builtin_field_set_t = FieldSet<field::_rx,field::_ry,field::_rz, particle_field_ids...>;
 
     // all fields available, including optional field packages
-    using field_set_t = builtin_field_set_t; //grid_details::merge_optional_field_sets_t< builtin_field_set_t , optional_field_sets_t >;
+    using field_set_t = grid_details::merge_optional_field_sets_t< builtin_field_set_t , optional_field_sets_t >;
     static inline constexpr field_set_t field_set = {};
 
     using CellParticlesAllocator = grid_details::cell_allocator_from_fields_t< field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
@@ -130,7 +130,8 @@ namespace exanb
     using Fields = FieldSet< field::_rx,field::_ry,field::_rz,particle_field_ids...>;
     using ParticleTuple = onika::soatl::FieldTuple<field::_rx,field::_ry,field::_rz,particle_field_ids...>;
     
-    template<class _id> using HasField = typename ParticleTuple::template HasField < _id >;
+    // returns true if field's raw id is either part of builtin fields or optional field packages
+    template<class _id> using HasField = grid_details::FieldSetContainsFieldId<_id,field_set_t>; // typename ParticleTuple::template HasField < _id >;
 
     // Grid's origin shall always be equal to domain's lower boundary.
     inline void set_origin(Vec3d o) { m_origin = o; }
@@ -266,12 +267,9 @@ namespace exanb
       size_t nb_particles_ghosts = 0;
       size_t n_cells = number_of_cells();
       for(size_t i=0; i<n_cells; i++)
-        {
-          if(is_ghost_cell(i))
-            {
-              nb_particles_ghosts += cell_number_of_particles(i);
-            }
-        }
+      {
+        if( is_ghost_cell(i) ) nb_particles_ghosts += cell_number_of_particles(i);
+      }
       return nb_particles_ghosts;
     }
 
@@ -663,7 +661,7 @@ namespace exanb
   using GridFromFieldSet = typename GridFromFieldSetHelper<field_set, opt_field_sets>::type ;
 
   template<typename GridT, class field_id>
-  using GridHasField = typename GridT::CellParticles:: template HasField<field_id> ;
+  using GridHasField = typename GridT:: template HasField<field_id> ;
   
   template<class GridT, class field_id> static inline constexpr bool grid_has_field_v = GridHasField<GridT,field_id>::value;
 

@@ -168,12 +168,13 @@ namespace exanb
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
-    FieldSet<field_ids...> ,
+    FieldSet<field_ids...> cp_field_set,
     onika::parallel::ParallelExecutionContext * exec_ctx , 
     onika::parallel::ParallelExecutionCallback user_cb = {} )
   {
-    using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
-    FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    // using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
+    // FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    auto cp_fields = grid.field_accessors( cp_field_set );
     return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb );
   }
 

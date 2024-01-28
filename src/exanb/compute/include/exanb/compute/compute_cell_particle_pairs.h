@@ -196,10 +196,11 @@ namespace exanb
     const OptionalArgsT& optional,
     const ComputePairBufferFactoryT& cpbuf_factory,
     const FuncT& func,
-    FieldSet<field_ids...> ,
+    FieldSet<field_ids...> cp_field_set,
     onika::parallel::ParallelExecutionContext * exec_ctx )
   {
-    onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    // onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    auto cp_fields = grid.field_accessors( cp_field_set );
     return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,DefaultPositionFields{},exec_ctx);
   }
 
@@ -213,11 +214,12 @@ namespace exanb
     const OptionalArgsT& optional,
     const ComputePairBufferFactoryT& cpbuf_factory,
     const FuncT& func,
-    FieldSet<field_ids...> ,
+    FieldSet<field_ids...> cp_field_set,
     PosFieldsT posfields,
     onika::parallel::ParallelExecutionContext * exec_ctx )
   {
-    onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    // onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    auto cp_fields = grid.field_accessors( cp_field_set );
     return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,posfields,exec_ctx);
   }
 
@@ -232,11 +234,12 @@ namespace exanb
     const OptionalArgsT& optional,
     const ComputePairBufferFactoryT& cpbuf_factory,
     const FuncT& func,
-    FieldSet<field_ids...> ,
+    FieldSet<field_ids...> cp_field_set ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
     PosFieldsT posfields )
   {
-    onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    // onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    auto cp_fields = grid.field_accessors( cp_field_set );
     return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,posfields,exec_ctx);
   }
 
