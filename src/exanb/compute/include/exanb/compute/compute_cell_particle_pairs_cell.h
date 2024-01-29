@@ -122,7 +122,7 @@ namespace exanb
     static constexpr onika::soatl::FieldId<_Ry> RY;
     static constexpr onika::soatl::FieldId<_Rz> RZ;
 
-    assert( cells != nullptr );
+    // assert( cells != nullptr );
 
     // cell filtering, allows user to give a selection function enabling or inhibiting cell processing
     if constexpr ( ! std::is_same_v< ComputePairTrivialCellFiltering , std::remove_reference_t<decltype(optional.cell_filter)> > )
