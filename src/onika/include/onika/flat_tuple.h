@@ -27,7 +27,7 @@ namespace onika
 {
   // a short replacement of std::integral_constant for tuple indexing
   template <size_t I> struct tuple_index_t {};
-  template <size_t I> static inline constexpr tuple_index_t<I> tuple_index;
+  template <size_t I> static inline constexpr tuple_index_t<I> tuple_index = {};
 
 #   define ADD_TUPLE_ELEMENT(i) \
       using type_##i = T##i; \

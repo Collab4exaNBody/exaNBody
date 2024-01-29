@@ -289,17 +289,20 @@ namespace exanb
       return nb_particles_ghosts;
     }
 
+    template<size_t I = onika::tuple_size_const_v<optional_storage_t> - 1 >
+    inline void set_optional_cell_number_of_particles(size_t cell_i , size_t N , std::integral_constant<size_t,I> = {} )
+    {
+      auto & opt_storage =  m_optional_storage.get( onika::tuple_index<I> );
+      if( ! opt_storage.empty() ) opt_storage[cell_i].resize( N , optional_cell_allocator<I>() );
+      if constexpr ( I > 0 ) set_optional_cell_number_of_particles( cell_i, N , std::integral_constant<size_t,I-1>{} );
+    }
+
     // resize per cell field container for internal (builtin) fields, those in m_cells
     // and also resizes optional packages's cells, but only for those that have been allocated
     inline void set_cell_number_of_particles(size_t cell_i , size_t N)
     {
       m_cells[cell_i].resize( N , cell_allocator() );
-    }
-
-    template<size_t ... opt_pck_idx ...>
-    inline void set_optional_cell_number_of_particles(size_t cell_i , size_t N)
-    {
-      m_cells[cell_i].resize( N , cell_allocator() );
+      set_optional_cell_number_of_particles( cell_i , N );
     }
 
     // set grid dimensions
@@ -314,7 +317,7 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cells() const { return onika::cuda::vector_size( m_cells ); }
 
     // cell's particles data allocator
-    static inline const static & cell_allocator() const
+    static inline const CellParticlesAllocator & cell_allocator()
     {
       static const CellParticlesAllocator default_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
       return default_allocator;
@@ -322,9 +325,9 @@ namespace exanb
 
     // cell's optional particles data allocator, given the optional package index
     template<size_t I>
-    static inline const grid_details::cell_allocator_from_field_set_t< field_set_at_index_t<I,optional_field_sets_t> > & optional_cell_allocator( std::integral_constant<size_t,I> )
+    static inline const grid_details::cell_allocator_from_field_set_t< grid_details::field_set_at_index_t<I,optional_field_sets_t> > & optional_cell_allocator( std::integral_constant<size_t,I> = {} )
     {
-      static const grid_details::cell_allocator_from_field_set_t< field_set_at_index_t<I,optional_field_sets_t> > default_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
+      static const grid_details::cell_allocator_from_field_set_t< grid_details::field_set_at_index_t<I,optional_field_sets_t> > default_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
       return default_allocator;
     }
 
@@ -338,11 +341,7 @@ namespace exanb
       // std::cout << "field_accessor("<<f.short_name()<<") -> opt_pkg_idx = "<<opt_pkg_idx<<std::endl;
       if constexpr ( opt_pkg_idx >= 0 )
       {
-        if( m_optional_storage_allocators[opt_pkg_idx] == nullptr )
-        {
-          set_optional_fields_allocator<opt_pkg_idx>();
-        }
-        auto & storage = m_optional_storage.get(onika::tuple_index_t<opt_pkg_idx>{});
+        auto & storage = m_optional_storage.get( onika::tuple_index<opt_pkg_idx> );
         if( m_cells.empty() )
         {
           storage.clear();
@@ -355,7 +354,7 @@ namespace exanb
           for(size_t i=0;i<n_cells;i++)
           {
             resized = resized || ( storage[i].size() != m_cells[i].size() );
-            storage[i].resize( m_cells[i].size() , [opt_pkg_idx] );
+            storage[i].resize( m_cells[i].size() , optional_cell_allocator<opt_pkg_idx>() );
           }
           if( resized )
           {
@@ -373,8 +372,8 @@ namespace exanb
     {
       if constexpr ( OptPackageIndex >= 0 )
       {
-        auto & storage = m_optional_storage.get(onika::tuple_index_t<OptPackageIndex>{});
-        for( auto & opt_cell : storage ) opt_cell.clear( * m_optional_storage_allocators[OptPackageIndex] );
+        auto & storage = m_optional_storage.get( onika::tuple_index<OptPackageIndex> );
+        for( auto & opt_cell : storage ) opt_cell.clear( optional_cell_allocator<OptPackageIndex>() );
         storage.clear();
         if constexpr ( OptPackageIndex > 0 )
         {
@@ -534,12 +533,11 @@ namespace exanb
       , m_max_neighbor_distance( other.m_max_neighbor_distance )
       , m_cell_particle_offset( std::move( other.m_cell_particle_offset ) )
       , m_cells( std::move( other.m_cells ) )
-      , m_cell_allocator( std::move( other.m_cell_allocator ) )
+      , m_optional_storage( std::move( other.m_optional_storage ) )
     {
       other.m_dimension = IJK{0,0,0};
       other.m_max_neighbor_distance = 0;
       assert( other.m_cell_particle_offset.size() == 0 );
-      other.m_cell_allocator = nullptr; // just in case
       assert( other.m_cells.size() == 0 );
     }
 
@@ -547,6 +545,24 @@ namespace exanb
     {
       for(auto& cell : m_cells) { cell.clear( cell_allocator() ); }
       clear_optional_fields();
+    }
+
+    template<size_t I = ( onika::tuple_size_const_v<optional_storage_t> - 1 ) >
+    inline void copy_optional_storage_from( const Grid & other , std::integral_constant<size_t,I> = {} )
+    {
+      const auto & other_storage = other.m_optional_storage.get( onika::tuple_index<I> );
+      auto & storage = m_optional_storage.get( onika::tuple_index<I> );
+      const size_t n_cells = other_storage.size();
+      storage.resize( n_cells );
+#     pragma omp parallel for schedule(dynamic)
+      for(size_t i=0;i<n_cells;i++)
+      {
+        storage[i].copy_from( other_storage[i] , optional_cell_allocator<I>() );
+      }
+      if constexpr ( I > 0 )
+      {
+        copy_optional_storage_from( other , std::integral_constant<size_t,I-1>{} );
+      }
     }
 
     inline Grid& operator = ( const Grid & other )
@@ -558,7 +574,6 @@ namespace exanb
       m_cell_size = other.m_cell_size;
       m_max_neighbor_distance = other.m_max_neighbor_distance;
       m_cell_particle_offset = other.m_cell_particle_offset;
-      m_cell_allocator = other.m_cell_allocator;
       size_t n_cells = other.m_cells.size();
       m_cells.resize( n_cells );
 #     pragma omp parallel for schedule(dynamic)
@@ -566,6 +581,7 @@ namespace exanb
       {
         m_cells[i].copy_from( other.m_cells[i] , cell_allocator() );
       }
+      copy_optional_storage_from( other );
       return *this;
     }
     inline Grid& operator = ( Grid && other )
@@ -577,11 +593,10 @@ namespace exanb
       m_cell_size = other.m_cell_size;
       m_max_neighbor_distance = other.m_max_neighbor_distance;
       m_cell_particle_offset = std::move( other.m_cell_particle_offset );
-      m_cell_allocator = std::move( other.m_cell_allocator );
       m_cells = std::move( other.m_cells );
+      m_optional_storage = std::move( other.m_optional_storage );
       other.m_dimension = IJK{0,0,0};
       other.m_max_neighbor_distance = 0;
-      other.m_cell_allocator = nullptr;
       assert( other.m_cells.size() == 0 );
       assert( other.m_cell_particle_offset.size() == 0 );
       return *this;
