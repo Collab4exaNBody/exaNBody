@@ -384,8 +384,14 @@ namespace exanb
       return onika::make_flat_tuple( field_accessor(onika::soatl::FieldId<ids>{}) ... , ef ... );
     }
 
+    // access cells, legacy method
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
+    
+    // access cells through an accessor, allow use of optional field packages
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles       *> cells_accessor()       { return { grid->cells() }; }
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles const *> cells_accessor() const { return { grid->cells() }; }
+    
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline       CellParticles& cell(size_t index)       { return m_cells[index]; }
