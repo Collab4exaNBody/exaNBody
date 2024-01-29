@@ -49,6 +49,8 @@ under the License.
 namespace exanb
 {
 
+
+  /****************************** internal template utilities for Grid ************************/
   namespace grid_details
   {
     template<class FS1 , class OtherFSS> struct MergeFieldSetsToFieldSet;
@@ -74,6 +76,11 @@ namespace exanb
     template<class FieldSetT> struct CellParticlesFromFieldSet;
     template<class... fids> struct CellParticlesFromFieldSet< FieldSet<fids...> > { using type = cell_particles_from_fields_t<fids...>; };
     template<class FieldSetT> using cell_particles_from_field_set_t = typename CellParticlesFromFieldSet<FieldSetT>::type;
+
+    template<class FieldSetT> struct CellAllocatorFromFieldSet;
+    template<class... fids> struct CellAllocatorFromFieldSet< FieldSet<fids...> > { using type = cell_allocator_from_fields_t<fids...>; };
+    template<class FieldSetT> using cell_allocator_from_field_set_t = typename CellAllocatorFromFieldSet<FieldSetT>::type;
+
     
     template<class FieldSetsT> struct OptionalStorageFromFieldSets;
     template<class... FS> struct OptionalStorageFromFieldSets< FieldSets<FS...> >
@@ -100,10 +107,19 @@ namespace exanb
     template<size_t idx, class T, class... U > struct FieldSetAtIndex< idx , FieldSets<T,U...> > { using type = typename FieldSetAtIndex< idx-1 , FieldSets<U...> >::type; };
     template<size_t idx, class FieldSetsT> using field_set_at_index_t = typename FieldSetAtIndex<idx,FieldSetsT>::type;
   }
+  /**********************************************************************************************/
+
+
+
 
   // pre-declaration, to allow only specializations with a FieldSet<...> as template parameter
   template<class GridFieldSet , class OptionalFieldSetsT = FieldSets<> > class Grid;
 
+  /*
+   * Grid template : main data structure for NBody simulations :
+   * It holds a grid of cells, spanning the whole domain or a subdomain,
+   * each cell containing particles (initially) located in the cell's space.
+   */
   template<class OptionalFieldSetsT, typename... particle_field_ids>
   class Grid< FieldSet<particle_field_ids...> , OptionalFieldSetsT >
   {  
@@ -273,6 +289,18 @@ namespace exanb
       return nb_particles_ghosts;
     }
 
+    // resize per cell field container for internal (builtin) fields, those in m_cells
+    // and also resizes optional packages's cells, but only for those that have been allocated
+    inline void set_cell_number_of_particles(size_t cell_i , size_t N)
+    {
+      m_cells[cell_i].resize( N , cell_allocator() );
+    }
+
+    template<size_t ... opt_pck_idx ...>
+    inline void set_optional_cell_number_of_particles(size_t cell_i , size_t N)
+    {
+      m_cells[cell_i].resize( N , cell_allocator() );
+    }
 
     // set grid dimensions
     inline void set_dimension(IJK dims)
@@ -286,47 +314,23 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cells() const { return onika::cuda::vector_size( m_cells ); }
 
     // cell's particles data allocator
-    inline const onika::soatl::PackedFieldArraysAllocator & cell_allocator() const
+    static inline const static & cell_allocator() const
     {
       static const CellParticlesAllocator default_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
-      if( m_cell_allocator != nullptr ) return *m_cell_allocator;
-      else return default_allocator;
-    }
-    inline std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> cell_allocator_ptr()
-    {
-      return m_cell_allocator;
-    }
-    inline void set_cell_allocator( std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> a )
-    {
-      m_cell_allocator = a;
+      return default_allocator;
     }
 
-    template<class... ids> inline void set_cell_allocator_for_fields( FieldSet<ids...> )
-    {
-      using onika::soatl::pfa_allocator_impl_from_field_ids_t;
-      using onika::soatl::FieldIdsIncludingSequence;
-      using onika::soatl::FieldIds;
-      using onika::memory::GenericHostAllocator;
-      using RefFieldIds = FieldIds<field::_rx,field::_ry,field::_rz,particle_field_ids...>;
-      using ReqFieldIds = FieldIds<ids...>;
-      using FilteredSubSet = typename FieldIdsIncludingSequence< RefFieldIds , ReqFieldIds >::type ;
-      using AllocT = pfa_allocator_impl_from_field_ids_t< onika::memory::DefaultAllocator, onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, FilteredSubSet >;
-      m_cell_allocator = std::make_shared< AllocT >();
-      m_cell_allocator->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
-    }
-
+    // cell's optional particles data allocator, given the optional package index
     template<size_t I>
-    inline void set_optional_fields_allocator()
+    static inline const grid_details::cell_allocator_from_field_set_t< field_set_at_index_t<I,optional_field_sets_t> > & optional_cell_allocator( std::integral_constant<size_t,I> )
     {
-      using namespace grid_details;
-      using onika::soatl::pfa_allocator_impl_from_field_ids_t;
-      using onika::memory::GenericHostAllocator;
-      using OptFieldSetT = field_set_at_index_t< I , optional_field_sets_t >;
-      using AllocT = pfa_allocator_impl_from_field_ids_t< onika::memory::DefaultAllocator, onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, OptFieldSetT >;
-      m_optional_storage_allocators[I] = std::make_shared< AllocT >();
-      m_optional_storage_allocators[I]->set_gpu_addressable_allocation( GenericHostAllocator::cuda_enabled() );
+      static const grid_details::cell_allocator_from_field_set_t< field_set_at_index_t<I,optional_field_sets_t> > default_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
+      return default_allocator;
     }
 
+    // get a field accessor given a FieldId.
+    // it may return the FieldId itself, wich is considered a valid accessor for builtin fields,
+    // or an exernal field accessor if a field from an optional field package is required
     template<class FieldIdT> inline auto field_accessor( FieldIdT f )
     {
       static constexpr int opt_pkg_idx = grid_details::optional_package_index_v< typename FieldIdT::Id , optional_field_sets_t >;
@@ -351,7 +355,7 @@ namespace exanb
           for(size_t i=0;i<n_cells;i++)
           {
             resized = resized || ( storage[i].size() != m_cells[i].size() );
-            storage[i].resize( m_cells[i].size() , * m_optional_storage_allocators[opt_pkg_idx] );
+            storage[i].resize( m_cells[i].size() , [opt_pkg_idx] );
           }
           if( resized )
           {
@@ -389,8 +393,8 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
     
     // access cells through an accessor, allow use of optional field packages
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles       *> cells_accessor()       { return { grid->cells() }; }
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles const *> cells_accessor() const { return { grid->cells() }; }
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles       *> cells_accessor()       { return { cells() }; }
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles const *> cells_accessor() const { return { cells() }; }
     
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
@@ -635,11 +639,9 @@ namespace exanb
       
     // storage of particles split into cubic cells.
     onika::memory::CudaMMVector< CellParticles > m_cells;
-    std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> m_cell_allocator;
     
     // optional storage
     optional_storage_t m_optional_storage;
-    onika::oarray_t< std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> , NumberOfOptionalFieldSets > m_optional_storage_allocators;
     
     // per grid profiling information, optional.
     GridComputeProfiling m_grid_compute_profiling;
