@@ -84,8 +84,10 @@ namespace exanb
           m_func( local_val, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... , reduce_thread_local_t{} );
         }
       }
-      
-      ONIKA_CU_BLOCK_SHARED ResultT team_val;
+     
+      ONIKA_CU_BLOCK_SHARED onika::cuda::UnitializedPlaceHolder<ResultT> team_val_place_holder;
+      ResultT& team_val = team_val_place_holder.get_ref();
+
       if( ONIKA_CU_THREAD_IDX == 0 ) { team_val = local_val; }
       ONIKA_CU_BLOCK_SYNC();
 
@@ -125,7 +127,6 @@ namespace exanb
   static inline
   onika::parallel::ParallelExecutionWrapper
   reduce_cell_particles(
-    GridT& grid,
     const GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
@@ -138,7 +139,7 @@ namespace exanb
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using CellT = typename GridT::CellParticles;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT const * const > , CellT const * const >;
     using PForFuncT = ReduceCellParticlesFunctor<CellsAccessorT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
 
     const IJK dims = grid.dimension();
