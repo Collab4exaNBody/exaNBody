@@ -126,6 +126,7 @@ namespace exanb
   onika::parallel::ParallelExecutionWrapper
   reduce_cell_particles(
     GridT& grid,
+    const GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
