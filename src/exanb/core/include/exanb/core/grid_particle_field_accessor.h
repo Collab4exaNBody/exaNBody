@@ -61,28 +61,50 @@ namespace exanb
   template<class CellsT> struct GridParticleFieldAccessor1;
   template<class CellsT, class FieldAccT> struct GridParticleFieldAccessor2;
 
-  template<class CellsT>
+  // second stage accessor, returns a pointer to a field for a given cell index
+  template<class GridT, bool ConstAccessor>
   struct GridParticleFieldAccessor1
   {
-    CellsT m_cells;    
-    const size_t m_cell_index;    
+    using CellsT = std::conditional_t< ConstAccessor , typename GridT::CellParticles const * const , typename GridT::CellParticles * const>;
+    using OptCellsT = std::conditional_t< ConstAccessor , typename GridT::optional_const_pointers_t , typename GridT::optional_pointers_t >;
+    using optional_field_sets_t = typename GridT::optional_field_sets_t;
+    CellsT m_cells = nullptr;    
+    OptCellsT m_optional_cells = {}; // should be a tuple of pointer to optiona cell arrays
+    const size_t m_cell_index;
 
     ONIKA_HOST_DEVICE_FUNC inline auto size() const
     {
       return m_cells[m_cell_index].size();
     }
 
-    ONIKA_HOST_DEVICE_FUNC inline void set_tuple( size_t i, typename std::remove_pointer_t<CellsT>::TupleValueType const & tp ) const
+    template<class... fids>
+    ONIKA_HOST_DEVICE_FUNC inline void set_tuple( size_t i, const onika::soatl::FieldTuple<fids...> & tp ) const
     {
-      m_cells[m_cell_index].set_tuple( i, tp );
+      ( ... , ( (*this)[FieldId<fids>()][i] = tp[ FieldId<fids>() ] ) ); // may crash if 
+    }
+    
+    template<class... fids>
+    ONIKA_HOST_DEVICE_FUNC inline void write_tuple( size_t i, const onika::soatl::FieldTuple<fids...> & tp ) const
+    {
+      ( ... , ( (*this)[FieldId<fids>()][i] = tp[ FieldId<fids>() ] ) );
     }
 
     template<class field_id>
     ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( onika::soatl::FieldId<field_id> ) const
     {
-      return m_cells[m_cell_index][ onika::soatl::FieldId<field_id>{} ];
+      static constexpr int opt_pkg_idx = grid_details::optional_package_index_v< typename FieldIdT::Id , optional_field_sets_t >;
+      if constexpr ( opt_pkg_idx >= 0 )
+      {
+        auto cell_ptr = m_optional_cells.get( onika::tuple_index<opt_pkg_idx>;
+        return (cell_ptr!=nullptr) ? cell_ptr[m_cell_index][ onika::soatl::FieldId<field_id>{} ] : nullptr;
+      }
+      else
+      {
+        return m_cells[m_cell_index][ onika::soatl::FieldId<field_id>{} ];
+      }
     }
 
+    // no optional field combiner is possible yet
     template<class FuncT , class... fids>
     ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( const onika::soatl::FieldCombiner<FuncT,fids...>& f ) const
     {
@@ -90,65 +112,24 @@ namespace exanb
     }
 
     template<class FuncT, class FieldIdT>
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor2<CellsT, ExternalCellParticleFieldAccessor<FuncT,FieldIdT> > operator [] ( const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
+    ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
     {
-      return { m_cells , m_cell_index , f };
-    }    
-  };
-
-  template<class CellsT, class FieldAccT>
-  struct GridParticleFieldAccessor2
-  {
-    CellsT m_cells;    
-    const size_t m_cell_index;
-    const FieldAccT& m_field_acc;
-    ONIKA_HOST_DEVICE_FUNC inline typename FieldAccT::reference_t operator [] ( size_t particle_index ) const
-    {
-      return m_field_acc.m_func( m_cell_index , particle_index , m_cells );
+      return f.m_func( m_cell_index );
     }
   };
 
-  template<class CellsT>
+  template<class GridT, bool ConstAccessor>
   struct GridParticleFieldAccessor
   {
+    using CellsT = std::conditional_t< ConstAccessor , typename GridT::CellParticles const * const , typename GridT::CellParticles * const >;
+    using OptCellsT = std::conditional_t< ConstAccessor , typename GridT::optional_const_pointers_t , typename GridT::optional_pointers_t >;
     CellsT m_cells = nullptr;    
-
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor1<CellsT> operator [] (size_t cell_i) const
+    OptCellsT m_optional_cells = {}; // should be a tuple of pointer to optiona cell arrays
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor1<GridT,ConstAccessor> operator [] (size_t cell_i) const
     {
-      return { m_cells , cell_i };
-    }
-
-  };
-
-
-  /*
-   * Allows a particle field, stored as a flat 1D array, to be used as a particle field through the ExternalCellParticleFieldAccessor envelop
-   */
-  template<class CellsT, class FieldIdT, bool ConstAccessor=false > struct GridOptionalFieldAccessor
-  {
-    using value_type = typename FieldIdT::value_type;
-    using reference_t = std::conditional_t<ConstAccessor, const value_type & , value_type & >;
-    CellsT m_optional_cells = nullptr;
-    template<class BuiltinCellsT> ONIKA_HOST_DEVICE_FUNC inline reference_t operator () ( size_t cell_i, size_t p_i , BuiltinCellsT ) const
-    {
-      return m_optional_cells[cell_i][FieldIdT{}][p_i];
+      return { m_cells , m_optional_cells, cell_i };
     }
   };
-
-  // convinience function to build up a flat array acessor from a writable array
-  template<class CellsT, class FieldIdT>
-  static inline auto make_optional_field_accessor( CellsT * const opt_cells , FieldIdT )
-  {
-    using ExternalFieldT = ExternalCellParticleFieldAccessor< GridOptionalFieldAccessor<CellsT *,FieldIdT,false> , FieldIdT >;
-    return ExternalFieldT{ opt_cells };
-  }
-
-  template<class CellsT, class FieldIdT>
-  static inline auto make_optional_field_accessor( CellsT const * const opt_cells , FieldIdT )
-  {
-    using ExternalFieldT = ExternalCellParticleFieldAccessor< GridOptionalFieldAccessor<CellsT const *,FieldIdT,true> , FieldIdT >;
-    return ExternalFieldT{ opt_cells };
-  }
 
   /*
    * Allows a particle field, stored as a flat 1D array, to be used as a particle field through the ExternalCellParticleFieldAccessor envelop
@@ -158,13 +139,11 @@ namespace exanb
     using value_type = typename FieldIdT::value_type;
     using reference_t = std::conditional_t<ConstAccessor, const value_type & , value_type & >;
     using pointer_t = std::conditional_t<ConstAccessor, value_type const * __restrict__ , value_type * __restrict__ >;
-    
     size_t const * m_cell_particle_offset = nullptr;
     pointer_t m_data_array = nullptr;
-    
-    template<class CellsT> ONIKA_HOST_DEVICE_FUNC inline reference_t operator () ( size_t cell_i, size_t p_i , CellsT ) const
+    ONIKA_HOST_DEVICE_FUNC inline pointer_t operator () ( size_t cell_i ) const
     {
-      return m_data_array[ m_cell_particle_offset[cell_i] + p_i ];
+      return m_data_array + m_cell_particle_offset[cell_i] ;
     }
   };
 
