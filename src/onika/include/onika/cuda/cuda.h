@@ -27,6 +27,7 @@ under the License.
 #include <cstring>
 #include <thread>
 #include <onika/macro_utils.h>
+#include <onika/atomic.h>
 
 #ifdef ONIKA_CUDA_VERSION
 #ifdef ONIKA_HIP_VERSION
@@ -191,11 +192,10 @@ namespace onika
 
 #   define ONIKA_CU_ATOMIC_STORE(x,a,...) reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->store(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
 #   define ONIKA_CU_ATOMIC_LOAD(x,...) reinterpret_cast< const std::atomic<std::remove_cv_t<std::remove_reference_t<decltype(x)> > > * >(&(x))->load( __VA_ARGS__ )
-#   define ONIKA_CU_ATOMIC_ADD(x,a,...) ::onika::cuda::onika_omp_fetch_add( &(x) , static_cast<std::remove_reference_t<decltype(x)> >(a) )
-//reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->fetch_add(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_ATOMIC_SUB(x,a,...) reinterpret_cast<std::atomic<std::remove_reference_t<decltype(x)> >*>(&(x))->fetch_sub(a OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_ATOMIC_MIN(x,a,...) _Pragma("omp atomic update") (x) = ( ((x)<=(a))?(x):(a) )
-#   define ONIKA_CU_ATOMIC_MAX(x,a,...) _Pragma("omp atomic update") (x) = ( ((x)>=(a))?(x):(a) )
+#   define ONIKA_CU_ATOMIC_ADD(x,a,...) ::onika::capture_atomic_add( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_SUB(x,a,...) ::onika::capture_atomic_sub( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MIN(x,a,...) ::onika::capture_atomic_min( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
+#   define ONIKA_CU_ATOMIC_MAX(x,a,...) ::onika::capture_atomic_max( x , static_cast<std::remove_reference_t<decltype(x)> >(a) )
 #   define ONIKA_CU_BLOCK_ATOMIC_ADD(x,a) (x) += (a)
 
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! (f).m_flag.test_and_set(std::memory_order_acquire) )
