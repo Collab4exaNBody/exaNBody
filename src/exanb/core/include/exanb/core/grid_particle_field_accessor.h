@@ -57,9 +57,8 @@ namespace exanb
   };
   template<class T> static inline constexpr bool field_tuple_has_external_fields_v = FieldAccessorTupleHasExternalFields<T>::value;
 
-  template<class CellsT> struct GridParticleFieldAccessor;
-  template<class CellsT> struct GridParticleFieldAccessor1;
-  template<class CellsT, class FieldAccT> struct GridParticleFieldAccessor2;
+  template<class GridT, bool ConstAccessor> struct GridParticleFieldAccessor;
+  template<class GridT, bool ConstAccessor> struct GridParticleFieldAccessor1;
 
   // second stage accessor, returns a pointer to a field for a given cell index
   template<class GridT, bool ConstAccessor>
@@ -68,8 +67,8 @@ namespace exanb
     using CellsT = std::conditional_t< ConstAccessor , typename GridT::CellParticles const * const , typename GridT::CellParticles * const>;
     using OptCellsT = std::conditional_t< ConstAccessor , typename GridT::optional_const_pointers_t , typename GridT::optional_pointers_t >;
     using optional_field_sets_t = typename GridT::optional_field_sets_t;
-    CellsT m_cells = nullptr;    
-    OptCellsT m_optional_cells = {}; // should be a tuple of pointer to optiona cell arrays
+    CellsT m_cells = nullptr;  
+    OptCellsT m_optional_cells = {}; // tuple of pointer to optional cell arrays
     const size_t m_cell_index;
 
     ONIKA_HOST_DEVICE_FUNC inline auto size() const
@@ -80,22 +79,23 @@ namespace exanb
     template<class... fids>
     ONIKA_HOST_DEVICE_FUNC inline void set_tuple( size_t i, const onika::soatl::FieldTuple<fids...> & tp ) const
     {
-      ( ... , ( (*this)[FieldId<fids>()][i] = tp[ FieldId<fids>() ] ) ); // may crash if 
+      ( ... , ( (*this)[m_cell_index][onika::soatl::FieldId<fids>()][i] = tp[ onika::soatl::FieldId<fids>() ] ) ); // may crash if optional field not allocated
     }
     
     template<class... fids>
     ONIKA_HOST_DEVICE_FUNC inline void write_tuple( size_t i, const onika::soatl::FieldTuple<fids...> & tp ) const
     {
-      ( ... , ( (*this)[FieldId<fids>()][i] = tp[ FieldId<fids>() ] ) );
+      ( ... , ( (*this)[m_cell_index][onika::soatl::FieldId<fids>()][i] = tp[ onika::soatl::FieldId<fids>() ] ) );
     }
 
     template<class field_id>
     ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( onika::soatl::FieldId<field_id> ) const
     {
-      static constexpr int opt_pkg_idx = grid_details::optional_package_index_v< typename FieldIdT::Id , optional_field_sets_t >;
+      using OptPkgIndexT = GridT::FindOptionalPackageIndex< typename FieldIdT::Id , optional_field_sets_t > ;
+      static constexpr int opt_pkg_idx = OptPkgIndexT::value;
       if constexpr ( opt_pkg_idx >= 0 )
       {
-        auto cell_ptr = m_optional_cells.get( onika::tuple_index<opt_pkg_idx>;
+        auto cell_ptr = m_optional_cells.get( onika::tuple_index<opt_pkg_idx> );
         return (cell_ptr!=nullptr) ? cell_ptr[m_cell_index][ onika::soatl::FieldId<field_id>{} ] : nullptr;
       }
       else

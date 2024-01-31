@@ -136,6 +136,7 @@ namespace exanb
     using optional_pointers_t = grid_details::optional_pointers_from_field_sets_t<OptionalFieldSetsT>;
     using optional_const_pointers_t = grid_details::optional_const_pointers_from_field_sets_t<OptionalFieldSetsT>;
     static inline constexpr size_t NumberOfOptionalFieldSets = onika::tuple_size_const_v< optional_storage_t >;
+    template<class fid, class FieldSetsT> using FindOptionalPackageIndex = grid_details::FindOptionalPackageIndex<fid,FieldSetsT>;
 
     // those fields are in the main storage (m_cells) and always present
     using builtin_field_set_t = FieldSet<field::_rx,field::_ry,field::_rz, particle_field_ids...>;
