@@ -5,8 +5,14 @@
 namespace onika
 {
 
+# ifdef __HIPCC__
+# define _XNB_ATOMIC_FUNC_DECL __host__ __device__
+# else
+# define _XNB_ATOMIC_FUNC_DECL
+# endif
+
   template<class T>
-  static inline T capture_atomic_add(T& x , const T& a)
+  static inline _XNB_ATOMIC_FUNC_DECL T capture_atomic_add(T& x , const T& a)
   {
     T r;
 #   pragma omp atomic capture
@@ -15,7 +21,7 @@ namespace onika
   }
 
   template<class T>
-  static inline T capture_atomic_sub(T& x , const T& a)
+  static inline _XNB_ATOMIC_FUNC_DECL T capture_atomic_sub(T& x , const T& a)
   {
     T r;
 #   pragma omp atomic capture
@@ -24,14 +30,14 @@ namespace onika
   }
 
   template<class T>
-  static inline void inplace_atomic_add(T& x , const T& a)
+  static inline _XNB_ATOMIC_FUNC_DECL void inplace_atomic_add(T& x , const T& a)
   {
 #   pragma omp atomic update
     x += a;
   }
 
   template<class T>
-  static inline void inplace_atomic_sub(T& x , const T& a)
+  static inline _XNB_ATOMIC_FUNC_DECL void inplace_atomic_sub(T& x , const T& a)
   {
 #   pragma omp atomic update
     x -= a;

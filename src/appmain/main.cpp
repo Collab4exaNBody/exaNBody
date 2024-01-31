@@ -354,9 +354,9 @@ int main(int argc,char*argv[])
   // host system info
   lout << endl
        << "Version : "<< USTAMP_VERSION
-#      ifndef NDEBUG
+# ifndef NDEBUG
        <<" (debug)"
-#      endif
+# endif
        <<endl
        << "MPI     : "<< format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
        << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
@@ -365,7 +365,7 @@ int main(int argc,char*argv[])
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
 # ifdef XNB_CUDA_VERSION
-       lout << "Cuda    : v"<< USTAMP_STR(XNB_CUDA_VERSION);
+       lout << ONIKA_CU_NAME_STR << "    : v"<< USTAMP_STR(XNB_CUDA_VERSION);
        if(n_gpus==0) lout<< " (no GPU)"<< endl;
        else if(n_gpus==1) lout<< " (1 GPU)"<< endl;
        else lout<< " ("<< n_gpus<<" GPUs)"<< endl;

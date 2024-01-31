@@ -22,19 +22,19 @@ namespace exanb
   {
     struct ValueMinMaxFunctor
     {
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & value_min_max , double value, reduce_thread_local_t={} ) const
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & value_min_max , double value, reduce_thread_local_t={} ) const
       {
         using onika::cuda::min;
         using onika::cuda::max;
         value_min_max.first = min( value_min_max.first , value );
         value_min_max.second = max( value_min_max.second , value );
       }
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & value_min_max , std::pair<double,double> value, reduce_thread_block_t ) const
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & value_min_max , onika::cuda::pair<double,double> value, reduce_thread_block_t ) const
       {
         ONIKA_CU_ATOMIC_MIN( value_min_max.first , value.first );
         ONIKA_CU_ATOMIC_MAX( value_min_max.second , value.second );
       }
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & value_min_max , std::pair<double,double> value, reduce_global_t ) const
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & value_min_max , onika::cuda::pair<double,double> value, reduce_global_t ) const
       {
         ONIKA_CU_ATOMIC_MIN( value_min_max.first , value.first );
         ONIKA_CU_ATOMIC_MAX( value_min_max.second , value.second );
@@ -46,7 +46,7 @@ namespace exanb
       const double m_min = 0.0;
       const double m_max = 1.0;
       const long m_resolution = 1024;
-      std::pair<double,double> * __restrict__ m_histogram_data = nullptr;
+      onika::cuda::pair<double,double> * __restrict__ m_histogram_data = nullptr;
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( double value ) const
       {
         using onika::cuda::clamp;
@@ -78,7 +78,7 @@ namespace exanb
           if( m_field_selector(name) )
           {
             std::cout << "Histogram field "<<name<<std::endl;
-            std::pair<double,double> value_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
+            onika::cuda::pair<double,double> value_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
             ValueMinMaxFunctor min_max_func = {};
             reduce_cell_particles( grid , false , min_max_func , value_min_max , hist_field_set , parallel_execution_context() );
             {

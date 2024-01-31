@@ -151,19 +151,6 @@ namespace onika
 #else 
 /************** start of HOST code definitions ***************/
 
-    template<class T>
-    static inline
-#   ifdef __HIPCC__
-    __host__ __device__
-#   endif
-    T onika_omp_fetch_add(T* x , const T& a)
-    {
-      T r;
-#     pragma omp atomic capture
-      { r = *x ; *x += a; }
-      return r;
-    }
-
     using onika_cu_memory_order_t = std::memory_order;
     using gpu_device_execution_t = std::false_type;
 
@@ -296,6 +283,7 @@ namespace onika { namespace cuda { namespace _details {
     {
       static_assert( sizeof(unsigned char) == 1 , "expected char to be 1 byte" );
       unsigned char byte[sizeof(T)];
+      ONIKA_HOST_DEVICE_FUNC inline T& get_ref() { return * reinterpret_cast<T*>(byte); }
     };
 
   }

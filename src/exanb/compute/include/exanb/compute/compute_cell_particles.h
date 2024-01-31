@@ -139,9 +139,9 @@ namespace exanb
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
-    using CellT = typename GridT::CellParticles;
+    using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellsPointerT > , CellsPointerT >;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
     const IJK dims = grid.dimension();
