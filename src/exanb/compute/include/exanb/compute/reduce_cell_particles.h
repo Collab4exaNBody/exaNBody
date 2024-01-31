@@ -166,7 +166,7 @@ namespace exanb
   static inline
   onika::parallel::ParallelExecutionWrapper
   reduce_cell_particles(
-    GridT& grid,
+    const GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
@@ -176,7 +176,7 @@ namespace exanb
   {
     // using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     // FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
-    auto cp_fields = grid.field_accessors( cp_field_set );
+    auto cp_fields = make_field_tuple_from_field_set( cp_field_set ); // grid.field_accessors( cp_field_set );
     return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb );
   }
 

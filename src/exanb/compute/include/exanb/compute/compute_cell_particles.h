@@ -138,10 +138,11 @@ namespace exanb
     onika::parallel::ParallelExecutionContext * exec_ctx )
   {
     using onika::parallel::BlockParallelForOptions;
-    using onika::parallel::block_parallel_for;   
-    using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
+    using onika::parallel::block_parallel_for;
+    using CellParticles = typename GridT::CellParticles;
+    using CellsPointerT = std::conditional_t< std::is_const_v<GridT> , CellParticles const * , CellParticles * >;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellsPointerT > , CellsPointerT >;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor<GridT> , CellsPointerT >;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
     const IJK dims = grid.dimension();

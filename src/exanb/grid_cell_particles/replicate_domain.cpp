@@ -81,7 +81,7 @@ namespace exanb
       IJK ngrid_dims = grid_dims + dom_dims * (repeat-1);
       ngrid.set_dimension( ngrid_dims );
       ngrid.set_max_neighbor_distance( 0.0 );
-      ngrid.set_cell_allocator( grid.cell_allocator_ptr() );
+      //ngrid.set_cell_allocator( grid.cell_allocator_ptr() );
       
       const auto & cell_allocator = ngrid.cell_allocator();
       auto src_cells = grid.cells();

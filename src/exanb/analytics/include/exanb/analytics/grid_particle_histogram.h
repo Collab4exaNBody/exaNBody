@@ -70,7 +70,7 @@ namespace exanb
       {
         using namespace ParticleHistogramTools;
         using field_type = typename FidT::value_type;
-        static constexpr FieldSet< typename FidT::Id > hist_field_set = {};
+        const auto hist_fields = onika::make_flat_tuple(proj_field);
         
         if constexpr ( std::is_arithmetic_v<field_type> )
         {
@@ -80,7 +80,7 @@ namespace exanb
             std::cout << "Histogram field "<<name<<std::endl;
             onika::cuda::pair<double,double> value_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
             ValueMinMaxFunctor min_max_func = {};
-            reduce_cell_particles( grid , false , min_max_func , value_min_max , hist_field_set , parallel_execution_context() );
+            reduce_cell_particles( grid , false , min_max_func , value_min_max , hist_fields , parallel_execution_context() );
             {
               double tmp[2] = { - value_min_max.first , value_min_max.second };
               MPI_Allreduce( MPI_IN_PLACE, tmp , 2 , MPI_DOUBLE , MPI_MAX , m_comm );
@@ -90,7 +90,7 @@ namespace exanb
             auto & plot_data = m_plot_set.m_plots[ name ];
             plot_data.assign( m_resolution , { 0.0 , 0.0 } );
             HistogramAccumulatorFunctor hist_func = { value_min_max.first, value_min_max.second, m_resolution, plot_data.data() };
-            compute_cell_particles( grid , false , hist_func , hist_field_set , parallel_execution_context() );
+            compute_cell_particles( grid , false , hist_func , hist_fields , parallel_execution_context() );
             MPI_Allreduce( MPI_IN_PLACE, plot_data.data() , m_resolution * 2 , MPI_DOUBLE , MPI_SUM , m_comm );
             const double s = ( value_min_max.second - value_min_max.first ) / m_resolution;
             for(long i=0;i<m_resolution;i++)

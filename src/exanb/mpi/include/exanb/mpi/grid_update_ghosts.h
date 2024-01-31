@@ -75,7 +75,10 @@ namespace exanb
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
-    using CellsAccessorT = GridParticleFieldAccessor<CellParticles *>;
+    CellParticles* cells = grid.cells();
+    auto cells_acc = grid.cells_accessor();
+    using CellsAccessorT = decltype(cells_acc);
+    
     using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
     using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -87,8 +90,6 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
-    CellParticles* cells = grid.cells();
-    CellsAccessorT cells_acc = { cells };
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;

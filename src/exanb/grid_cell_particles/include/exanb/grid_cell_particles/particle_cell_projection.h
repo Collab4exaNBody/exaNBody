@@ -317,10 +317,9 @@ namespace exanb
       for(const auto& f:fields_to_add) ldbg << "\t" << f.m_name<<std::endl;
       grid_cell_values.add_fields( fields_to_add );
 
-      using CellParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles * const>;
-      CellParticleAcessor cells = { grid.cells() };
+      auto cells = grid.cells_accessor();
 
-      ProjectCellValueField<CellParticleAcessor> fields_projector = { cells , grid_cell_values,field_selector,splat_size,grid_subdiv};
+      ProjectCellValueField<decltype(cells)> fields_projector = { cells , grid_cell_values,field_selector,splat_size,grid_subdiv};
       apply_grid_field_tuple( grid, fields_projector , grid_fields );
     }
 
