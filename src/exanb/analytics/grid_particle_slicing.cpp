@@ -1,3 +1,5 @@
+//#pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
+
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
@@ -61,7 +63,7 @@ namespace exanb
       auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
       using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
       ParticleAcessor pacc = {grid->cells()};
-      slice_grid_particles( *mpi, *grid, domain->xform(), *direction, *thickness, *plots, pacc, field_selector, field_average, pecfunc, grid_fields... );
+      slice_grid_particles( ldbg, *mpi, *grid, *domain, *direction, *thickness, *plots, pacc, field_selector, field_average, pecfunc, grid_fields... );
       for(const auto& f: *fields) { plots->m_captions[ f ] = f; }
       for(const auto& c: *caption) { plots->m_captions[ c.first ] = c.second; }
     }
