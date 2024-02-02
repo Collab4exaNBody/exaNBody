@@ -172,7 +172,9 @@ namespace exanb
                                                , cell_scalars
                                                , ghost_comm_buffers->recvbuf_size(p)
                                                , ( (*staging_buffer) && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
-          auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context() , ParForOpts{ .enable_gpu = *gpu_buffer_pack } );
+          
+          ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = *gpu_buffer_pack ;
+          auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context() , par_for_opts );
           if( *async_buffer_pack ) send_pack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
         }
       }
@@ -251,7 +253,8 @@ namespace exanb
                                                 , ( (*staging_buffer) && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr
                                                 , UpdateValueFunctor{} };
         // = parallel_execution_context(p);
-        auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context() , ParForOpts{ .enable_gpu = *gpu_buffer_pack } ); 
+        ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = *gpu_buffer_pack;
+        auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context() , par_for_opts ); 
         if( *async_buffer_pack ) recv_unpack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
       };
       // *** end of packet decoding lamda ***

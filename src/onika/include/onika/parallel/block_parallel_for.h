@@ -28,10 +28,6 @@ under the License.
 #include <onika/lambda_tools.h>
 #include <onika/stream_utils.h>
 
-#ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
-#include <omp.h>
-#endif
-
 namespace onika
 {
 

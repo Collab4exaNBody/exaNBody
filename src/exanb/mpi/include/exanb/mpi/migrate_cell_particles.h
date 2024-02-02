@@ -884,7 +884,11 @@ namespace exanb
 #     pragma omp parallel
       {
       
+#     ifdef __INTEL_COMPILER
+      if( omp_get_thread_num() == 0 )
+#     else
 #     pragma omp master
+#     endif
       {
       
       // ======================= MPI progression loop ===============================
