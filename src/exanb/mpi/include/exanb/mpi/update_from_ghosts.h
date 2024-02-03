@@ -98,6 +98,10 @@ namespace exanb
       using ParForOpts = onika::parallel::BlockParallelForOptions;
       using onika::parallel::block_parallel_for;
 
+      ldbg << "update from ghost : ";
+      print_field_tuple( ldbg , make_field_tuple_from_field_set( FieldSetT{} ) );
+      ldbg<<std::endl;
+
       // prerequisites
       MPI_Comm comm = *mpi;
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
