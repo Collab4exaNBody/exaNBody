@@ -154,7 +154,7 @@ macro(xstamp_generate_all_plugins_input)
 endmacro()
 
 macro(xstamp_generate_plugin_database)
-  set(XstampV2PluginDBGenCommandBase ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true --logging-debug true)
+  set(XstampV2PluginDBGenCommandBase ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true --logging-debug true --nogpu true)
   MakeRunCommand(XstampV2PluginDBGenCommandBase 1 ${HOST_HW_CORES} XstampV2PluginDBGenCommand)
   #message(STATUS "gen db command = ${XstampV2PluginDBGenCommand}")
   #set(XstampV2PluginDBGenCommand ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true )
