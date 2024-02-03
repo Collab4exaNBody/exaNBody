@@ -320,12 +320,19 @@ int main(int argc,char*argv[])
     rank,nb_procs);
   // ===============================================
 
-  // get number of available GPUs, if any 
-# ifdef XNB_CUDA_VERSION
+  // get number of available GPUs, if any   
   int n_gpus = 0;
-  ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
-  if( n_gpus <= 0 ) { onika::memory::GenericHostAllocator::set_cuda_enabled( false ); }
+# ifdef XNB_CUDA_VERSION
+  onika::cuda::CudaContext::set_global_gpu_enable( ! configuration.nogpu );
+  if( onika::cuda::CudaContext::global_gpu_enable() )
+  {
+    ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
+  }
+# else
+  onika::cuda::CudaContext::set_global_gpu_enable( false );
+  n_gpus = 0;
 # endif
+  onika::memory::GenericHostAllocator::set_cuda_enabled( n_gpus > 0 );
 
   // generate a compact string representing cpu set assigned to current process
   std::string core_config;

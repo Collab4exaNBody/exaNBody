@@ -67,6 +67,7 @@ namespace exanb
       std::shared_ptr<onika::cuda::CudaContext> cuda_ctx = nullptr;
 
       int n_gpus = 0;
+      if( ! onika::cuda::CudaContext::global_gpu_enable() ) *enable_cuda = false;
       if( *enable_cuda )
       {
         ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
@@ -74,8 +75,6 @@ namespace exanb
       if( n_gpus <= 0 )
       {
         lout <<"No GPU found"<<std::endl;
-//        cuda_ctx->m_devices.clear();
-//        cuda_ctx->m_threadStream.clear();
         onika::memory::GenericHostAllocator::set_cuda_enabled( false );
       }
       else

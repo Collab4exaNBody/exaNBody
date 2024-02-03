@@ -25,6 +25,18 @@ namespace onika
   namespace cuda
   {
 
+    bool CudaContext::s_global_gpu_enable = true;
+
+    void CudaContext::set_global_gpu_enable(bool yn)
+    {
+      s_global_gpu_enable = yn;
+    }
+    
+    bool CudaContext::global_gpu_enable()
+    {
+      return s_global_gpu_enable;
+    }
+
     bool CudaContext::has_devices() const
     {
       return ! m_devices.empty();
