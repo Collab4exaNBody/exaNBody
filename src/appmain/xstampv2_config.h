@@ -97,6 +97,7 @@ xsv2ConfigBegin( configuration                                , "exaStampV2 conf
   xsv2ConfigStruct( debug );
   xsv2ConfigStruct( onika );
 
+  xsv2ConfigItem( bool          , nogpu               , false , "globally disables GPU usage, even if some are present, and prevent any call to Cuda or HIP libraries");
   xsv2ConfigItem( bool          , mpimt               , true  , "enables MPI_THREAD_MULTIPLE feature if available");
   xsv2ConfigItem( bool          , pinethreads         , false , "try to pine OpenMP thread");
   xsv2ConfigItem( int           , threadrotate        , 0     , "rotate thread pinning (use OpenMP thread index + threadrotate modulus number of threads as a reference)");
