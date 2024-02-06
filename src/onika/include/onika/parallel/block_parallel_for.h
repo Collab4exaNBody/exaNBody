@@ -73,7 +73,7 @@ namespace onika
                  ] = opts;
 
       // construct virtual functor adapter inplace, using reserved functor space
-      static_assert( alignof( decltype(pec->m_host_scratch.functor_data) ) % alignof( FuncT ) == 0 , "functor_data alignment is not sufficient for user functor" );
+      static_assert( ( HostKernelExecutionScratch::MAX_FUNCTOR_ALIGNMENT % alignof(FuncT) ) == 0 , "functor_data alignment is not sufficient for user functor" );
       // printf("inplace construction of host adapter, size=%d, max=%d\n", int(sizeof(HostFunctorAdapter)) , int(HostKernelExecutionScratch::MAX_FUNCTOR_SIZE) );
       new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
