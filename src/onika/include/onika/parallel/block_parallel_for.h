@@ -100,6 +100,7 @@ namespace onika
 
           if( return_data != nullptr && return_data_size > 0 )
           {
+	    // printf("bpf: return data input=%p , output=%p , size=%d\n",return_data,return_data, int(return_data_size) );
             pec->set_return_data_input( return_data , return_data_size );
             pec->set_return_data_output( return_data , return_data_size );
           }
