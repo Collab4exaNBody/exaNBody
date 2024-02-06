@@ -54,7 +54,7 @@ namespace onika
       static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
       static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
-      const FuncT m_func;
+      alignas( alignof(FuncT) ) const FuncT m_func;
       
     public:
       inline BlockParallelForHostAdapter( const FuncT& f ) : m_func(f) {}

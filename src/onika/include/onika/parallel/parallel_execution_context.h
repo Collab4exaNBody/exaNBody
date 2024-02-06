@@ -22,6 +22,7 @@ under the License.
 #include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
+#include <onika/memory/allocator.h>
 
 #include <mutex>
 #include <condition_variable>
@@ -36,7 +37,7 @@ namespace onika
     {
       static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
       static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE;
-      char functor_data[MAX_FUNCTOR_SIZE];
+      alignas(onika::memory::DEFAULT_ALIGNMENT) char functor_data[MAX_FUNCTOR_SIZE];
     };
 
     struct GPUKernelExecutionScratch
