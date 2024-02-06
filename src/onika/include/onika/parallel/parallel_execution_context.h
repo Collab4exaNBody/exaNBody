@@ -37,7 +37,8 @@ namespace onika
     {
       static constexpr size_t SCRATCH_BUFFER_SIZE = 1024; // total device side temporary buffer
       static constexpr size_t MAX_FUNCTOR_SIZE = SCRATCH_BUFFER_SIZE;
-      alignas(onika::memory::DEFAULT_ALIGNMENT) char functor_data[MAX_FUNCTOR_SIZE];
+      static constexpr size_t MAX_FUNCTOR_ALIGNMENT = onika::memory::DEFAULT_ALIGNMENT;
+      alignas(MAX_FUNCTOR_ALIGNMENT) char functor_data[MAX_FUNCTOR_SIZE];
     };
 
     struct GPUKernelExecutionScratch
