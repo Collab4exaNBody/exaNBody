@@ -124,7 +124,8 @@ namespace onika
         std::cerr << "Fatal error: return data size mismatch" << std::endl;
         std::abort();
       }
-      // ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( ptr , m_cuda_scratch->return_data , sz , m_cuda_stream ) );
+      m_return_data_output = ptr;
+      m_return_data_size = sz;
     }
 
     void ParallelExecutionContext::execution_end_callback( onikaStream_t stream,  onikaError_t status, void*  userData )
