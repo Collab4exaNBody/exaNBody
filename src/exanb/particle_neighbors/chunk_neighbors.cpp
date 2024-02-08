@@ -95,7 +95,6 @@ namespace exanb
 
   struct ChunkNeighborsInit : public OperatorNode
   {
-    ADD_SLOT(ChunkNeighborsConfig , config          , INPUT, ChunkNeighborsConfig{} );
     ADD_SLOT(GridChunkNeighbors   , chunk_neighbors , INPUT_OUTPUT );
     inline void execute () override final
     {
