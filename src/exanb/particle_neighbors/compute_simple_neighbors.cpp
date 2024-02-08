@@ -63,13 +63,13 @@ namespace exanb
           {
             size_t cell_b=0, p_b=0;
             decode_cell_particle( pb[i].neighbors[nbh_idx_p] , cell_b, p_b );
-            cell_neighbors[i].neighbors.push_back( {cell_b,p_b} );
+            cell_neighbors[i].neighbors.push_back( { static_cast<uint32_t>(cell_b) , static_cast<uint32_t>(p_b) } );
           }
           for( ; nbh_idx_d < db[i].nbh_start[p] ; nbh_idx_d++ )
           {
             size_t cell_b=0, p_b=0;
             decode_cell_particle( db[i].neighbors[nbh_idx_d] , cell_b, p_b );
-            cell_neighbors[i].neighbors.push_back( {cell_b,p_b} );
+            cell_neighbors[i].neighbors.push_back( { static_cast<uint32_t>(cell_b) , static_cast<uint32_t>(p_b) } );
           }
           cell_neighbors[i].nbh_start[p] = cell_neighbors[i].neighbors.size();
         }
@@ -78,10 +78,20 @@ namespace exanb
     }
   };
 
+  struct SimpleNeighborsInit : public OperatorNode
+  {
+    ADD_SLOT(GridSimpleParticleNeighbors , chunk_neighbors , INPUT_OUTPUT );
+    inline void execute () override final
+    {
+      *chunk_neighbors = GridSimpleParticleNeighbors{};
+    }
+  };
+
   // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
    OperatorNodeFactory::instance()->register_factory( "compute_simple_neighbors" , make_simple_operator< ComputeSimpleNeighbors > );
+   OperatorNodeFactory::instance()->register_factory( "simple_neighbors_init" , make_simple_operator< SimpleNeighborsInit > );
   }
 
 }

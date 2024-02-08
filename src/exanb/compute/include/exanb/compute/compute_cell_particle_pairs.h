@@ -132,6 +132,7 @@ namespace exanb
     using CellT = typename GridT::CellParticles;
     using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
 
+    static constexpr onika::IntConst<0> const_0{};
     static constexpr onika::IntConst<4> const_4{};
     static constexpr onika::IntConst<8> const_8{};
 
@@ -154,19 +155,26 @@ namespace exanb
     }
 
     auto cellprof = grid.cell_profiler();
-    const unsigned int cs = optional.nbh.m_chunk_size;
     CellsAccessorT cells = { grid.cells() };
-    switch( cs )
+    if constexpr( NbhIteratorTraits<decltype(optional.nbh)>::is_chunk )
     {
-      case 4:
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_4) , exec_ctx );
-        break;
-      case 8:
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_8) , exec_ctx );
-        break;
-      default:
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,     cs) , exec_ctx );
-        break;
+      const unsigned int cs = optional.nbh.m_chunk_size;
+      switch( cs )
+      {
+        case 4:
+          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_4) , exec_ctx );
+          break;
+        case 8:
+          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_8) , exec_ctx );
+          break;
+        default:
+          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,     cs) , exec_ctx );
+          break;
+      }
+    }
+    else
+    {
+      return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_0) , exec_ctx );
     }
   }
 

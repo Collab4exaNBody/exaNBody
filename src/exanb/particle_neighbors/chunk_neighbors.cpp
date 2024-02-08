@@ -93,10 +93,21 @@ namespace exanb
 
   };
 
+  struct ChunkNeighborsInit : public OperatorNode
+  {
+    ADD_SLOT(ChunkNeighborsConfig , config          , INPUT, ChunkNeighborsConfig{} );
+    ADD_SLOT(GridChunkNeighbors   , chunk_neighbors , INPUT_OUTPUT );
+    inline void execute () override final
+    {
+      *chunk_neighbors = GridChunkNeighbors{};
+    }
+  };
+
   // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
    OperatorNodeFactory::instance()->register_factory("chunk_neighbors", make_grid_variant_operator< BuildChunkNeighbors > );
+   OperatorNodeFactory::instance()->register_factory("chunk_neighbors_init", make_simple_operator< ChunkNeighborsInit > );
   }
 
 }
