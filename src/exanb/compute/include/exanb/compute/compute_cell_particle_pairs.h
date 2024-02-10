@@ -18,7 +18,10 @@ under the License.
 */
 #pragma once
 
-#include <exanb/compute/compute_cell_particle_pairs_cell.h>
+#include <exanb/compute/compute_cell_particle_pairs_common.h>
+#include <exanb/compute/compute_cell_particle_pairs_chunk.h>
+#include <exanb/compute/compute_cell_particle_pairs_simple.h>
+
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
@@ -67,7 +70,11 @@ namespace exanb
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
       m_cell_profiler.start_cell_profiling(cell_a);
-      compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cpfields, m_cs, symmetrical, m_posfields , prefer_compute_buffer, std::index_sequence<FieldIndex...>{} );
+      compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2
+                                      , m_cpbuf_factory, m_optional, m_func
+                                      , m_cpfields, m_cs, symmetrical, m_posfields
+                                      , prefer_compute_buffer, std::index_sequence<FieldIndex...>{}
+                                      , std::integral_constant<NbhIteratorKind, NbhIteratorTraits<typename OptionalArgsT::nbh_iterator_t>::kind >{} );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
   };
@@ -156,7 +163,8 @@ namespace exanb
 
     auto cellprof = grid.cell_profiler();
     CellsAccessorT cells = { grid.cells() };
-    if constexpr( NbhIteratorTraits<decltype(optional.nbh)>::is_chunk )
+    
+    if constexpr( NbhIteratorTraits<typename OptionalArgsT::nbh_iterator_t>::kind == NbhIteratorKind::CHUNK_NEIGHBORS )
     {
       const unsigned int cs = optional.nbh.m_chunk_size;
       switch( cs )

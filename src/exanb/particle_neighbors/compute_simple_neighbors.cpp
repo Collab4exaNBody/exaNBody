@@ -33,7 +33,7 @@ namespace exanb
   {
     ADD_SLOT(GridParticleNeighbors , primary_neighbors , INPUT , REQUIRED , DocString{"list of neighbors where a < b"} );
     ADD_SLOT(GridParticleNeighbors , dual_neighbors    , INPUT , REQUIRED , DocString{"list of neighbors where a >= b"} );
-    ADD_SLOT(GridSimpleParticleNeighbors , simple_neighbors , INPUT_OUTPUT );
+    ADD_SLOT(GridSimpleParticleNeighbors , chunk_neighbors , INPUT_OUTPUT );
 
     inline void execute () override final
     {
@@ -43,7 +43,7 @@ namespace exanb
       size_t n_cells = db.size();
       assert( pb.size() == n_cells );
       
-      auto& cell_neighbors = simple_neighbors->m_cell_neighbors;
+      auto& cell_neighbors = chunk_neighbors->m_cell_neighbors;
       cell_neighbors.resize( n_cells );
 
       for(size_t i=0;i<n_cells;i++)
