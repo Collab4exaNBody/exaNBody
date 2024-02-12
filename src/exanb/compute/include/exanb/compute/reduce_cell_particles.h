@@ -22,6 +22,7 @@ under the License.
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
 #include <onika/soatl/field_id.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
@@ -46,16 +47,18 @@ namespace exanb
     static inline constexpr bool CudaCompatible = false;
   };
 
-  template<class CellsT, class FuncT, class ResultT, class FieldSetT> struct ReduceCellParticlesFunctor;
+  template<class CellsT, class FuncT, class ResultT, class FieldAccTupleT , class IndexSequence> struct ReduceCellParticlesFunctor;
 
-  template<class CellsT, class FuncT, class ResultT, class... field_ids>
-  struct ReduceCellParticlesFunctor< CellsT, FuncT, ResultT, FieldSet<field_ids...> >
+  template<class CellsT, class FuncT, class ResultT, class FieldAccTupleT, size_t... FieldIndex>
+  struct ReduceCellParticlesFunctor< CellsT, FuncT, ResultT, FieldAccTupleT , std::index_sequence<FieldIndex...> >
   {
+    static_assert( FieldAccTupleT::size() == sizeof...(FieldIndex) );
     CellsT m_cells;
     const IJK m_grid_dims = { 0, 0, 0 };
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
-    ResultT* reduced_val = nullptr;
+    ResultT* m_reduced_val = nullptr;
+    FieldAccTupleT m_cpfields;
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
@@ -74,15 +77,17 @@ namespace exanb
       {
         if constexpr ( ReduceCellParticlesTraits<FuncT>::RequiresCellParticleIndex )
         {
-          m_func( local_val, cell_a_loc, cell_a , p , m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... , reduce_thread_local_t{} );
+          m_func( local_val, cell_a_loc, cell_a , p , m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... , reduce_thread_local_t{} );
         }
         if constexpr ( ! ReduceCellParticlesTraits<FuncT>::RequiresCellParticleIndex )
         {
-          m_func( local_val, m_cells[cell_a][onika::soatl::FieldId<field_ids>{}][p] ... , reduce_thread_local_t{} );
+          m_func( local_val, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... , reduce_thread_local_t{} );
         }
       }
-      
-      ONIKA_CU_BLOCK_SHARED ResultT team_val;
+     
+      ONIKA_CU_BLOCK_SHARED onika::cuda::UnitializedPlaceHolder<ResultT> team_val_place_holder;
+      ResultT& team_val = team_val_place_holder.get_ref();
+
       if( ONIKA_CU_THREAD_IDX == 0 ) { team_val = local_val; }
       ONIKA_CU_BLOCK_SYNC();
 
@@ -94,7 +99,7 @@ namespace exanb
 
       if( ONIKA_CU_THREAD_IDX == 0 )
       {
-        m_func( *reduced_val, team_val , reduce_global_t{} );      
+        m_func( *m_reduced_val, team_val , reduce_global_t{} );      
       }
       ONIKA_CU_BLOCK_SYNC();
     }
@@ -106,8 +111,8 @@ namespace onika
 {
   namespace parallel
   {
-    template<class CellsT, class FuncT, class ResultT, class FieldSetT>
-    struct BlockParallelForFunctorTraits< exanb::ReduceCellParticlesFunctor<CellsT,FuncT,ResultT,FieldSetT> >
+    template<class CellsT, class FuncT, class ResultT, class FieldAccTupleT , class IndexSequence>
+    struct BlockParallelForFunctorTraits< exanb::ReduceCellParticlesFunctor<CellsT,FuncT,ResultT,FieldAccTupleT,IndexSequence> >
     {
       static inline constexpr bool CudaCompatible = exanb::ReduceCellParticlesTraits<FuncT>::CudaCompatible;
     };
@@ -118,37 +123,60 @@ namespace exanb
 {
   // ==== OpenMP parallel for style implementation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
-  template<class GridT, class FuncT, class ResultT, class FieldSetT>
-  static inline void reduce_cell_particles(
+  template<class GridT, class FuncT, class ResultT, class... FieldAccT>
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  reduce_cell_particles(
     const GridT& grid,
     bool enable_ghosts ,
     const FuncT& func  ,
     ResultT& reduced_val , // initial value is used as a start value for reduction
-    FieldSetT cpfields ,
-    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr ,
-    onika::parallel::ParallelExecutionStreamCallback* user_cb = nullptr )
+    const onika::FlatTuple<FieldAccT...>& cp_fields ,
+    onika::parallel::ParallelExecutionContext * exec_ctx ,
+    onika::parallel::ParallelExecutionCallback user_cb = {} )
   {
-    using CellsT = typename GridT::CellParticles;
+    using onika::parallel::block_parallel_for;
+    using ParForOpts = onika::parallel::BlockParallelForOptions;
+    using CellT = typename GridT::CellParticles;
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT const * const > , CellT const * const >;
+    using PForFuncT = ReduceCellParticlesFunctor<CellsAccessorT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
+
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
     const IJK block_dims = dims - (2*gl);
     const size_t N = block_dims.i * block_dims.j * block_dims.k;
 
     ResultT* target_reduced_value_ptr = &reduced_val;
-    const CellsT * cells = grid.cells();
-    bool enable_gpu = false;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
     {
-      if(exec_ctx!=nullptr && exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
+      if( exec_ctx->has_gpu_context() && exec_ctx->m_cuda_ctx->has_devices() )
       {
-        enable_gpu = true;
-        grid.check_cells_are_gpu_addressable();
+        exec_ctx->init_device_scratch();
         target_reduced_value_ptr = (ResultT*) exec_ctx->get_device_return_data_ptr();
       }
     }
     
-    ReduceCellParticlesFunctor<const CellsT*,FuncT,ResultT,FieldSetT> pfor_op = { cells , dims , gl , func , target_reduced_value_ptr };
-    onika::parallel::block_parallel_for( N, pfor_op , exec_ctx , enable_gpu , ( user_cb != nullptr ) , user_cb , &reduced_val, sizeof(ResultT) );
+    CellsAccessorT cells = { grid.cells() };
+    PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , cp_fields };
+    return block_parallel_for( N, pfor_func , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) } );
+  }
+
+  template<class GridT, class FuncT, class ResultT, class... field_ids>
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  reduce_cell_particles(
+    GridT& grid,
+    bool enable_ghosts ,
+    const FuncT& func  ,
+    ResultT& reduced_val , // initial value is used as a start value for reduction
+    FieldSet<field_ids...> ,
+    onika::parallel::ParallelExecutionContext * exec_ctx , 
+    onika::parallel::ParallelExecutionCallback user_cb = {} )
+  {
+    using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
+    FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb );
   }
 
 }

@@ -49,7 +49,7 @@ namespace exanb
         GRID_OMP_FOR_BEGIN(dims-2*gl,_,loc, schedule(dynamic) )
         {
           size_t i = grid_ijk_to_index( dims , loc + gl );
-	  ONIKA_CU_MEM_PREFETCH( cells[i].storage_ptr() , cells[i].storage_size() , 0 , parallel_execution_context()->m_cuda_ctx->m_threadStream[0] );
+	  ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEM_PREFETCH( cells[i].storage_ptr() , cells[i].storage_size() , 0 , parallel_execution_context()->m_cuda_ctx->m_threadStream[0] ) );
 	}
 	GRID_OMP_FOR_END
       }

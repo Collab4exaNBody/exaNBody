@@ -310,7 +310,7 @@ void communication_scheme_from_ids(
     MPI_Alltoallv( comm_buffer.data() , send_count.data(), send_displ.data() , MPI_CHAR , comm_buffer_ptr , recv_count.data() , recv_displ.data() , MPI_CHAR , comm );
     
     // read movement lists and build send/receive indices
-    size_type send_indices_count = 0;
+    [[maybe_unused]] size_type send_indices_count = 0;
     
     for(int i=0;i<nProcs;i++) { send_count[i] = 0; }
     char* receive_buffer_ptr = comm_buffer_ptr; // receive_buffer_ptr stores the point in comm_buffer where the receive area is
@@ -336,7 +336,7 @@ void communication_scheme_from_ids(
 
     MPI_Alltoall( send_count.data() , 1 , MPI_INT , recv_count.data() , 1 , MPI_INT , comm );
 
-    size_type recv_indices_count = 0;
+    [[maybe_unused]] size_type recv_indices_count = 0;
     for(int i=0;i<nProcs;i++)
     {
       recv_indices_count += recv_count[i];
@@ -371,7 +371,7 @@ void communication_scheme_from_ids(
     }
 
 #   ifndef NDEBUG
-    for(int i=0;i<localElementCountBefore;i++)
+    for(unsigned int i=0;i<localElementCountBefore;i++)
     {
       assert( partial_recv_indices[i]>=0 );
       assert( send_indices[i]>=0 && static_cast<size_type>(send_indices[i])<localElementCountBefore );

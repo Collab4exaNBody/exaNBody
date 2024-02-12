@@ -573,6 +573,19 @@ namespace exanb
     apply_grid_fields( grid , f , onika::soatl::FieldId<fid>{} ... );
   }
 
+  template<class GridT, class FuncT, class FieldTupleT, size_t... FieldIndex >
+  static inline void apply_grid_field_tuple_idx(GridT& grid, FuncT f, const FieldTupleT & tp , std::index_sequence<FieldIndex...> )
+  {
+    apply_grid_fields( grid , f , tp.get( onika::tuple_index_t<FieldIndex>{} ) ... );
+  }
+
+  template<class GridT, class FuncT, class FieldTupleT >
+  static inline void apply_grid_field_tuple(GridT& grid, FuncT f, const FieldTupleT & tp)
+  {
+    apply_grid_field_tuple_idx( grid, f, tp, std::make_index_sequence< onika::tuple_size_const_v<FieldTupleT> >{} );
+  }
+  
+
 } // end of namespace exanb
 
 // utility macro to help instantiate grid templated functions, with potential FieldSests restrictions

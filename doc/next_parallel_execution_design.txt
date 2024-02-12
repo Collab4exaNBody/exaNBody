@@ -1,0 +1,11 @@
+dissocier execution stream de l'objet renvoyé par parallel_for.
+parallel_for renvoie un objet pret à être executé/ordonancé , puis on peut soit :
+- l'executer de facon synchrone (par exemple si l'objet retourné n'est pas utilisé et detruit dans la foulée)
+- le placer dans un stream d'execution pour une execution asynchrone avec concurrence gerée manuellement (à la stream quoi, mais uniformisée GPU/OpenMP)
+- le placer dans une queue en vue de l'assemblage d'un graphe (que l'on pourra ré-executer, qui pourra etre flushé)
+
+
+Notes:
+streams, durée de vie ? concurrence limitée à l'interieur de la methode execute peut-etre, asynchronisme/concurrence locale.
+stream=objet temporaire créé et detruit dans le scope de execute() 
+

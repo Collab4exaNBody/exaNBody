@@ -219,6 +219,8 @@ namespace soatl
 //    using NullAllocator = PackedFieldArraysAllocatorImpl<BaseAllocT,Alignment,ChunkSize>;
     
     PackedFieldArraysAllocatorImpl() = default;
+    virtual ~PackedFieldArraysAllocatorImpl() = default;
+
     inline PackedFieldArraysAllocatorImpl(const BaseAllocT& base_alloc) : m_alloc( base_alloc ) {}
     
     inline size_t allocation_bytes(size_t n_elements) const override final

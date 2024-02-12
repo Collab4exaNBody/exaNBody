@@ -44,10 +44,9 @@ under the License.
 
 namespace exanb
 {
-  
 
   template<typename GridT>
-  struct ChunkNeighborsLegacy : public OperatorNode
+  struct BuildChunkNeighbors : public OperatorNode
   {
     ADD_SLOT( GridT               , grid            , INPUT );
     ADD_SLOT( AmrGrid             , amr             , INPUT );
@@ -77,8 +76,7 @@ namespace exanb
         std::abort();
       }
 
-      const bool gpu_enabled = parallel_execution_context()->has_gpu_context();
-
+      const bool gpu_enabled = (global_cuda_ctx() != nullptr) ? global_cuda_ctx()->has_devices() : false;
       static constexpr std::false_type no_z_order = {};
       if( domain->xform_is_identity() )
       {
@@ -98,7 +96,7 @@ namespace exanb
   // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-   OperatorNodeFactory::instance()->register_factory("chunk_neighbors", make_grid_variant_operator< ChunkNeighborsLegacy > );
+   OperatorNodeFactory::instance()->register_factory("chunk_neighbors", make_grid_variant_operator< BuildChunkNeighbors > );
   }
 
 }

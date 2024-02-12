@@ -206,7 +206,7 @@ namespace omp
    //delete tinfo;
   }
 
-  static inline void assert_task_valid(OpenMPTaskInfo* tinfo)
+  inline void assert_task_valid(OpenMPTaskInfo* tinfo)
   {
     assert( tinfo->allocated );
     assert( tinfo->magic == OpenMPTaskInfo::DYN_ALLOCATED_TASK || tinfo->magic == OpenMPTaskInfo::INITIAL_TASK || tinfo->magic == OpenMPTaskInfo::TEMPORARY_TASK );

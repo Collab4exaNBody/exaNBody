@@ -29,6 +29,15 @@ under the License.
 #include <onika/macro_utils.h>
 #include <onika/atomic.h>
 
+#ifdef ONIKA_CUDA_VERSION
+#ifdef ONIKA_HIP_VERSION
+#include <hip/hip_runtime.h>
+#else
+#include <cuda_runtime.h>
+#endif
+#endif
+
+
 #ifndef ONIKA_CU_MAX_THREADS_PER_BLOCK
 #define ONIKA_CU_MAX_THREADS_PER_BLOCK 128
 #endif
@@ -58,17 +67,26 @@ namespace onika
 
     using onika_cu_memory_order_t = std::memory_order;
 
-
     /************** start of Cuda code definitions ***************/
-#   ifdef __CUDA_ARCH__
+#   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
     using gpu_device_execution_t = std::true_type;
 
-    [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort() { __threadfence(); __trap(); __builtin_unreachable(); }
-# if __CUDA_ARCH__ < 600
-#error atomicAdd(double) not available
-# endif
+    [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort()
+    {
+#     if defined(__HIP_DEVICE_COMPILE__)
+      abort();
+#     else
+      __threadfence(); __trap();
+#     endif
+      __builtin_unreachable();
+    }
 
+#   ifdef __HIP_DEVICE_COMPILE__
+#   define ONIKA_CU_GRID_CONSTANT       /**/
+#   else
+#   define ONIKA_CU_GRID_CONSTANT       __grid_constant__
+#   endif
 
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
 #   define ONIKA_CU_THREAD_LOCAL        __local__
@@ -103,7 +121,17 @@ namespace onika
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! atomicCAS((uint32_t*)&(f),0,1) )
 #   define ONIKA_CU_ATOMIC_FLAG_CLEAR(f) * (volatile uint32_t *) &(f) = 0
 
+#   if defined(__HIP_DEVICE_COMPILE__)
+    __device__ inline void _hip_nanosleep(long long nanosecs)
+    {
+      static constexpr long long ticks_per_nanosec = 1;
+      const long long start = clock64();
+      while( ( clock64() - start ) < (nanosecs*ticks_per_nanosec) );
+    }
+#   define ONIKA_CU_NANOSLEEP(ns) ::onika::cuda::_hip_nanosleep(ns)
+#   else
 #   define ONIKA_CU_NANOSLEEP(ns) __nanosleep(ns)
+#   endif
 
 #   define ONIKA_CU_CLOCK() clock64()
 #   define ONIKA_CU_CLOCK_ELAPSED(a,b) ((b)-(a))
@@ -119,13 +147,14 @@ namespace onika
 #   define ONIKA_CU_ABORT() ::onika::cuda::__onika_cu_abort()
 
 
-/************** end of Cuda code definitions ***************/
+/************** end of Device code definitions ***************/
 #else 
 /************** start of HOST code definitions ***************/
 
     using onika_cu_memory_order_t = std::memory_order;
     using gpu_device_execution_t = std::false_type;
 
+#   define ONIKA_CU_GRID_CONSTANT       /**/
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/
 #   define ONIKA_CU_BLOCK_SHARED        /**/
 #   define ONIKA_CU_THREAD_LOCAL        /**/
@@ -195,9 +224,15 @@ namespace onika { namespace cuda { namespace _details {
 
 
 /************** begin cuda-c code definitions ***************/
-#   ifdef __CUDACC__
+#   if defined(__CUDACC__) || defined(__HIPCC__)
 
 #   define ONIKA_DEVICE_KERNEL_FUNC __global__
+#   ifdef __HIPCC__
+#   define ONIKA_STATIC_INLINE_KERNEL static
+#   else
+#   define ONIKA_STATIC_INLINE_KERNEL [[maybe_unused]] static
+#   endif
+
 #   if ONIKA_CU_ENABLE_KERNEL_BOUNDS == 1
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) __launch_bounds__(MaxThreadsPerBlock,MinBlocksPerSM)
 #   else
@@ -213,6 +248,7 @@ namespace onika { namespace cuda { namespace _details {
 /************** begin of HOST code definitions ***************/
 
 #   define ONIKA_DEVICE_FUNC /**/
+#   define ONIKA_STATIC_INLINE_KERNEL static inline
 #   define ONIKA_DEVICE_KERNEL_FUNC /**/
 #   define ONIKA_DEVICE_KERNEL_BOUNDS(MaxThreadsPerBlock,MinBlocksPerSM) /**/
 #   define ONIKA_HOST_DEVICE_FUNC /**/
@@ -227,38 +263,11 @@ namespace onika { namespace cuda { namespace _details {
 
 
 
-
-/***************************************************************/
-/************************ Cuda API calls ***********************/
-/***************************************************************/
-# ifdef ONIKA_CUDA_VERSION
-#   define ONIKA_CU_CREATE_EVENT(EVT) cudaEventCreate(&EVT)
-#   define ONIKA_CU_DESTROY_EVENT(EVT) cudaEventDestroy(EVT)
-#   define ONIKA_CU_STREAM_EVENT(EVT,STREAM) cudaEventRecord(EVT,STREAM)
-#   define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) cudaEventElapsedTime(&T,EVT1,EVT2)
-#   define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM)  cudaStreamSynchronize(STREAM)
-#   define ONIKA_CU_SET_DEVICE(dev)  cudaSetDevice(dev)
-#   define ONIKA_CU_MEMSET(p,v,n,...) cudaMemsetAsync(p,v,n OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-#   define ONIKA_CU_MEMCPY(d,s,n,...) cudaMemcpyAsync(d,s,n,cudaMemcpyDefault OPT_COMMA_VA_ARGS(__VA_ARGS__) )
-# else
-#   define ONIKA_CU_CREATE_EVENT(EVT) _fake_cuda_api_noop(EVT=nullptr)
-#   define ONIKA_CU_DESTROY_EVENT(EVT) _fake_cuda_api_noop(EVT=nullptr)
-#   define ONIKA_CU_STREAM_EVENT(EVT,STREAM) _fake_cuda_api_noop(EVT,STREAM)
-#   define ONIKA_CU_EVENT_ELAPSED(T,EVT1,EVT2) _fake_cuda_api_noop(T=0.0f)
-#   define ONIKA_CU_STREAM_SYNCHRONIZE(STREAM) _fake_cuda_api_noop(STREAM)
-#   define ONIKA_CU_SET_DEVICE(dev) _fake_cuda_api_noop(dev)
-#   define ONIKA_CU_MEMSET(p,v,n,...) std::memset(p,v,n)
-#   define ONIKA_CU_MEMCPY(d,s,n,...) std::memcpy(d,s,n)
-# endif
-
-
-
-
 /***************************************************************/
 /****************** Cuda hardware intrinsics *******************/
 /***************************************************************/
 
-#   ifdef __CUDA_ARCH__
+#   if defined(__CUDA_ARCH__)
     __noinline__  __device__ inline unsigned int get_smid(void)
     {
       unsigned int ret;
@@ -274,6 +283,7 @@ namespace onika { namespace cuda { namespace _details {
     {
       static_assert( sizeof(unsigned char) == 1 , "expected char to be 1 byte" );
       unsigned char byte[sizeof(T)];
+      ONIKA_HOST_DEVICE_FUNC inline T& get_ref() { return * reinterpret_cast<T*>(byte); }
     };
 
   }

@@ -95,7 +95,13 @@ namespace exanb
     {    
       using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple>;
       using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT>;
-          
+      using ParForOpts = onika::parallel::BlockParallelForOptions;
+      using onika::parallel::block_parallel_for;
+
+      ldbg << "update from ghost : ";
+      print_field_tuple( ldbg , make_field_tuple_from_field_set( FieldSetT{} ) );
+      ldbg<<std::endl;
+
       // prerequisites
       MPI_Comm comm = *mpi;
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
@@ -137,12 +143,13 @@ namespace exanb
       int total_requests = 0;
       //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
-      // send and receive buffers
-      auto & send_pack_async = ghost_comm_buffers->send_pack_async;
-      auto & recv_unpack_async = ghost_comm_buffers->recv_unpack_async;
-
       // ***************** send/receive bufer resize ******************
       ghost_comm_buffers->resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof(ParticleTuple) , sizeof(GridCellValueType) , cell_scalar_components );
+      auto & send_pack_async   = ghost_comm_buffers->send_pack_async;
+      auto & recv_unpack_async = ghost_comm_buffers->recv_unpack_async;
+
+      assert( send_pack_async.size() == nprocs );
+      assert( recv_unpack_async.size() == nprocs );
 
       // ***************** send bufer packing start ******************
       std::vector<PackGhostFunctor> m_pack_functors( nprocs );
@@ -156,8 +163,10 @@ namespace exanb
       }
       for(int p=0;p<nprocs;p++)
       {
+        send_pack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
         if( ghost_comm_buffers->recvbuf_size(p) > 0 )
         {
+          if( p != rank ) { ++ active_send_packs; }
           const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
           m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                                , comm_scheme.m_partner[p].m_receive_offset.data()
@@ -167,9 +176,10 @@ namespace exanb
                                                , cell_scalars
                                                , ghost_comm_buffers->recvbuf_size(p)
                                                , ( (*staging_buffer) && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers->recv_buffer_offsets[p] ) : nullptr };
-          send_pack_async[p] = parallel_execution_context(p);
-          onika::parallel::block_parallel_for( cells_to_send, m_pack_functors[p], send_pack_async[p] , *gpu_buffer_pack , *async_buffer_pack );
-          if( p != rank ) { ++ active_send_packs; }
+          
+          ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = *gpu_buffer_pack ;
+          auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context() , par_for_opts );
+          if( *async_buffer_pack ) send_pack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
         }
       }
 
@@ -200,7 +210,7 @@ namespace exanb
       /*** optional synchronization : wait for all send buffers to be packed before moving on ***/
       if( *serialize_pack_send )
       {
-        for(int p=0;p<nprocs;p++) { if( send_pack_async[p] != nullptr ) { send_pack_async[p]->wait(); } }
+        for(int p=0;p<nprocs;p++) { send_pack_async[p].wait(); }
       }
 
       // ***************** initiate buffer sends ******************
@@ -212,7 +222,7 @@ namespace exanb
           if( p!=rank && !message_sent[p] && ghost_comm_buffers->recvbuf_size(p)>0 )
           {
             bool ready = true;
-            if( ! (*serialize_pack_send) && send_pack_async[p] != nullptr ) { ready = send_pack_async[p]->queryStatus(); }
+            if( ! (*serialize_pack_send) ) { ready = send_pack_async[p].query_status(); }
             if( ready )
             {
               ++ active_sends;
@@ -235,6 +245,7 @@ namespace exanb
       // *** packet decoding process lambda ***
       auto process_receive_buffer = [&,this](int p)
       {
+        recv_unpack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
         const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
         ghost_cells_recv += cells_to_receive;
         unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
@@ -245,8 +256,10 @@ namespace exanb
                                                 , ghost_comm_buffers->sendbuf_size(p)
                                                 , ( (*staging_buffer) && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers->send_buffer_offsets[p] ) : nullptr
                                                 , UpdateValueFunctor{} };
-        recv_unpack_async[p] = parallel_execution_context(p);
-        onika::parallel::block_parallel_for( cells_to_receive, unpack_functors[p], recv_unpack_async[p] , *gpu_buffer_pack , *async_buffer_pack );            
+        // = parallel_execution_context(p);
+        ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = *gpu_buffer_pack;
+        auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context() , par_for_opts ); 
+        if( *async_buffer_pack ) recv_unpack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
       };
       // *** end of packet decoding lamda ***
 
@@ -259,7 +272,7 @@ namespace exanb
           fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers->recvbuf_size(rank)<<" receive="<<ghost_comm_buffers->sendbuf_size(rank)<<std::endl;
         }
         ldbg << "UpdateFromGhosts: loopback buffer size="<<ghost_comm_buffers->sendbuf_size(rank)<<std::endl;
-        if( ! (*serialize_pack_send) && send_pack_async[rank] != nullptr ) { send_pack_async[rank]->wait(); }
+        if( ! (*serialize_pack_send) ) { send_pack_async[rank].wait(); }
         process_receive_buffer(rank);
       }
 
@@ -333,7 +346,7 @@ namespace exanb
 
       for(int p=0;p<nprocs;p++)
       {
-        if( recv_unpack_async[p] != nullptr ) { recv_unpack_async[p]->wait(); }
+        recv_unpack_async[p].wait();
       }
       
       ldbg << "--- end update_from_ghosts : received "<< ghost_cells_recv<<" ghost cells" << std::endl;

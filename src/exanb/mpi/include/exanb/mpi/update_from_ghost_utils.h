@@ -43,18 +43,17 @@ namespace exanb
       uint8_t* __restrict__ m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
-
       UpdateFuncT m_merge_func;
 
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_prolog_t ) const
+      inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
-          checkCudaErrors( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size ,  ctx->m_cuda_stream ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size , stream->m_cu_stream ) );
         }        
       }
       
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_cpu_prolog_t ) const
+      inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
@@ -104,15 +103,15 @@ namespace exanb
       size_t m_data_buffer_size = 0;
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
 
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_epilog_t ) const
+      inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
-          checkCudaErrors( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , ctx->m_cuda_stream ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , stream->m_cu_stream ) );
         }        
       }
-      
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_cpu_epilog_t ) const
+
+      inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {

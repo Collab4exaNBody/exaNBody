@@ -25,24 +25,16 @@ under the License.
 
 #include <exanb/io/vtk_writer.h>
 
-#include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 namespace exanb
 {
   
 
-  template<typename GridT, typename FType, class GridAccT = exanb::GridParticleFieldAccessor<const typename GridT::CellParticles *> >
-  inline void write_ascii_datas_from_field(const GridT& grid, FType ftype, const std::string& name, const std::string& type, std::ofstream& file_vtp, bool is_ghosts, GridAccT gridacc = {nullptr} )
+  template<typename GridT, class CellsAccessorT, typename FType >
+  inline void write_ascii_datas_from_field(const GridT& grid, CellsAccessorT cells, FType ftype, const std::string& name, const std::string& type, std::ofstream& file_vtp, bool is_ghosts )
   {
     size_t n_cells = grid.number_of_cells();
-    auto cells = grid.cells();
-
-    // cannot initalize default grid accessor right in the parameter list (compiler says 'grid may not appear in this context)
-    // so we detect default grid accessor and initializes it with correct cells value from grid
-    if constexpr ( std::is_same_v<GridAccT,exanb::GridParticleFieldAccessor<const typename GridT::CellParticles *> > )
-    {
-      if( gridacc.m_cells == nullptr ) gridacc.m_cells = cells;
-    }
 
     using field_type = typename FType::value_type;
     //using comp_type = typename ParaViewTypeId<field_type>::comp_type;
@@ -62,7 +54,7 @@ namespace exanb
         size_t np = cells[c].size();
         for(size_t pos=0;pos<np;++pos)
         {
-          [[maybe_unused]] const auto value = gridacc.get(c,pos,ftype);
+          [[maybe_unused]] const auto value = cells[c][ftype][pos];
           if constexpr ( ParaViewTypeId<field_type>::ncomp == 1 )
           {
             if ( std::is_integral_v<field_type> ) file_vtp << ' ' << (int64_t) value ;

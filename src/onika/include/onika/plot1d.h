@@ -4,11 +4,12 @@
 #include <vector>
 #include <string>
 #include <onika/memory/allocator.h>
+#include <onika/cuda/stl_adaptors.h>
+
 
 namespace onika
 {
-
-  using Plot1D = onika::memory::CudaMMVector< std::pair<double,double> >;
+  using Plot1D = onika::memory::CudaMMVector< onika::cuda::pair<double,double> >;
 
   struct Plot1DSet
   {
