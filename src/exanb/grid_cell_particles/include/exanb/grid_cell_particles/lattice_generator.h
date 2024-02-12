@@ -99,6 +99,10 @@ namespace exanb
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT , OPTIONAL );
     ADD_SLOT( std::string    , grid_cell_mask_name , INPUT , OPTIONAL );
     ADD_SLOT( double         , grid_cell_mask_value , INPUT , OPTIONAL );
+    
+    // limit lattice generation given a source term spatial function
+    ADD_SLOT( ScalarSourceTermInstance , user_function , INPUT , OPTIONAL , DocString{"user scalar source term function defining space locations where particle generation is enabled"} );
+    ADD_SLOT( double                   , user_threshold, INPUT , 0.0 , DocString{"if user_function(...) returns a value greater or equal to this threshold, allows particle generation, otherwise prevent it"} );
 
     // Variables related to the crystal structure
     ADD_SLOT( std::string      , structure , INPUT , REQUIRED );
@@ -385,7 +389,9 @@ namespace exanb
                                                            region.get_pointer(),
                                                            grid_cell_values.get_pointer(), 
                                                            grid_cell_mask_name.get_pointer(), 
-                                                           grid_cell_mask_value.get_pointer() );
+                                                           grid_cell_mask_value.get_pointer(),
+                                                           user_function.has_value() ? *user_function : nullptr,
+                                                           *user_threshold );
 
       // Get max and min positions
       // Need to define the size of the box
