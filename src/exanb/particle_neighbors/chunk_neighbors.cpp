@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma xstamp_grid_variant
 
 #include <exanb/core/operator.h>
@@ -26,10 +44,9 @@
 
 namespace exanb
 {
-  
 
   template<typename GridT>
-  struct ChunkNeighborsLegacy : public OperatorNode
+  struct BuildChunkNeighbors : public OperatorNode
   {
     ADD_SLOT( GridT               , grid            , INPUT );
     ADD_SLOT( AmrGrid             , amr             , INPUT );
@@ -59,8 +76,7 @@ namespace exanb
         std::abort();
       }
 
-      const bool gpu_enabled = parallel_execution_context()->has_gpu_context();
-
+      const bool gpu_enabled = (global_cuda_ctx() != nullptr) ? global_cuda_ctx()->has_devices() : false;
       static constexpr std::false_type no_z_order = {};
       if( domain->xform_is_identity() )
       {
@@ -77,10 +93,20 @@ namespace exanb
 
   };
 
+  struct ChunkNeighborsInit : public OperatorNode
+  {
+    ADD_SLOT(GridChunkNeighbors   , chunk_neighbors , INPUT_OUTPUT );
+    inline void execute () override final
+    {
+      *chunk_neighbors = GridChunkNeighbors{};
+    }
+  };
+
   // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-   OperatorNodeFactory::instance()->register_factory("chunk_neighbors", make_grid_variant_operator< ChunkNeighborsLegacy > );
+   OperatorNodeFactory::instance()->register_factory("chunk_neighbors", make_grid_variant_operator< BuildChunkNeighbors > );
+   OperatorNodeFactory::instance()->register_factory("chunk_neighbors_init", make_simple_operator< ChunkNeighborsInit > );
   }
 
 }

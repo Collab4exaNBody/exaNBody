@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <exanb/core/operator.h>
@@ -10,7 +28,7 @@
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
-#include <exanb/core/thread.h>
+#include "exanb/core/thread.h"
 
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
@@ -21,10 +39,11 @@
 #include <list>
 #include <algorithm>
 
+
 #include <exanb/mpi/data_types.h>
 
 #define ENFORCE_ASSERTION_CHECK 1
-//#define MIGRATE_CELL_DEBUG_PROFILING 1
+// #define MIGRATE_CELL_DEBUG_PROFILING 1
 
 #ifdef ENFORCE_ASSERTION_CHECK
 #include <onika/force_assert.h>
@@ -829,7 +848,7 @@ namespace exanb
 
             // ldbg << "internal copy of "<< it->size() << " particles"<<std::endl;
             auto* buf_ptr = & (*it);
-#           pragma omp task default(none) firstprivate(buf_ptr) shared(grid,out_ghost_layers,opt_data_helper)
+#           pragma omp task default(none) firstprivate(buf_ptr) shared(grid,opt_data_helper,out_ghost_layers)
             {
               NullLockArray nla;
               insert_particles_to_grid( grid , nla, *buf_ptr, out_ghost_layers, opt_data_helper );
@@ -865,8 +884,11 @@ namespace exanb
 #     pragma omp parallel
       {
       
-//#     pragma omp master
+#     ifdef __INTEL_COMPILER
       if( omp_get_thread_num() == 0 )
+#     else
+#     pragma omp master
+#     endif
       {
       
       // ======================= MPI progression loop ===============================
@@ -946,7 +968,7 @@ namespace exanb
               extra_recv_buffer_pos_hint = extra_buf.first + 1;
               std::swap( receive_buffer[p] , * extra_buf.second );
               //++ n_unpacked_buffers_async;
-#             pragma omp task default(none) firstprivate(extra_buf) shared(grid,out_ghost_layers,cell_locks_taskyield,extra_recv_buffer_ptrs,extra_rcv_bufs,opt_data_helper)
+#             pragma omp task default(none) firstprivate(extra_buf) shared(grid,cell_locks_taskyield,extra_recv_buffer_ptrs,extra_rcv_bufs,opt_data_helper,out_ghost_layers)
               {
                 insert_particles_to_grid( grid, cell_locks_taskyield, * extra_buf.second, out_ghost_layers, opt_data_helper );
                 give_receive_buffer_back( extra_recv_buffer_ptrs, extra_rcv_bufs, extra_buf );

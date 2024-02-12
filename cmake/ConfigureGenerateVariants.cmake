@@ -1,3 +1,20 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+# 
+#   http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
 get_filename_component(CONFIGURE_GENERATE_VARIANTS_SCRIPT_DIR ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 set(CONFIGURE_GENERATE_VARIANTS_SCRIPT ${CONFIGURE_GENERATE_VARIANTS_SCRIPT_DIR}/ConfigureGenerateVariantsScript.cmake)
 
@@ -195,15 +212,15 @@ function(GenerateDirectorySourceFilesFunc dir var outtarget)
   
   foreach(srcfile ${sources})
     file(READ ${srcfile} srcdata)
-    if("${srcdata}" MATCHES "#[ \t]*pragma[ \t]+xstamp_cuda_enable" AND XSTAMP_BUILD_CUDA)
+    if("${srcdata}" MATCHES "#[ \t]*pragma[ \t]+xstamp_cuda_enable" AND XNB_BUILD_CUDA)
 #      message(STATUS "${srcfile} contains xstamp_cuda_enable")
       list(REMOVE_ITEM sources "${srcfile}")
       get_filename_component(srcfile_basename ${srcfile} NAME_WLE)
       file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/gen/${var})
       set(cusrcfile ${CMAKE_CURRENT_BINARY_DIR}/gen/${var}/${srcfile_basename}.cu)
 #      message(STATUS "link ${srcfile} -> ${cusrcfile}")
-      file(CREATE_LINK ${srcfile} ${cusrcfile} SYMBOLIC)
-      list(APPEND cuda_sources "${cusrcfile}")
+#      file(CREATE_LINK ${srcfile} ${cusrcfile} SYMBOLIC)
+      list(APPEND cuda_sources "${srcfile}")
     elseif("${srcdata}" MATCHES "#[ \t]*pragma[ \t]+xstamp_grid_variant")
 #      message(STATUS "${srcfile} contains xstamp_grid_variant")
       list(REMOVE_ITEM sources "${srcfile}")

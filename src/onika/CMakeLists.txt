@@ -1,16 +1,45 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+# 
+#   http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
 # ======================================
 # === Parallel Data Movement library ===
 # ======================================
-cmake_minimum_required (VERSION 3.10)
-project(onika VERSION 1.0 LANGUAGES CXX)
+cmake_minimum_required (VERSION 3.18)
 
-# =======================================
-# === CMake & toolchain configuration ===
-# =======================================
+# ========================================
+# === Compiler toolchain configuration ===
+# ========================================
 # C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS NO)
+#if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+#  set(CMAKE_CUDA_ARCHITECTURES 86)
+#endif()
+
+# ==========================
+# === project definition ===
+# ==========================
+project(onika VERSION 1.1 LANGUAGES CXX) #CUDA
+
+# =======================================
+# === CMake & toolchain configuration ===
+# =======================================
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(GenerateBenchmarkSOATL)
 
@@ -80,23 +109,34 @@ endif()
 if(NOT ONIKA_FORCE_CUDA_OPTION)
   option(ONIKA_USE_CUDA "Enable Cuda Acceleration" OFF)
 endif()
+if(NOT ONIKA_FORCE_HIP_OPTION)
+  option(ONIKA_USE_HIP "Enable HIP Acceleration" OFF)
+endif()
+
+if(ONIKA_USE_HIP)
+  if(NOT CMAKE_HIP_COMPILER)
+    enable_language(HIP)
+  endif()
+  set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} -DONIKA_HIP_VERSION=${CMAKE_HIP_COMPILER_VERSION})
+  set(ONIKA_HIP_COMPILE_FLAGS "-Werror=return-local-addr;-Werror=return-stack-address;-Werror=return-type" CACHE STRING "HIP extra flags")
+  set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} roctx64)
+  message(STATUS "Onika uses HIP ${CMAKE_HIP_COMPILER_VERSION}")
+endif()
+
 if(ONIKA_USE_CUDA)
-  if(NOT CMAKE_CUDA_COMPILER)
+  if(NOT CMAKE_CUDA_COMPILER_VERSION)
+    find_package(CUDA REQUIRED)
     enable_language(CUDA)
     message(STATUS "Cuda version : ${CMAKE_CUDA_COMPILER_VERSION}")
-    get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
-    set(CUDA_ROOT ${CUDA_BIN}/..)
-    set(CUDA_SAMPLES_INCLUDE_DIR ${CUDA_ROOT}/samples/common/inc)
-    set(CUDA_INCLUDE_DIR ${CUDA_ROOT}/include)
-    set(CUDA_INCLUDE_DIRS ${CUDA_INCLUDE_DIR} ${CUDA_SAMPLES_INCLUDE_DIR})
-    set(CUDA_LIBRARY_DIR ${CUDA_ROOT}/lib64)
-    set(CUDA_LIBRARIES cudart)
   endif()
+  get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
+  set(CUDA_ROOT ${CUDA_BIN}/..)
   set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
-  set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CUDA_INCLUDE_DIR})
-  set(ONIKA_LIBRARY_DIRS ${CUDA_LIBRARY_DIR})
-  set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${CUDA_LIBRARIES})
-  message(STATUS "onika uses CUDA ${CMAKE_CUDA_COMPILER_VERSION}")
+  set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CUDA_ROOT}/include ${CUDA_ROOT}/samples/common/inc)
+  set(ONIKA_LIBRARY_DIRS ${CUDA_ROOT}/lib64)
+  set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} cudart)
+  set(ONIKA_CUDA_COMPILE_FLAGS "--Werror;cross-execution-space-call;--extended-lambda" CACHE STRING "Cuda extra flags")
+  message(STATUS "onika uses CUDA v${CMAKE_CUDA_COMPILER_VERSION} , arch=${CMAKE_CUDA_ARCHITECTURES} , root=${CUDA_ROOT}")
 endif()
 
 # option to reset new allocations to zero
@@ -109,13 +149,15 @@ endif()
 set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # compile main lib
-file(GLOB onika_SRCS src/*.cpp)
+file(GLOB onika_SRCS src/*.cpp) #src/*.cu
 add_library(onika SHARED ${onika_SRCS} ${ONIKA_GEN_SRCS})
-target_include_directories(onika PRIVATE ${ONIKA_INCLUDE_DIRS})
-target_compile_definitions(onika PRIVATE ${ONIKA_DEFINITIONS})
-target_compile_options(onika PRIVATE -Wall ${OpenMP_CXX_FLAGS})
+target_include_directories(onika PUBLIC ${ONIKA_INCLUDE_DIRS})
+target_compile_definitions(onika PUBLIC ${ONIKA_DEFINITIONS})
+target_compile_options(onika PRIVATE -Wall ${OpenMP_CXX_FLAGS}) # $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}>)
+#target_compile_features(onika PRIVATE cuda_std_17)
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
 target_link_libraries(onika ${ONIKA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
+#set_target_properties(onika PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_SEPARABLE_COMPILATION ON)
 
 # compile tools
 add_executable(trace_convert src/tools/trace_convert.cpp)

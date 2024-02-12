@@ -1,11 +1,26 @@
-#pragma once
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
 
-#ifdef ONIKA_CUDA_VERSION
-#include <cuda_runtime.h>
-#endif // ONIKA_CUDA_VERSION
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+#pragma once
 
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda_context.h>
+#include <onika/cuda/cuda_error.h>
 
 // specializations to avoid MemoryUsage template to dig into cuda aggregates
 namespace onika
@@ -33,8 +48,8 @@ namespace onika
       static inline CudaDeviceStorage<T> New(CudaDevice& dev, size_t n = 1)
       {
         T* devPtr = nullptr;
-#       ifdef ONIKA_CUDA_VERSION
-          cudaMalloc( & devPtr , sizeof(T) * n );
+#       if defined(ONIKA_CUDA_VERSION) || defined(ONIKA_HIP_VERSION)
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC( & devPtr , sizeof(T) * n ) );
 #       else
           devPtr = new T [ n ];
 #       endif
@@ -52,8 +67,8 @@ namespace onika
             delete m_shared;
             if( m_ptr != nullptr )
             {
-#           ifdef ONIKA_CUDA_VERSION
-              cudaFree( m_ptr );
+#           if defined(ONIKA_CUDA_VERSION) || defined(ONIKA_HIP_VERSION)
+              ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE( m_ptr ) );
 #           else
               delete [] m_ptr;
 #           endif

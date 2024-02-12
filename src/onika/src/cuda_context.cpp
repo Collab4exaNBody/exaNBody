@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <onika/cuda/cuda_context.h>
 
 // specializations to avoid MemoryUsage template to dig into cuda aggregates
@@ -6,6 +24,18 @@ namespace onika
 
   namespace cuda
   {
+
+    bool CudaContext::s_global_gpu_enable = true;
+
+    void CudaContext::set_global_gpu_enable(bool yn)
+    {
+      s_global_gpu_enable = yn;
+    }
+    
+    bool CudaContext::global_gpu_enable()
+    {
+      return s_global_gpu_enable;
+    }
 
     bool CudaContext::has_devices() const
     {
@@ -17,7 +47,7 @@ namespace onika
       return m_devices.size();
     }
     
-    cudaStream_t CudaContext::getThreadStream(unsigned int tid)
+    onikaStream_t CudaContext::getThreadStream(unsigned int tid)
     {
       if( tid >= m_threadStream.size() )
       {
@@ -25,7 +55,7 @@ namespace onika
         m_threadStream.resize( tid+1 , 0 );
         for(;i<m_threadStream.size();i++)
         {
-          checkCudaErrors( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
         }
       }
       return m_threadStream[tid];

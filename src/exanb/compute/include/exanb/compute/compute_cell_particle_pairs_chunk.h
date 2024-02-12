@@ -1,49 +1,38 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
+
 #pragma once
 
-#include <exanb/particle_neighbors/chunk_neighbors.h>
-
-#include <exanb/compute/compute_pair_buffer.h>
-#include <exanb/compute/compute_pair_optional_args.h>
-#include <exanb/compute/compute_pair_traits.h>
-
-#include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/field_sets.h>
-#include <exanb/core/particle_id_codec.h>
-#include <exanb/core/log.h>
-
-#include <onika/soatl/field_id.h>
-#include <onika/soatl/field_pointer_tuple.h>
-#include <onika/cuda/cuda.h>
-#include <onika/cuda/stl_adaptors.h>
-#include <onika/integral_constant.h>
-//#include <onika/declare_if.h>
-
-#include <cstddef>
+#include <exanb/compute/compute_cell_particle_pairs_common.h>
 
 namespace exanb
 {
-
-  template<class _Rx, class _Ry, class _Rz>
-  struct PosititionFields
-  {
-    using Rx = _Rx;
-    using Ry = _Ry;
-    using Rz = _Rz;
-  };
-  using DefaultPositionFields = PosititionFields< field::_rx , field::_ry , field::_rz >;
-  
-  template<class _Rx, class _Ry, class _Rz>
-  ONIKA_HOST_DEVICE_FUNC static inline constexpr PosititionFields<_Rx,_Ry,_Rz> make_position_fields( _Rx , _Ry , _Rz ) { return {}; }
-  // compute_cell_particle_pairs( ... , make_position_fields( field::rx , field::ry , field::rz ) )
-
-  /*
-   * FIXME: compact pair weighting structure will need refactoring for cuda compatibility
-   */
+  /************************************************
+   *** Chunk neighbors traversal implementation ***
+   ************************************************/
   template< class CellT, class CST, bool Symetric
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
-          , class PosFieldsT, bool PreferComputeBuffer, class... field_ids>
-  ONIKA_HOST_DEVICE_FUNC static inline void compute_cell_particle_pairs_cell(
-    CellT* cells,
+          , class FieldAccTupleT, class PosFieldsT
+          , bool PreferComputeBuffer, size_t ... FieldIndex >
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void compute_cell_particle_pairs_cell(
+    CellT cells,
     IJK dims,
     IJK loc_a,
     size_t cell_a,
@@ -51,13 +40,17 @@ namespace exanb
     const ComputePairBufferFactoryT& cpbuf_factory,
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
+    const FieldAccTupleT& cp_fields ,
     CST CS /*nbh_chunk_size*/,
     std::integral_constant<bool,Symetric> ,
-    FieldSet< field_ids... > ,
-    PosFieldsT = PosFieldsT{} ,
-    onika::BoolConst<PreferComputeBuffer> = {}
+    PosFieldsT ,
+    onika::BoolConst<PreferComputeBuffer> ,
+    std::index_sequence<FieldIndex...> ,
+    std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {}
     )
   {
+    static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS );
+
     using exanb::chunknbh_stream_to_next_particle;
     using exanb::chunknbh_stream_info;
     using exanb::decode_cell_index;
@@ -71,11 +64,14 @@ namespace exanb
     static constexpr bool has_particle_stop = ComputePairParticleContextTraits<FuncT>::HasParticleContextStop;
 
     static_assert( (!has_particle_start && !has_particle_stop) || ComputePairTraits<FuncT>::ComputeBufferCompatible );
-
+    
     static constexpr bool use_compute_buffer = (PreferComputeBuffer || has_particle_start || has_particle_stop) && ComputePairTraits<FuncT>::ComputeBufferCompatible;
     static constexpr bool requires_block_synchronous_call = ComputePairTraits<FuncT>::RequiresBlockSynchronousCall ;
-
     static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
+
+    using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
+    static constexpr size_t nbh_fields_count = onika::tuple_size_const_v< NbhFields >;
+    static_assert( nbh_fields_count==0 || use_compute_buffer , "Neighbor field auto packaging is only supported when using compute bufer by now." );
 
     using CLoopBoolT = std::conditional_t< Symetric , bool , onika::BoolConst<true> >;
     using ComputePairBufferT = std::conditional_t< use_compute_buffer , typename ComputePairBufferFactoryT::ComputePairBuffer , onika::BoolConst<false> >;
@@ -83,12 +79,11 @@ namespace exanb
     using _Rx = typename PosFieldsT::Rx;
     using _Ry = typename PosFieldsT::Ry;
     using _Rz = typename PosFieldsT::Rz;
-    using PointerTuple = onika::soatl::FieldPointerTuple<CellT::Alignment,CellT::ChunkSize,_Rx,_Ry,_Rz, field_ids...>;
     static constexpr onika::soatl::FieldId<_Rx> RX;
     static constexpr onika::soatl::FieldId<_Ry> RY;
     static constexpr onika::soatl::FieldId<_Rz> RZ;
 
-    assert( cells != nullptr );
+    // assert( cells != nullptr );
 
     // cell filtering, allows user to give a selection function enabling or inhibiting cell processing
     if constexpr ( ! std::is_same_v< ComputePairTrivialCellFiltering , std::remove_reference_t<decltype(optional.cell_filter)> > )
@@ -96,23 +91,12 @@ namespace exanb
       if( ! optional.cell_filter(cell_a,loc_a) ) return;
     }
 
-//    const unsigned int CS = nbh_chunk_size;
-
+    // number of particles in cell
     const unsigned int cell_a_particles = cells[cell_a].size();
-    const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
-    const uint16_t* stream_base = stream_info.stream;
-    const uint16_t* __restrict__ stream = stream_base;
-    const uint32_t* __restrict__ particle_offset = stream_info.offset;
-    const int32_t poffshift = stream_info.shift;
-    
-    PointerTuple cell_a_pointers;
-    cells[cell_a].capture_pointers(cell_a_pointers);
+
+    // spin locks for concurent access
     auto& cell_a_locks = optional.locks[cell_a];
     [[maybe_unused]] auto nbh_data_ctx = optional.nbh_data.make_ctx();
-
-    const double* __restrict__ rx_a = cell_a_pointers[RX]; ONIKA_ASSUME_ALIGNED(rx_a);
-    const double* __restrict__ ry_a = cell_a_pointers[RY]; ONIKA_ASSUME_ALIGNED(ry_a);
-    const double* __restrict__ rz_a = cell_a_pointers[RZ]; ONIKA_ASSUME_ALIGNED(rz_a);
 
     // create local computation scratch buffer
     ComputePairBufferT tab;
@@ -129,6 +113,17 @@ namespace exanb
       if constexpr ( has_locks ) {}
     }
 
+    // central particle's coordinates
+    const double* __restrict__ rx_a = cells[cell_a][RX]; ONIKA_ASSUME_ALIGNED(rx_a);
+    const double* __restrict__ ry_a = cells[cell_a][RY]; ONIKA_ASSUME_ALIGNED(ry_a);
+    const double* __restrict__ rz_a = cells[cell_a][RZ]; ONIKA_ASSUME_ALIGNED(rz_a);
+
+    const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
+    const uint16_t* stream_base = stream_info.stream;
+    const uint16_t* __restrict__ stream = stream_base;
+    const uint32_t* __restrict__ particle_offset = stream_info.offset;
+    const int32_t poffshift = stream_info.shift;
+    
     //for(unsigned int p_a=0;p_a<cell_a_particles;p_a++)
     //ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p_a , 0 , cell_a_particles )
     ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED(unsigned int , p_a , 0 , cell_a_particles )
@@ -193,12 +188,17 @@ namespace exanb
                 if( d2 <= rcut2 )
                 {
                   if constexpr ( use_compute_buffer )
-                  {		                
+                  {
+                    tab.check_buffer_overflow();
+                    if constexpr ( nbh_fields_count > 0 )
+                    {
+                      compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
+                    }
                     tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
                   }
                   if constexpr ( ! use_compute_buffer )
                   {
-                    func( dr, d2, cell_a_pointers[onika::soatl::FieldId<field_ids>()][p_a] ... , cells , cell_b, p_b, optional.nbh_data.get( cell_a , p_a, p_nbh_index , nbh_data_ctx ) );
+                    func( dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, optional.nbh_data.get( cell_a , p_a, p_nbh_index , nbh_data_ctx ) );
                   }
                 }
                 ++ p_nbh_index;
@@ -213,8 +213,8 @@ namespace exanb
         {
           if( tab.count > 0 )
           {
-            if constexpr ( has_locks ) func( tab.count, tab, cell_a_pointers[onika::soatl::FieldId<field_ids>()][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
-            if constexpr (!has_locks ) func( tab.count, tab, cell_a_pointers[onika::soatl::FieldId<field_ids>()][tab.part] ... , cells );
+            if constexpr ( has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
+            if constexpr (!has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
           }
         }
 
@@ -236,12 +236,14 @@ namespace exanb
 
       if constexpr ( use_compute_buffer && requires_block_synchronous_call )
       {
-        if constexpr ( has_locks ) func( tab.count, tab, cell_a_pointers[onika::soatl::FieldId<field_ids>()][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
-        if constexpr (!has_locks ) func( tab.count, tab, cell_a_pointers[onika::soatl::FieldId<field_ids>()][tab.part] ... , cells );
+        if constexpr ( has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
+        if constexpr (!has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
       }
       
-    }
+    } // end of ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED for loop
+
   }
+  /*** end of chunk version implementation ***/    
 
 }
 

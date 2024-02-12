@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <exanb/core/operator_slot_base.h>
@@ -18,11 +36,13 @@
 #include <cstdlib>
 #include <cassert>
 #include <atomic>
+#include <deque>
 
 #include <onika/omp/ompt_task_timing.h>
 #include <onika/omp/ompt_task_info.h>
 #include <onika/cuda/cuda_context.h>
 #include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_stream.h>
 
 namespace exanb
 {
@@ -95,7 +115,7 @@ namespace exanb
 
     // unique constrtuctor is the default one
     OperatorNode() = default;
-    virtual ~OperatorNode() = default;
+    virtual ~OperatorNode();
     
     // to be called when operator will no longer be executed, before it is destructed
     virtual void finalize();
@@ -103,10 +123,12 @@ namespace exanb
     // ==== main interface, executes the operator =======
 
     // called from outside, calls execute internally
-    virtual void run(); // called internally
-    virtual void execute();        // implemented by developper to create its own parallel regions (discouraged) 
-    virtual void generate_tasks(); // implemented by developper to create tasks executed asynchronously
+    virtual void run_prolog();
+    virtual void run(); 
+    virtual void run_epilog();
+    virtual void execute() =0;
     
+    virtual inline bool nested_parallel_mode() const { return false; }
     virtual bool is_looping() const;
     
     virtual inline std::string documentation() const { return std::string(); }
@@ -143,9 +165,6 @@ namespace exanb
     // slots names and operator name cannot be changed anymore. no sub operators (for batches) can change neither
     // thus, outter slot connections can be done later on.
     virtual void compile();
-
-    // collect spawn tasks execution times to get a global operator execution time
-    virtual double collect_execution_time();
 
     // virtual std::shared_ptr<OperatorNode> clone() const;
     // ==================
@@ -226,14 +245,18 @@ namespace exanb
     void profile_task_start( const onika::omp::OpenMPToolTaskTiming& evt_info );
     void profile_task_stop( const onika::omp::OpenMPToolTaskTiming& evt_info );
 
-    // user functions to mark a specific region of code
-    ::onika::omp::OpenMPTaskInfo* profile_begin_section(const char* tag);
-    void profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo);
-
     // access GPUExecution context for this operator
     void set_gpu_enabled(bool en);
-    onika::parallel::ParallelExecutionContext* parallel_execution_context(unsigned int id=0);
-    void account_gpu_execution(double t);
+    // Warning! : this methods has a wrong name, for backward compatibility purposes
+
+    // each call allocates a new context to be used to build up a new parallel operation
+    void set_task_group_mode( bool m );
+    bool task_group_mode() const;
+    onika::parallel::ParallelExecutionContext* parallel_execution_context();
+    std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_nolock(unsigned int id=0);
+    std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_lock(unsigned int id=0);
+    onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
+    void wait_all_parallel_execution_streams();
     
     // free resources associated to slots
     void free_all_resources();
@@ -257,6 +280,10 @@ namespace exanb
     std::vector<double> m_exec_times;
     std::vector<double> m_gpu_times;
     std::vector<double> m_async_cpu_times;
+    TimeStampT m_run_start_time;
+    double m_total_gpu_time = 0.0;
+    double m_total_async_cpu_time = 0.0;
+    ssize_t m_resident_mem = 0;
     ssize_t m_resident_mem_inc = 0;
 
     // debug stream wrapper to enable log filtering
@@ -264,6 +291,7 @@ namespace exanb
 
   private:
 
+    static void finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self);
     static void task_start_callback( const onika::omp::OpenMPToolTaskTiming& evt );
     static void task_stop_callback( const onika::omp::OpenMPToolTaskTiming& evt );
   
@@ -284,22 +312,28 @@ namespace exanb
     std::string m_name;
     std::unique_ptr<char[]> m_tag = nullptr; // a unique string pointer equivalent to pathname()
     OperatorNode* m_parent = nullptr;
+
     std::string m_backtrace; // stored to facilitate debugging
 
     // auxiliary slot registration
     std::unordered_set<OperatorSlotBase*> m_slots;
     std::set< std::shared_ptr<OperatorSlotBase> > m_managed_slots; // for proper deallocation
 
-    // GPU execution context : contains necessary gpu resources to manage dynamic scheduling of tasks
-    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionContext> > m_parallel_execution_contexts;
-    
+    // Parallel execution context and streams:
+    // contains necessary resources to globalize parallel executions accross diferent operators and allow asynchornous parallel executions.
+    std::mutex m_parallel_execution_access;
+    OperatorNode* m_task_group_ancestor = nullptr; // highest ancestor creator of the encapsulating task group
+    std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams;
+    std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
+    std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;
+        
     // Operator protection after compilation
     bool m_compiled = false;
 
     // profiling
     bool m_profiling = true;
     
-    // allow OpenMP task creation
+    // allow OpenMP task creation and shared parallel operation stream queues across several operators when activated at a batch level
     bool m_omp_task_mode = false;
     
     // allow gpu execution for this particular instance

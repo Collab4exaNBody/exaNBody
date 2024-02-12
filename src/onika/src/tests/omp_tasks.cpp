@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <iostream>
 #include <cstdlib>
 #include <cassert>
@@ -237,12 +255,12 @@ void taskgroup_termination()
 
 void outside_taskgroup_dependence()
 {
-  int task_A = 0;
-  int task_B = 0;
-  int task_C = 0;
-  int task_D = 0;
-  int task_E = 0;
-  int task_F = 0;
+  [[maybe_unused]] int task_A = 0;
+  [[maybe_unused]] int task_B = 0;
+  [[maybe_unused]] int task_C = 0;
+  [[maybe_unused]] int task_D = 0;
+  [[maybe_unused]] int task_E = 0;
+  [[maybe_unused]] int task_F = 0;
 
 # pragma omp parallel
   {
@@ -433,9 +451,9 @@ void taskgroup_in_task()
 {
   int group_A=0;
 
-  int task_A1=0;
-  int task_B1=0;
-  int task_C1=0;
+  [[maybe_unused]] int task_A1=0;
+  [[maybe_unused]] int task_B1=0;
+  [[maybe_unused]] int task_C1=0;
 
   using std::cout;
   using std::endl;

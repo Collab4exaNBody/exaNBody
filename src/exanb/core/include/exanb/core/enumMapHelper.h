@@ -1,73 +1,24 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
-#include <vector>
-#include <string>
-#include <unordered_map>
-#include <iterator> //std::begin std::end
-#include <algorithm> //std::find_if
-#include <assert.h>
-
-namespace exanb
-{
-
-  // Use to create map between std string and enum type
-  // Allow simple conversion between enumType and string and vice versa
-  // the last element of enumType must be "unknow"
-  // the size of s_keys have to be the same than the number of elements in EnumType
-  template<class EnumType>
-  class EnumMapHelper
-  {
-  public:
-
-    EnumMapHelper(const std::vector<std::string>& keys)
-      : m_keys(keys)
-    {
-      initMap();
-    }
-
-    void initMap()
-    {
-      //p_keys and the enum must have the same size 
-      assert(static_cast<EnumType>(m_keys.size()-1) == EnumType::unknow);
-
-      for(size_t i=0; i<m_keys.size(); ++i)
-      {
-        m_map.emplace(m_keys[i], static_cast<EnumType>(i));
-      }
-    }
-
-    const std::unordered_map<std::string, EnumType>& getMap() const
-    {
-      return m_map;
-    }
-
-    EnumType fromString(const std::string& p_str)
-    {
-      //map must be initialize
-      assert(m_map.size()!=0);
-
-      return m_map.at(p_str);
-    }
-
-    std::string toString(const EnumType& p_enum)
-    {
-      //map must be initialize
-      assert(m_map.size()!=0);
-
-      auto it = std::find_if(std::begin(m_map), std::end(m_map),
-                             [&](std::pair<std::string, EnumType> p) { return p.second == p_enum; });
-
-      if (it == std::end(m_map))
-        return m_keys.at(m_keys.size()-1); //last value is unknow
-
-      return it->first;
-    }
-
-  private:
-    std::vector<std::string> m_keys;
-    std::unordered_map<std::string, EnumType> m_map;
-  };
-
-}
-
+#ifdef EXANB_LEGACY_UNITS_DEPRECATED
+#warning include file exanb/core/enumMapHelper.h is deprecated, it will be removed in future releases
+#endif
 

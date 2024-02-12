@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <exanb/core/basic_types_operators.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/parallel_grid_algorithm.h>
@@ -108,7 +126,7 @@ namespace exanb
     size_t n_cells = m_cell.size();
 //    cout << "S²="<<n_cells*n_cells<<endl;
     mat.assign( n_cells*n_cells , false );
-    size_t no = 0;
+    //size_t no = 0;
     for(size_t cell_i=0;cell_i<n_cells;cell_i++)
     {
       const size_t* ptask = m_deps.data() + m_start[cell_i];
@@ -118,7 +136,7 @@ namespace exanb
         size_t cell_j = ptask[di];
 //        mat[ cell_i*n_cells+cell_j ] = true;
         mat[ cell_j*n_cells+cell_i ] = true;
-        ++ no;
+        // ++ no;
       }
     }
 //    cout << "N="<<no<<endl;

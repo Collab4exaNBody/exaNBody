@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/plugin.h>
 
@@ -302,12 +320,19 @@ int main(int argc,char*argv[])
     rank,nb_procs);
   // ===============================================
 
-  // get number of available GPUs, if any 
-# ifdef XSTAMP_CUDA_VERSION
+  // get number of available GPUs, if any   
   int n_gpus = 0;
-  checkCudaErrors( cudaGetDeviceCount(&n_gpus) );
-  if( n_gpus <= 0 ) { onika::memory::GenericHostAllocator::set_cuda_enabled( false ); }
+# ifdef XNB_CUDA_VERSION
+  onika::cuda::CudaContext::set_global_gpu_enable( ! configuration.nogpu );
+  if( onika::cuda::CudaContext::global_gpu_enable() )
+  {
+    ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
+  }
+# else
+  onika::cuda::CudaContext::set_global_gpu_enable( false );
+  n_gpus = 0;
 # endif
+  onika::memory::GenericHostAllocator::set_cuda_enabled( n_gpus > 0 );
 
   // generate a compact string representing cpu set assigned to current process
   std::string core_config;
@@ -336,9 +361,9 @@ int main(int argc,char*argv[])
   // host system info
   lout << endl
        << "Version : "<< USTAMP_VERSION
-#      ifndef NDEBUG
+# ifndef NDEBUG
        <<" (debug)"
-#      endif
+# endif
        <<endl
        << "MPI     : "<< format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
        << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
@@ -346,8 +371,8 @@ int main(int argc,char*argv[])
                       << ( ( configuration.omp_max_nesting > 1 ) ? format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
-# ifdef XSTAMP_CUDA_VERSION
-       lout << "Cuda    : v"<< USTAMP_STR(XSTAMP_CUDA_VERSION);
+# ifdef XNB_CUDA_VERSION
+       lout << ONIKA_CU_NAME_STR << "    : v"<< USTAMP_STR(XNB_CUDA_VERSION);
        if(n_gpus==0) lout<< " (no GPU)"<< endl;
        else if(n_gpus==1) lout<< " (1 GPU)"<< endl;
        else lout<< " ("<< n_gpus<<" GPUs)"<< endl;

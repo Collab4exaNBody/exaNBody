@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <iostream>
@@ -10,7 +28,7 @@
 
 #include <exanb/io/vtk_writer.h>
 
-#include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 namespace exanb
 {
@@ -81,18 +99,10 @@ namespace exanb
     file_vtp << buffer;
   }
 
-  template<class GridT, class FType, class GridAccT = exanb::GridParticleFieldAccessor<const typename GridT::CellParticles *> >
-  inline void write_binary_datas_from_field(const GridT& grid, FType ftype, const std::string& name, const std::string& type, std::ofstream& file_vtp, const int compression_level, bool is_ghosts, GridAccT gridacc = {nullptr} )
+  template<class GridT, class CellsAccessorT, class FType >
+  inline void write_binary_datas_from_field(const GridT& grid, CellsAccessorT cells, FType ftype, const std::string& name, const std::string& type, std::ofstream& file_vtp, const int compression_level, bool is_ghosts )
   {
     size_t n_cells = grid.number_of_cells();
-    auto cells = grid.cells();
-
-    // cannot initalize default grid accessor right in the parameter list (compiler says 'grid may not appear in this context)
-    // so we detect default grid accessor and initializes it with correct cells value from grid
-    if constexpr ( std::is_same_v<GridAccT,exanb::GridParticleFieldAccessor<const typename GridT::CellParticles *> > )
-    {
-      if( gridacc.m_cells == nullptr ) gridacc.m_cells = cells;
-    }
 
     using field_type = typename FType::value_type;
     using comp_type = typename ParaViewTypeId<field_type>::comp_type;
@@ -109,7 +119,7 @@ namespace exanb
         size_t np = cells[c].size();
         for(size_t pos=0;pos<np;++pos)
         {
-          const auto value = gridacc.get(c,pos,ftype);
+          [[maybe_unused]] const auto value = cells[c][ftype][pos];
           if constexpr ( ParaViewTypeId<field_type>::ncomp == 1 )
           {
             sources.push_back( value );
@@ -160,12 +170,10 @@ namespace exanb
     static_assert(std::is_same<typename FType_x::value_type,typename FType_y::value_type>::value, "write_binary_datas_from_fields bad types");
     static_assert(std::is_same<typename FType_x::value_type,typename FType_z::value_type>::value, "write_binary_datas_from_fields bad types");
 
-
     size_t n_cells = grid.number_of_cells();
     auto cells = grid.cells();
 
     std::vector<typename FType_x::value_type> sources;
-
 
     for(size_t c=0; c<n_cells;++c)
     {
@@ -212,9 +220,7 @@ namespace exanb
         for(size_t pos=0;pos<np;++pos)
         {
           Vec3d pos_vec = {rx[pos],ry[pos],rz[pos]};
-
           pos_vec = xform * pos_vec;
-
           sources.push_back(pos_vec.x);
           sources.push_back(pos_vec.y);
           sources.push_back(pos_vec.z);

@@ -1,11 +1,27 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <iostream>
 #include <malloc.h>
 
 #ifdef ONIKA_CUDA_VERSION
-#include <cuda_runtime.h>
+#include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
-//#include <helper_cuda.h>
-//#include <helper_functions.h>
 #endif
 
 #include <onika/memory/allocator.h>
@@ -117,7 +133,7 @@ namespace onika
 #         endif
 #         ifdef ONIKA_CUDA_VERSION
           // lout << "cudaFree(@"<<ptr<<","<<s<<") a="<<alignment<<std::endl;
-          checkCudaErrors( cudaFree(info.alloc_base) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE(info.alloc_base) );
 #         else
           std::cerr << "Free memory with type CUDA_HOST but cuda is not available" << std::endl;
           std::abort();
@@ -151,7 +167,7 @@ namespace onika
         {
 #         if defined(ONIKA_CUDA_VERSION)
           ptr = nullptr;
-          checkCudaErrors( cudaMallocManaged( &ptr, s + add_info_size ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC_MANAGED( &ptr, s + add_info_size ) );
           auto pa = reinterpret_cast<uint8_t*>(ptr) - (uint8_t*)nullptr;
           if( ( pa % a ) != 0 )
           {

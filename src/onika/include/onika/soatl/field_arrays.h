@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
 #include <onika/soatl/packed_field_arrays.h>
@@ -103,7 +121,7 @@ namespace onika
 
       // writes ith tuple
       ONIKA_HOST_DEVICE_FUNC
-      inline void set_tuple ( size_t i, const FieldTuple<ids...>& value )
+      inline void set_tuple ( size_t i, const TupleValueType& value )
       {
         assert( i < capacity() );
         ( ... , ( (*this)[FieldId<ids>()][i] = value[FieldId<ids>()] ) );
@@ -112,13 +130,13 @@ namespace onika
       ONIKA_HOST_DEVICE_FUNC
       inline void set_tuple ( size_t i, const typename FieldId<ids>::value_type& ... args )
       {
-        set_tuple( i, FieldTuple<ids...>(args...) );
+        set_tuple( i, TupleValueType(args...) );
       }
       
       ONIKA_HOST_DEVICE_FUNC
       inline void set_tuple ( size_t i, const std::tuple< typename FieldId<ids>::value_type ... > & value )
       {
-        set_tuple( i, FieldTuple<ids...>(value) );
+        set_tuple( i, TupleValueType(value) );
       }
 
       // read only fields of tuple at position i that exist in this field array. other fields of tuple passed as argument are unchanged.
@@ -141,10 +159,10 @@ namespace onika
 
       // reads ith tuple
       ONIKA_HOST_DEVICE_FUNC 
-      inline FieldTuple<ids...> operator [] ( size_t i ) const
+      inline TupleValueType operator [] ( size_t i ) const
       {
         assert( i < capacity() ); 
-        return FieldTuple<ids...>( (*this)[FieldId<ids>()][i] ... );
+        return TupleValueType( (*this)[FieldId<ids>()][i] ... );
       }
 
       inline FieldPointerTuple<Alignment,ChunkSize,ids...> field_pointers() const
@@ -163,7 +181,7 @@ namespace onika
 
       // adds an element at the end of container, increments size
       template<class Allocator = DefaultAllocator>
-      inline void push_back( const FieldTuple<ids...>& value , const Allocator& alloc = Allocator{} )
+      inline void push_back( const TupleValueType& value , const Allocator& alloc = Allocator{} )
       {
         const size_t s = size();
         resize( s+1 , alloc );
@@ -171,7 +189,7 @@ namespace onika
       }  
 
       template<class Allocator = DefaultAllocator>
-      inline void assign(size_t s , const FieldTuple<ids...>& value , const Allocator& alloc = Allocator{} )
+      inline void assign(size_t s , const TupleValueType& value , const Allocator& alloc = Allocator{} )
       {
         resize( s , alloc );
         for(size_t i=0;i<s;i++) set_tuple( i, value );
@@ -206,9 +224,9 @@ namespace onika
       }
 
       // utility class method to build a tuple compatible with this container
-      static inline FieldTuple<ids...> make_tuple(const typename FieldId<ids>::value_type & ... args)
+      static inline TupleValueType make_tuple(const typename FieldId<ids>::value_type & ... args)
       {
-        return FieldTuple<ids...>( args ... );
+        return TupleValueType( args ... );
       }
 
       // how many usefull bytes among those allocated

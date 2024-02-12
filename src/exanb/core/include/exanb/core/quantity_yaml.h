@@ -1,50 +1,26 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #pragma once
 
-#include <yaml-cpp/yaml.h>
-#include <exanb/core/quantity.h>
-#include <exanb/core/unityConverterHelper.h>
+#include <exanb/core/units.h>
 
-#include <sstream>
-#include <limits>
-#include <cassert>
-
-namespace YAML
-{
-  using exanb::Quantity;
-  using exanb::quantity_from_string;
-  using exanb::UnityConverterHelper;
-    
-  template<> struct convert< Quantity >
-  {
-    static inline Node encode(const Quantity& q)
-    {
-      Node node;
-      node["value"] = q.m_value;
-      node["unity"] = UnityConverterHelper::unities_descriptor_to_string( q.m_unit );
-      return node;
-    }
-
-    static inline bool decode(const Node& node, Quantity& q)
-    {
-      if( node.IsScalar() ) // value and unit in the same string
-      {
-        bool conv_ok = false;
-        q = quantity_from_string( node.as<std::string>() , conv_ok );
-        return conv_ok;
-      }
-      else if( node.IsMap() )
-      {
-        q.m_value = node["value"].as<double>();
-        UnityConverterHelper::parse_unities_descriptor( node["unity"].as<std::string>(), q.m_unit );
-        return true;
-      }
-      else
-      {
-        return false;
-      }
-    }
-
-  };
-
-}
+#ifdef EXANB_LEGACY_UNITS_DEPRECATED
+#warning include file exanb/core/quantity_yaml.h is deprecated, please include exanb/core/units.h instead
+#endif
 

@@ -1,3 +1,21 @@
+/*
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*/
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/basic_types_stream.h>
@@ -7,7 +25,7 @@
 #include <exanb/core/string_utils.h>
 
 #include <exanb/compute/field_combiners.h>
-#include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <exanb/io/vtk_writer.h>
 #include <exanb/io/vtk_writer_binary.h>
@@ -81,10 +99,10 @@ namespace exanb
       }
     };
 
-    template<class GridAccessorT>
+    template<class CellsAccessorT>
     struct WriteArrayData
     {
-      const GridAccessorT& m_gridacc;
+      CellsAccessorT m_cells;
       std::ofstream& out;
       std::function<bool(const std::string&)> m_field_selector;
       int compression_level=1;
@@ -98,23 +116,23 @@ namespace exanb
         {
           if(binary)
           {
-            write_binary_datas_from_field(grid, fid , fid.short_name() , ParaViewTypeId<field_type>::str() , out, compression_level, ghost , m_gridacc );
+            write_binary_datas_from_field(grid, m_cells, fid , fid.short_name() , ParaViewTypeId<field_type>::str() , out, compression_level, ghost );
           }
           else
           {
-            write_ascii_datas_from_field(grid, fid , fid.short_name() , ParaViewTypeId<field_type>::str() , out, ghost , m_gridacc );
+            write_ascii_datas_from_field(grid, m_cells, fid , fid.short_name() , ParaViewTypeId<field_type>::str() , out, ghost );
           }
         }
       }
     };
-    template<class GridAccessorT> inline WriteArrayData<GridAccessorT> make_paraview_array_data_writer( const GridAccessorT& gridacc, std::ofstream& out, std::function<bool(const std::string&)> fs, int compression_level, bool binary, bool ghost)
+    template<class CellsAccessorT> inline WriteArrayData<CellsAccessorT> make_paraview_array_data_writer( const CellsAccessorT& cells, std::ofstream& out, std::function<bool(const std::string&)> fs, int compression_level, bool binary, bool ghost)
     {
-      return { gridacc, out , fs, compression_level, binary, ghost };
+      return { cells, out , fs, compression_level, binary, ghost };
     }
 
-    template<class LDBG, class GridT, class GridAccesorT, class FieldSelectorT, class... GridFields >
+    template<class LDBG, class GridT, class CellsAccesorT, class FieldSelectorT, class... GridFields >
     static inline void write_particles(LDBG& ldbg,
-              MPI_Comm comm, const GridT& grid, const GridAccesorT& gridacc, const Domain& domain, const std::string& filename, const FieldSelectorT& field_selector,
+              MPI_Comm comm, const GridT& grid, const CellsAccesorT& cells, const Domain& domain, const std::string& filename, const FieldSelectorT& field_selector,
               const std::string& compression, bool binary_mode, bool write_box, bool write_external_box, bool write_ghost, const GridFields& ... grid_fields )
     {    
       Mat3d xform = domain.xform();
@@ -196,7 +214,6 @@ namespace exanb
       //-------------------------------------------------------------------------------------------
       // Starting to write .vtp file by each proc -------------------------------------------------
       size_t n_cells = grid.number_of_cells();
-      auto cells = grid.cells();
       size_t nb_particles = grid.number_of_particles();
       if(!write_ghost) { nb_particles -= grid.number_of_ghost_particles(); }
 
@@ -214,7 +231,7 @@ namespace exanb
                <<  vtk_space_offset_four << "<Piece  NumberOfPoints=\""<< nb_particles << "\" NumberOfVerts=\"1\" NumberOfLines=\"0\" NumberOfStrips=\"0\" NumberOfPolys=\"0\">" << std::endl
                <<  vtk_space_offset_six  << "<PointData>" << std::endl;
 
-      apply_grid_fields( grid, make_paraview_array_data_writer(gridacc,file_vtp,field_selector,compression_level,binary_mode,write_ghost) , grid_fields... );
+      apply_grid_fields( grid, make_paraview_array_data_writer(cells,file_vtp,field_selector,compression_level,binary_mode,write_ghost) , grid_fields... );
 
       if(write_ghost)
       {
