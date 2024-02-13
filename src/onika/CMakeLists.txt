@@ -119,6 +119,7 @@ if(ONIKA_USE_HIP)
   endif()
   set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} -DONIKA_HIP_VERSION=${CMAKE_HIP_COMPILER_VERSION})
   set(ONIKA_HIP_COMPILE_FLAGS "-Werror=return-local-addr;-Werror=return-stack-address;-Werror=return-type" CACHE STRING "HIP extra flags")
+  set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} roctx64)
   message(STATUS "Onika uses HIP ${CMAKE_HIP_COMPILER_VERSION}")
 endif()
 

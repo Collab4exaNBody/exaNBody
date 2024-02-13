@@ -3,6 +3,10 @@
 #include <onika/parallel/block_parallel_for_functor.h>
 #include <onika/parallel/parallel_execution_stream.h>
 
+#ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
+#include <omp.h>
+#endif
+
 namespace onika
 {
   namespace parallel
@@ -50,7 +54,7 @@ namespace onika
       static inline constexpr bool functor_has_cpu_prolog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_prolog_t>;
       static inline constexpr bool functor_has_epilog     = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_epilog_t>;
       static inline constexpr bool functor_has_cpu_epilog = lambda_is_compatible_with_v<FuncT,void,block_parallel_for_cpu_epilog_t>;
-      const FuncT m_func;
+      alignas( alignof(FuncT) ) const FuncT m_func;
       
     public:
       inline BlockParallelForHostAdapter( const FuncT& f ) : m_func(f) {}
@@ -115,9 +119,11 @@ namespace onika
         pes->m_omp_execution_count.fetch_add(1);
         assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
         const size_t N = pec->m_parallel_space.m_end;
+
 #       ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
         omp_set_num_threads( omp_get_max_threads() );
 #       endif
+
         const auto T0 = std::chrono::high_resolution_clock::now();  
         execute_prolog( pec , pes );
 #       pragma omp parallel

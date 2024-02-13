@@ -143,6 +143,7 @@ sets result output to true if at least one particle has moved further than thres
       }
       else
       {    
+        ldbg << "Nb part moved over "<< max_dist <<" (local) = " << particle_displ_comm->m_particles_over << std::endl;
         reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() );
         MPI_Allreduce( & ( particle_displ_comm->m_particles_over ) , & ( particle_displ_comm->m_all_particles_over ) , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm );
         ldbg << "Nb part moved over "<< max_dist <<" (local/all) = "<< particle_displ_comm->m_particles_over <<" / "<< particle_displ_comm->m_all_particles_over << std::endl;

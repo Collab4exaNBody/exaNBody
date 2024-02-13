@@ -28,10 +28,6 @@ under the License.
 #include <onika/lambda_tools.h>
 #include <onika/stream_utils.h>
 
-#ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
-#include <omp.h>
-#endif
-
 namespace onika
 {
 
@@ -77,7 +73,8 @@ namespace onika
                  ] = opts;
 
       // construct virtual functor adapter inplace, using reserved functor space
-      //printf("inplace construction of host adapter, size=%d\n", int(sizeof(HostFunctorAdapter)) );
+      static_assert( ( HostKernelExecutionScratch::MAX_FUNCTOR_ALIGNMENT % alignof(FuncT) ) == 0 , "functor_data alignment is not sufficient for user functor" );
+      // printf("inplace construction of host adapter, size=%d, max=%d\n", int(sizeof(HostFunctorAdapter)) , int(HostKernelExecutionScratch::MAX_FUNCTOR_SIZE) );
       new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
       pec->m_execution_end_callback = user_cb;
@@ -103,6 +100,7 @@ namespace onika
 
           if( return_data != nullptr && return_data_size > 0 )
           {
+	    // printf("bpf: return data input=%p , output=%p , size=%d\n",return_data,return_data, int(return_data_size) );
             pec->set_return_data_input( return_data , return_data_size );
             pec->set_return_data_output( return_data , return_data_size );
           }
