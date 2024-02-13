@@ -49,7 +49,10 @@ namespace exanb
     std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {}
     )
   {
+    static constexpr bool requires_block_synchronous_call = ComputePairTraits<FuncT>::RequiresBlockSynchronousCall ;
+
     static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS );
+    static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
 
     using exanb::chunknbh_stream_to_next_particle;
     using exanb::chunknbh_stream_info;
@@ -68,8 +71,6 @@ namespace exanb
     static_assert( (!has_particle_start && !has_particle_stop) || ComputePairTraits<FuncT>::ComputeBufferCompatible );
     
     static constexpr bool use_compute_buffer = (PreferComputeBuffer || has_particle_start || has_particle_stop) && ComputePairTraits<FuncT>::ComputeBufferCompatible;
-    static constexpr bool requires_block_synchronous_call = ComputePairTraits<FuncT>::RequiresBlockSynchronousCall ;
-    static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
     static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
@@ -139,7 +140,6 @@ namespace exanb
       
       if( p_a < cell_a_particles )
       {
-        size_t p_nbh_index = 0;
 
         if( particle_offset!=nullptr ) stream = stream_base + particle_offset[p_a] + poffshift;
         
@@ -158,24 +158,34 @@ namespace exanb
           func(tab,cells,cell_a,p_a,ComputePairParticleContextStart{});
         }
 
-        const unsigned int cell_groups = *(stream++); // number of cell groups for this neighbor list
-        unsigned int chunk = 0;
-        unsigned int nchunks = 0;
-        unsigned int cg = 0; // cell group index.
-                
-        for(cg=0; cg<cell_groups ;cg++)
-        { 
-          const uint16_t cell_b_enc = *(stream++);
-          assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
-          const IJK loc_b = loc_a + decode_cell_index(cell_b_enc);
-          assert( loc_b.i>=0 && loc_b.j>=0 && loc_b.j>=0 && loc_b.i<dims.i && loc_b.j<dims.j && loc_b.j<dims.j );
-          const size_t cell_b = grid_ijk_to_index( dims , loc_b );
-          //const unsigned int nbh_cell_particles = cells[cell_b].size();
-          rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
-          ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
-          rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
-          nchunks = *(stream++);
-          for(chunk=0;chunk<nchunks;chunk++)
+        int cell_groups = 1 + ( *(stream++) ); // number of cell groups for this neighbor list
+        int nchunks = 0;
+        int p_nbh_index = 0;
+        size_t cell_b = 0;
+        
+        while( cell_groups > 0 )
+        {
+
+          if( nchunks == 0 )
+          {
+            -- cell_groups;
+            if( cell_groups > 0 )
+            {
+              const uint16_t cell_b_enc = *(stream++);
+              assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
+              const IJK loc_b = loc_a + decode_cell_index(cell_b_enc);
+              assert( loc_b.i>=0 && loc_b.j>=0 && loc_b.j>=0 && loc_b.i<dims.i && loc_b.j<dims.j && loc_b.j<dims.j );
+              cell_b = grid_ijk_to_index( dims , loc_b );
+              //const unsigned int nbh_cell_particles = cells[cell_b].size();
+              rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
+              ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
+              rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
+              nchunks = *(stream++);
+              assert( nchunks > 0 );
+            }
+          }
+          
+          if( nchunks > 0 )
           {
             const unsigned int p_b = static_cast<unsigned int>( *(stream++) ) ; 
             Vec3d dr { rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] };
@@ -198,13 +208,15 @@ namespace exanb
               }
             }
             ++ p_nbh_index;
+            -- nchunks;
           }
+          
         }
 
         // if( cell_groups == 0 ) avec cell_groups-- pour la boucle
         // pareil pour chunk
 
-        if constexpr ( use_compute_buffer && ! requires_block_synchronous_call )
+        if constexpr ( use_compute_buffer )
         {
           if( tab.count > 0 )
           {
@@ -219,21 +231,6 @@ namespace exanb
         }
 
       } // CU_BLOCK_SIMD_FOR filtering if
-      else 
-      {
-        if constexpr ( use_compute_buffer && requires_block_synchronous_call )
-        {
-          // call function with no neighbor particles for SM processor BLOCK parallelism
-          tab.count = 0;
-          tab.part = 0;
-        }
-      }
-
-      if constexpr ( use_compute_buffer && requires_block_synchronous_call )
-      {
-        if constexpr ( has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
-        if constexpr (!has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
-      }
       
       p_a += ONIKA_CU_BLOCK_SIZE ;
     } // end of ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED for loop

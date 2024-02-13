@@ -139,6 +139,7 @@ namespace exanb
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
     using CellT = typename GridT::CellParticles;
     using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+    static constexpr bool requires_block_synchronous_call = ComputePairTraits<FuncT>::RequiresBlockSynchronousCall ;
 
     static constexpr onika::IntConst<0> const_0{};
     static constexpr onika::IntConst<1> const_1{};
@@ -171,15 +172,18 @@ namespace exanb
       const unsigned int cs = optional.nbh.m_chunk_size;
       switch( cs )
       {
-        case 1:
-          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_1) , exec_ctx );
-          break;
         case 4:
           return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_4) , exec_ctx );
           break;
         case 8:
           return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_8) , exec_ctx );
           break;
+        case 1:
+          if constexpr ( ! requires_block_synchronous_call )
+          {
+            return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_1) , exec_ctx );
+            break;
+          }
         default:
           return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,     cs) , exec_ctx );
           break;
