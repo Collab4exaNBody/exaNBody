@@ -27,7 +27,7 @@ namespace onika
   namespace cuda
   {
 
-#ifdef __CUDA_ARCH__
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
 #   define onika_fast_sincosf(t,s,c) __sincosf(t,s,c)
 

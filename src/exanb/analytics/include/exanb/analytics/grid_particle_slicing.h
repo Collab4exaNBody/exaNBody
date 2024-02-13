@@ -23,7 +23,7 @@ namespace exanb
     {
       const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
       const Vec3d m_direction = {1.0 , 0.0 , 0.0 };
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , double rx, double ry, double rz , reduce_thread_local_t={} ) const
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & pos_min_max , double rx, double ry, double rz , reduce_thread_local_t={} ) const
       {
         using onika::cuda::min;
         using onika::cuda::max;
@@ -31,12 +31,12 @@ namespace exanb
         pos_min_max.first = min( pos_min_max.first , pos );
         pos_min_max.second = max( pos_min_max.second , pos );
       }
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_thread_block_t ) const
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & pos_min_max , onika::cuda::pair<double,double> value, reduce_thread_block_t ) const
       {
         ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
         ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
       }
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( std::pair<double,double> & pos_min_max , std::pair<double,double> value, reduce_global_t ) const
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & pos_min_max , onika::cuda::pair<double,double> value, reduce_global_t ) const
       {
         ONIKA_CU_ATOMIC_MIN( pos_min_max.first , value.first );
         ONIKA_CU_ATOMIC_MAX( pos_min_max.second , value.second );
@@ -53,13 +53,13 @@ namespace exanb
       const double m_thickness = 1.0;
       const double m_start = 0.0;
       const long m_resolution = 1;
-      std::pair<double,double> * __restrict__ m_slice_data = nullptr;
+      onika::cuda::pair<double,double> * __restrict__ m_slice_data = nullptr;
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t c, unsigned int p, double rx, double ry, double rz ) const
       {
         using onika::cuda::clamp;
         const double pos = dot( m_xform * Vec3d{rx,ry,rz} , m_direction );
         const long slice = clamp( static_cast<long>( ( pos - m_start ) / m_thickness ) , 0l , m_resolution-1l );
-        const double value = m_pacc.get(c,p,m_field);
+        const double value = m_pacc[c][m_field][p]; // .get(c,p,m_field);
         ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].first , 1.0 );
         ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].second , value );
       }
@@ -85,7 +85,7 @@ namespace exanb
       inline void operator () ( const GridT& grid , const FidT& proj_field )
       {
         using namespace SliceParticleFieldTools;
-        using field_type = decltype( m_pacc.get(0,0,proj_field) );
+        using field_type = decltype( m_pacc[0][proj_field][0] /*m_pacc.get(0,0,proj_field)*/ );
         static constexpr FieldSet< field::_rx , field::_ry , field::_rz > slice_field_set = {};
         
         if constexpr ( std::is_arithmetic_v<field_type> )
@@ -150,7 +150,7 @@ namespace exanb
     using namespace SliceParticleFieldTools;
   
     const Vec3d dir = direction / norm(direction);
-    std::pair<double,double> pos_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
+    onika::cuda::pair<double,double> pos_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
     DirectionalMinMaxDistanceFunctor func = { xform , dir };
     reduce_cell_particles( grid , false , func , pos_min_max , FieldSet<field::_rx,field::_ry,field::_rz>{} , parallel_execution_context() );
     {

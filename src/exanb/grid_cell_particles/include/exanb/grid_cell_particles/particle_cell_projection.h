@@ -20,6 +20,7 @@ under the License.
 
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/quaternion_operators.h>
 #include <onika/cuda/cuda.h>
 
@@ -134,10 +135,10 @@ namespace exanb
     };
 
 
-    template<class ParticleFieldAccessor>
+    template<class CellsT>
     struct ProjectCellValueField
     {
-      const ParticleFieldAccessor pacc;
+      const CellsT m_cells_acc;
       GridCellValues& m_cell_values;
       std::function<bool(const std::string&)> m_field_selector;
       const double m_splat_size = 1.0;
@@ -146,7 +147,7 @@ namespace exanb
       template<class GridT, class FidT >
       inline void operator () ( GridT& grid , const FidT& proj_field )
       {
-        using field_type = decltype( pacc.get(0,0,proj_field) );
+        using field_type = typename FidT::value_type;
         if constexpr ( type_support_weighting_v<field_type> )
         {
           using const_ncomp = std::integral_constant<unsigned int
@@ -234,7 +235,7 @@ namespace exanb
                       [[maybe_unused]] FieldContribType field_contrib;
                       if constexpr ( ncomp > 0 )
                       {
-                        field_contrib = pacc.get(i,j,proj_field); // cells[i][proj_field][j] * w;
+                        field_contrib = m_cells_acc[i][proj_field][j] * w;
                       }
                       if constexpr ( ncomp == 1 )
                       {
@@ -293,7 +294,37 @@ namespace exanb
       }
     };
 
-  } // 
+    template<class LDBGT, class GridT, class FieldAccessorTupleT>
+    inline void project_particle_fields_to_grid(
+        LDBGT& ldbg
+      , GridT& grid
+      , GridCellValues& grid_cell_values
+      , long grid_subdiv
+      , double splat_size
+      , std::function<bool(const std::string&)> field_selector 
+      , const FieldAccessorTupleT & grid_fields )
+    {
+    
+      ldbg << "Available fields for particle / grid rojection : ";
+      print_field_tuple(ldbg,grid_fields);
+      ldbg << std::endl;
+
+      // create cell value fields
+      std::vector<AddCellFieldInfo> fields_to_add;
+      CollectCellValueFieldToAdd collect_fields = {grid_cell_values,fields_to_add,field_selector,grid_subdiv};
+      apply_grid_field_tuple( grid, collect_fields , grid_fields );
+      ldbg << "add "<< fields_to_add.size() << " cell fields :"<<std::endl;
+      for(const auto& f:fields_to_add) ldbg << "\t" << f.m_name<<std::endl;
+      grid_cell_values.add_fields( fields_to_add );
+
+      using CellParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles * const>;
+      CellParticleAcessor cells = { grid.cells() };
+
+      ProjectCellValueField<CellParticleAcessor> fields_projector = { cells , grid_cell_values,field_selector,splat_size,grid_subdiv};
+      apply_grid_field_tuple( grid, fields_projector , grid_fields );
+    }
+
+  } // ParticleCellProjectionTools
   
 } // ecanb
 

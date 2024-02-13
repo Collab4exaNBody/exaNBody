@@ -689,7 +689,9 @@ EOF
     {
       return { v.get(tuple_index<Is>) ... };
     }
- 
+
+    template<class FlatTupleT> struct TupleSizeConst { static inline constexpr size_t value = FlatTupleT::size(); };
+    template<class FlatTupleT> static inline constexpr size_t tuple_size_const_v = TupleSizeConst<FlatTupleT>::value;
 }
 
 

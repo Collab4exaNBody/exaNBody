@@ -58,6 +58,24 @@ namespace exanb
   /*std::vector<ProfilingFunctionSet>*/ ProfilingFunctionSet OperatorNode::s_profiling_functions;
   size_t OperatorNode::s_global_instance_index = 0;
 
+  OperatorNode::~OperatorNode()
+  {
+    if( ! m_allocated_parallel_execution_contexts.empty() )
+    {
+      std::ostringstream oss;
+      oss << "m_allocated_parallel_execution_contexts is not empty :";
+      for(auto pec : m_allocated_parallel_execution_contexts)
+      {
+        oss << " @"<<(void*)pec<<" from "<<pec->m_tag;
+      }
+      fatal_error() << oss.str() << std::endl;
+    }
+    for(auto pec : m_free_parallel_execution_contexts)
+    {
+      assert( pec != nullptr );
+      delete pec;
+    }
+  }
 
   void OperatorNode::finalize()
   {
@@ -81,7 +99,11 @@ namespace exanb
 
   void OperatorNode::compile()
   {
-    assert( ! compiled() );
+    if( compiled() )
+    {
+      fatal_error() << "OperatorNode cannot be re-compiled" << std::endl;
+    }
+
 #   ifndef NDEBUG
     for( const auto& s : in_slots() )
     {
@@ -302,7 +324,6 @@ namespace exanb
       assert( evt_info.ctx == this );
       if( s_profiling_functions.task_start != nullptr )
       {
-        //std::cout << "profile_task_start\n";
         s_profiling_functions.task_start( evt_info );
       }
     }
@@ -316,7 +337,6 @@ namespace exanb
       assert( evt_info.ctx == this );
       if( s_profiling_functions.task_stop != nullptr )
       {
-        //std::cout << "profile_task_stop\n";
         s_profiling_functions.task_stop( evt_info );
       }
       m_task_exec_time_accum.fetch_add( uint64_t( evt_info.elapsed().count() ) , std::memory_order_relaxed );
@@ -341,70 +361,14 @@ namespace exanb
     }
   }
 
-  double OperatorNode::collect_execution_time()
+  void OperatorNode::set_task_group_mode( bool m )
   {
-#   ifdef ONIKA_HAVE_OPENMP_TOOLS
-    bool do_profiling = global_profiling() && profiling();
-    if( do_profiling )
-    {
-      auto t = m_task_exec_time_accum.exchange(0) / 1000000.0;
-      if( t > 0.0 ) m_exec_times.push_back( t );
-      return t;
-    }
-    else
-#   endif
-    {
-      return 0.0;
-    }
-  }
-
-  // if one implements generate_tasks, then it is backward compatible with sequential/parallel operator execution
-  void OperatorNode::execute()
-  {
-    m_omp_task_mode = true;
-  
-#   pragma omp parallel
-    {
-#     pragma omp master
-      {
-#       pragma omp taskgroup
-        {
-          generate_tasks();          
-        } // --- end of task group ---
-      } // --- end of single ---
-    } // --- end of parallel section ---
+    m_omp_task_mode = m;
   }
   
-  void OperatorNode::generate_tasks()
+  bool OperatorNode::task_group_mode() const
   {
-    lerr << "Fatal: OperatorNode::generate_tasks not implemented in "<<pathname() << std::endl;
-    std::abort();
-  }
-
-  ::onika::omp::OpenMPTaskInfo* OperatorNode::profile_begin_section(const char* tag)
-  {
-#   ifdef ONIKA_HAVE_OPENMP_TOOLS
-    bool do_profiling = global_profiling() && profiling();
-    if( do_profiling )
-    {
-      ::onika::omp::OpenMPTaskInfo * tinfo = new ::onika::omp::OpenMPTaskInfo { tag }; \
-      ::onika::omp::OpenMPToolInterace::task_begin(tinfo);
-      return tinfo;
-    }
-#   endif
-    return nullptr;
-  }
-
-  void OperatorNode::profile_end_section(::onika::omp::OpenMPTaskInfo* tinfo)
-  {
-#   ifdef ONIKA_HAVE_OPENMP_TOOLS
-    bool do_profiling = global_profiling() && profiling();
-    if( do_profiling )
-    {
-      assert( tinfo != nullptr );
-      ::onika::omp::OpenMPToolInterace::task_end(tinfo);
-    }
-#   endif
+    return m_omp_task_mode;
   }
 
   void OperatorNode::reset_profiling_reference_timestamp()
@@ -412,89 +376,119 @@ namespace exanb
     s_profiling_timestamp_ref = std::chrono::high_resolution_clock::now();
   }
 
-  void OperatorNode::run()
+
+  void OperatorNode::run_prolog()
   {
     //if( is_terminal() ) lout << "--> " << pathname() << "\n";
     onika_ompt_declare_task_context(tsk_ctx);
-    
+
     const bool do_profiling = global_profiling() && profiling();
-    const bool mem_prof = global_mem_profiling() && is_terminal();
-    
+    const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
+    const bool mem_prof = global_mem_profiling() && is_terminal() && ( !task_group_mode() || open_new_task_region );
+
     if( s_debug_execution )
     {
       if( is_terminal() ) lout<<pathname()<<" ..."<<std::flush;
       else lout<<pathname()<<" BEGIN"<<std::endl;
     }
-
-#   ifndef ONIKA_HAVE_OPENMP_TOOLS
-    TimeStampT T0;
-#   endif
     
-    ssize_t res_mem_inc = 0;
+    m_resident_mem = 0;
     if( mem_prof )
     {
       onika::memory::MemoryResourceCounters memcounters;
       memcounters.read();
-      res_mem_inc = memcounters.stats[ onika::memory::MemoryResourceCounters::RESIDENT_SET_MB ];
+      m_resident_mem = memcounters.stats[ onika::memory::MemoryResourceCounters::RESIDENT_SET_MB ];
     }
-    
+
     if( do_profiling )
     {
-#     ifdef ONIKA_HAVE_OPENMP_TOOLS
-      onika_ompt_begin_task_context2( tsk_ctx, this );
-#     else
-      T0 = std::chrono::high_resolution_clock::now();
-      onika::omp::OpenMPToolTaskTiming evt_info = { this , m_tag.get() , omp_get_thread_num() , T0 - s_profiling_timestamp_ref , T0 - s_profiling_timestamp_ref };
+      m_total_gpu_time = 0.0;
+      m_total_async_cpu_time = 0.0;
+      m_run_start_time = std::chrono::high_resolution_clock::now();
+      const auto normalized_time = m_run_start_time - s_profiling_timestamp_ref;
+      onika::omp::OpenMPToolTaskTiming evt_info = { this, m_tag.get(), omp_get_thread_num(), normalized_time, normalized_time };
       profile_task_start( evt_info );
-#     endif
-
       ONIKA_CU_PROF_RANGE_PUSH( m_tag.get() );
     }
 
     this->initialize_slots_resource();
+  }
+
+  void OperatorNode::wait_all_parallel_execution_streams()
+  {
+    for(auto & pes : m_parallel_execution_streams)
+    {
+      if( pes != nullptr ) pes->wait();
+    }
+  }
+
+  void OperatorNode::run()
+  {
+    const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
+
+    wait_all_parallel_execution_streams();
 
     // sequential execution of fork-join parallel components
     // except if OperatorNode derived class implements generate_tasks instead of execute, in which case, task parallelism mode is used
-    this->execute();
+  
+    if( open_new_task_region )
+    {
+#     pragma omp parallel
+      {
+#       pragma omp master
+        {
+          run_prolog();
+#         pragma omp taskgroup
+          {
+            execute();
+          } // --- end of task group ---
+          wait_all_parallel_execution_streams();          
+          run_epilog();
+        } // --- end of single ---
+      } // --- end of parallel section ---
+      
+      // FIXME: synchronize from all stream to default stream, and enqueue finalization to default stream
+      
+      // here enqueue synchronization to default stream (stream 0)
+      // and then enqueue finalization function
+    }
+    else
+    {
+      run_prolog();
+      execute();
+      // not correct : we dont' want to force synchronization here, just triggers call to run_epilog when all previously issued tasks are completed
+      wait_all_parallel_execution_streams();
+      run_epilog();
+    }
+  }
+
+  void OperatorNode::run_epilog()
+  {
+    const bool do_profiling = global_profiling() && profiling();
+    const bool open_new_task_region = (m_parent!=nullptr) ? ( task_group_mode() && ! m_parent->task_group_mode() ) : task_group_mode() ;
+    const bool mem_prof = global_mem_profiling() && is_terminal() && ( !task_group_mode() || open_new_task_region );
 
     if( do_profiling )
     { 
       ONIKA_CU_PROF_RANGE_POP();
+      m_gpu_times.push_back( m_total_gpu_time ); // account for 0 (no GPU or async) execution times, to avoid asymetry between mpi processes
+      m_async_cpu_times.push_back( m_total_async_cpu_time );
 
-      double total_gpu_time = 0.0;
-      double total_async_cpu_time = 0.0;
-      for(auto gpuctx:m_parallel_execution_contexts)
-      {
-        if( gpuctx != nullptr )
-        {
-          total_gpu_time += gpuctx->collect_gpu_execution_time();
-          total_async_cpu_time += gpuctx->collect_async_cpu_execution_time();
-        }
-      }
-      m_gpu_times.push_back( total_gpu_time ); // account for 0 (no GPU or async) execution times, to avoid asymetry between mpi processes
-      m_async_cpu_times.push_back( total_async_cpu_time );
-
-#     ifdef ONIKA_HAVE_OPENMP_TOOLS
-      onika_ompt_end_task_context2( tsk_ctx, this );
-      if( parent()==nullptr )
-      {
-        this->collect_execution_time();
-      }
-#     else
-      auto T1 = std::chrono::high_resolution_clock::now();
-      onika::omp::OpenMPToolTaskTiming evt_info = { this , m_tag.get() , omp_get_thread_num() , T0 - s_profiling_timestamp_ref , T1 - s_profiling_timestamp_ref };
+      const auto T1 = std::chrono::high_resolution_clock::now();
+      const auto nt0 = m_run_start_time - s_profiling_timestamp_ref;
+      const auto nt1 = T1 - s_profiling_timestamp_ref;
+      onika::omp::OpenMPToolTaskTiming evt_info = { this, m_tag.get(), omp_get_thread_num(), nt0, nt1 };
       profile_task_stop( evt_info );
-      auto exectime = ( T1 - T0 ).count() / 1000000.0;
+      auto exectime = ( T1 - m_run_start_time ).count() / 1000000.0;
       m_exec_times.push_back( exectime );
-#     endif
     }
 
     if( mem_prof )
     {
       onika::memory::MemoryResourceCounters memcounters;
       memcounters.read();
-      res_mem_inc = memcounters.stats[ onika::memory::MemoryResourceCounters::RESIDENT_SET_MB ] - res_mem_inc;
-      m_resident_mem_inc += res_mem_inc;
+      m_resident_mem_inc += memcounters.stats[ onika::memory::MemoryResourceCounters::RESIDENT_SET_MB ] - m_resident_mem;
+      m_resident_mem = memcounters.stats[ onika::memory::MemoryResourceCounters::RESIDENT_SET_MB ];
     }
 
     if( s_debug_execution )
@@ -503,11 +497,11 @@ namespace exanb
       else lout<<pathname()<<" END"<<std::endl;
     }
 
-    bool may_finalize = !is_looping() ;
+    bool may_finalize = !is_looping() && !task_group_mode();
     auto * p = parent();
     while( p != nullptr )
     {
-      may_finalize = may_finalize && !p->is_looping();
+      may_finalize = may_finalize && ( ! p->is_looping() && ! task_group_mode() );
       p = p->parent();
     }
     if(may_finalize)
@@ -529,20 +523,84 @@ namespace exanb
     m_gpu_execution_allowed = b;
   }
 
-  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(unsigned int id)
+  void OperatorNode::finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self)
   {
-    if( id >= m_parallel_execution_contexts.size() )
+    OperatorNode* self = reinterpret_cast<OperatorNode*>( v_self );
+    assert( self != nullptr );
+    assert( pec != nullptr );
+    const std::lock_guard<std::mutex> lock(self->m_parallel_execution_access);
+    self->m_total_gpu_time += pec->m_total_gpu_execution_time;
+    self->m_total_async_cpu_time += pec->m_total_cpu_execution_time;
+    pec->reset();
+    auto it = self->m_allocated_parallel_execution_contexts.find( pec );
+    assert( it != self->m_allocated_parallel_execution_contexts.end() );
+    self->m_free_parallel_execution_contexts.push_back( *it );
+    self->m_allocated_parallel_execution_contexts.erase( it );
+  }
+
+  std::shared_ptr<onika::parallel::ParallelExecutionStream> OperatorNode::parallel_execution_stream_nolock(unsigned int id)
+  {
+    if( m_task_group_ancestor == nullptr )
     {
-      m_parallel_execution_contexts.resize( id+1 );
+      m_task_group_ancestor = this;
+      while( m_task_group_ancestor->task_group_mode() && m_task_group_ancestor->parent()!=nullptr && m_task_group_ancestor->parent()->task_group_mode() ) m_task_group_ancestor = m_task_group_ancestor->parent();
     }
-    if( m_parallel_execution_contexts[id] == nullptr )
+
+    if( id >= m_parallel_execution_streams.size() )
     {
-      m_parallel_execution_contexts[id] = std::make_shared< onika::parallel::ParallelExecutionContext >();
-      m_parallel_execution_contexts[id]->m_streamIndex = id;
-      m_parallel_execution_contexts[id]->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
-      m_parallel_execution_contexts[id]->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
+      m_parallel_execution_streams.resize( id+1 , nullptr );
     }
-    return m_parallel_execution_contexts[id].get();
+
+    if( m_task_group_ancestor != this )
+    {
+      m_parallel_execution_streams[id] = m_task_group_ancestor->parallel_execution_stream_lock(id);
+    }
+
+    if( m_parallel_execution_streams[id] == nullptr )
+    {
+      m_parallel_execution_streams[id] = std::make_shared< onika::parallel::ParallelExecutionStream >();
+      m_parallel_execution_streams[id]->m_cuda_ctx = global_cuda_ctx();
+      if( m_parallel_execution_streams[id]->m_cuda_ctx != nullptr )
+      {
+        m_parallel_execution_streams[id]->m_cu_stream = m_parallel_execution_streams[id]->m_cuda_ctx->getThreadStream(id);
+      }
+      m_parallel_execution_streams[id]->m_stream_id = id;
+    }
+    
+    return m_parallel_execution_streams[id];
+  }
+
+  std::shared_ptr<onika::parallel::ParallelExecutionStream> OperatorNode::parallel_execution_stream_lock(unsigned int id)
+  {
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    return parallel_execution_stream_nolock(id);
+  }
+
+  onika::parallel::ParallelExecutionStreamQueue OperatorNode::parallel_execution_stream(unsigned int id)
+  {
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);
+    return { parallel_execution_stream_nolock(id).get() };
+  }
+
+  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
+  {
+    const std::lock_guard<std::mutex> lock(m_parallel_execution_access);    
+    if( m_free_parallel_execution_contexts.empty() )
+    {
+      m_free_parallel_execution_contexts.push_back( new onika::parallel::ParallelExecutionContext() );
+    }
+    auto pec = m_free_parallel_execution_contexts.back();
+    m_allocated_parallel_execution_contexts.insert( pec );
+    m_free_parallel_execution_contexts.pop_back();
+
+    pec->reset();
+    pec->m_tag = m_tag.get();
+    pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
+    pec->m_default_stream = parallel_execution_stream_nolock().get();
+    pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;
+    pec->initialize_stream_events();
+    pec->m_finalize = onika::parallel::ParallelExecutionFinalize{ OperatorNode::finalize_parallel_execution , this };
+    return pec;
   }
 
   void OperatorNode::set_parent( OperatorNode* parent )
@@ -645,7 +703,7 @@ namespace exanb
       std::vector<double> gpu_min_time, gpu_max_time, gpu_avg_time;
       size_t gpu_total_exec_count = m_gpu_times.size();
       double gpu_total_exec_time = 0.0;
-      double gpu_avg_inbalance = 0.0;
+      [[maybe_unused]] double gpu_avg_inbalance = 0.0;
       double gpu_max_inbalance = 0.0;
       // check GPU executions counts consistency
       {
@@ -788,6 +846,20 @@ namespace exanb
       m_exec_times.reserve(4096);
       m_gpu_times.reserve(4096);
       m_async_cpu_times.reserve(4096);
+    }
+
+    auto* p = parent();
+    bool tg = task_group_mode();
+    while( p!=nullptr && ! tg )
+    {
+      tg = tg || p->task_group_mode();
+      p = p->parent();
+    }
+    set_task_group_mode( tg );
+
+    if( task_group_mode() && nested_parallel_mode() )
+    {
+      fatal_error() << "parallel and task_group flag cannot be set together. choose one or another" << std::endl;
     }
   }
 

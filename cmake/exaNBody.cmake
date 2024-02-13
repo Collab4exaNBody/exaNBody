@@ -30,23 +30,6 @@ macro(exaNBodyStartApplication)
   set(XNB_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/exaNBody)
   set(USTAMP_APPS_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-  #message(STATUS "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
-  #message(STATUS "CMAKE_CURRENT_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}")
-  #message(STATUS "XNB_BINARY_DIR=${XNB_BINARY_DIR}")
-  #message(STATUS "XNB_APP_NAME=${XNB_APP_NAME}")
-  #message(STATUS "USTAMP_APPS_DIR=${USTAMP_APPS_DIR}")
-
-  # ========================================
-  # === Compiler toolchain configuration ===
-  # ========================================
-  # C++ standard
-  set(CMAKE_CXX_STANDARD 17)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-  set(CMAKE_CXX_EXTENSIONS NO)
-  if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 70)
-  endif()
-
   # ===========================
   # === CMake customization ===
   # ===========================
@@ -99,7 +82,6 @@ macro(exaNBodyStartApplication)
   # CPU cores detection
   message(STATUS "Host hardware : partition ${HOST_HW_PARTITION} has ${HOST_HW_CORES} core(s) and ${HOST_HW_THREADS} thread(s)")
 
-
   # =======================================
   # === Third party tools and libraries ===
   # =======================================
@@ -132,8 +114,11 @@ macro(exaNBodyStartApplication)
 
   find_package(OpenMP REQUIRED)
 
-  if(OpenMP_CXX_VERSION GREATER_EQUAL 2.0)
+  if(OpenMP_CXX_VERSION)
     set(XSTAMP_OMP_FLAGS -DXSTAMP_OMP_VERSION=${OpenMP_CXX_VERSION})
+  else()
+    message(STATUS "OpenMP version not found, setting it to 3.0")
+    set(XSTAMP_OMP_FLAGS -DXSTAMP_OMP_VERSION=3.0)
   endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     set(XSTAMP_OMP_NUM_THREADS_WORKAROUND_DEFAULT ON)
@@ -183,29 +168,40 @@ macro(exaNBodyStartApplication)
   # ===================================
   # ============ Cuda =================
   # ===================================
-  option(XSTAMP_BUILD_CUDA "Enable Cuda Acceleration" OFF)
-  set(ONIKA_FORCE_CUDA_OPTION ON)
-  set(ONIKA_USE_CUDA ${XSTAMP_BUILD_CUDA})
-  if(XSTAMP_BUILD_CUDA)
-    set(XSTAMP_PLUGIN_HOST_FLAGS "" CACHE STRING "Plugin host specific flags")
-    set(XSTAMP_PLUGIN_CUDA_FLAGS "" CACHE STRING "Plugin Cuda only flags")
-    enable_language(CUDA)
-    list(GET CMAKE_CUDA_ARCHITECTURES 0 XSTAMP_CUDA_ARCH_DEFAULT)
-    set(XSTAMP_CUDA_ARCH ${XSTAMP_CUDA_ARCH_DEFAULT} CACHE STRING "Cuda architecture level")
-    message(STATUS "Exastamp uses CUDA ${CMAKE_CUDA_COMPILER_VERSION} (arch ${XSTAMP_CUDA_ARCH})")
-    #  set(XSTAMP_CUDA_ARCH_OPTS_FMT "--gpu-architecture=sm_%a" CACHE STRING "Cuda architecture compile options")
-    #  string(REPLACE "%a" "${XSTAMP_CUDA_ARCH}" XSTAMP_CUDA_ARCH_OPTS "${XSTAMP_CUDA_ARCH_OPTS_FMT}")
-    #  message(STATUS "Cuda arch opts = ${XSTAMP_CUDA_ARCH_OPTS}")
-    set(XSTAMP_CUDA_COMPILE_DEFINITIONS -DXSTAMP_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION} -DXSTAMP_CUDA_ARCH=${XSTAMP_CUDA_ARCH})
-    get_filename_component(CUDA_BIN ${CMAKE_CUDA_COMPILER} DIRECTORY)
-    set(CUDA_ROOT ${CUDA_BIN}/..)
-    #  set(CUDA_SAMPLES_INCLUDE_DIR ${CUDA_ROOT}/samples/common/inc)
-    set(CUDA_INCLUDE_DIR ${CUDA_ROOT}/include)
-    #  set(CUDA_INCLUDE_DIRS ${CUDA_INCLUDE_DIR} ${CUDA_SAMPLES_INCLUDE_DIR})
-    set(CUDA_LIBRARY_DIR ${CUDA_ROOT}/lib64)
-    set(CUDA_LIBRARIES cudart)
+  option(XNB_BUILD_CUDA "Enable GPU Acceleration" OFF)
+  option(XNB_ENABLE_HIP "Use HIP instead of Cuda" OFF)
+  if(XNB_ENABLE_HIP)
+    set(ONIKA_FORCE_CUDA_OPTION ON)
+    set(ONIKA_USE_CUDA OFF)
+    set(ONIKA_FORCE_HIP_OPTION ON)
+    set(ONIKA_USE_HIP ${XNB_BUILD_CUDA})
+    if(XNB_BUILD_CUDA)
+      if(NOT ROCM_INSTALL_ROOT)
+        set(ROCM_INSTALL_ROOT "/opt/rocm")
+      endif()
+      list(APPEND CMAKE_MODULE_PATH "${ROCM_INSTALL_ROOT}/share/rocm/cmake")
+      find_package(ROCM REQUIRED)
+      enable_language(HIP)
+      file(REAL_PATH "${ROCM_INSTALL_ROOT}" XNB_ROCM_ROOT)
+      string(REGEX MATCH "[0-9].[0-9].[0-9]" XNB_ROCM_VERSION "${XNB_ROCM_ROOT}")
+      if(XNB_ROCM_VERSION)
+        set(XNB_HIP_VERSION "${XNB_ROCM_VERSION}")
+      else()
+        set(XNB_HIP_VERSION "${CMAKE_HIP_COMPILER_VERSION}")
+      endif()
+      set(XNB_CUDA_COMPILE_DEFINITIONS -DXNB_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} -DXNB_HIP_VERSION=${XNB_HIP_VERSION})
+    endif()
+  else()
+    set(ONIKA_FORCE_HIP_OPTION ON)
+    set(ONIKA_USE_HIP OFF)
+    set(ONIKA_FORCE_CUDA_OPTION ON)
+    set(ONIKA_USE_CUDA ${XNB_BUILD_CUDA})
+    if(XNB_BUILD_CUDA)
+      find_package(CUDA REQUIRED)
+      enable_language(CUDA)
+      set(XNB_CUDA_COMPILE_DEFINITIONS -DXNB_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
+    endif()
   endif()
-
 
   # ======================================================
   # ============ compilation environment =================
@@ -216,7 +212,9 @@ macro(exaNBodyStartApplication)
   endif()
   set(XSTAMP_COMPILE_PROJECT_COMMAND "make -j${XSTAMP_COMPILE_PROCESSES}")
   MakeRunCommandNoOMP(XSTAMP_COMPILE_PROJECT_COMMAND 1 ${HOST_HW_CORES} XSTAMP_COMPILE_PROJECT_COMMAND)
-  string(REPLACE ";" " " XSTAMP_COMPILE_PROJECT_COMMAND "source ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh && ${XSTAMP_COMPILE_PROJECT_COMMAND} && make UpdatePluginDataBase")
+  set(XSTAMP_UPDATE_PLUGINS_COMMAND "make UpdatePluginDataBase")
+  #  MakeRunCommandNoOMP(XSTAMP_UPDATE_PLUGINS_COMMAND 1 1 XSTAMP_UPDATE_PLUGINS_COMMAND)
+  string(REPLACE ";" " " XSTAMP_COMPILE_PROJECT_COMMAND "source ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh && ${XSTAMP_COMPILE_PROJECT_COMMAND} && ${XSTAMP_UPDATE_PLUGINS_COMMAND}")
 
   set(XSTAMP_INSTALL_PROJECT_COMMAND make install)
   MakeRunCommand(XSTAMP_INSTALL_PROJECT_COMMAND 1 ${HOST_HW_CORES} XSTAMP_INSTALL_PROJECT_COMMAND)
@@ -293,7 +291,7 @@ macro(exaNBodyStartApplication)
     ${XNB_APP_DEFINITIONS}
     ${KMP_ALIGNED_ALLOCATOR_DEFINITIONS}
     ${XSTAMP_TASK_PROFILING_DEFINITIONS}
-    ${XSTAMP_CUDA_COMPILE_DEFINITIONS}
+    ${XNB_CUDA_COMPILE_DEFINITIONS}
     ${XSTAMP_AMR_ZCURVE_DEFINITIONS}
     )
 

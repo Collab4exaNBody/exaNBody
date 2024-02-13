@@ -22,15 +22,21 @@ under the License.
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
 
 namespace exanb
 {
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
-  struct ComputeParticlePairFunctor
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class IndexSequence>
+  struct ComputeParticlePairFunctor;
+ 
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, size_t ... FieldIndex >
+  struct ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT, std::index_sequence<FieldIndex...> >
   {
+    static_assert( FieldAccTupleT::size() == sizeof...(FieldIndex) );
+
     CellsT m_cells;
     GridCellComputeProfiler m_cell_profiler = { nullptr };
 
@@ -43,9 +49,9 @@ namespace exanb
     const OptionalArgsT m_optional;
     const ComputePairBufferFactoryT m_cpbuf_factory;
 
-    const CSizeT m_cs;
-    const FieldSetT m_cpfields;
+    const FieldAccTupleT m_cpfields;
     const PosFieldsT m_posfields;
+    const CSizeT m_cs;
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
@@ -61,7 +67,7 @@ namespace exanb
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
       m_cell_profiler.start_cell_profiling(cell_a);
-      compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cs, symmetrical, m_cpfields, m_posfields , prefer_compute_buffer );
+      compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2, m_cpbuf_factory, m_optional, m_func, m_cpfields, m_cs, symmetrical, m_posfields , prefer_compute_buffer, std::index_sequence<FieldIndex...>{} );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
   };
@@ -72,8 +78,8 @@ namespace onika
 {
   namespace parallel
   {
-    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
-    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,CSizeT,FieldSetT,PosFieldsT> >
+    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class ISeq>
+    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,ISeq> >
     {
       static inline constexpr bool CudaCompatible = exanb::ComputePairTraits<FuncT>::CudaCompatible;
     };
@@ -83,9 +89,9 @@ namespace onika
 namespace exanb
 {
 
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class CSizeT, class FieldSetT, class PosFieldsT>
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT>
   static inline
-  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,CSizeT,FieldSetT,PosFieldsT> 
+  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,std::make_index_sequence<FieldAccTupleT::size()> > 
   make_compute_particle_pair_functor(
       CellsT cells
     , GridCellComputeProfiler cell_profiler
@@ -95,31 +101,37 @@ namespace exanb
     , double rcut2
     , const OptionalArgsT& optional
     , const ComputePairBufferFactoryT& cpbuf_factory
+    , const FieldAccTupleT& cpfields
+    , const PosFieldsT& posfields
     , CSizeT cs
-    , FieldSetT cpfields
-    , PosFieldsT posfields
     )
   {
-    return {cells,cell_profiler,grid_dims,ghost_layers,func,rcut2,optional,cpbuf_factory,cs,cpfields,posfields};
+    return {cells,cell_profiler,grid_dims,ghost_layers,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs};
   }
 
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
-  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class FieldSetT , class PosFieldsT = DefaultPositionFields >
-  static inline void compute_cell_particle_pairs(
+
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, class... FieldAccT >
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particle_pairs2(
     GridT& grid,
     double rcut,
     bool enable_ghosts,
     const OptionalArgsT& optional,
     const ComputePairBufferFactoryT& cpbuf_factory,
     const FuncT& func,
-    FieldSetT cpfields,
-    PosFieldsT posfields = PosFieldsT{},
-    onika::parallel::ParallelExecutionContext * exec_ctx = nullptr,
-    bool enable_gpu = true,
-    bool async = false
-    )
+    const onika::FlatTuple<FieldAccT...>& cpfields,
+    const PosFieldsT& posfields,
+    onika::parallel::ParallelExecutionContext * exec_ctx )
   {
+    using onika::parallel::BlockParallelForOptions;
+    using onika::parallel::block_parallel_for;
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    using CellT = typename GridT::CellParticles;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+
     static constexpr onika::IntConst<4> const_4{};
     static constexpr onika::IntConst<8> const_8{};
 
@@ -133,37 +145,99 @@ namespace exanb
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
 
-    // check if cells allocated in unified memory in case we may execute on the GPU
-    if( exec_ctx == nullptr )
+    if( ComputePairTraits<FuncT>::CudaCompatible )
     {
-      enable_gpu = false;
-    }
-    if( enable_gpu && ComputePairTraits<FuncT>::CudaCompatible )
-    {
-      if( exec_ctx != nullptr ) 
+      if( exec_ctx->has_gpu_context() )
       {
-        if( exec_ctx->has_gpu_context() )
-        {
-          if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
-        }
+        if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
       }
     }
 
-    auto cells = grid.cells();
     auto cellprof = grid.cell_profiler();
     const unsigned int cs = optional.nbh.m_chunk_size;
+    CellsAccessorT cells = { grid.cells() };
     switch( cs )
     {
       case 4:
-        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_4,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_4) , exec_ctx );
         break;
       case 8:
-        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,const_8,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_8) , exec_ctx );
         break;
       default:
-        onika::parallel::block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,     cs,cpfields,posfields) , exec_ctx , enable_gpu , async );
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,     cs) , exec_ctx );
         break;
     }
+  }
+
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class... FieldAccT >
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particle_pairs(
+    GridT& grid,
+    double rcut,
+    bool enable_ghosts,
+    const OptionalArgsT& optional,
+    const ComputePairBufferFactoryT& cpbuf_factory,
+    const FuncT& func,
+    const onika::FlatTuple<FieldAccT...>& cp_fields,
+    onika::parallel::ParallelExecutionContext * exec_ctx )
+  {
+    return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,DefaultPositionFields{},exec_ctx);
+  }
+
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class... field_ids >
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particle_pairs(
+    GridT& grid,
+    double rcut,
+    bool enable_ghosts,
+    const OptionalArgsT& optional,
+    const ComputePairBufferFactoryT& cpbuf_factory,
+    const FuncT& func,
+    FieldSet<field_ids...> ,
+    onika::parallel::ParallelExecutionContext * exec_ctx )
+  {
+    onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,DefaultPositionFields{},exec_ctx);
+  }
+
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, class... field_ids >
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particle_pairs(
+    GridT& grid,
+    double rcut,
+    bool enable_ghosts,
+    const OptionalArgsT& optional,
+    const ComputePairBufferFactoryT& cpbuf_factory,
+    const FuncT& func,
+    FieldSet<field_ids...> ,
+    PosFieldsT posfields,
+    onika::parallel::ParallelExecutionContext * exec_ctx )
+  {
+    onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,posfields,exec_ctx);
+  }
+
+  // support for alternative argument ordering
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, class... field_ids >
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particle_pairs(
+    GridT& grid,
+    double rcut,
+    bool enable_ghosts,
+    const OptionalArgsT& optional,
+    const ComputePairBufferFactoryT& cpbuf_factory,
+    const FuncT& func,
+    FieldSet<field_ids...> ,
+    onika::parallel::ParallelExecutionContext * exec_ctx,
+    PosFieldsT posfields )
+  {
+    onika::FlatTuple< onika::soatl::FieldId<field_ids> ... > cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    return compute_cell_particle_pairs2(grid,rcut,enable_ghosts,optional,cpbuf_factory,func,cp_fields,posfields,exec_ctx);
   }
 
 }

@@ -23,10 +23,12 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <onika/parallel/parallel_execution_context.h>
+#include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/yaml_enum.h>
+
 
 namespace exanb
 {
@@ -51,7 +53,6 @@ namespace exanb
       apply_field_shift( t , field::rx , x );
       apply_field_shift( t , field::ry , y );
       apply_field_shift( t , field::rz , z );
-
       if constexpr ( HAS_POSITION_BACKUP_FIELDS )
       {
         apply_field_shift( t , PositionBackupFieldX , x );
@@ -60,13 +61,20 @@ namespace exanb
       }
     }
 
+    template<class ParticleTuple>
+    struct GhostCellParticlesUpdateData
+    {
+      size_t m_cell_i;
+      ParticleTuple m_particles[0];
+    };
+
     struct UpdateGhostsScratch
     {
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       std::vector<size_t> send_buffer_offsets;
       std::vector<size_t> recv_buffer_offsets;
-      std::vector< onika::parallel::ParallelExecutionContext* > send_pack_async;
-      std::vector< onika::parallel::ParallelExecutionContext* > recv_unpack_async;    
+      std::vector< onika::parallel::ParallelExecutionStreamQueue > send_pack_async;
+      std::vector< onika::parallel::ParallelExecutionStreamQueue > recv_unpack_async;    
       onika::memory::CudaMMVector<uint8_t> send_buffer;
       onika::memory::CudaMMVector<uint8_t> recv_buffer;
             
@@ -74,8 +82,8 @@ namespace exanb
       {
         send_buffer_offsets.assign( nprocs + 1 , 0  );
         recv_buffer_offsets.assign( nprocs + 1 , 0  );
-        send_pack_async.assign( nprocs , nullptr );
-        recv_unpack_async.assign( nprocs , nullptr );
+        send_pack_async.resize( nprocs );
+        recv_unpack_async.resize( nprocs );
       }
             
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components )
@@ -121,26 +129,28 @@ namespace exanb
       inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); } 
     };
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple , class FieldAccTuple >
     struct GhostSendPackFunctor
     {
+      using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellSendScheme * m_sends = nullptr;
-      const CellParticles * m_cells = nullptr;
+      CellsAccessorT m_cells = {};
       const GridCellValueType * m_cell_scalars = nullptr;
       size_t m_cell_scalar_components = 0;
       uint8_t * m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
+      FieldAccTuple m_fields = {};
 
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_epilog_t ) const
+      inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
-          checkCudaErrors( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , ctx->m_cuda_stream ) );
-        }        
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , stream->m_cu_stream ) );
+        }
       }
       
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_cpu_epilog_t ) const
+      inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
@@ -148,7 +158,15 @@ namespace exanb
         }
       }
 
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+      template<size_t ... FieldIndex>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t i, uint64_t j, std::index_sequence<FieldIndex...> ) const
+      {
+        data->m_particles[j] = ParticleTuple( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] ... );
+      }
+
+      ONIKA_HOST_DEVICE_FUNC
+      inline void operator () ( uint64_t i ) const
       {
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
@@ -168,8 +186,9 @@ namespace exanb
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
-          m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
+          assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );          
+          // m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
+          pack_particle_fields( data, cell_i, particle_index[j] , j , FieldIndexSeq{} );
           apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
         }
         if( m_cell_scalars != nullptr )
@@ -184,27 +203,29 @@ namespace exanb
       }
     };
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles, class FieldAccTuple>
     struct GhostReceiveUnpackFunctor
     {
+      using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * m_receives = nullptr;
       const uint64_t * m_cell_offset = nullptr;
       uint8_t * m_data_ptr_base = nullptr;
-      CellParticles * m_cells = nullptr;
+      CellsAccessorT m_cells = {};
       size_t m_cell_scalar_components = 0;
       GridCellValueType * m_cell_scalars = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
+      FieldAccTuple m_fields = {};
 
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_gpu_prolog_t ) const
+      inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
-          checkCudaErrors( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size ,  ctx->m_cuda_stream ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size , stream->m_cu_stream ) );
         }        
       }
-      
-      inline void operator () ( onika::parallel::ParallelExecutionContext* ctx , onika::parallel::block_parallel_for_cpu_prolog_t ) const
+    
+      inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
@@ -212,7 +233,19 @@ namespace exanb
         }
       }
 
-      ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+      template<size_t ... FieldIndex>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void unpack_particle_fields( const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t i, std::index_sequence<FieldIndex...> ) const
+      {
+        using exanb::field_id_fom_acc_v;
+        if constexpr ( CreateParticles ) m_cells[cell_i].set_tuple( i , ParticleFullTuple() ); // zero all fields
+        ( ... , (
+          m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i] = data->m_particles[i][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ]
+        ) );
+      }
+
+      ONIKA_HOST_DEVICE_FUNC
+      inline void operator () ( uint64_t i ) const
       {
         const size_t particle_offset = m_cell_offset[i];
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
@@ -228,8 +261,7 @@ namespace exanb
         const size_t n_particles = cell_input.m_n_particles;
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          if constexpr (   CreateParticles ) { m_cells[cell_i].set_tuple  ( j, ParticleFullTuple( data->m_particles[j] ) ); }
-          if constexpr ( ! CreateParticles ) { m_cells[cell_i].write_tuple( j, data->m_particles[j]                      ); }
+          unpack_particle_fields( data, cell_i , j , FieldIndexSeq{} );
         }
         
         if( m_cell_scalars != nullptr )
@@ -255,14 +287,14 @@ namespace onika
   namespace parallel
   {
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
-    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class FieldAccTupleT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles>
-    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles, class FieldAccTupleT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };

@@ -18,12 +18,9 @@ under the License.
 */
 #pragma once
 
-#ifdef ONIKA_CUDA_VERSION
-#include <cuda_runtime.h>
-#endif // ONIKA_CUDA_VERSION
-
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda_context.h>
+#include <onika/cuda/cuda_error.h>
 
 // specializations to avoid MemoryUsage template to dig into cuda aggregates
 namespace onika
@@ -51,8 +48,8 @@ namespace onika
       static inline CudaDeviceStorage<T> New(CudaDevice& dev, size_t n = 1)
       {
         T* devPtr = nullptr;
-#       ifdef ONIKA_CUDA_VERSION
-          cudaMalloc( & devPtr , sizeof(T) * n );
+#       if defined(ONIKA_CUDA_VERSION) || defined(ONIKA_HIP_VERSION)
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MALLOC( & devPtr , sizeof(T) * n ) );
 #       else
           devPtr = new T [ n ];
 #       endif
@@ -70,8 +67,8 @@ namespace onika
             delete m_shared;
             if( m_ptr != nullptr )
             {
-#           ifdef ONIKA_CUDA_VERSION
-              cudaFree( m_ptr );
+#           if defined(ONIKA_CUDA_VERSION) || defined(ONIKA_HIP_VERSION)
+              ONIKA_CU_CHECK_ERRORS( ONIKA_CU_FREE( m_ptr ) );
 #           else
               delete [] m_ptr;
 #           endif

@@ -25,6 +25,18 @@ namespace onika
   namespace cuda
   {
 
+    bool CudaContext::s_global_gpu_enable = true;
+
+    void CudaContext::set_global_gpu_enable(bool yn)
+    {
+      s_global_gpu_enable = yn;
+    }
+    
+    bool CudaContext::global_gpu_enable()
+    {
+      return s_global_gpu_enable;
+    }
+
     bool CudaContext::has_devices() const
     {
       return ! m_devices.empty();
@@ -35,7 +47,7 @@ namespace onika
       return m_devices.size();
     }
     
-    cudaStream_t CudaContext::getThreadStream(unsigned int tid)
+    onikaStream_t CudaContext::getThreadStream(unsigned int tid)
     {
       if( tid >= m_threadStream.size() )
       {
@@ -43,7 +55,7 @@ namespace onika
         m_threadStream.resize( tid+1 , 0 );
         for(;i<m_threadStream.size();i++)
         {
-          checkCudaErrors( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_CREATE_STREAM_NON_BLOCKING( m_threadStream[i] ) );
         }
       }
       return m_threadStream[tid];

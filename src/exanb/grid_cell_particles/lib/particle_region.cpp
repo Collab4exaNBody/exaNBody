@@ -79,6 +79,7 @@ namespace exanb
     }
   }
 
+  /*
   static inline void nand_binary_tree_print( const std::vector< BoolExprNode >& nodes , int i , int depth=0)
   {
     for(int s=0;s<depth;s++) lout<<"   ";
@@ -120,6 +121,7 @@ namespace exanb
       }
     }
   }
+*/
 
   static inline int nand_binary_tree_depth( const std::vector< BoolExprNode >& nodes , int i )
   {

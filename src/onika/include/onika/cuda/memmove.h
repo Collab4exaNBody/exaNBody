@@ -18,7 +18,7 @@ under the License.
 */
 #pragma once
 
-#include <vector>
+//#include <vector>
 #include <onika/cuda/cuda.h>
 
 namespace onika

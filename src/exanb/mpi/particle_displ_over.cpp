@@ -129,7 +129,6 @@ sets result output to true if at least one particle has moved further than thres
       particle_displ_comm->m_all_particles_over = 0;
       particle_displ_comm->m_async_request = false;
       particle_displ_comm->m_request_started = false;
-      particle_displ_comm->m_reduction_end_callback = onika::parallel::ParallelExecutionStreamCallback{ nullptr , nullptr , nullptr , 0 };
 
       ReduceMaxDisplacementFunctor func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 };
 
@@ -137,14 +136,14 @@ sets result output to true if at least one particle has moved further than thres
       {
         ldbg << "Async particle_displ_over => result set to false" << std::endl;
         particle_displ_comm->m_async_request = true;
-        //particle_displ_comm->m_reduction_end_callback = ParallelExecutionStreamCallback{ reduction_end_callback , particle_displ_comm.get_pointer() , nullptr , 0 };
-        reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set
-                            , parallel_execution_context() /*, & particle_displ_comm->m_reduction_end_callback*/ );
+        auto user_cb = onika::parallel::ParallelExecutionCallback{ reduction_end_callback , & (*particle_displ_comm) };
+        reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() , user_cb );
         particle_displ_comm->start_mpi_async_request();
         *result = false;
       }
       else
       {    
+        ldbg << "Nb part moved over "<< max_dist <<" (local) = " << particle_displ_comm->m_particles_over << std::endl;
         reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() );
         MPI_Allreduce( & ( particle_displ_comm->m_particles_over ) , & ( particle_displ_comm->m_all_particles_over ) , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm );
         ldbg << "Nb part moved over "<< max_dist <<" (local/all) = "<< particle_displ_comm->m_particles_over <<" / "<< particle_displ_comm->m_all_particles_over << std::endl;
@@ -153,10 +152,9 @@ sets result output to true if at least one particle has moved further than thres
 
     }
     
-    static inline void reduction_end_callback( onika::parallel::ParallelExecutionContext* exec_ctx , void * userData )
+    static inline void reduction_end_callback( void * userData )
     {
       ::exanb::ldbg << "async CPU/GPU reduction done, start async MPI collective" << std::endl;
-      if( exec_ctx != nullptr ) { exec_ctx->wait(); }
       auto * particle_displ_comm = (ParticleDisplOverAsyncRequest*) userData ;
       assert( particle_displ_comm != nullptr );
       assert( particle_displ_comm->m_all_particles_over >= particle_displ_comm->m_particles_over );

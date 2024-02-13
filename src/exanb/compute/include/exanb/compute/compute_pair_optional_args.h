@@ -45,13 +45,15 @@ namespace exanb
 
   template<class NbhIteratorT, class NbhDataIteratorT, class TransformT, class GridParticleLocksT
          , class CellFilteringFuncT = ComputePairTrivialCellFiltering
-         , class ParticleFilteringFuncT = ComputePairTrivialParticleFiltering >
+         , class ParticleFilteringFuncT = ComputePairTrivialParticleFiltering
+         , class NbhFieldAccTupleT = onika::FlatTuple<> >
   struct ComputePairOptionalArgs2
   {
     using nbh_iterator_t = NbhIteratorT;
     using nbh_data_iterator_t = NbhDataIteratorT;
     using transform_t = TransformT;
     using particle_locks_t = GridParticleLocksT;
+    using nbh_field_tuple_t = NbhFieldAccTupleT;
     
     nbh_iterator_t nbh;
     nbh_data_iterator_t nbh_data;
@@ -59,6 +61,7 @@ namespace exanb
     particle_locks_t locks;
     CellFilteringFuncT cell_filter;
     ParticleFilteringFuncT particle_filter;
+    nbh_field_tuple_t nbh_fields;
   };
 
   // ---- optional weights ------
@@ -89,9 +92,9 @@ namespace exanb
 
     const CompactCellParticlePairWeights* m_cell_weights = nullptr;
     struct PairWeightIteratorCtx {};
-    
+
     ONIKA_HOST_DEVICE_FUNC static inline PairWeightIteratorCtx make_ctx() { return {}; }
-    
+
     ONIKA_HOST_DEVICE_FUNC inline double get(size_t cell_i, size_t p_i, size_t p_nbh_index, PairWeightIteratorCtx&) const noexcept
     {
       return m_cell_weights[cell_i].pair_weight( p_i , p_nbh_index );
@@ -178,12 +181,13 @@ namespace exanb
 	   class TransformT = NullXForm, 
 	   class GridParticleLocksT = NullGridParticleLocks , 
 	   class CellFilteringFuncT = ComputePairTrivialCellFiltering,
-	   class ParticleFilteringFuncT = ComputePairTrivialParticleFiltering >
+	   class ParticleFilteringFuncT = ComputePairTrivialParticleFiltering,
+	   class NbhFieldAccTupleT = onika::FlatTuple<> >
   static inline
-  ComputePairOptionalArgs2<NbhIteratorT,WeightIteratorT,TransformT,GridParticleLocksT, CellFilteringFuncT, ParticleFilteringFuncT > 
-  make_compute_pair_optional_args( NbhIteratorT n, WeightIteratorT w={}, TransformT t={}, GridParticleLocksT l={} , CellFilteringFuncT cf={}, ParticleFilteringFuncT pf={} )
+  ComputePairOptionalArgs2<NbhIteratorT,WeightIteratorT,TransformT,GridParticleLocksT, CellFilteringFuncT, ParticleFilteringFuncT, NbhFieldAccTupleT > 
+  make_compute_pair_optional_args( NbhIteratorT n, WeightIteratorT w={}, TransformT t={}, GridParticleLocksT l={} , CellFilteringFuncT cf={}, ParticleFilteringFuncT pf={}, NbhFieldAccTupleT nbh_fields={} )
   {
-    return ComputePairOptionalArgs2<NbhIteratorT,WeightIteratorT,TransformT,GridParticleLocksT,CellFilteringFuncT,ParticleFilteringFuncT> { n, w, t, l, cf , pf };
+    return { n, w, t, l, cf, pf, nbh_fields };
   }
   
 }

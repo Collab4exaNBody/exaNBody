@@ -5,7 +5,7 @@
 #include <exanb/core/domain.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/grid_cell_particles/grid_particle_field_accessor.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 #include <onika/plot1d.h>
 #include <exanb/analytics/grid_particle_slicing.h>
 #include <exanb/fields.h>

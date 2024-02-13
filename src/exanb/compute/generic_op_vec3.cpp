@@ -128,7 +128,7 @@ namespace exanb
 
     static constexpr OpT Func = OpT{};
 
-    static constexpr FieldSet< Field_X, Field_Y, Field_Z > compute_field_set{};
+    using compute_field_set_t = FieldSet< Field_X, Field_Y, Field_Z >;
     using has_field_id_t     = typename GridT:: template HasField <field::_id>;
     static constexpr bool has_field_id = has_field_id_t::value;
     static constexpr bool has_separate_r_fields = ! ( std::is_same_v<Field_X,field::_rx> && std::is_same_v<Field_Y,field::_ry> && std::is_same_v<Field_Z,field::_rz> );
@@ -145,7 +145,6 @@ namespace exanb
           ,
           FieldSet< Field_X, Field_Y, Field_Z > > 
         >;
-    static constexpr compute_field_set_region_t compute_field_set_region{};
 
   public:
     inline void execute () override final
@@ -182,11 +181,13 @@ namespace exanb
           ldbg << "\t\t\tId range = [ "<< R.m_id_start << " ; "<<R.m_id_end<<" [" << std::endl;
         }
 
-        compute_cell_particles( *grid , false , GenericVec3RegionFunctor<OpT>{prcsg,*value,Func} , compute_field_set_region , parallel_execution_context() );            
+        field_accessor_tuple_from_field_set_t<compute_field_set_region_t> cp_fields = {};
+        compute_cell_particles( *grid , false , GenericVec3RegionFunctor<OpT>{prcsg,*value,Func} , cp_fields , parallel_execution_context() );            
       }
       else
       {
-        compute_cell_particles( *grid , false , GenericVec3Functor<OpT>{*value,Func} , compute_field_set , parallel_execution_context() );            
+        field_accessor_tuple_from_field_set_t<compute_field_set_t> cp_fields = {};
+        compute_cell_particles( *grid , false , GenericVec3Functor<OpT>{*value,Func} , cp_fields , parallel_execution_context() );            
       }
       
     }

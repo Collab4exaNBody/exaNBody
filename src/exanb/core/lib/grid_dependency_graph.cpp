@@ -126,7 +126,7 @@ namespace exanb
     size_t n_cells = m_cell.size();
 //    cout << "S²="<<n_cells*n_cells<<endl;
     mat.assign( n_cells*n_cells , false );
-    size_t no = 0;
+    //size_t no = 0;
     for(size_t cell_i=0;cell_i<n_cells;cell_i++)
     {
       const size_t* ptask = m_deps.data() + m_start[cell_i];
@@ -136,7 +136,7 @@ namespace exanb
         size_t cell_j = ptask[di];
 //        mat[ cell_i*n_cells+cell_j ] = true;
         mat[ cell_j*n_cells+cell_i ] = true;
-        ++ no;
+        // ++ no;
       }
     }
 //    cout << "N="<<no<<endl;
