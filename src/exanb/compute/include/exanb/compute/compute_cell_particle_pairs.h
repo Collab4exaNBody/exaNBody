@@ -20,6 +20,7 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <exanb/compute/compute_cell_particle_pairs_chunk.h>
+#include <exanb/compute/compute_cell_particle_pairs_chunk_nosymcs1.h>
 #include <exanb/compute/compute_cell_particle_pairs_simple.h>
 
 #include <exanb/compute/compute_pair_traits.h>
@@ -140,6 +141,7 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
 
     static constexpr onika::IntConst<0> const_0{};
+    static constexpr onika::IntConst<1> const_1{};
     static constexpr onika::IntConst<4> const_4{};
     static constexpr onika::IntConst<8> const_8{};
 
@@ -169,6 +171,9 @@ namespace exanb
       const unsigned int cs = optional.nbh.m_chunk_size;
       switch( cs )
       {
+        case 1:
+          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_1) , exec_ctx );
+          break;
         case 4:
           return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,const_4) , exec_ctx );
           break;
