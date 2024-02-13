@@ -235,6 +235,7 @@ namespace onika
           // copy out return data to host space at given pointer
           if( pec.m_return_data_output != nullptr && pec.m_return_data_size > 0 )
           {
+	    // printf("pes: stream copy back %p <- %p size=%d\n",pec.m_return_data_output,pec.m_cuda_scratch->return_data,int(pec.m_return_data_size) );
             ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( pec.m_return_data_output , pec.m_cuda_scratch->return_data , pec.m_return_data_size , pes.m_stream->m_cu_stream ) );
           }
           

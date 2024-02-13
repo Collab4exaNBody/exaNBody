@@ -24,6 +24,7 @@ under the License.
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/grid_cell_particles/particle_cell_projection.h>
 #include <exanb/core/xform.h>
+#include <exanb/core/source_term.h>
 
 namespace exanb
 {
@@ -39,13 +40,18 @@ namespace exanb
     size_t cell_value_stride = 0;
     double mask_value = 0.0;
     unsigned int subdiv = 0;
+    ScalarSourceTermInstance scalar_function = nullptr;
+    double scalar_function_threshold = 0.0;
+    
 
     inline void initialize_from_optional_parameters(
                   const ParticleRegions* particle_regions, 
                   ParticleRegionCSG* region,
                   const GridCellValues* grid_cell_values = nullptr, 
                   const std::string* grid_cell_mask_name = nullptr, 
-                  const double* grid_cell_mask_value = nullptr )
+                  const double* grid_cell_mask_value = nullptr ,
+                  ScalarSourceTermInstance user_func = nullptr,
+                  double user_func_threshold = 0.0 )
     {
       // filter based on region CSG
       prcsg = ParticleRegionCSGShallowCopy{};
@@ -86,6 +92,9 @@ namespace exanb
           fatal_error() << "expected a scalar value field for cell mask" << std::endl;          
         }
       }
+      
+      scalar_function = user_func;
+      scalar_function_threshold = user_func_threshold;
     }
 
     ONIKA_HOST_DEVICE_FUNC inline bool operator () ( const Vec3d& r , uint64_t id ) const
@@ -112,6 +121,10 @@ namespace exanb
         assert( nbh_subcell_i>=0 && nbh_subcell_i<(subdiv*subdiv*subdiv) );
         auto cell_value = cell_value_ptr[ nbh_cell_i * cell_value_stride + nbh_subcell_i ];
         keep_particle = ( cell_value == mask_value );  
+      }
+      if( keep_particle && scalar_function!=nullptr )
+      {
+        keep_particle = ( (*scalar_function) ( r, 0.0, id ) >= scalar_function_threshold );
       }
       return keep_particle;
     }
