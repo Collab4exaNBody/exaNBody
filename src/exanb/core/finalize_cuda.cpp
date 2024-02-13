@@ -37,7 +37,7 @@ namespace exanb
     {
 #     ifdef XNB_CUDA_VERSION
       auto cuda_ctx = global_cuda_ctx();
-      if( *enable_cuda && cuda_ctx->has_devices() )
+      if( cuda_ctx != nullptr && *enable_cuda && cuda_ctx->has_devices() )
       {
         ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DEVICE_SYNCHRONIZE() );
         for(const auto &dev : cuda_ctx->m_devices)
