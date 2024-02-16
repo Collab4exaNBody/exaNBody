@@ -30,7 +30,7 @@ namespace exanb
     bool free_scratch_memory = false;
     bool build_particle_offset = false;
     bool subcell_compaction = true;
-    bool half_symetric = false;
+    bool half_symmetric = false;
     bool skip_ghosts = false;
   };
 }
@@ -48,7 +48,7 @@ namespace YAML
       node["free_scratch_memory"] = v.free_scratch_memory;
       node["build_particle_offset"] = v.build_particle_offset;
       node["subcell_compaction"] = v.subcell_compaction;
-      node["half_symetric"] = v.half_symetric;
+      node["half_symmetric"] = v.half_symmetric;
       node["skip_ghosts"] = v.skip_ghosts;
       return node;
     }
@@ -62,7 +62,7 @@ namespace YAML
       if(node["free_scratch_memory"]) v.free_scratch_memory = node["free_scratch_memory"].as<bool>();
       if(node["build_particle_offset"]) v.build_particle_offset = node["build_particle_offset"].as<bool>();
       if(node["subcell_compaction"]) v.subcell_compaction = node["subcell_compaction"].as<bool>();
-      if(node["half_symetric"]) v.half_symetric = node["half_symetric"].as<bool>();
+      if(node["half_symmetric"]) v.half_symmetric = node["half_symmetric"].as<bool>();
       if(node["skip_ghosts"]) v.skip_ghosts = node["skip_ghosts"].as<bool>();
       return true;
     }    

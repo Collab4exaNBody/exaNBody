@@ -35,13 +35,13 @@ namespace exanb
     struct NeighborFilterHalfSymGhost
     {
       const GridT& m_grid;
-      bool m_half_symetric = false;
+      bool m_half_symmetric = false;
       bool m_skip_ghost = false;
       inline bool operator () (double d2, double rcut2, size_t cell_a, size_t p_a, size_t cell_b, size_t p_b) const
       {
         if( d2 > 0.0 && d2 <= rcut2 )
         {
-          if( m_half_symetric && ( cell_a>cell_b || ( cell_a==cell_b && p_a>p_b ) ) ) return false;
+          if( m_half_symmetric && ( cell_a>cell_b || ( cell_a==cell_b && p_a>p_b ) ) ) return false;
           if( m_skip_ghost && m_grid.is_ghost_cell(cell_b) ) return false;
           return true;
         }

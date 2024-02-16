@@ -79,11 +79,11 @@ namespace exanb
       const bool gpu_enabled = (global_cuda_ctx() != nullptr) ? global_cuda_ctx()->has_devices() : false;
       static constexpr std::false_type no_z_order = {};
 
-      if( config->half_symetric || config->skip_ghosts )
+      if( config->half_symmetric || config->skip_ghosts )
       {
         if( cs != 1 )
         {
-          lerr<<"ChunkNeighbors: WARNING: half_symetric="<<std::boolalpha<<config->half_symetric<<", skip_ghosts="<<std::boolalpha<<config->skip_ghosts<<", so chunk_size is forced to 1" << std::endl;
+          lerr<<"ChunkNeighbors: WARNING: half_symetric="<<std::boolalpha<<config->half_symmetric<<", skip_ghosts="<<std::boolalpha<<config->skip_ghosts<<", so chunk_size is forced to 1" << std::endl;
           config->chunk_size = 1;
           cs = 1;
           cs_log2 = 0;
@@ -91,7 +91,7 @@ namespace exanb
       }
 
       LinearXForm xform = { domain->xform() };
-      NeighborFilterHalfSymGhost<GridT> nbh_filter = { *grid , config->half_symetric , config->skip_ghosts };
+      NeighborFilterHalfSymGhost<GridT> nbh_filter = { *grid , config->half_symmetric , config->skip_ghosts };
       chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,cs,cs_log2,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );
     }
 
