@@ -129,10 +129,7 @@ namespace onika
 #       pragma omp parallel
         {
 #         pragma omp for schedule(dynamic)
-          for(uint64_t i=0;i<N;i++)
-          {
-            m_func( i );
-          }
+          for(uint64_t i=0;i<N;i++) { m_func( i ); }
         }
         execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;
