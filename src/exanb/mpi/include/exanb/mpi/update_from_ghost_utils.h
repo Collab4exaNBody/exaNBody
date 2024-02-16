@@ -33,17 +33,19 @@ namespace exanb
 {
   namespace UpdateFromGhostsUtils
   {
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class UpdateFuncT>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class UpdateFuncT, class FieldAccTuple>
     struct GhostSendUnpackFromReceiveBuffer
     {
+      using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellSendScheme * __restrict__ m_sends = nullptr;
-      CellParticles * __restrict__ m_cells = nullptr;
+      CellsAccessorT m_cells = {};
       GridCellValueType * __restrict__ m_cell_scalars = nullptr;
       size_t m_cell_scalar_components = 0;
       uint8_t* __restrict__ m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
       UpdateFuncT m_merge_func;
+      FieldAccTuple m_fields = {};
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
@@ -91,17 +93,19 @@ namespace exanb
       }
     };
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class FieldAccTuple>
     struct GhostReceivePackToSendBuffer
     {
+      using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * __restrict__ m_receives = nullptr;
       const uint64_t * __restrict__ m_cell_offset = nullptr; 
       uint8_t * __restrict__ m_data_ptr_base = nullptr;
-      const CellParticles * __restrict__ m_cells = nullptr;
+      CellsAccessorT m_cells = {};
       size_t m_cell_scalar_components = 0;
       const GridCellValueType * __restrict__ m_cell_scalars = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
+      FieldAccTuple m_fields = {};
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
@@ -117,6 +121,13 @@ namespace exanb
         {
           std::memcpy( m_staging_buffer_ptr , m_data_ptr_base , m_data_buffer_size );
         }
+      }
+
+      template<size_t ... FieldIndex>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t i, uint64_t j, std::index_sequence<FieldIndex...> ) const
+      {
+        data->m_particles[j] = ParticleTuple( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] ... );
       }
 
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
@@ -139,7 +150,8 @@ namespace exanb
         const size_t n_particles = cell_input.m_n_particles;
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          m_cells[cell_i].read_tuple( j , data->m_particles[j] );
+          pack_particle_fields( data, cell_i, j, j, FieldIndexSeq{} );
+          //m_cells[cell_i].read_tuple( j , data->m_particles[j] );
         }
         const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
         if( m_cell_scalars != nullptr )
@@ -165,14 +177,14 @@ namespace onika
   namespace parallel
   {
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class MergeFuncT>
-    struct BlockParallelForFunctorTraits< exanb::UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,MergeFuncT> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class MergeFuncT, class FieldAccTupleT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,MergeFuncT,FieldAccTupleT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple>
-    struct BlockParallelForFunctorTraits< exanb::UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class FieldAccTupleT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };
