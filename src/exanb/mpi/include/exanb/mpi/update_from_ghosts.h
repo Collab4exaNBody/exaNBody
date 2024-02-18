@@ -69,7 +69,7 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------
     ADD_SLOT( MPI_Comm                 , mpi               , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , REQUIRED );
+    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
@@ -85,6 +85,9 @@ namespace exanb
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
     inline void execute() override final
     {
+      if( ! ghost_comm_scheme.has_value() ) return;
+      if( grid->number_of_particles() == 0 ) return;
+    
       auto pecfunc = [self=this]() { return self->parallel_execution_context(); };
       auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
       auto update_fields = make_field_tuple_from_field_set( FieldSetT{} );
