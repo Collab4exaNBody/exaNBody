@@ -29,7 +29,9 @@ namespace exanb
   template< class CellT
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class FieldAccTupleT, class PosFieldsT
-          , bool PreferComputeBuffer, size_t ... FieldIndex >
+          , bool PreferComputeBuffer
+          , bool Symmetric
+          , size_t ... FieldIndex >
   ONIKA_HOST_DEVICE_FUNC
   static inline void compute_cell_particle_pairs_cell(
     CellT cells,
@@ -42,7 +44,7 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     onika::IntConst<1> CS,
-    std::false_type no_symmetry,
+    std::integral_constant<bool,Symmetric> skip_symmetric_pairs,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,
     std::index_sequence<FieldIndex...> ,
@@ -191,7 +193,7 @@ namespace exanb
             Vec3d dr { rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] };
             dr = optional.xform.transformCoord( dr );
             const double d2 = norm2(dr);
-            if( d2>0.0 && d2 <= rcut2 )
+            if( d2>0.0 && d2 <= rcut2 && ( !Symmetric || ( cell_b<cell_a || ( cell_b==cell_a && p_b<p_a ) ) ) )
             {
               if constexpr ( use_compute_buffer )
               {
