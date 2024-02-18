@@ -63,6 +63,16 @@ namespace exanb
         }
       }
 
+      template<size_t ... FieldIndex>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void unpack_particle_fields( const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t i, std::index_sequence<FieldIndex...> ) const
+      {
+        using exanb::field_id_fom_acc_v;
+        ( ... , (
+          m_merge_func( m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i] , data->m_particles[i][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ] )
+        ) );
+      }
+
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
       {
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
@@ -79,7 +89,8 @@ namespace exanb
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
-          m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
+          unpack_particle_fields( data, cell_i, particle_index[j], FieldIndexSeq{} );
+          //m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
         }
         size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
         if( m_cell_scalars != nullptr )

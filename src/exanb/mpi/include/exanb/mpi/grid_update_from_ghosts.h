@@ -157,7 +157,8 @@ namespace exanb
                                              , cell_scalar_components
                                              , cell_scalars
                                              , ghost_comm_buffers.recvbuf_size(p)
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr };
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr 
+                                             , update_fields };
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context() , par_for_opts );
@@ -237,7 +238,8 @@ namespace exanb
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
                                               , ghost_comm_buffers.sendbuf_size(p)
                                               , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
-                                              , UpdateValueFunctor{} };
+                                              , UpdateValueFunctor{} 
+                                              , update_fields };
       // = parallel_execution_context(p);
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
       auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context() , par_for_opts ); 
