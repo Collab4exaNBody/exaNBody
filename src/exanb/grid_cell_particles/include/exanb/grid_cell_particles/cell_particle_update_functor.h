@@ -87,7 +87,10 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC
     static inline void assert_field_equal(const T1& t1, const T2& t2)
     {
-      assert( t1 == t2 );
+      if( t1 != t2 )
+      {
+        ONIKA_CU_ABORT();
+      }
     }
   
     template<class CellsT, bool ThreadSafe, typename... field_ids>
@@ -101,7 +104,7 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC
     inline void operator() ( const double& upd, const double& in, onika::BoolConst<ThreadSafe> = {}) const
     {
-      assert( upd == in );
+      assert_field_equal( upd , in );
     }
   };
 
