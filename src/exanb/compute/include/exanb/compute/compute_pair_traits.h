@@ -21,23 +21,38 @@ under the License.
 namespace exanb
 {
 
-  // this template is here to know if compute buffer must be built or computation must be ran on the fly
-  template<class FuncT> struct ComputePairTraits
-  {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
-    static inline constexpr bool ComputeBufferCompatible = true;
-    static inline constexpr bool BufferLessCompatible = false;
-    static inline constexpr bool CudaCompatible = false;
-  };
-
-  // traits to configure wether functor needs particle start/stop procedure call with associated context structure
   struct ComputePairParticleContextStart {};
   struct ComputePairParticleContextStop {};
-  template<class FuncT> struct ComputePairParticleContextTraits
+
+  // this template is here to know if compute buffer must be built or computation must be ran on the fly
+  template<class FuncT> struct ComputePairTraits;
+  
+  template<> struct ComputePairTraits<void> // this specialization defines defaults, as void cannot be a callable functor
   {
-    static inline constexpr bool HasParticleContextStart = false;    
-    static inline constexpr bool HasParticleContextStop = false;    
+    static inline constexpr bool RequiresBlockSynchronousCall = false;
+    static inline constexpr bool ComputeBufferCompatible      = true;
+    static inline constexpr bool BufferLessCompatible         = false;
+    static inline constexpr bool CudaCompatible               = false;
+    static inline constexpr bool HasParticleContextStart      = false;    
+    static inline constexpr bool HasParticleContext           = false;
+    static inline constexpr bool HasParticleContextStop       = false;
   };
+
+#define COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT(name,member) \
+  template<class T , class = void > struct Test_##member { static inline constexpr bool value = ComputePairTraits<void>::member; }; \
+  template<class T> struct Test_##member <T , decltype(void(sizeof(T{}.member))) > { static inline constexpr bool value = T::member; }; \
+  template<class FuncT> static inline constexpr bool name = Test_##member < ComputePairTraits<FuncT> >::value
+
+  namespace compute_pair_traits
+  {
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_block_synchronous_call_v , RequiresBlockSynchronousCall );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( compute_buffer_compatible_v       , ComputeBufferCompatible );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( buffer_less_compatible_v          , BufferLessCompatible );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( cuda_compatible_v                 , CudaCompatible );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_v            , HasParticleContext );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_start_v      , HasParticleContextStart );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_stop_v       , HasParticleContextStop );
+  }
 
   template<class FuncT> struct ComputePairDebugTraits
   {

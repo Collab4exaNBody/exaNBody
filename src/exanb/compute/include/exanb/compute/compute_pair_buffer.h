@@ -55,6 +55,14 @@ namespace exanb
     }
   };
 
+  struct NullComputePairBufferAppendFunc
+  {  
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () (ComputeBufferT&, const Vec3d&, double, FieldArraysT, size_t, size_t, const NbhDataT& ) const noexcept {}
+  };
+
   template<bool UseWeights=false , size_t _MaxNeighbors=exanb::MAX_PARTICLE_NEIGHBORS >
   struct ComputePairBuffer2Weights
   {
@@ -214,5 +222,7 @@ namespace exanb
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
 
+  template<class ExtStorageT = NoExtraStorage >
+  static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<false,false,ExtStorageT,NullComputePairBufferAppendFunc,0> > make_empty_pair_buffer() { return {}; }
 }
 

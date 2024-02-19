@@ -20,7 +20,7 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <exanb/compute/compute_cell_particle_pairs_chunk.h>
-#include <exanb/compute/compute_cell_particle_pairs_chunk_nosymcs1.h>
+#include <exanb/compute/compute_cell_particle_pairs_chunk_cs1.h>
 #include <exanb/compute/compute_cell_particle_pairs_simple.h>
 
 #include <exanb/compute/compute_pair_traits.h>
@@ -61,7 +61,7 @@ namespace exanb
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical;
       static constexpr bool gpu_exec = onika::cuda::gpu_device_execution_t::value ;
-      static constexpr onika::BoolConst< gpu_exec ? ( ! ComputePairTraits<FuncT>::BufferLessCompatible ) : ComputePairTraits<FuncT>::ComputeBufferCompatible > prefer_compute_buffer = {}; 
+      static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
 
       size_t cell_a = i;
       IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
@@ -89,7 +89,7 @@ namespace onika
     template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class ISeq>
     struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,ISeq> >
     {
-      static inline constexpr bool CudaCompatible = exanb::ComputePairTraits<FuncT>::CudaCompatible;
+      static inline constexpr bool CudaCompatible = exanb::compute_pair_traits::cuda_compatible_v<FuncT>;
     };
   }
 }
@@ -139,7 +139,7 @@ namespace exanb
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
     using CellT = typename GridT::CellParticles;
     using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
-    static constexpr bool requires_block_synchronous_call = ComputePairTraits<FuncT>::RequiresBlockSynchronousCall ;
+    static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
 
     static constexpr onika::IntConst<0> const_0{};
     static constexpr onika::IntConst<1> const_1{};
@@ -156,7 +156,7 @@ namespace exanb
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
 
-    if( ComputePairTraits<FuncT>::CudaCompatible )
+    if constexpr ( compute_pair_traits::cuda_compatible_v<FuncT> )
     {
       if( exec_ctx->has_gpu_context() )
       {
