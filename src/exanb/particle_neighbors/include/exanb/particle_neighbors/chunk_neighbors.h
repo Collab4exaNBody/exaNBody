@@ -24,6 +24,7 @@ under the License.
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda.h>
 
+#include <exanb/particle_neighbors/chunk_neighbors_chunksize_specializations.h>
 #include <exanb/core/basic_types_def.h>
 #include <exanb/core/log.h>
 
@@ -32,7 +33,6 @@ under the License.
 
 namespace exanb
 {
-  
 
   // number of cells => for each cell : number of chunks => chunks
   //using GridChunkNeighborsData = onika::memory::CudaMMVector< onika::memory::CudaMMVector<uint16_t> >;

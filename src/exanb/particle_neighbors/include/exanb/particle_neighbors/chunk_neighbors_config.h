@@ -19,6 +19,9 @@ under the License.
 #pragma once
 
 #include <yaml-cpp/yaml.h>
+#include <exanb/particle_neighbors/chunk_neighbors_chunksize_specializations.h>
+#include <exanb/core/log.h>
+#include <cstdlib>
 
 namespace exanb
 {
@@ -64,6 +67,19 @@ namespace YAML
       if(node["subcell_compaction"]) v.subcell_compaction = node["subcell_compaction"].as<bool>();
       if(node["half_symmetric"]) v.half_symmetric = node["half_symmetric"].as<bool>();
       if(node["skip_ghosts"]) v.skip_ghosts = node["skip_ghosts"].as<bool>();
+      
+      const int VARIMPL = v.chunk_size;
+      int nearest = -1;
+#     define _XNB_CHUNK_NEIGHBORS_CS_NEAREST( CS ) if( std::abs(int(v.chunk_size)-CS) < std::abs(int(v.chunk_size)-nearest) ) nearest = CS;
+      XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CS_NEAREST )
+#     undef _XNB_CHUNK_NEIGHBORS_CS_NEAREST
+      
+      if( nearest != v.chunk_size )
+      {
+        exanb::lerr << "Warning: chunk_size="<<v.chunk_size<<" is not supported by this version, forcing it to "<<nearest<<std::endl;
+        v.chunk_size = nearest;
+      }
+
       return true;
     }    
   };  
