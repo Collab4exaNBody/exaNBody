@@ -35,6 +35,8 @@ namespace exanb
     bool subcell_compaction = true;
     bool half_symmetric = false;
     bool skip_ghosts = false;
+    bool dual_particle_offset = false;
+    bool random_access = false;
   };
 }
 
@@ -50,6 +52,8 @@ namespace YAML
       node["stream_prealloc_factor"] = v.stream_prealloc_factor;
       node["free_scratch_memory"] = v.free_scratch_memory;
       node["build_particle_offset"] = v.build_particle_offset;
+      node["dual_particle_offset"] = v.dual_particle_offset;
+      node["random_access"] = v.random_access;
       node["subcell_compaction"] = v.subcell_compaction;
       node["half_symmetric"] = v.half_symmetric;
       node["skip_ghosts"] = v.skip_ghosts;
@@ -64,9 +68,23 @@ namespace YAML
       if(node["stream_prealloc_factor"]) v.stream_prealloc_factor = node["stream_prealloc_factor"].as<double>();
       if(node["free_scratch_memory"]) v.free_scratch_memory = node["free_scratch_memory"].as<bool>();
       if(node["build_particle_offset"]) v.build_particle_offset = node["build_particle_offset"].as<bool>();
+      if(node["dual_particle_offset"]) v.dual_particle_offset = node["dual_particle_offset"].as<bool>();
+      if(node["random_access"]) v.random_access = node["random_access"].as<bool>();
       if(node["subcell_compaction"]) v.subcell_compaction = node["subcell_compaction"].as<bool>();
       if(node["half_symmetric"]) v.half_symmetric = node["half_symmetric"].as<bool>();
       if(node["skip_ghosts"]) v.skip_ghosts = node["skip_ghosts"].as<bool>();
+      
+      if( v.dual_particle_offset && !v.build_particle_offset )
+      {
+        exanb::lerr << "Warning: dual_particle_offset requires build_particle_offset. build_particle_offset enabled"<<std::endl;
+        v.build_particle_offset = true;
+      }
+
+      if( v.random_access && v.chunk_size != 1 )
+      {
+        exanb::lerr << "Warning: random_access requires chunk_size to be forced to 1"<<std::endl;
+        v.chunk_size = 1;
+      }
       
       const int VARIMPL = v.chunk_size;
       int nearest = -1;
@@ -76,8 +94,14 @@ namespace YAML
       
       if( nearest != v.chunk_size )
       {
-        exanb::lerr << "Warning: chunk_size="<<v.chunk_size<<" is not supported by this version, forcing it to "<<nearest<<std::endl;
+        exanb::lerr << "Warning: chunk_size="<<v.chunk_size<<" is not supported by this version, setting to nearest available ("<<nearest<<")"<<std::endl;
         v.chunk_size = nearest;
+      }
+
+      if( v.random_access && v.chunk_size != 1 )
+      {
+        exanb::lerr << "random_access and/or dual_particle_offset is only possible with chunk_size=1"<<std::endl;
+        return false;
       }
 
       return true;

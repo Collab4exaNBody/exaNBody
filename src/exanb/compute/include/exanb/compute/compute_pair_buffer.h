@@ -38,12 +38,12 @@ namespace exanb
   // Compute buffer post processing API
   struct DefaultComputePairBufferAppendFunc
   {  
-    template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
     void operator () (ComputeBufferT& tab, const Vec3d& dr, double d2,
                       FieldArraysT cells, size_t cell_b, size_t p_b,
-                      const NbhDataT& nbh_data ) const noexcept
+                      const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
       tab.d2[tab.count] = d2;
       tab.drx[tab.count] = dr.x;
@@ -188,6 +188,14 @@ namespace exanb
     }
   };
 
+  template<class _ExtendedStorage>
+  struct ComputeContextNoBuffer
+  {
+    using ExtendedStorage = _ExtendedStorage;
+    ExtendedStorage ext;
+  };
+
+
   template< class _NbhFieldSetT , size_t _MaxNeighbors = exanb::MAX_PARTICLE_NEIGHBORS , bool UserNbhData=false >
   using SimpleNbhComputeBuffer = ComputePairBuffer2< UserNbhData, false, NoExtraStorage, DefaultComputePairBufferAppendFunc, _MaxNeighbors, ComputePairBuffer2Weights, _NbhFieldSetT >;
 
@@ -223,6 +231,6 @@ namespace exanb
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
 
   template<class ExtStorageT = NoExtraStorage >
-  static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<false,false,ExtStorageT,NullComputePairBufferAppendFunc,0> > make_empty_pair_buffer() { return {}; }
+  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
 }
 

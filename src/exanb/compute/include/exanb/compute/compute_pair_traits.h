@@ -36,6 +36,7 @@ namespace exanb
     static inline constexpr bool HasParticleContextStart      = false;    
     static inline constexpr bool HasParticleContext           = false;
     static inline constexpr bool HasParticleContextStop       = false;
+    static inline constexpr bool RequiresNbhOptionalData      = true;
   };
 
 #define COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT(name,member) \
@@ -52,6 +53,7 @@ namespace exanb
     COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_v            , HasParticleContext );
     COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_start_v      , HasParticleContextStart );
     COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_stop_v       , HasParticleContextStop );
+    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_nbh_optional_data_v      , RequiresNbhOptionalData );
   }
 
   template<class FuncT> struct ComputePairDebugTraits
