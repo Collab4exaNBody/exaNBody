@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <yaml-cpp/yaml.h>
-#include <exanb/particle_neighbors/chunk_neighbors_chunksize_specializations.h>
+#include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
 #include <exanb/core/log.h>
 #include <cstdlib>
 
@@ -103,6 +103,17 @@ namespace YAML
         exanb::lerr << "random_access and/or dual_particle_offset is only possible with chunk_size=1"<<std::endl;
         return false;
       }
+
+      std::cout << "chunk_size             = " << v.chunk_size <<std::endl;
+      std::cout << "scratch_mem_per_cell   = " << v.scratch_mem_per_cell <<std::endl;
+      std::cout << "stream_prealloc_factor = " << v.stream_prealloc_factor <<std::endl;
+      std::cout << "free_scratch_memory    = " << v.free_scratch_memory <<std::endl;
+      std::cout << "build_particle_offset  = " << v.build_particle_offset <<std::endl;
+      std::cout << "dual_particle_offset   = " << v.dual_particle_offset <<std::endl;
+      std::cout << "random_access          = " << v.random_access <<std::endl;
+      std::cout << "subcell_compaction     = " << v.subcell_compaction <<std::endl;
+      std::cout << "half_symmetric         = " << v.half_symmetric <<std::endl;
+      std::cout << "skip_ghosts            = " << v.skip_ghosts <<std::endl;
 
       return true;
     }    

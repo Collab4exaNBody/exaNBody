@@ -24,7 +24,7 @@ under the License.
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda.h>
 
-#include <exanb/particle_neighbors/chunk_neighbors_chunksize_specializations.h>
+#include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
 #include <exanb/core/basic_types_def.h>
 #include <exanb/core/log.h>
 
@@ -43,6 +43,20 @@ namespace exanb
   {  
     static inline constexpr unsigned int MAX_STREAM_OFFSET_TABLES = 2;
     static inline constexpr uint16_t CELL_ENCODED_REL_COORD_0 = ( ( ( 16 << 5 ) + 16 ) << 5 ) + 16;
+    enum EncodingStyle
+    {
+      CELL_GROUP_CHUNKS ,
+      RANDOM_ACCESS_NBH
+    };
+    static inline const char* encoding_style_string(EncodingStyle es)
+    {
+      switch(es)
+      {
+        case CELL_GROUP_CHUNKS: return "CELL_GROUP_CHUNKS";
+        case RANDOM_ACCESS_NBH: return "RANDOM_ACCESS_NBH";
+      }
+      return "<unknown>";
+    }
   
     onika::memory::MemoryPartionnerMT m_fixed_stream_pool = {};
     onika::memory::CudaMMVector<uint16_t *> m_cell_stream;
@@ -51,6 +65,7 @@ namespace exanb
     size_t m_nb_dyn_alloc = 0;
     unsigned int m_chunk_size = 4;
     onika::memory::GenericHostAllocator m_alloc = {};
+    EncodingStyle m_encoding_style = CELL_GROUP_CHUNKS;
     
     GridChunkNeighborsData data() const ;
     const uint16_t * cell_stream(size_t i) const ;
@@ -124,7 +139,8 @@ namespace exanb
     using is_symmetrical_t = std::integral_constant<bool,Symmetric>;
     GridChunkNeighborsData m_nbh_streams = nullptr;
     unsigned int m_chunk_size = 4;
-    inline GridChunkNeighborsLightWeightIt(const GridChunkNeighbors& chnbh) : m_nbh_streams(chnbh.m_cell_stream.data()) , m_chunk_size(chnbh.m_chunk_size) {}
+    GridChunkNeighbors::EncodingStyle m_encoding_style = GridChunkNeighbors::CELL_GROUP_CHUNKS;
+    inline GridChunkNeighborsLightWeightIt(const GridChunkNeighbors& chnbh) : m_nbh_streams(chnbh.m_cell_stream.data()) , m_chunk_size(chnbh.m_chunk_size) , m_encoding_style(chnbh.m_encoding_style) {}
     ONIKA_HOST_DEVICE_FUNC inline static constexpr is_symmetrical_t is_symmetrical() { return {}; }
   };
 

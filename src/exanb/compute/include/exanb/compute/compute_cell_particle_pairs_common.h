@@ -68,6 +68,7 @@ namespace exanb
   enum class NbhIteratorKind
   {
     CHUNK_NEIGHBORS ,
+    CHUNK_NEIGHBORS_RAE ,
     SIMPLE_CELL_INDEX ,
     UNKNOWN
   };

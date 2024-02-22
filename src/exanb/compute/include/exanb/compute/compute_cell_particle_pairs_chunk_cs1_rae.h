@@ -30,7 +30,6 @@ namespace exanb
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class FieldAccTupleT, class PosFieldsT
           , bool PreferComputeBuffer
-          , bool Symmetric
           , size_t ... FieldIndex >
   ONIKA_HOST_DEVICE_FUNC
   static inline void compute_cell_particle_pairs_cell(
@@ -44,16 +43,16 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     onika::IntConst<1> CS,
-    std::integral_constant<bool,Symmetric> skip_symmetric_pairs,
+    bool Symmetric,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,
     std::index_sequence<FieldIndex...> ,
-    std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {}
+    std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS_RAE> nbh_kind = {}
     )
   {
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
-    static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS );
+    static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS_RAE );
     static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
 
     using exanb::chunknbh_stream_to_next_particle;
@@ -122,10 +121,12 @@ namespace exanb
     const uint16_t* stream_base = stream_info.stream;
     const uint16_t* __restrict__ stream = stream_base;
     const uint32_t* __restrict__ particle_offset = stream_info.offset;
-    //const uint32_t* __restrict__ sym_half_offset = stream_info.dual_offset;
+    const uint32_t* __restrict__ sym_nbh_count = stream_info.dual_offset;
     const int32_t poffshift = stream_info.shift;
-    //printf("poffshift=%d\n",poffshift);
 
+    assert( particle_offset != nullptr );
+    assert( !Symmetric || sym_nbh_count != nullptr );
+    
     unsigned int p_a = ONIKA_CU_THREAD_IDX;
 
     while( p_a < cell_a_particles )
@@ -138,8 +139,15 @@ namespace exanb
       
       if( p_a < cell_a_particles )
       {
-
-        if( particle_offset!=nullptr ) stream = stream_base + particle_offset[p_a] + poffshift;
+        #if 0
+        const unsigned int n_neighbors = particle_offset[p_a+1] - particle_offset[p_a];
+        assert( n_neighbors%2 == 0 );
+        n_neighbors /= 2; // two values per neighbor
+        const unsigned int n_neighbors_sym = sym_nbh_count[p_a];
+        assert( /* n_neighbors_sym>=0 && */ n_neighbors_sym<=n_neighbors );
+        #endif
+        const unsigned int n_neighbors = Symmetric ? sym_nbh_count[p_a] : ( particle_offset[p_a+1] - particle_offset[p_a] );
+        stream = stream_base + particle_offset[p_a] + poffshift;
         
         const double* __restrict__ rx_b = nullptr; ONIKA_ASSUME_ALIGNED(rx_b);
         const double* __restrict__ ry_b = nullptr; ONIKA_ASSUME_ALIGNED(ry_b);
@@ -156,99 +164,47 @@ namespace exanb
           func(tab,cells,cell_a,p_a,ComputePairParticleContextStart{});
         }
 
-        int cell_groups = 1 + ( *(stream++) ); // number of cell groups for this neighbor list
-        int nchunks = 0;
-        int p_nbh_index = 0;
-        size_t cell_b = 0;
-        
-        while( cell_groups > 0 )
+        for(unsigned int p_nbh_index = 0; p_nbh_index<n_neighbors; p_nbh_index++ )
         {
+          const uint16_t cell_b_enc = stream[ p_nbh_index * 2 + 0 ];
+          const uint16_t p_b        = stream[ p_nbh_index * 2 + 1 ];
 
-          if( nchunks == 0 )
-          {
-            -- cell_groups;
-            if( cell_groups > 0 )
-            {
-              const uint16_t cell_b_enc = *(stream++);
-              assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
-              nchunks = *(stream++);
-              assert( nchunks > 0 );
-              if( Symmetric && cell_b_enc > GridChunkNeighbors::CELL_ENCODED_REL_COORD_0 ) break;
-              
-              const int rel_i = int( cell_b_enc & 31 ) - 16;
-              const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
-              const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
-              cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
-              
-              //if( Symmetric && cell_b > cell_a ) break;
-              //const unsigned int nbh_cell_particles = cells[cell_b].size();
-              rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
-              ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
-              rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
-            }
-          }
+          assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
+          const int rel_i = int( cell_b_enc & 31 ) - 16;
+          const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
+          const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
+          size_t cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
           
-          if( nchunks > 0 )
+          rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
+          ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
+          rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
+
+          const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
+          const double d2 = norm2(dr);
+          //bool sym_filter = ( cell_b<cell_a || cell_b==cell_a && p_b<p_a );
+          //assert( ( sym_filter && p_nbh_index<n_neighbors_sym ) || ( !sym_filter && p_nbh_index>=n_neighbors_sym ) );
+          if( d2>0.0 && d2 <= rcut2 /* && ( !Symmetric || sym_filter ) */ )
           {
-            const unsigned int p_b = static_cast<unsigned int>( *(stream++) );
-            -- nchunks;
-            if( Symmetric && cell_b == cell_a && p_b > p_a )
+#           define NBH_OPT_DATA_ARG optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx)
+            if constexpr ( use_compute_buffer )
             {
-/*
-              if( sym_half_offset!=nullptr )
+              tab.check_buffer_overflow();
+              if constexpr ( nbh_fields_count > 0 )
               {
-                auto half_sym_end = stream_base + sym_half_offset[p_a] + poffshift;
-                assert( half_sym_end >= stream );
+                compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
               }
-*/
-              break;
+              tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, NBH_OPT_DATA_ARG );
             }
-            const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
-            const double d2 = norm2(dr);
-            if( d2>0.0 && d2 <= rcut2 )
+            if constexpr ( ! use_compute_buffer )
             {
-#             define NBH_OPT_DATA_ARG optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx)
-              if constexpr ( use_compute_buffer )
-              {
-                tab.check_buffer_overflow();
-                if constexpr ( nbh_fields_count > 0 )
-                {
-                  compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
-                }
-                tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, NBH_OPT_DATA_ARG );
-              }
-              if constexpr ( ! use_compute_buffer )
-              {
-                if constexpr ( has_particle_ctx )
-                  func( tab, dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );
-                if constexpr ( !has_particle_ctx )
-                  func(      dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );                
-              }
-#             undef NBH_OPT_DATA_ARG
+              if constexpr ( has_particle_ctx )
+                func( tab, dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );
+              if constexpr ( !has_particle_ctx )
+                func(      dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );                
             }
-            ++ p_nbh_index;
-          }
-          
-        }
-        
-        if( Symmetric && particle_offset==nullptr )
-        {
-          if( cell_groups > 0 )
-          {
-            stream += nchunks;
-            -- cell_groups;
-            while( cell_groups > 0 )
-            {
-              stream++;
-              nchunks = *(stream++);
-              stream += nchunks;
-              -- cell_groups;
-            }
+#           undef NBH_OPT_DATA_ARG
           }
         }
-
-        // if( cell_groups == 0 ) avec cell_groups-- pour la boucle
-        // pareil pour chunk
 
         if constexpr ( use_compute_buffer )
         {
