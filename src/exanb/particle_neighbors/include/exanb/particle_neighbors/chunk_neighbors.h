@@ -23,6 +23,7 @@ under the License.
 #include <onika/memory/memory_partition.h>
 #include <onika/memory/memory_usage.h>
 #include <onika/cuda/cuda.h>
+#include <onika/integral_constant.h>
 
 #include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
 #include <exanb/core/basic_types_def.h>
@@ -136,7 +137,7 @@ namespace exanb
   template<bool Symmetric=false>
   struct GridChunkNeighborsLightWeightIt
   {
-    using is_symmetrical_t = std::integral_constant<bool,Symmetric>;
+    using is_symmetrical_t = onika::BoolConst<Symmetric>;
     GridChunkNeighborsData m_nbh_streams = nullptr;
     unsigned int m_chunk_size = 4;
     GridChunkNeighbors::EncodingStyle m_encoding_style = GridChunkNeighbors::CELL_GROUP_CHUNKS;

@@ -44,7 +44,7 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     onika::IntConst<1> CS,
-    std::integral_constant<bool,Symmetric> skip_symmetric_pairs,
+    onika::BoolConst<Symmetric> ,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,
     std::index_sequence<FieldIndex...> ,

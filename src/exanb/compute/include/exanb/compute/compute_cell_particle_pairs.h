@@ -60,7 +60,10 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
-      static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical;
+      using SymConstType = typename decltype(m_optional.nbh)::is_symmetrical_t;
+      static constexpr bool need_sym_const = ! std::is_same_v<NbhIterKindT, std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS_RAE> >;
+      const auto symmetrical = onika::GetAsConstTypeOrValue< SymConstType , need_sym_const >::value ;
+      
       static constexpr bool gpu_exec = onika::cuda::gpu_device_execution_t::value ;
       static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
 

@@ -21,6 +21,7 @@ under the License.
 
 #include <cstdint>
 #include <onika/memory/allocator.h>
+#include <onika/integral_constant.h>
 #include <type_traits>
 
 namespace exanb
@@ -43,7 +44,7 @@ namespace exanb
 
   struct GridSimpleParticleNeighbors
   {
-    using is_symmetrical_t = std::false_type;
+    using is_symmetrical_t = onika::BoolConst<false>;
     onika::memory::CudaMMVector< CellSimpleParticleNeighbors > m_cell_neighbors;
     inline size_t number_of_cells() const { return m_cell_neighbors.size(); }
   };

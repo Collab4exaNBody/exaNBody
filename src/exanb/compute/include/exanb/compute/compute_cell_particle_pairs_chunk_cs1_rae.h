@@ -23,6 +23,7 @@ under the License.
 
 namespace exanb
 {
+
   /************************************************
    *** Chunk neighbors traversal implementation ***
    ************************************************/
@@ -85,8 +86,6 @@ namespace exanb
     static constexpr onika::soatl::FieldId<_Ry> RY;
     static constexpr onika::soatl::FieldId<_Rz> RZ;
 
-    // assert( cells != nullptr );
-
     // cell filtering, allows user to give a selection function enabling or inhibiting cell processing
     if constexpr ( ! std::is_same_v< ComputePairTrivialCellFiltering , std::remove_reference_t<decltype(optional.cell_filter)> > )
     {
@@ -126,7 +125,7 @@ namespace exanb
 
     assert( particle_offset != nullptr );
     assert( !Symmetric || sym_nbh_count != nullptr );
-    
+
     unsigned int p_a = ONIKA_CU_THREAD_IDX;
 
     while( p_a < cell_a_particles )
@@ -139,20 +138,9 @@ namespace exanb
       
       if( p_a < cell_a_particles )
       {
-        #if 0
-        const unsigned int n_neighbors = particle_offset[p_a+1] - particle_offset[p_a];
-        assert( n_neighbors%2 == 0 );
-        n_neighbors /= 2; // two values per neighbor
-        const unsigned int n_neighbors_sym = sym_nbh_count[p_a];
-        assert( /* n_neighbors_sym>=0 && */ n_neighbors_sym<=n_neighbors );
-        #endif
         const unsigned int n_neighbors = Symmetric ? sym_nbh_count[p_a] : ( particle_offset[p_a+1] - particle_offset[p_a] );
         stream = stream_base + particle_offset[p_a] + poffshift;
         
-        const double* __restrict__ rx_b = nullptr; ONIKA_ASSUME_ALIGNED(rx_b);
-        const double* __restrict__ ry_b = nullptr; ONIKA_ASSUME_ALIGNED(ry_b);
-        const double* __restrict__ rz_b = nullptr; ONIKA_ASSUME_ALIGNED(rz_b);
-
         if constexpr ( use_compute_buffer )
         {
           tab.part = p_a;
@@ -175,15 +163,13 @@ namespace exanb
           const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
           size_t cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
           
-          rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
-          ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
-          rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
+          const auto * __restrict__ rx_b = cells[cell_b][RX]; 
+          const auto * __restrict__ ry_b = cells[cell_b][RY]; 
+          const auto * __restrict__ rz_b = cells[cell_b][RZ]; 
 
           const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
           const double d2 = norm2(dr);
-          //bool sym_filter = ( cell_b<cell_a || cell_b==cell_a && p_b<p_a );
-          //assert( ( sym_filter && p_nbh_index<n_neighbors_sym ) || ( !sym_filter && p_nbh_index>=n_neighbors_sym ) );
-          if( d2>0.0 && d2 <= rcut2 /* && ( !Symmetric || sym_filter ) */ )
+          if( d2>0.0 && d2 <= rcut2 )
           {
 #           define NBH_OPT_DATA_ARG optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx)
             if constexpr ( use_compute_buffer )

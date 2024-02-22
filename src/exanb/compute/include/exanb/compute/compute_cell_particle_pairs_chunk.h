@@ -42,7 +42,7 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     CST CS /*nbh_chunk_size*/,
-    std::integral_constant<bool,Symetric> ,
+    onika::BoolConst<Symetric> ,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,
     std::index_sequence<FieldIndex...> ,
