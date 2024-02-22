@@ -276,15 +276,20 @@ namespace exanb
           unsigned int num_offset_tables = 0;
           if( build_particle_offset )
           {
-            offset_table_size = n_particles_a * 2;
+            // first table has N+1 elements. it stores start offset of each particle's neighbor stream first is required to be 0, last will be total size of stream
+            offset_table_size = (n_particles_a+1) * 2; 
             num_offset_tables = 1;
+            // second table has N elements, it stores stream position where to stop/start to process half symmetric portion of neighbor list
             if( config.dual_particle_offset )
             {
-              offset_table_size *= 2;
+              offset_table_size += n_particles_a * 2; 
               num_offset_tables = 2;
             }
           }
-          ccnbh.assign( offset_table_size , 0 );
+          if( n_particles_a > 0 )
+          {
+            ccnbh.assign( offset_table_size , 0 );
+          }
 
           // build compact neighbor stream
           for(size_t p_a=0;p_a<n_particles_a;p_a++)
@@ -296,11 +301,11 @@ namespace exanb
               uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
               ccnbh[p_a*2+0] = offset ;
               ccnbh[p_a*2+1] = offset >> 16 ;
-              const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
+              [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
               assert( offset_table[p_a] == offset );
               assert( p_a!=0 || ( ccnbh[0]==num_offset_tables && ccnbh[1]==0 ) );
             }
-            
+           
             // *** remove potential duplicates ***
             
             // removed because we know chunks are sorted, due to construction method (order of neighbor cells and sub grid pairs)
@@ -329,7 +334,7 @@ namespace exanb
             for( const auto& nbh : cell_a_particle_nbh[p_a] )
             {
               assert( nbh.first >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );              
-              /*if( config.dual_particle_offset )
+              if( config.dual_particle_offset )
               {
                 const int rel_i = int( nbh.first & 31 ) - 16;
                 const int rel_j = int( (nbh.first>>5) & 31 ) - 16;
@@ -340,14 +345,14 @@ namespace exanb
                 {
                   assert( ccnbh.size() >= offset_table_size );
                   uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
-                  assert( p_a < n_particles_a );
-                  ccnbh[ ( n_particles_a + p_a * 2 ) + 0 ] = offset ;
-                  ccnbh[ ( n_particles_a + p_a * 2 ) + 1 ] = offset >> 16 ;
-                  const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
-                  assert( offset_table[n_particles_a+p_a] == offset );
+                  assert(( n_particles_a + 1 + p_a ) * 2 + 1 < offset_table_size );
+                  ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 0 ] = offset ;
+                  ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 1 ] = offset >> 16 ;
+                  [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() + ( n_particles_a + 1 ) * 2 );
+                  assert( offset_table[p_a] == offset );
                   dual_offset_added = true;
                 }
-              }*/
+              }
               if( nbh.first!=last_cell )
               {
                 // start a new neighbor cell chunk
@@ -362,17 +367,30 @@ namespace exanb
               ++ ccnbh[chunk_count_idx];
               ccnbh.push_back( nbh.second );
             }
-            /*if( config.dual_particle_offset && !dual_offset_added )
+            if( config.dual_particle_offset && !dual_offset_added )
             {
               assert( ccnbh.size() >= offset_table_size );
               uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
-              assert( p_a < n_particles_a );
-              ccnbh[ ( n_particles_a + p_a * 2 ) + 0 ] = offset ;
-              ccnbh[ ( n_particles_a + p_a * 2 ) + 1 ] = offset >> 16 ;
-              const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
-              assert( offset_table[n_particles_a+p_a] == offset );
+              assert(( n_particles_a + 1 + p_a ) * 2 + 1 < offset_table_size );
+              ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 0 ] = offset ;
+              ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 1 ] = offset >> 16 ;
+              [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() + ( n_particles_a + 1 ) * 2 );
+              assert( offset_table[p_a] == offset );
               dual_offset_added = true;
-            }*/
+            }
+          }
+
+          // optional stream indexing
+          // close main offset table with total size of stream.
+          // allows to calculate sub stream size for each particle
+          if( n_particles_a>0 && build_particle_offset )
+          {
+            assert( n_particles_a*2+1 < offset_table_size );
+            uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
+            ccnbh[n_particles_a*2+0] = offset ;
+            ccnbh[n_particles_a*2+1] = offset >> 16 ;
+            [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
+            assert( offset_table[n_particles_a] == offset );
           }
 
           uint16_t * output_stream = chunk_nbh.allocate( cell_a , ccnbh.size() );

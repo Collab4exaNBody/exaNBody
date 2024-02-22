@@ -123,7 +123,7 @@ namespace exanb
     const uint16_t* __restrict__ stream = stream_base;
     const uint32_t* __restrict__ particle_offset = stream_info.offset;
     const int32_t poffshift = stream_info.shift;
-    printf("poffshift=%d\n",poffshift);
+    //printf("poffshift=%d\n",poffshift);
 
     unsigned int p_a = ONIKA_CU_THREAD_IDX;
 
@@ -170,14 +170,16 @@ namespace exanb
             {
               const uint16_t cell_b_enc = *(stream++);
               assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
+              nchunks = *(stream++);
+              assert( nchunks > 0 );
+              if( Symmetric && cell_b_enc > GridChunkNeighbors::CELL_ENCODED_REL_COORD_0 ) break;
+              
               const int rel_i = int( cell_b_enc & 31 ) - 16;
               const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
               const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
               cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
               
-              nchunks = *(stream++);
-              assert( nchunks > 0 );
-              if( Symmetric && cell_b > cell_a ) break;
+              //if( Symmetric && cell_b > cell_a ) break;
               //const unsigned int nbh_cell_particles = cells[cell_b].size();
               rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
               ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);

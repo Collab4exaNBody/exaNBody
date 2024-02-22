@@ -42,6 +42,7 @@ namespace exanb
   struct GridChunkNeighbors
   {  
     static inline constexpr unsigned int MAX_STREAM_OFFSET_TABLES = 2;
+    static inline constexpr uint16_t CELL_ENCODED_REL_COORD_0 = ( ( ( 16 << 5 ) + 16 ) << 5 ) + 16;
   
     onika::memory::MemoryPartionnerMT m_fixed_stream_pool = {};
     onika::memory::CudaMMVector<uint16_t *> m_cell_stream;
@@ -163,19 +164,24 @@ namespace exanb
   {
     const uint16_t* stream = nullptr;
     const uint32_t* offset = nullptr;
-    //const uint32_t* dual_offset = nullptr;
+    const uint32_t* dual_offset = nullptr;
     int32_t shift = 0;
   };
   
   ONIKA_HOST_DEVICE_FUNC inline ChunkNeighborsStreamInfo chunknbh_stream_info(const uint16_t* stream , int32_t n_particles )
   {
-    if(stream==nullptr || n_particles==0) return { nullptr , nullptr , 0 };
+    if(stream==nullptr || n_particles==0) return { nullptr , nullptr , nullptr , 0 };
     if( stream[0] <= GridChunkNeighbors::MAX_STREAM_OFFSET_TABLES && stream[1] == 0 )
     {
       const int num_offset_tables = stream[0];
-      return { stream + n_particles*2*num_offset_tables , reinterpret_cast<const uint32_t*>(stream) , -num_offset_tables };
+      const int offset_table_size = ( num_offset_tables >= 1 ) ? ( ( n_particles * num_offset_tables + 1 ) * 2 ) : 0 ;
+      return {
+        stream + offset_table_size , 
+        reinterpret_cast<const uint32_t*>(stream) , 
+        ( num_offset_tables >= 2 ) ? ( reinterpret_cast<const uint32_t*>(stream) + n_particles + 1 ) : nullptr ,
+        - num_offset_tables };
     }
-    return { stream , nullptr , 0 };
+    return { stream , nullptr , nullptr , 0 };
   }
 
   ONIKA_HOST_DEVICE_FUNC inline const uint16_t* chunknbh_stream_to_next_particle(const uint16_t* stream , unsigned int chunk, unsigned int nchunks , unsigned int cg , unsigned int cell_groups )
