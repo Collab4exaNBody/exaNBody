@@ -128,8 +128,21 @@ namespace onika
         execute_prolog( pec , pes );
 #       pragma omp parallel
         {
-#         pragma omp for schedule(dynamic)
-          for(uint64_t i=0;i<N;i++) { m_func( i ); }
+          switch( pec->m_omp_sched )
+          {
+            case OMP_SCHED_DYNAMIC :
+#           pragma omp for schedule(dynamic)
+            for(uint64_t i=0;i<N;i++) { m_func( i ); }
+            break;
+            case OMP_SCHED_GUIDED :
+#           pragma omp for schedule(guided)
+            for(uint64_t i=0;i<N;i++) { m_func( i ); }
+            break;
+            case OMP_SCHED_STATIC :
+#           pragma omp for schedule(static)
+            for(uint64_t i=0;i<N;i++) { m_func( i ); }
+            break;
+          }
         }
         execute_epilog( pec , pes );
         pec->m_total_cpu_execution_time = ( std::chrono::high_resolution_clock::now() - T0 ).count() / 1000000.0;

@@ -20,7 +20,6 @@ under the License.
 #pragma once
 
 #include <exanb/particle_neighbors/chunk_neighbors.h>
-#include <exanb/particle_neighbors/simple_particle_neighbors.h>
 
 #include <exanb/compute/compute_pair_buffer.h>
 #include <exanb/compute/compute_pair_optional_args.h>
@@ -64,27 +63,6 @@ namespace exanb
     using NbhTuple = typename ComputeBufferT::NbhFieldTuple;
     tab.nbh_pt[tab.count] = NbhTuple { cells[cell_b][nbh_fields.get(onika::tuple_index_t<FieldIndex>{})][p_b] ... };
   }
-
-  enum class NbhIteratorKind
-  {
-    CHUNK_NEIGHBORS ,
-    CHUNK_NEIGHBORS_RAE ,
-    SIMPLE_CELL_INDEX ,
-    UNKNOWN
-  };
-
-  template<class NbhIteratorT> struct NbhIteratorTraits
-  {
-    static inline constexpr NbhIteratorKind kind = NbhIteratorKind::UNKNOWN;
-  };
-  template<bool SYM> struct NbhIteratorTraits< GridChunkNeighborsLightWeightIt<SYM> >
-  {
-    static inline constexpr NbhIteratorKind kind = NbhIteratorKind::CHUNK_NEIGHBORS;
-  };
-  template<> struct NbhIteratorTraits< GridSimpleParticleNeighbors >
-  {
-    static inline constexpr NbhIteratorKind kind = NbhIteratorKind::SIMPLE_CELL_INDEX;
-  };
 
 }
 

@@ -47,13 +47,10 @@ namespace exanb
     onika::BoolConst<Symmetric> ,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,
-    std::index_sequence<FieldIndex...> ,
-    std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {}
+    std::index_sequence<FieldIndex...>
     )
   {
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
-
-    static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS );
     static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
 
     using exanb::chunknbh_stream_to_next_particle;

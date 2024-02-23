@@ -104,6 +104,7 @@ namespace YAML
         return false;
       }
 
+/*
       std::cout << "chunk_size             = " << v.chunk_size <<std::endl;
       std::cout << "scratch_mem_per_cell   = " << v.scratch_mem_per_cell <<std::endl;
       std::cout << "stream_prealloc_factor = " << v.stream_prealloc_factor <<std::endl;
@@ -114,7 +115,7 @@ namespace YAML
       std::cout << "subcell_compaction     = " << v.subcell_compaction <<std::endl;
       std::cout << "half_symmetric         = " << v.half_symmetric <<std::endl;
       std::cout << "skip_ghosts            = " << v.skip_ghosts <<std::endl;
-
+*/
       return true;
     }    
   };  

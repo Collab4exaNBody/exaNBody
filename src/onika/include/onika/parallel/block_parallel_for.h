@@ -49,6 +49,7 @@ namespace onika
       size_t return_data_size = 0;
       bool enable_gpu = true;
       bool fixed_gpu_grid_size = false;
+      OMPScheduling omp_scheduling = OMP_SCHED_DYNAMIC;
     };
 
     template< class FuncT >
@@ -70,6 +71,7 @@ namespace onika
                  , return_data_size 
                  , enable_gpu
                  , fixed_gpu_grid_size
+                 , omp_scheduling
                  ] = opts;
 
       // construct virtual functor adapter inplace, using reserved functor space
@@ -79,6 +81,7 @@ namespace onika
 
       pec->m_execution_end_callback = user_cb;
       pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
+      pec->m_omp_sched = omp_scheduling;
     
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
@@ -116,9 +119,8 @@ namespace onika
       // ================== CPU / OpenMP execution path ====================
       pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
       return {pec};
-
     }
-    
+
   }
 
 }

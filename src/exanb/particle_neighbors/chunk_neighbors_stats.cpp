@@ -49,16 +49,7 @@ namespace exanb
     {
       if( !grid.has_value() ) { return; }
       if( grid->number_of_particles()==0 ) { return; }
-    
-      if( chunk_neighbors->m_encoding_style != GridChunkNeighbors::CELL_GROUP_CHUNKS )
-      {
-        lout << "===== Chunk Neighbors stats =====" << std::fixed << std::setprecision(2) << std::endl;
-	      lout << "Chunk size             = "<< chunk_neighbors->m_chunk_size <<std::endl;
-	      lout << "other stats not available"<<std::endl;
-        lout << "=================================" << std::defaultfloat << std::endl;
-        return;
-      }
-    
+        
       size_t cs = chunk_neighbors->m_chunk_size;
       size_t cs_log2 = 0;
       while( cs > 1 )

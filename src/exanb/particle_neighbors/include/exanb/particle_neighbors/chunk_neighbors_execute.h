@@ -412,9 +412,6 @@ namespace exanb
         chunk_neighbors_scratch.thread.shrink_to_fit();
       }
 
-      // tell what king of encoding has been used
-      chunk_neighbors.m_encoding_style = config.random_access ? GridChunkNeighbors::RANDOM_ACCESS_NBH : GridChunkNeighbors::CELL_GROUP_CHUNKS ;
-
       chunk_neighbors.update_stream_pool_hint();
       ldbg << "Chunk neighbors next pre-alloc hint = "<<chunk_neighbors.m_stream_pool_hint <<", nb dyn alloc = "<<chunk_neighbors.m_nb_dyn_alloc<<std::endl;
     }

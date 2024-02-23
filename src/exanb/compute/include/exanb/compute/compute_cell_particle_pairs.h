@@ -21,8 +21,6 @@ under the License.
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <exanb/compute/compute_cell_particle_pairs_chunk.h>
 #include <exanb/compute/compute_cell_particle_pairs_chunk_cs1.h>
-#include <exanb/compute/compute_cell_particle_pairs_chunk_cs1_rae.h>
-#include <exanb/compute/compute_cell_particle_pairs_simple.h>
 
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
@@ -34,11 +32,11 @@ under the License.
 
 namespace exanb
 {
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class NbhIterKindT, class IndexSequence>
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class IndexSequence>
   struct ComputeParticlePairFunctor;
  
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class NbhIterKindT, size_t ... FieldIndex >
-  struct ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,NbhIterKindT, std::index_sequence<FieldIndex...> >
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, size_t ... FieldIndex >
+  struct ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT, std::index_sequence<FieldIndex...> >
   {
     static_assert( FieldAccTupleT::size() == sizeof...(FieldIndex) );
 
@@ -60,10 +58,7 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
-      using SymConstType = typename decltype(m_optional.nbh)::is_symmetrical_t;
-      static constexpr bool need_sym_const = ! std::is_same_v<NbhIterKindT, std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS_RAE> >;
-      const auto symmetrical = onika::GetAsConstTypeOrValue< SymConstType , need_sym_const >::value ;
-      
+      static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
       static constexpr bool gpu_exec = onika::cuda::gpu_device_execution_t::value ;
       static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
 
@@ -78,8 +73,7 @@ namespace exanb
       compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2
                                       , m_cpbuf_factory, m_optional, m_func
                                       , m_cpfields, m_cs, symmetrical, m_posfields
-                                      , prefer_compute_buffer, std::index_sequence<FieldIndex...>{}
-                                      , NbhIterKindT{} );
+                                      , prefer_compute_buffer, std::index_sequence<FieldIndex...>{} );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
   };
@@ -90,8 +84,8 @@ namespace onika
 {
   namespace parallel
   {
-    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class NbhIterKindT, class ISeq>
-    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,NbhIterKindT,ISeq> >
+    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class ISeq>
+    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,ISeq> >
     {
       static inline constexpr bool CudaCompatible = exanb::compute_pair_traits::cuda_compatible_v<FuncT>;
     };
@@ -101,9 +95,9 @@ namespace onika
 namespace exanb
 {
 
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class NbhIterKindT>
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT>
   static inline
-  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,NbhIterKindT,std::make_index_sequence<FieldAccTupleT::size()> > 
+  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,std::make_index_sequence<FieldAccTupleT::size()> > 
   make_compute_particle_pair_functor(
       CellsT cells
     , GridCellComputeProfiler cell_profiler
@@ -116,7 +110,6 @@ namespace exanb
     , const FieldAccTupleT& cpfields
     , const PosFieldsT& posfields
     , CSizeT cs
-    , NbhIterKindT
     )
   {
     return {cells,cell_profiler,grid_dims,ghost_layers,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs};
@@ -166,39 +159,18 @@ namespace exanb
 
     auto cellprof = grid.cell_profiler();
     CellsAccessorT cells = { grid.cells() };
-    
-    static constexpr bool has_rae_support = true;
-    static constexpr bool has_seq_support = true;
-    
-    if constexpr( NbhIteratorTraits<typename OptionalArgsT::nbh_iterator_t>::kind == NbhIteratorKind::CHUNK_NEIGHBORS )
-    {
-      std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {};
-      std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS_RAE> nbh_kind_rae = {};
-    
-#     define _XNB_CHUNK_NEIGHBORS_CCPP(CS) \
-        { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
-          using CSType = std::remove_cv_t< std::remove_reference_t<decltype(cs)> >;\
-          if constexpr ( std::is_same_v<CSType,onika::UIntConst<1> > && !requires_block_synchronous_call ) \
-          { \
-            if constexpr ( has_rae_support ) if( optional.nbh.m_encoding_style == GridChunkNeighbors::RANDOM_ACCESS_NBH ) \
-              return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs,nbh_kind_rae), exec_ctx ); \
-            if constexpr ( has_seq_support ) if( optional.nbh.m_encoding_style == GridChunkNeighbors::CELL_GROUP_CHUNKS ) \
-              return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs,nbh_kind)    , exec_ctx ); \
-          } \
-          else if ( cs == optional.nbh.m_chunk_size && optional.nbh.m_encoding_style == GridChunkNeighbors::CELL_GROUP_CHUNKS ) /* RAE only supported by CS1 specialization by now */ \
-            return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs,nbh_kind) , exec_ctx ); \
-        }
-      XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )
-#     undef _XNB_CHUNK_NEIGHBORS_CCPP
-      fatal_error()<< "compute_cell_particle_pairs: neighbors configuration not supported : chunk_size=" << optional.nbh.m_chunk_size << " , encoding=" << GridChunkNeighbors::encoding_style_string(optional.nbh.m_encoding_style) <<std::endl;
+        
+#   define _XNB_CHUNK_NEIGHBORS_CCPP(CS) \
+    { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
+      using CSType = std::remove_cv_t< std::remove_reference_t<decltype(cs)> >;\
+      if constexpr ( std::is_same_v<CSType,onika::UIntConst<1> > && !requires_block_synchronous_call ) \
+          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs)    , exec_ctx ); \
+      else if ( cs == optional.nbh.m_chunk_size ) \
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx ); \
     }
-
-    if constexpr ( NbhIteratorTraits<typename OptionalArgsT::nbh_iterator_t>::kind == NbhIteratorKind::SIMPLE_CELL_INDEX )
-    {
-      std::integral_constant<NbhIteratorKind,NbhIteratorKind::SIMPLE_CELL_INDEX> nbh_kind = {};
-      return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,onika::IntConst<0>{},nbh_kind) , exec_ctx );
-    }
-
+    XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )
+#   undef _XNB_CHUNK_NEIGHBORS_CCPP
+    fatal_error()<< "compute_cell_particle_pairs: neighbors configuration not supported : chunk_size=" << optional.nbh.m_chunk_size <<std::endl;
     return {};
   }
 

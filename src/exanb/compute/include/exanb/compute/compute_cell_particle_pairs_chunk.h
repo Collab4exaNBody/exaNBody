@@ -45,12 +45,8 @@ namespace exanb
     onika::BoolConst<Symetric> ,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,
-    std::index_sequence<FieldIndex...> ,
-    std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {}
-    )
+    std::index_sequence<FieldIndex...> )
   {
-    static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS );
-
     using exanb::chunknbh_stream_to_next_particle;
     using exanb::chunknbh_stream_info;
     using exanb::decode_cell_index;
