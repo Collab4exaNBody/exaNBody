@@ -22,27 +22,29 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/particle_id_codec.h>
 #include <onika/memory/allocator.h>
 
 #include <exanb/particle_neighbors/chunk_neighbors.h>
 #include <exanb/particle_neighbors/chunk_neighbors_iterator.h>
 
-#include <iomanip>
-#include <mpi.h>
-
 namespace exanb
 {
-  
+  template<class _NeighborOffsetT = uint64_t , class _ParticleIndexT = uint32_t >
+  struct FlatPartNbhList
+  {
+    using NeighborOffset = _NeighborOffsetT;
+    using ParticleIndex = _ParticleIndexT;
+    onika::memory::CudaMMVector< NeighborOffset > m_neighbor_offset; // size = number of particles + 1 , ast one is the total size
+    onika::memory::CudaMMVector< ParticleIndex > m_neighbor_list;
+  };
 
   template<typename GridT>
-  class ChunkNeighborsStats : public OperatorNode
+  class ChunkNeighbors2FlatParticleLists : public OperatorNode
   {
-    ADD_SLOT( MPI_Comm           , mpi             , INPUT , MPI_COMM_WORLD  );
     ADD_SLOT( GridT              , grid            , INPUT , REQUIRED );
-    ADD_SLOT( GridChunkNeighbors , chunk_neighbors , INPUT , GridChunkNeighbors{} );
+    ADD_SLOT( GridChunkNeighbors , chunk_neighbors , INPUT , REQUIRED );
     ADD_SLOT( double             , nbh_dist        , INPUT , 0.0 );
-    ADD_SLOT( bool               , ghost           , INPUT , false );
+    ADD_SLOT( FlatPartNbhList    , flat_nbh_list   , INPUT_OUTPUT );
 
   public:
     inline void execute () override final
@@ -50,140 +52,92 @@ namespace exanb
       if( !grid.has_value() ) { return; }
       if( grid->number_of_particles()==0 ) { return; }
         
-      size_t cs = chunk_neighbors->m_chunk_size;
-      size_t cs_log2 = 0;
-      while( cs > 1 )
-      {
-        assert( (cs&1)==0 );
-        cs = cs >> 1;
-        ++ cs_log2;
-      }
-      cs = chunk_neighbors->m_chunk_size;
-      ldbg << "cs="<<cs<<", log2(cs)="<<cs_log2<<std::endl;
+      ldbg << "cs="<< chunk_neighbors->m_chunk_size <<std::endl;
 
       IJK dims = grid->dimension();
-      unsigned long long total_nbh = 0;
-      unsigned long long total_nbh_d2 = 0;
-      //size_t total_nbh_chunk = 0;
-      unsigned long long total_nbh_cells = 0;
-      unsigned long long total_particles = grid->number_of_particles();
-      
-      unsigned long long nbh_d2_min = total_particles;
-      unsigned long long nbh_d2_max = 0;
 
-      unsigned long long nbh_min = total_particles;
-      unsigned long long nbh_max = 0;
-      total_particles = 0;
+      uint64_t total_particles = grid->number_of_particles();
+      uint64_t total_nbh_count = 0;
 
       auto cells = grid->cells();
       using CellT = std::remove_cv_t< std::remove_reference_t< decltype(cells[0]) > >;
       ChunkParticleNeighborsIterator<CellT> chunk_nbh_it_in = { grid->cells() , chunk_neighbors->data() , dims , chunk_neighbors->m_chunk_size };
-
       const double nbh_d2 = (*nbh_dist) * (*nbh_dist) ;
-      double nbh_min_dist = std::numeric_limits<double>::max();
-      double nbh_max_dist = 0.;
+
+      flat_nbh_list->m_neighbor_offset.assign( total_particles + 1 , 0 );
+      auto * __restrict__ particle_nbh_count = flat_nbh_list->m_neighbor_offset.data();
+      const auto * __restrict__ cell_particle_offset = grid->particle_offset_data();
 
 #     pragma omp parallel
       {
         auto chunk_nbh_it = chunk_nbh_it_in;
-
-        GRID_OMP_FOR_BEGIN(dims,cell_a,loc_a, schedule(dynamic) \
-                                              reduction(+:total_particles,total_nbh,total_nbh_d2,total_nbh_cells) \
-                                              reduction(min:nbh_d2_min,nbh_min,nbh_min_dist) \
-                                              reduction(max:nbh_d2_max,nbh_max,nbh_max_dist) )
+        GRID_OMP_FOR_BEGIN(dims,cell_a,loc_a, schedule(dynamic) )
         {
           // std::cout<<"dims="<<dims<<" cell_a="<<cell_a<<" loc_a="<<loc_a<<std::endl;
-          size_t n_particles_a = cells[cell_a].size();
           const double* __restrict__ rx_a = cells[cell_a][field::rx];
           const double* __restrict__ ry_a = cells[cell_a][field::ry];
           const double* __restrict__ rz_a = cells[cell_a][field::rz];
-
-          const double* __restrict__ rx_b = nullptr; 
-          const double* __restrict__ ry_b = nullptr;
-          const double* __restrict__ rz_b = nullptr;
-
-          // decode compacted chunks
+          const size_t n_particles_a = cells[cell_a].size();
           chunk_nbh_it.start_cell( cell_a , n_particles_a );
           for(size_t p_a=0;p_a<n_particles_a;p_a++)
           {
-            if( (*ghost) ||  ! grid->is_ghost_cell(loc_a) )
-            {
-              ++ total_particles;
-            }
-            //size_t total_nbh_before = total_nbh;
-            unsigned long long p_a_nbh_d2 = 0;
-            unsigned long long p_a_nbh = 0;
             chunk_nbh_it.start_particle( p_a );
-            size_t last_cell = std::numeric_limits<size_t>::max();
             while( ! chunk_nbh_it.end() )
             {
               size_t cell_b=0, p_b=0;
               chunk_nbh_it.get_nbh( cell_b , p_b );
-              //std::cout<<"C"<<cell_a<<"P"<<p_a<<" -> C"<<cell_b<<"P"<<p_b<<std::endl;
-              if( cell_b != last_cell )
-              {
-                rx_b = cells[cell_b][field::rx];
-                ry_b = cells[cell_b][field::ry];
-                rz_b = cells[cell_b][field::rz];
-                last_cell = cell_b;
-                if( (*ghost) || ! grid->is_ghost_cell(loc_a) )
-                {
-                  ++ total_nbh_cells;
-                }
-              }
-              
-              const double dx = rx_b[p_b] - rx_a[p_a];
-              const double dy = ry_b[p_b] - ry_a[p_a];
-              const double dz = rz_b[p_b] - rz_a[p_a];
-              const double d2 = dx*dx+dy*dy+dz*dz;
-              nbh_min_dist = std::min( nbh_min_dist , sqrt(d2) );
-              nbh_max_dist = std::max( nbh_max_dist , sqrt(d2) );
-              ++ p_a_nbh;
-              if( d2 <= nbh_d2 ) { ++ p_a_nbh_d2; }
-              
+              const Vec3d dr = { cells[cell_b][field::rx][p_b] - rx_a[p_a] , cells[cell_b][field::ry][p_b] - ry_a[p_a] , cells[cell_b][field::rz][p_b] - rz_a[p_a] };
+              if( norm2(dr) <= nbh_d2 ) ++ particle_nbh_count[ cell_particle_offset[cell_a] + p_a + 1 ];
               chunk_nbh_it.next();
             }
-                        
-            if( (*ghost) ||  ! grid->is_ghost_cell(loc_a) )
-            {
-              total_nbh_d2 += p_a_nbh_d2;
-              total_nbh += p_a_nbh;
-
-              nbh_d2_min = std::min( nbh_d2_min , p_a_nbh_d2 );
-              nbh_d2_max = std::max( nbh_d2_max , p_a_nbh_d2 );
-
-              nbh_min = std::min( nbh_min , p_a_nbh );
-              nbh_max = std::max( nbh_min , p_a_nbh );
-            }
-          }
-                    
+          }               
         }
         GRID_OMP_FOR_END
       }
+      
+      for(size_t i=1;i<=total_particles;i++) particle_nbh_count[i] += particle_nbh_count[i-1];
+      total_nbh_count = particle_nbh_count[total_particles];
+      ldbg << "total_particles="<<total_particles<<" , total_nbh_count="<<total_nbh_count<<std::endl;
+      
+      using ParticleIndex = typename FlatPartNbhList::ParticleIndex;
+      flat_nbh_list->m_neighbor_list.assign( total_nbh_count , std::numeric_limits<ParticleIndex>::max() );
+      auto * __restrict__ neighbor_list = flat_nbh_list->m_neighbor_list.data();
 
-      MPI_Allreduce(MPI_IN_PLACE,&total_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&total_nbh,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&total_nbh_d2,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&total_nbh_cells,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-
-      MPI_Allreduce(MPI_IN_PLACE,&nbh_d2_min,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&nbh_min,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&nbh_min_dist,1,MPI_DOUBLE,MPI_MIN,*mpi);
-
-      MPI_Allreduce(MPI_IN_PLACE,&nbh_d2_max,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&nbh_max,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
-      MPI_Allreduce(MPI_IN_PLACE,&nbh_max_dist,1,MPI_DOUBLE,MPI_MAX,*mpi);
-
-      lout << "===== Chunk Neighbors stats =====" << std::fixed << std::setprecision(2) << std::endl;
-	    lout << "Chunk size             = "<<cs <<std::endl;
-      lout << "Particles              = "<<total_particles<<std::endl;
-      if(total_particles>0) lout << "Nbh cells (tot./avg)   = "<< total_nbh_cells <<" / "<< (total_nbh_cells*1.0/total_particles) <<std::endl;
-      lout << "Neighbors (chunk/<d)   = "<<total_nbh <<" / "<<total_nbh_d2 << std::endl;
-	    if(total_nbh>0) lout << "<d / chunk ratio       = " << (total_nbh_d2*100/total_nbh)*0.01 << " , storage eff. = "<< (total_nbh_d2*1.0/total_nbh)*cs <<std::endl;
-      if(total_particles>0) lout << "Avg nbh (chunk/<d)     = "<< (total_nbh*1.0/total_particles) <<" / "<< (total_nbh_d2*1.0/total_particles) <<std::endl;
-      lout << "min [chunk;<d] / Max [chunk;<d] = ["<< nbh_min<<";"<<nbh_d2_min <<"] / ["<< nbh_max <<";"<<nbh_d2_max<<"]"  <<std::endl;
-	    if(total_nbh>0) lout << "distance : min / max   = " << nbh_min_dist << " / "<< nbh_max_dist << std::endl;
-      lout << "=================================" << std::defaultfloat << std::endl;
+#     pragma omp parallel
+      {
+        auto chunk_nbh_it = chunk_nbh_it_in;
+        GRID_OMP_FOR_BEGIN(dims,cell_a,loc_a, schedule(dynamic) )
+        {
+          // std::cout<<"dims="<<dims<<" cell_a="<<cell_a<<" loc_a="<<loc_a<<std::endl;
+          const double* __restrict__ rx_a = cells[cell_a][field::rx];
+          const double* __restrict__ ry_a = cells[cell_a][field::ry];
+          const double* __restrict__ rz_a = cells[cell_a][field::rz];
+          const size_t n_particles_a = cells[cell_a].size();
+          chunk_nbh_it.start_cell( cell_a , n_particles_a );
+          for(size_t p_a=0;p_a<n_particles_a;p_a++)
+          {
+            chunk_nbh_it.start_particle( p_a );
+            while( ! chunk_nbh_it.end() )
+            {
+              size_t cell_b=0, p_b=0;
+              chunk_nbh_it.get_nbh( cell_b , p_b );
+              const Vec3d dr = { cells[cell_b][field::rx][p_b] - rx_a[p_a] , cells[cell_b][field::ry][p_b] - ry_a[p_a] , cells[cell_b][field::rz][p_b] - rz_a[p_a] };
+              if( norm2(dr) <= nbh_d2 )
+              {
+                const size_t pa_idx = cell_particle_offset[cell_a] + p_a;
+                const size_t pb_idx = cell_particle_offset[cell_b] + p_b;
+                neighbor_list[ particle_nbh_count[pa_idx] ++ ] = pb_idx;
+              }
+              chunk_nbh_it.next();
+            }
+          }               
+        }
+        GRID_OMP_FOR_END
+      }
+      
+      ParticleIndex latch = 0;
+      for(size_t i=0;i<total_particles;i++) std::swap( particle_nbh_count[i] , latch );
+      assert( latch == particle_nbh_count[total_particles] );
     }
   
   };
@@ -191,7 +145,7 @@ namespace exanb
   // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-   OperatorNodeFactory::instance()->register_factory("chunk_neighbors_stats", make_grid_variant_operator< ChunkNeighborsStats > );
+   OperatorNodeFactory::instance()->register_factory("chunk_neighbors_to_flat_neighbors", make_grid_variant_operator< ChunkNeighbors2FlatParticleLists > );
   }
 
 }
