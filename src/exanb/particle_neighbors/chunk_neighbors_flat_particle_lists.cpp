@@ -136,7 +136,8 @@ namespace exanb
         GRID_OMP_FOR_END
       }
       
-      auto latch = particle_nbh_count[0]; latch=0;
+      using NeighborOffset = typename FlatPartNbhList::NeighborOffset;
+      NeighborOffset latch=0;
       for(size_t i=0;i<total_particles;i++) std::swap( particle_nbh_count[i] , latch );
       assert( latch == particle_nbh_count[total_particles] );
     }
