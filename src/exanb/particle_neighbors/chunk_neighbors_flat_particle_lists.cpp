@@ -30,13 +30,14 @@ under the License.
 namespace exanb
 {
   template<class _NeighborOffsetT = uint64_t , class _ParticleIndexT = uint32_t >
-  struct FlatPartNbhList
+  struct FlatPartNbhListT
   {
     using NeighborOffset = _NeighborOffsetT;
     using ParticleIndex = _ParticleIndexT;
     onika::memory::CudaMMVector< NeighborOffset > m_neighbor_offset; // size = number of particles + 1 , ast one is the total size
     onika::memory::CudaMMVector< ParticleIndex > m_neighbor_list;
   };
+  using FlatPartNbhList = FlatPartNbhListT<>;
 
   template<typename GridT>
   class ChunkNeighbors2FlatParticleLists : public OperatorNode
@@ -66,7 +67,7 @@ namespace exanb
 
       flat_nbh_list->m_neighbor_offset.assign( total_particles + 1 , 0 );
       auto * __restrict__ particle_nbh_count = flat_nbh_list->m_neighbor_offset.data();
-      const auto * __restrict__ cell_particle_offset = grid->particle_offset_data();
+      const auto * __restrict__ cell_particle_offset = grid->cell_particle_offset_data();
 
 #     pragma omp parallel
       {
@@ -135,7 +136,7 @@ namespace exanb
         GRID_OMP_FOR_END
       }
       
-      ParticleIndex latch = 0;
+      auto latch = particle_nbh_count[0]; latch=0;
       for(size_t i=0;i<total_particles;i++) std::swap( particle_nbh_count[i] , latch );
       assert( latch == particle_nbh_count[total_particles] );
     }
