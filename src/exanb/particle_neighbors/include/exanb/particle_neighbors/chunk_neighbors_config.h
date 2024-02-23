@@ -86,7 +86,7 @@ namespace YAML
         v.chunk_size = 1;
       }
       
-      const int VARIMPL = v.chunk_size;
+      [[maybe_unused]] const unsigned int VARIMPL = v.chunk_size;
       int nearest = -1;
 #     define _XNB_CHUNK_NEIGHBORS_CS_NEAREST( CS ) if( std::abs(int(v.chunk_size)-CS) < std::abs(int(v.chunk_size)-nearest) ) nearest = CS;
       XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CS_NEAREST )

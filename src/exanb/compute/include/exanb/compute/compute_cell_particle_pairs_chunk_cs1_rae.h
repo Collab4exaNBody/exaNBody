@@ -43,7 +43,7 @@ namespace exanb
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
-    onika::IntConst<1> CS,
+    onika::UIntConst<1> CS,
     bool Symmetric,
     PosFieldsT ,
     onika::BoolConst<PreferComputeBuffer> ,

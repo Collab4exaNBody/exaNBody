@@ -29,12 +29,12 @@ under the License.
 #define _XNB_CHUNK_NEIGHBORS_CS_CASE_VARIMPL default
 
 #define XNB_CHUNK_NEIGHBORS_CS_VAR(CS,VAR,IN)  _XNB_CHUNK_NEIGHBORS_CS_VAR_##CS (VAR,IN)
-#define _XNB_CHUNK_NEIGHBORS_CS_VAR_1(VAR,IN)   static constexpr onika::IntConst<1> VAR = {}
-#define _XNB_CHUNK_NEIGHBORS_CS_VAR_2(VAR,IN)   static constexpr onika::IntConst<2> VAR = {}
-#define _XNB_CHUNK_NEIGHBORS_CS_VAR_4(VAR,IN)   static constexpr onika::IntConst<4> VAR = {}
-#define _XNB_CHUNK_NEIGHBORS_CS_VAR_8(VAR,IN)   static constexpr onika::IntConst<8> VAR = {}
-#define _XNB_CHUNK_NEIGHBORS_CS_VAR_16(VAR,IN)  static constexpr onika::IntConst<16> VAR = {}
-#define _XNB_CHUNK_NEIGHBORS_CS_VAR_VARIMPL(VAR,IN) const int VAR = IN
+#define _XNB_CHUNK_NEIGHBORS_CS_VAR_1(VAR,IN)   static constexpr onika::UIntConst<1> VAR = {}
+#define _XNB_CHUNK_NEIGHBORS_CS_VAR_2(VAR,IN)   static constexpr onika::UIntConst<2> VAR = {}
+#define _XNB_CHUNK_NEIGHBORS_CS_VAR_4(VAR,IN)   static constexpr onika::UIntConst<4> VAR = {}
+#define _XNB_CHUNK_NEIGHBORS_CS_VAR_8(VAR,IN)   static constexpr onika::UIntConst<8> VAR = {}
+#define _XNB_CHUNK_NEIGHBORS_CS_VAR_16(VAR,IN)  static constexpr onika::UIntConst<16> VAR = {}
+#define _XNB_CHUNK_NEIGHBORS_CS_VAR_VARIMPL(VAR,IN) const unsigned int VAR = IN
 
 #undef XNB_COMMA // don't care about multiple definitions
 #define XNB_COMMA ,

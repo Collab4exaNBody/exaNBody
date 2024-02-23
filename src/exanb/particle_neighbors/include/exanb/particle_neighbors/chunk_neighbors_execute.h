@@ -345,7 +345,7 @@ namespace exanb
                 const int rel_i = int( nbh.first & 31 ) - 16;
                 const int rel_j = int( (nbh.first>>5) & 31 ) - 16;
                 const int rel_k = int( (nbh.first>>10) & 31 ) - 16;
-                size_t cell_b = cell_a + ( ( ( rel_k * dims.j ) + rel_j ) * dims.i + rel_i );
+                ssize_t cell_b = cell_a + ( ( ( rel_k * dims.j ) + rel_j ) * dims.i + rel_i );
                 size_t p_b = int(nbh.second) << cs_log2;
                 if( cell_b<cell_a || ( cell_b==cell_a && p_b<p_a ) )
                 {
