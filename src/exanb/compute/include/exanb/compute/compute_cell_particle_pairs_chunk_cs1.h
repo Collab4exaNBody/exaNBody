@@ -45,7 +45,7 @@ namespace exanb
     const FieldAccTupleT& cp_fields ,
     onika::UIntConst<1> CS,
     onika::BoolConst<Symmetric> ,
-    PosFieldsT ,
+    PosFieldsT pos_fields,
     onika::BoolConst<PreferComputeBuffer> ,
     std::index_sequence<FieldIndex...>
     )
@@ -73,12 +73,9 @@ namespace exanb
 
     using ComputePairBufferT = std::conditional_t< use_compute_buffer || has_particle_ctx || has_particle_start || has_particle_stop, typename ComputePairBufferFactoryT::ComputePairBuffer , onika::BoolConst<false> >;
         
-    using _Rx = typename PosFieldsT::Rx;
-    using _Ry = typename PosFieldsT::Ry;
-    using _Rz = typename PosFieldsT::Rz;
-    static constexpr onika::soatl::FieldId<_Rx> RX;
-    static constexpr onika::soatl::FieldId<_Ry> RY;
-    static constexpr onika::soatl::FieldId<_Rz> RZ;
+    const auto RX = pos_fields.e0;
+    const auto RY = pos_fields.e1;
+    const auto RZ = pos_fields.e2;
 
     // cell filtering, allows user to give a selection function enabling or inhibiting cell processing
     if constexpr ( ! std::is_same_v< ComputePairTrivialCellFiltering , std::remove_reference_t<decltype(optional.cell_filter)> > )

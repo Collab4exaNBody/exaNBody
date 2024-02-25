@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/basic_types.h>
@@ -30,6 +31,7 @@ under the License.
 
 #include <exanb/core/cell_particles_from_field_set.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
+#include <exanb/core/flat_arrays.h>
 
 #include <cstdlib>
 #include <vector>
@@ -307,6 +309,22 @@ namespace exanb
       }
       m_cell_particle_offset.back() = total_particles;
 
+      // also rebuild particle ghost flag array
+      m_ghost_particle.assign( (total_particles+63)/64 , 0 );
+      for(size_t i=0;i<n_cells;i++)
+      {
+        if( is_ghost_cell(i) )
+        {
+          size_t n_particles = m_cells[i].size();
+          for(size_t j=0;j<n_particles;j++)
+          {
+            size_t pidx = m_cell_particle_offset[i] + j;
+            m_ghost_particle[ pidx / 64 ] |= 1ull << ( pidx % 64 );
+          }
+        }
+      }
+      m_ghost_particle_ptr = m_ghost_particle.data();
+
 #     ifndef NDEBUG
       assert( m_cell_particle_offset[0] == 0 );
       assert( m_cell_particle_offset[n_cells] == total_particles );
@@ -316,6 +334,18 @@ namespace exanb
       }
 #     endif
     }
+    
+    ONIKA_HOST_DEVICE_FUNC
+    inline bool is_ghost_particle( size_t pidx )
+    {
+      return ( m_ghost_particle_ptr[ pidx / 64 ] & ( 1ull << ( pidx % 64 ) ) ) != 0;
+    }
+    
+    ONIKA_HOST_DEVICE_FUNC
+    inline const uint64_t * __restrict__ particle_ghost_flag_data() const
+    {
+      return m_ghost_particle_ptr;
+    } 
 
     inline void clear_particles()
     {
@@ -491,6 +521,71 @@ namespace exanb
     // ********************************************************
 
 
+    // ***************** optional flat arrays *****************
+    template<class fid>
+    inline typename onika::soatl::FieldId<fid>::value_type * flat_array_data( onika::soatl::FieldId<fid> )
+    {
+      auto it = m_flat_arrays.find( onika::soatl::FieldId<fid>::short_name() );
+      if( it == m_flat_arrays.end() )
+      {        
+        it = m_flat_arrays.insert( { onika::soatl::FieldId<fid>::short_name() , std::make_shared< FlatArrayAdapter<fid> >() } ).first;
+      }
+      assert( it != m_flat_arrays.end() );
+      FlatArrayAdapter<fid> * fa = reinterpret_cast< FlatArrayAdapter<fid> * >( it->second.get() );
+      assert( fa != nullptr );
+      assert( fa->type_name() == typeid( typename onika::soatl::FieldId<fid>::value_type ).name() );
+      fa->resize( number_of_particles() );
+      return fa->data();
+    }
+    template<class fid>
+    inline auto flat_array_accessor( onika::soatl::FieldId<fid> f )
+    {
+      return make_external_field_flat_array_accessor( *this , flat_array_data(f) , f );
+    }
+    template<class fid>
+    inline auto flat_array_const_accessor( onika::soatl::FieldId<fid> f )
+    {
+      const auto * c_ptr = flat_array_data(f);
+      return make_external_field_flat_array_accessor( *this , c_ptr , f );
+    }
+    inline auto remove_flat_array( const std::string& name )
+    {
+      m_flat_arrays.erase( name );
+    }
+    inline void clear_flat_array( const std::string& name )
+    {
+      auto it = m_flat_arrays.find( name );
+      if( it != m_flat_arrays.end() ) it->second->clear();
+    }
+    inline void shrink_flat_array( const std::string& name )
+    {
+      auto it = m_flat_arrays.find( name );
+      if( it != m_flat_arrays.end() ) it->second->shrink_to_fit();
+    }
+    // ********************************************************
+
+
+    // *** unification of per cell arrays dans flat arrays ***
+    template<class fid>
+    inline auto field_accessor( onika::soatl::FieldId<fid> f )
+    {
+      if constexpr ( ! HasField<fid>::value ) return flat_array_accessor(f);
+      else return f;
+    }
+    template<class fid>
+    inline auto field_const_accessor( onika::soatl::FieldId<fid> f )
+    {
+      if constexpr ( ! HasField<fid>::value ) return flat_array_const_accessor(f);
+      else return f;
+    }
+    template<class... fids>
+    inline auto field_accessors_from_field_set( FieldSet<fids...> fs )
+    {
+      return onika::make_flat_tuple( field_accessor( onika::soatl::FieldId<fids>{} ) ... );
+    }
+    // *******************************************************
+    
+
   private:
     IJK m_offset = {0,0,0};
     IJK m_dimension = {0,0,0};
@@ -498,10 +593,16 @@ namespace exanb
     double m_cell_size = 1.;
     double m_max_neighbor_distance = 0.;
     onika::memory::CudaMMVector<size_t> m_cell_particle_offset;
+    onika::memory::CudaMMVector< uint64_t > m_ghost_particle; // size = number of particles / 64 (rounded to upper 64 multiple)
+    uint64_t const * __restrict__ m_ghost_particle_ptr = nullptr;
       
     // storage of particles split into cubic cells.
     onika::memory::CudaMMVector< CellParticles > m_cells;
     std::shared_ptr<onika::soatl::PackedFieldArraysAllocator> m_cell_allocator;
+
+    // optional arrays, stored as "flat" arrays, dynamically allocated
+    // these are scratch storage, they're content are lost every time rebuild_particle_offsets is called
+    std::unordered_map< std::string , std::shared_ptr<FlatArrayDescriptor> > m_flat_arrays;
     
     // per grid profiling information, optional.
     GridComputeProfiling m_grid_compute_profiling;

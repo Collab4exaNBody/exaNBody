@@ -35,26 +35,13 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/stl_adaptors.h>
 #include <onika/integral_constant.h>
-//#include <onika/declare_if.h>
+#include <onika/flat_tuple.h>
 
 #include <cstddef>
 
 namespace exanb
 {
-
-  template<class _Rx, class _Ry, class _Rz>
-  struct PosititionFields
-  {
-    using Rx = _Rx;
-    using Ry = _Ry;
-    using Rz = _Rz;
-  };
-  using DefaultPositionFields = PosititionFields< field::_rx , field::_ry , field::_rz >;
-  
-  template<class _Rx, class _Ry, class _Rz>
-  ONIKA_HOST_DEVICE_FUNC static inline constexpr PosititionFields<_Rx,_Ry,_Rz> make_position_fields( _Rx , _Ry , _Rz ) { return {}; }
-  // compute_cell_particle_pairs( ... , make_position_fields( field::rx , field::ry , field::rz ) )
-
+  using DefaultPositionFields = onika::FlatTuple< onika::soatl::FieldId<field::_rx> , onika::soatl::FieldId<field::_ry> , onika::soatl::FieldId<field::_rz> >;
 
   template< class ComputeBufferT, class CellsT, class FieldAccessorTupleT, size_t ... FieldIndex >
   ONIKA_HOST_DEVICE_FUNC

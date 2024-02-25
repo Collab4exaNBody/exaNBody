@@ -26,19 +26,10 @@ under the License.
 
 #include <exanb/particle_neighbors/chunk_neighbors.h>
 #include <exanb/particle_neighbors/chunk_neighbors_iterator.h>
+#include <exanb/particle_neighbors/flat_neighbor_lists.h>
 
 namespace exanb
 {
-  template<class _NeighborOffsetT = uint64_t , class _ParticleIndexT = uint32_t >
-  struct FlatPartNbhListT
-  {
-    using NeighborOffset = _NeighborOffsetT;
-    using ParticleIndex = _ParticleIndexT;
-    onika::memory::CudaMMVector< NeighborOffset > m_neighbor_offset; // size = number of particles + 1 , ast one is the total size
-    onika::memory::CudaMMVector< ParticleIndex > m_neighbor_list;
-  };
-  using FlatPartNbhList = FlatPartNbhListT<>;
-
   template<typename GridT>
   class ChunkNeighbors2FlatParticleLists : public OperatorNode
   {
@@ -67,6 +58,9 @@ namespace exanb
 
       flat_nbh_list->m_neighbor_offset.assign( total_particles + 1 , 0 );
       auto * __restrict__ particle_nbh_count = flat_nbh_list->m_neighbor_offset.data();
+      flat_nbh_list->m_half_count.assign( total_particles , 0 );
+      auto * __restrict__ half_nbh_count = flat_nbh_list->m_half_count.data();
+      
       const auto * __restrict__ cell_particle_offset = grid->cell_particle_offset_data();
 
 #     pragma omp parallel
@@ -80,6 +74,7 @@ namespace exanb
           const double* __restrict__ rz_a = cells[cell_a][field::rz];
           const size_t n_particles_a = cells[cell_a].size();
           chunk_nbh_it.start_cell( cell_a , n_particles_a );
+          const bool is_ghost = grid->is_ghost_cell( loc_a );
           for(size_t p_a=0;p_a<n_particles_a;p_a++)
           {
             chunk_nbh_it.start_particle( p_a );
@@ -88,7 +83,12 @@ namespace exanb
               size_t cell_b=0, p_b=0;
               chunk_nbh_it.get_nbh( cell_b , p_b );
               const Vec3d dr = { cells[cell_b][field::rx][p_b] - rx_a[p_a] , cells[cell_b][field::ry][p_b] - ry_a[p_a] , cells[cell_b][field::rz][p_b] - rz_a[p_a] };
-              if( norm2(dr) <= nbh_d2 ) ++ particle_nbh_count[ cell_particle_offset[cell_a] + p_a + 1 ];
+              if( norm2(dr) <= nbh_d2 )
+              {
+                auto part_idx = cell_particle_offset[cell_a] + p_a;
+                ++ particle_nbh_count[ part_idx + 1 ];
+                if( ssize_t(cell_b)<cell_a || ( ssize_t(cell_b)==cell_a && p_b<p_a ) ) ++ half_nbh_count[part_idx];
+              }
               chunk_nbh_it.next();
             }
           }               
