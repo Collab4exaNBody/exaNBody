@@ -583,6 +583,16 @@ namespace exanb
     {
       return onika::make_flat_tuple( field_accessor( onika::soatl::FieldId<fids>{} ) ... );
     }
+    template<class fid>
+    inline bool has_allocated_field( onika::soatl::FieldId<fid> f )
+    {
+      return HasField<fid>::value || m_flat_arrays.find( onika::soatl::FieldId<fid>::short_name() ) != m_flat_arrays.end() ;
+    }    
+    template<class... fids>
+    inline auto has_allocated_fields( FieldSet<fids...> )
+    {
+      return ( ... && ( has_allocated_field( onika::soatl::FieldId<fids>{} ) ) );
+    }
     // *******************************************************
     
 

@@ -69,12 +69,11 @@ namespace exanb
         GRID_OMP_FOR_BEGIN(dims,cell_a,loc_a, schedule(dynamic) )
         {
           // std::cout<<"dims="<<dims<<" cell_a="<<cell_a<<" loc_a="<<loc_a<<std::endl;
-          const double* __restrict__ rx_a = cells[cell_a][field::rx];
-          const double* __restrict__ ry_a = cells[cell_a][field::ry];
-          const double* __restrict__ rz_a = cells[cell_a][field::rz];
+          //const double* __restrict__ rx_a = cells[cell_a][field::rx];
+          //const double* __restrict__ ry_a = cells[cell_a][field::ry];
+          //const double* __restrict__ rz_a = cells[cell_a][field::rz];
           const size_t n_particles_a = cells[cell_a].size();
           chunk_nbh_it.start_cell( cell_a , n_particles_a );
-          const bool is_ghost = grid->is_ghost_cell( loc_a );
           for(size_t p_a=0;p_a<n_particles_a;p_a++)
           {
             chunk_nbh_it.start_particle( p_a );
@@ -82,13 +81,13 @@ namespace exanb
             {
               size_t cell_b=0, p_b=0;
               chunk_nbh_it.get_nbh( cell_b , p_b );
-              const Vec3d dr = { cells[cell_b][field::rx][p_b] - rx_a[p_a] , cells[cell_b][field::ry][p_b] - ry_a[p_a] , cells[cell_b][field::rz][p_b] - rz_a[p_a] };
-              if( norm2(dr) <= nbh_d2 )
-              {
+              //const Vec3d dr = { cells[cell_b][field::rx][p_b] - rx_a[p_a] , cells[cell_b][field::ry][p_b] - ry_a[p_a] , cells[cell_b][field::rz][p_b] - rz_a[p_a] };
+              //if( norm2(dr) <= nbh_d2 )
+              //{
                 auto part_idx = cell_particle_offset[cell_a] + p_a;
                 ++ particle_nbh_count[ part_idx + 1 ];
                 if( ssize_t(cell_b)<cell_a || ( ssize_t(cell_b)==cell_a && p_b<p_a ) ) ++ half_nbh_count[part_idx];
-              }
+              //}
               chunk_nbh_it.next();
             }
           }               

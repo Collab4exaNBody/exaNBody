@@ -43,6 +43,7 @@ namespace onika
       static inline constexpr bool CudaCompatible = true;
     };
 
+
     template<class T>
     static inline ParallelExecutionWrapper parallel_memset( T * data , uint64_t N, const T& value, ParallelExecutionContext * pec )
     {

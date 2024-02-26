@@ -73,12 +73,13 @@ namespace exanb
       ( ... , ( update_add_value( cells[cell_i][ onika::soatl::FieldId<field_ids>() ][p_i] , in[ onika::soatl::FieldId<field_ids>() ] , ts ) ) );
     }
 
-    template<bool ThreadSafe=false>
+    template<class T, bool ThreadSafe=false>
     ONIKA_HOST_DEVICE_FUNC
-    inline void operator() (double& upd, const double& in, onika::BoolConst<ThreadSafe> ts = {} ) const
+    inline void operator() (T& upd, const T& in, onika::BoolConst<ThreadSafe> ts = {} ) const
     {
       update_add_value( upd , in , ts );
     }
+
   };
 
   struct UpdateValueAssertEqual

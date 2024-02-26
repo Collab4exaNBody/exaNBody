@@ -103,9 +103,9 @@ namespace exanb
     }
 
     // central particle's coordinates
-    const double* __restrict__ rx_a = cells[cell_a][RX];
-    const double* __restrict__ ry_a = cells[cell_a][RY];
-    const double* __restrict__ rz_a = cells[cell_a][RZ];
+    const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX);
+    const double* __restrict__ ry_a = cells[cell_a].field_pointer_or_null(RY);
+    const double* __restrict__ rz_a = cells[cell_a].field_pointer_or_null(RZ);
 
 /*    
     using pointer_tuple_t = std::remove_cv_t< std::remove_reference_t< decltype( onika::make_flat_tuple( cells[cell_a].field_pointer_or_null( cp_fields.get(onika::tuple_index_t<FieldIndex>{}) ) ... ) ) > >;
@@ -151,6 +151,8 @@ namespace exanb
 
     while( p_a < cell_a_particles )
     {
+      //printf("cell %05d , p %05d , r=%g,%g,%g\n",int(cell_a),int(p_a),rx_a[p_a],ry_a[p_a],rz_a[p_a]);
+
       // --- particle processing start code ---
       if constexpr ( use_compute_buffer ) { tab.part = p_a; tab.count = 0; }
       if constexpr ( has_particle_start ) { func(tab,cells,cell_a,p_a,ComputePairParticleContextStart{}); }
@@ -171,7 +173,9 @@ namespace exanb
             const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
             const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
             cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );              
-            rx_b = cells[cell_b][RX]; ry_b = cells[cell_b][RY]; rz_b = cells[cell_b][RZ];
+            rx_b = cells[cell_b].field_pointer_or_null(RX);
+            ry_b = cells[cell_b].field_pointer_or_null(RY);
+            rz_b = cells[cell_b].field_pointer_or_null(RZ);
             -- cell_groups;
           }
         }
@@ -185,7 +189,7 @@ namespace exanb
           const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
           const double d2 = norm2(dr);
           if( d2>0.0 && d2 <= rcut2 )
-          {
+          {            
 #           define NBH_OPT_DATA_ARG optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx)
             if constexpr ( use_compute_buffer )
             {

@@ -136,7 +136,7 @@ namespace exanb
     using onika::parallel::block_parallel_for;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
     using CellT = typename GridT::CellParticles;
-    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
 
     const double rcut2 = rcut * rcut;
