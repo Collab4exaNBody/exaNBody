@@ -41,14 +41,9 @@ namespace exanb
     class GridT,
     class Field_X, class Field_Y, class Field_Z,
     class Field_dX, class Field_dY, class Field_dZ,
-    class Field_ddX, class Field_ddY, class Field_ddZ,
-    class = AssertGridHasFields< GridT, Field_X, Field_Y, Field_Z, Field_dX, Field_dY, Field_dZ , Field_ddX, Field_ddY, Field_ddZ>
-    >
+    class Field_ddX, class Field_ddY, class Field_ddZ >
   struct PushVec3SecondOrderXForm : public OperatorNode
-  {
-    using compute_field_set_t = FieldSet<Field_X, Field_Y, Field_Z, Field_dX, Field_dY, Field_dZ, Field_ddX, Field_ddY, Field_ddZ>;
-    static constexpr compute_field_set_t compute_field_set {};
-      
+  {      
     /***************** Operator slots *********************/
     ADD_SLOT( GridT  , grid       , INPUT_OUTPUT);
     ADD_SLOT( double , dt         , INPUT , REQUIRED );
@@ -62,29 +57,45 @@ namespace exanb
       const double delta_t = (*dt) * (*dt_scale);
       const double delta_t2 = delta_t*delta_t*0.5;
 
+      auto x = grid->field_accessor( onika::soatl::FieldId<Field_X> {} );
+      auto y = grid->field_accessor( onika::soatl::FieldId<Field_Y> {} );
+      auto z = grid->field_accessor( onika::soatl::FieldId<Field_Z> {} );
+
+      auto dx = grid->field_accessor( onika::soatl::FieldId<Field_dX> {} );
+      auto dy = grid->field_accessor( onika::soatl::FieldId<Field_dY> {} );
+      auto dz = grid->field_accessor( onika::soatl::FieldId<Field_dZ> {} );
+
+      auto ddx = grid->field_accessor( onika::soatl::FieldId<Field_ddX> {} );
+      auto ddy = grid->field_accessor( onika::soatl::FieldId<Field_ddY> {} );
+      auto ddz = grid->field_accessor( onika::soatl::FieldId<Field_ddZ> {} );
+
+      auto compute_fields = onika::make_flat_tuple( x, y, z, dx, dy, dz, ddx, ddy, ddz );
+
       if( (*xform_mode) == XFormMode::IDENTITY || domain->xform_is_identity() )
       {
         ldbg<<"PushVec3SecondOrder: dt="<<(*dt)<<", dt_scale="<<(*dt_scale)<<", xform_mode="<< (*xform_mode)<<std::endl;
         PushVec3SecondOrderFunctor func { delta_t , delta_t2 };
-        compute_cell_particles( *grid , false , func , compute_field_set , parallel_execution_context() );
+        compute_cell_particles( *grid , false , func , compute_fields , parallel_execution_context() );
       }
       else
       {
         const Mat3d xform = (xform_mode->m_value==XFormMode::XFORM) ? domain->xform() : domain->inv_xform();
         ldbg<<"PushVec3SecondOrderXForm: dt="<<(*dt)<<", dt_scale="<<(*dt_scale)<<", xform_mode="<< (*xform_mode)<<", xform="<<xform<<std::endl;
         PushVec3SecondOrderXFormFunctor func { xform , delta_t , delta_t2 };
-        compute_cell_particles( *grid , false , func , compute_field_set , parallel_execution_context() );
+        compute_cell_particles( *grid , false , func , compute_fields , parallel_execution_context() );
       }
     }
 
   };
 
-  template<class GridT> using PushAccelVelocityToPositionXForm = PushVec3SecondOrderXForm<GridT, field::_rx,field::_ry,field::_rz,field::_vx,field::_vy,field::_vz,field::_fx,field::_fy,field::_fz>;
+  template<class GridT> using PushAccelVelocityToPosition = PushVec3SecondOrderXForm<GridT, field::_rx,field::_ry,field::_rz,field::_vx,field::_vy,field::_vz,field::_fx,field::_fy,field::_fz>;
+  template<class GridT> using PushAccelVelocityToPositionFlat = PushVec3SecondOrderXForm<GridT, field::_rx,field::_ry,field::_rz,field::_vx,field::_vy,field::_vz,field::_flat_fx,field::_flat_fy,field::_flat_fz>;
   
  // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-   OperatorNodeFactory::instance()->register_factory( "push_f_v_r", make_grid_variant_operator< PushAccelVelocityToPositionXForm > );
+   OperatorNodeFactory::instance()->register_factory( "push_f_v_r", make_grid_variant_operator< PushAccelVelocityToPosition > );
+   OperatorNodeFactory::instance()->register_factory( "push_flat_f_v_r", make_grid_variant_operator< PushAccelVelocityToPositionFlat > );
   }
 
 }
