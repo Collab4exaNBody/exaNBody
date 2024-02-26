@@ -97,9 +97,9 @@ namespace exanb
     }
 
     // central particle's coordinates
-    const double* __restrict__ rx_a = cells[cell_a][RX]; ONIKA_ASSUME_ALIGNED(rx_a);
-    const double* __restrict__ ry_a = cells[cell_a][RY]; ONIKA_ASSUME_ALIGNED(ry_a);
-    const double* __restrict__ rz_a = cells[cell_a][RZ]; ONIKA_ASSUME_ALIGNED(rz_a);
+    const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX); ONIKA_ASSUME_ALIGNED(rx_a);
+    const double* __restrict__ ry_a = cells[cell_a].field_pointer_or_null(RY); ONIKA_ASSUME_ALIGNED(ry_a);
+    const double* __restrict__ rz_a = cells[cell_a].field_pointer_or_null(RZ); ONIKA_ASSUME_ALIGNED(rz_a);
 
     const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
     const uint16_t* stream_base = stream_info.stream;
@@ -149,9 +149,9 @@ namespace exanb
           assert( loc_b.i>=0 && loc_b.j>=0 && loc_b.j>=0 && loc_b.i<dims.i && loc_b.j<dims.j && loc_b.j<dims.j );
           const size_t cell_b = grid_ijk_to_index( dims , loc_b );
           const unsigned int nbh_cell_particles = cells[cell_b].size();
-          rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
-          ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
-          rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
+          rx_b = cells[cell_b].field_pointer_or_null(RX); ONIKA_ASSUME_ALIGNED(rx_b);
+          ry_b = cells[cell_b].field_pointer_or_null(RY); ONIKA_ASSUME_ALIGNED(ry_b);
+          rz_b = cells[cell_b].field_pointer_or_null(RZ); ONIKA_ASSUME_ALIGNED(rz_b);
           nchunks = *(stream++);
           for(chunk=0;chunk<nchunks && symcont;chunk++)
           {

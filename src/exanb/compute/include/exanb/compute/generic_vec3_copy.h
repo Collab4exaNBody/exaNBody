@@ -26,19 +26,17 @@ under the License.
 namespace exanb
 {
 
-  struct GenericVec3BlendFunctor
+  struct GenericVec3CopyFunctor
   {
-    double m_scale_src = 1.0;
-    double m_scale_dst = 0.0;
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( double& dx, double& dy, double& dz, double sx, double sy, double sz ) const
     {
-      dx = dx * m_scale_dst + sx * m_scale_src;
-      dy = dy * m_scale_dst + sy * m_scale_src;
-      dz = dz * m_scale_dst + sz * m_scale_src;
+      dx = sx;
+      dy = sy;
+      dz = sz;
     }
   };
 
-  template<> struct ComputeCellParticlesTraits< GenericVec3BlendFunctor >
+  template<> struct ComputeCellParticlesTraits< GenericVec3CopyFunctor >
   {
     static inline constexpr bool CudaCompatible = true;
   };
@@ -47,10 +45,11 @@ namespace exanb
     class GridT,
     class Field_SX, class Field_SY, class Field_SZ,
     class Field_DX, class Field_DY, class Field_DZ >
-  class GenericVec3Blender : public OperatorNode
+  class GenericVec3Copy : public OperatorNode
   {  
-    ADD_SLOT( double , scale_src , INPUT        , 1.0 );
-    ADD_SLOT( double , scale_dst , INPUT        , 0.0);
+    ADD_SLOT( Vec3d , scale_src , INPUT        , Vec3d{1,1,1} );
+    ADD_SLOT( Vec3d , scale_dst , INPUT        , Vec3d{0,0,0} );
+    ADD_SLOT( Vec3d , add_dst   , INPUT        , Vec3d{0,0,0} );
     ADD_SLOT( GridT , grid      , INPUT_OUTPUT );
     ADD_SLOT( bool  , ghost     , INPUT        , true );
 
@@ -66,14 +65,11 @@ namespace exanb
       static constexpr onika::soatl::FieldId<Field_DZ> field_dz = {};
 
       if( grid->number_of_cells() == 0 ) return;
-      
-      ldbg<<"GenericVec3BlendFunctor scale_src="<<(*scale_src)<<" scale_dst="<<(*scale_dst)<< std::endl;
-      
+            
       auto blend_fields = onika::make_flat_tuple(
         grid->field_accessor(field_dx) , grid->field_accessor(field_dy) , grid->field_accessor(field_dz) , 
         grid->field_accessor(field_sx) , grid->field_accessor(field_sy) , grid->field_accessor(field_sz) );
-      GenericVec3BlendFunctor func = { *scale_src , *scale_dst };
-      compute_cell_particles( *grid , *ghost , func , blend_fields , parallel_execution_context() );            
+      compute_cell_particles( *grid , *ghost , GenericVec3CopyFunctor{} , blend_fields , parallel_execution_context() );            
     }
   };
 
