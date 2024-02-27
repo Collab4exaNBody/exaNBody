@@ -53,9 +53,7 @@ namespace exanb
   template<
     class GridT,
     class FieldSetT,
-    class UpdateFuncT = UpdateValueAdd,
-    class = AssertGridContainFieldSet<GridT,FieldSetT>
-    >
+    class UpdateFuncT = UpdateValueAdd >
   struct UpdateFromGhosts : public OperatorNode
   {  
     using CellParticles = typename GridT::CellParticles;
@@ -87,10 +85,14 @@ namespace exanb
     {
       if( ! ghost_comm_scheme.has_value() ) return;
       if( grid->number_of_particles() == 0 ) return;
+      if( ! grid->has_allocated_fields( FieldSetT{} ) )
+      {
+        fatal_error() << "Attempt to use UpdateFromGhosts on uninitialized fields" << std::endl;
+      }
     
       auto pecfunc = [self=this]() { return self->parallel_execution_context(); };
       auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
-      auto update_fields = make_field_tuple_from_field_set( FieldSetT{} );
+      auto update_fields = grid->field_accessors_from_field_set( FieldSetT{} );
 
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, grid_cell_values.get_pointer(),
                           *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
