@@ -64,29 +64,16 @@ namespace onika
       , const FuncT& func
       , ParallelExecutionContext * pec
       , const ParallelForOptions& opts = ParallelForOptions{} )
-    {    
-      size_t block_size = 1;
-      if constexpr ( ParallelForFunctorTraits<FuncT>::CudaCompatible )
-      {
-        bool allow_cuda_exec = opts.enable_gpu ;
-        if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );
-        if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();
-        if( allow_cuda_exec )
-        {
-          block_size = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
-        }
-      }
-      
-      const size_t n_blocks = ( N + block_size - 1 ) / block_size;
-      
+    {          
       BlockParallelForOptions bpfopts = {};
       bpfopts.user_cb = opts.user_cb;
       bpfopts.return_data = opts.return_data;
       bpfopts.return_data_size = opts.return_data_size;
       bpfopts.enable_gpu = opts.enable_gpu;
       bpfopts.omp_scheduling = opts.omp_scheduling;
+      bpfopts.n_div_blocksize = true;
       
-      return block_parallel_for( n_blocks , ParallelForBlockAdapter<FuncT>{func,N} , pec , bpfopts );
+      return block_parallel_for( N , ParallelForBlockAdapter<FuncT>{func,N} , pec , bpfopts );
     }
 
   }

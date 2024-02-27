@@ -49,6 +49,7 @@ namespace onika
       size_t return_data_size = 0;
       bool enable_gpu = true;
       bool fixed_gpu_grid_size = false;
+      bool n_div_blocksize = false; // if true, divide N by block_size, rounding to upper integer
       OMPScheduling omp_scheduling = OMP_SCHED_DYNAMIC;
     };
 
@@ -71,6 +72,7 @@ namespace onika
                  , return_data_size 
                  , enable_gpu
                  , fixed_gpu_grid_size
+                 , n_div_blocksize
                  , omp_scheduling
                  ] = opts;
 
@@ -80,7 +82,6 @@ namespace onika
       new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
       pec->m_execution_end_callback = user_cb;
-      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
       pec->m_omp_sched = omp_scheduling;
     
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
@@ -90,20 +91,25 @@ namespace onika
         if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();
         if( allow_cuda_exec )
         {
+    	    printf("GPU execution %s\n", pec->m_tag );
           pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_CUDA;
           pec->m_block_size = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
           pec->m_grid_size = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
                                       * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
                                       + onika::parallel::ParallelExecutionContext::gpu_sm_add();
+
+          if( n_div_blocksize ) N = ( N + pec->m_block_size - 1 ) / pec->m_block_size;
+          pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
+
           if( ! fixed_gpu_grid_size )
           { 
             pec->m_grid_size = 0;
           }
+
           pec->m_reset_counters = fixed_gpu_grid_size;
 
           if( return_data != nullptr && return_data_size > 0 )
           {
-	    // printf("bpf: return data input=%p , output=%p , size=%d\n",return_data,return_data, int(return_data_size) );
             pec->set_return_data_input( return_data , return_data_size );
             pec->set_return_data_output( return_data , return_data_size );
           }
@@ -117,6 +123,7 @@ namespace onika
       }
 
       // ================== CPU / OpenMP execution path ====================
+      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr }; // block_size is always 1 for CPU, so we don't care about n_div_blocksize flag
       pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
       return {pec};
     }
