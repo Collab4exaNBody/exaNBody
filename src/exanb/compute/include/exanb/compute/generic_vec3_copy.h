@@ -47,9 +47,6 @@ namespace exanb
     class Field_DX, class Field_DY, class Field_DZ >
   class GenericVec3Copy : public OperatorNode
   {  
-    ADD_SLOT( Vec3d , scale_src , INPUT        , Vec3d{1,1,1} );
-    ADD_SLOT( Vec3d , scale_dst , INPUT        , Vec3d{0,0,0} );
-    ADD_SLOT( Vec3d , add_dst   , INPUT        , Vec3d{0,0,0} );
     ADD_SLOT( GridT , grid      , INPUT_OUTPUT );
     ADD_SLOT( bool  , ghost     , INPUT        , true );
 

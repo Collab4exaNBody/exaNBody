@@ -29,7 +29,7 @@ namespace exanb
   struct GenericVec3BlendFunctor
   {
     double m_scale_src = 1.0;
-    double m_scale_dst = 0.0;
+    double m_scale_dst = 1.0;
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( double& dx, double& dy, double& dz, double sx, double sy, double sz ) const
     {
       dx = dx * m_scale_dst + sx * m_scale_src;
@@ -50,9 +50,9 @@ namespace exanb
   class GenericVec3Blender : public OperatorNode
   {  
     ADD_SLOT( double , scale_src , INPUT        , 1.0 );
-    ADD_SLOT( double , scale_dst , INPUT        , 0.0);
-    ADD_SLOT( GridT , grid      , INPUT_OUTPUT );
-    ADD_SLOT( bool  , ghost     , INPUT        , true );
+    ADD_SLOT( double , scale_dst , INPUT        , 1.0);
+    ADD_SLOT( GridT  , grid      , INPUT_OUTPUT );
+    ADD_SLOT( bool   , ghost     , INPUT        , true );
 
   public:
     inline void execute () override final

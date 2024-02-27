@@ -29,7 +29,7 @@ namespace exanb
   struct GenericScalarBlendFunctor
   {
     double m_scale_src = 1.0;
-    double m_scale_dst = 0.0;
+    double m_scale_dst = 1.0;
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( double& d, double s ) const
     {
       d = d * m_scale_dst + s * m_scale_src;
@@ -45,7 +45,7 @@ namespace exanb
   class GenericScalarBlender : public OperatorNode
   {  
     ADD_SLOT( double , scale_src , INPUT        , 1.0 );
-    ADD_SLOT( double , scale_dst , INPUT        , 0.0 );
+    ADD_SLOT( double , scale_dst , INPUT        , 1.0 );
     ADD_SLOT( GridT  , grid      , INPUT_OUTPUT );
     ADD_SLOT( bool   , ghost     , INPUT        , true );
 
