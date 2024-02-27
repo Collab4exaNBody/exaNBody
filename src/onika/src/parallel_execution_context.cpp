@@ -38,6 +38,8 @@ namespace onika
     void ParallelExecutionContext::reset()
     {
       // reset to default state
+      m_tag = nullptr;
+      m_sub_tag = nullptr;
       m_cuda_ctx = nullptr;
       m_default_stream = nullptr;
       m_omp_num_tasks = 0;

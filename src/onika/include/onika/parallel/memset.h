@@ -16,38 +16,41 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
-#include <cstdlib>
+#include <onika/parallel/parallel_for.h>
 
-namespace exanb
+namespace onika
 {
 
-    struct DefaultNeighborFilterFunc
+  namespace parallel
+  {  
+
+    template<class T>
+    struct MemSetFunctor
     {
-      inline bool operator () (double d2, double rcut2,size_t,size_t,size_t,size_t) const
+      T * __restrict__ m_data = nullptr;
+      T m_value = {};  
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t i ) const
       {
-        return d2 > 0.0 && d2 <= rcut2;
+        m_data[i] = m_value;
       }
     };
 
-    template<class GridT>
-    struct NeighborFilterHalfSymGhost
-    {
-      const GridT& m_grid;
-      bool m_half_symmetric = false;
-      bool m_skip_ghost = false;
-      inline bool operator () (double d2, double rcut2, size_t cell_a, size_t p_a, size_t cell_b, size_t p_b) const
-      {
-        if( d2 > 0.0 && d2 <= rcut2 )
-        {
-          if( m_half_symmetric && ( cell_a<cell_b || ( cell_a==cell_b && p_a<p_b ) ) ) return false;
-          if( m_skip_ghost && m_grid.is_ghost_cell(cell_b) ) return false;
-          return true;
-        }
-        else return false;
-      }
+    template<class T> struct ParallelForFunctorTraits< MemSetFunctor<T> >
+    {      
+      static inline constexpr bool CudaCompatible = true;
     };
+
+
+    template<class T>
+    static inline ParallelExecutionWrapper parallel_memset( T * data , uint64_t N, const T& value, ParallelExecutionContext * pec )
+    {
+      return parallel_for( N , MemSetFunctor<T>{ data , value } , pec );
+    }
+
+  }
 
 }
 

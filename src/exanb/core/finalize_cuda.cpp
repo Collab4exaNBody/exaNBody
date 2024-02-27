@@ -37,7 +37,7 @@ namespace exanb
     {
 #     ifdef XNB_CUDA_VERSION
       auto cuda_ctx = global_cuda_ctx();
-      if( cuda_ctx != nullptr )
+      if( cuda_ctx != nullptr && *enable_cuda && cuda_ctx->has_devices() )
       {
         if( *enable_cuda && cuda_ctx->has_devices() )
         {

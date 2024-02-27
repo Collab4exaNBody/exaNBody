@@ -35,7 +35,8 @@ namespace exanb
   struct ResizeParticleLocksNode : public OperatorNode
   {
     ADD_SLOT( GridT , grid , INPUT);
-    ADD_SLOT( GridParticleLocks , particle_locks ,INPUT_OUTPUT);
+    ADD_SLOT( GridParticleLocks , particle_locks , INPUT_OUTPUT );
+    ADD_SLOT( spin_mutex_array , flat_particle_locks , INPUT_OUTPUT );
 
     inline void execute ()  override final
     {      
@@ -53,6 +54,7 @@ namespace exanb
         GRID_OMP_FOR_END
       }
 
+      flat_particle_locks->resize( grid->number_of_particles() );
     }
 
   };

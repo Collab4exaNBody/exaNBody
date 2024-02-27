@@ -19,6 +19,9 @@ under the License.
 #pragma once
 
 #include <yaml-cpp/yaml.h>
+#include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
+#include <exanb/core/log.h>
+#include <cstdlib>
 
 namespace exanb
 {
@@ -30,7 +33,10 @@ namespace exanb
     bool free_scratch_memory = false;
     bool build_particle_offset = false;
     bool subcell_compaction = true;
-//    bool xform_filter = true;
+    bool half_symmetric = false;
+    bool skip_ghosts = false;
+    bool dual_particle_offset = false;
+    bool random_access = false;
   };
 }
 
@@ -46,8 +52,11 @@ namespace YAML
       node["stream_prealloc_factor"] = v.stream_prealloc_factor;
       node["free_scratch_memory"] = v.free_scratch_memory;
       node["build_particle_offset"] = v.build_particle_offset;
+      node["dual_particle_offset"] = v.dual_particle_offset;
+      node["random_access"] = v.random_access;
       node["subcell_compaction"] = v.subcell_compaction;
-//      node["xform_filter"] = v.xform_filter;
+      node["half_symmetric"] = v.half_symmetric;
+      node["skip_ghosts"] = v.skip_ghosts;
       return node;
     }
     static inline bool decode(const Node& node, exanb::ChunkNeighborsConfig& v)
@@ -59,8 +68,54 @@ namespace YAML
       if(node["stream_prealloc_factor"]) v.stream_prealloc_factor = node["stream_prealloc_factor"].as<double>();
       if(node["free_scratch_memory"]) v.free_scratch_memory = node["free_scratch_memory"].as<bool>();
       if(node["build_particle_offset"]) v.build_particle_offset = node["build_particle_offset"].as<bool>();
+      if(node["dual_particle_offset"]) v.dual_particle_offset = node["dual_particle_offset"].as<bool>();
+      if(node["random_access"]) v.random_access = node["random_access"].as<bool>();
       if(node["subcell_compaction"]) v.subcell_compaction = node["subcell_compaction"].as<bool>();
-//      if(node["xform_filter"]) v.xform_filter = node["xform_filter"].as<bool>();
+      if(node["half_symmetric"]) v.half_symmetric = node["half_symmetric"].as<bool>();
+      if(node["skip_ghosts"]) v.skip_ghosts = node["skip_ghosts"].as<bool>();
+      
+      if( v.dual_particle_offset && !v.build_particle_offset )
+      {
+        exanb::lerr << "Warning: dual_particle_offset requires build_particle_offset. build_particle_offset enabled"<<std::endl;
+        v.build_particle_offset = true;
+      }
+
+      if( v.random_access && v.chunk_size != 1 )
+      {
+        exanb::lerr << "Warning: random_access requires chunk_size to be forced to 1"<<std::endl;
+        v.chunk_size = 1;
+      }
+      
+      [[maybe_unused]] const unsigned int VARIMPL = v.chunk_size;
+      int nearest = -1;
+#     define _XNB_CHUNK_NEIGHBORS_CS_NEAREST( CS ) if( std::abs(int(v.chunk_size)-CS) < std::abs(int(v.chunk_size)-nearest) ) nearest = CS;
+      XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CS_NEAREST )
+#     undef _XNB_CHUNK_NEIGHBORS_CS_NEAREST
+      
+      if( nearest != v.chunk_size )
+      {
+        exanb::lerr << "Warning: chunk_size="<<v.chunk_size<<" is not supported by this version, setting to nearest available ("<<nearest<<")"<<std::endl;
+        v.chunk_size = nearest;
+      }
+
+      if( v.random_access && v.chunk_size != 1 )
+      {
+        exanb::lerr << "random_access and/or dual_particle_offset is only possible with chunk_size=1"<<std::endl;
+        return false;
+      }
+
+/*
+      std::cout << "chunk_size             = " << v.chunk_size <<std::endl;
+      std::cout << "scratch_mem_per_cell   = " << v.scratch_mem_per_cell <<std::endl;
+      std::cout << "stream_prealloc_factor = " << v.stream_prealloc_factor <<std::endl;
+      std::cout << "free_scratch_memory    = " << v.free_scratch_memory <<std::endl;
+      std::cout << "build_particle_offset  = " << v.build_particle_offset <<std::endl;
+      std::cout << "dual_particle_offset   = " << v.dual_particle_offset <<std::endl;
+      std::cout << "random_access          = " << v.random_access <<std::endl;
+      std::cout << "subcell_compaction     = " << v.subcell_compaction <<std::endl;
+      std::cout << "half_symmetric         = " << v.half_symmetric <<std::endl;
+      std::cout << "skip_ghosts            = " << v.skip_ghosts <<std::endl;
+*/
       return true;
     }    
   };  

@@ -42,31 +42,24 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     CST CS /*nbh_chunk_size*/,
-    std::integral_constant<bool,Symetric> ,
-    PosFieldsT ,
+    onika::BoolConst<Symetric> ,
+    PosFieldsT pos_fields,
     onika::BoolConst<PreferComputeBuffer> ,
-    std::index_sequence<FieldIndex...> ,
-    std::integral_constant<NbhIteratorKind,NbhIteratorKind::CHUNK_NEIGHBORS> nbh_kind = {}
-    )
+    std::index_sequence<FieldIndex...> )
   {
-    static_assert( nbh_kind.value == NbhIteratorKind::CHUNK_NEIGHBORS );
-
     using exanb::chunknbh_stream_to_next_particle;
     using exanb::chunknbh_stream_info;
     using exanb::decode_cell_index;
   
-    static constexpr bool has_locks = ! std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
-    //static constexpr bool has_nbh_data = optional.nbh_data.c_has_nbh_data ;
-    //static constexpr auto default_nbh_data = optional.nbh_data.c_default_value;
+    [[maybe_unused]] static constexpr bool has_locks = ! std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
     
     // particle compute context, only for functors not using compute buffer
-    static constexpr bool has_particle_start = ComputePairParticleContextTraits<FuncT>::HasParticleContextStart;
-    static constexpr bool has_particle_stop = ComputePairParticleContextTraits<FuncT>::HasParticleContextStop;
-
-    static_assert( (!has_particle_start && !has_particle_stop) || ComputePairTraits<FuncT>::ComputeBufferCompatible );
+    static constexpr bool has_particle_start = compute_pair_traits::has_particle_context_start_v<FuncT>;
+    static constexpr bool has_particle_stop  = compute_pair_traits::has_particle_context_stop_v<FuncT>;
+    static constexpr bool has_particle_ctx   = compute_pair_traits::has_particle_context_v<FuncT>;
     
-    static constexpr bool use_compute_buffer = (PreferComputeBuffer || has_particle_start || has_particle_stop) && ComputePairTraits<FuncT>::ComputeBufferCompatible;
-    static constexpr bool requires_block_synchronous_call = ComputePairTraits<FuncT>::RequiresBlockSynchronousCall ;
+    static constexpr bool use_compute_buffer = (PreferComputeBuffer || has_particle_start || has_particle_stop) && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
+    static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
     static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
@@ -74,16 +67,11 @@ namespace exanb
     static_assert( nbh_fields_count==0 || use_compute_buffer , "Neighbor field auto packaging is only supported when using compute bufer by now." );
 
     using CLoopBoolT = std::conditional_t< Symetric , bool , onika::BoolConst<true> >;
-    using ComputePairBufferT = std::conditional_t< use_compute_buffer , typename ComputePairBufferFactoryT::ComputePairBuffer , onika::BoolConst<false> >;
+    using ComputePairBufferT = std::conditional_t< use_compute_buffer || has_particle_ctx || has_particle_start || has_particle_stop, typename ComputePairBufferFactoryT::ComputePairBuffer , onika::BoolConst<false> >;
     
-    using _Rx = typename PosFieldsT::Rx;
-    using _Ry = typename PosFieldsT::Ry;
-    using _Rz = typename PosFieldsT::Rz;
-    static constexpr onika::soatl::FieldId<_Rx> RX;
-    static constexpr onika::soatl::FieldId<_Ry> RY;
-    static constexpr onika::soatl::FieldId<_Rz> RZ;
-
-    // assert( cells != nullptr );
+    const auto RX = pos_fields.e0;
+    const auto RY = pos_fields.e1;
+    const auto RZ = pos_fields.e2;
 
     // cell filtering, allows user to give a selection function enabling or inhibiting cell processing
     if constexpr ( ! std::is_same_v< ComputePairTrivialCellFiltering , std::remove_reference_t<decltype(optional.cell_filter)> > )
@@ -99,7 +87,7 @@ namespace exanb
     [[maybe_unused]] auto nbh_data_ctx = optional.nbh_data.make_ctx();
 
     // create local computation scratch buffer
-    ComputePairBufferT tab;
+    [[maybe_unused]] ComputePairBufferT tab;
     if constexpr ( use_compute_buffer )
     {
       cpbuf_factory.init(tab);
@@ -107,16 +95,11 @@ namespace exanb
       tab.tb = particle_id_codec::MAX_PARTICLE_TYPE;
       tab.cell = cell_a;
     }
-    if constexpr ( ! use_compute_buffer )
-    {
-      if constexpr ( tab ) {}
-      if constexpr ( has_locks ) {}
-    }
 
     // central particle's coordinates
-    const double* __restrict__ rx_a = cells[cell_a][RX]; ONIKA_ASSUME_ALIGNED(rx_a);
-    const double* __restrict__ ry_a = cells[cell_a][RY]; ONIKA_ASSUME_ALIGNED(ry_a);
-    const double* __restrict__ rz_a = cells[cell_a][RZ]; ONIKA_ASSUME_ALIGNED(rz_a);
+    const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX); ONIKA_ASSUME_ALIGNED(rx_a);
+    const double* __restrict__ ry_a = cells[cell_a].field_pointer_or_null(RY); ONIKA_ASSUME_ALIGNED(ry_a);
+    const double* __restrict__ rz_a = cells[cell_a].field_pointer_or_null(RZ); ONIKA_ASSUME_ALIGNED(rz_a);
 
     const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
     const uint16_t* stream_base = stream_info.stream;
@@ -166,9 +149,9 @@ namespace exanb
           assert( loc_b.i>=0 && loc_b.j>=0 && loc_b.j>=0 && loc_b.i<dims.i && loc_b.j<dims.j && loc_b.j<dims.j );
           const size_t cell_b = grid_ijk_to_index( dims , loc_b );
           const unsigned int nbh_cell_particles = cells[cell_b].size();
-          rx_b = cells[cell_b][RX]; ONIKA_ASSUME_ALIGNED(rx_b);
-          ry_b = cells[cell_b][RY]; ONIKA_ASSUME_ALIGNED(ry_b);
-          rz_b = cells[cell_b][RZ]; ONIKA_ASSUME_ALIGNED(rz_b);
+          rx_b = cells[cell_b].field_pointer_or_null(RX); ONIKA_ASSUME_ALIGNED(rx_b);
+          ry_b = cells[cell_b].field_pointer_or_null(RY); ONIKA_ASSUME_ALIGNED(ry_b);
+          rz_b = cells[cell_b].field_pointer_or_null(RZ); ONIKA_ASSUME_ALIGNED(rz_b);
           nchunks = *(stream++);
           for(chunk=0;chunk<nchunks && symcont;chunk++)
           {
@@ -198,7 +181,10 @@ namespace exanb
                   }
                   if constexpr ( ! use_compute_buffer )
                   {
-                    func( dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, optional.nbh_data.get( cell_a , p_a, p_nbh_index , nbh_data_ctx ) );
+                    if constexpr (  has_particle_ctx )
+                      func( tab, dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, optional.nbh_data.get( cell_a , p_a, p_nbh_index , nbh_data_ctx ) );
+                    if constexpr ( !has_particle_ctx )
+                      func(      dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, optional.nbh_data.get( cell_a , p_a, p_nbh_index , nbh_data_ctx ) );                
                   }
                 }
                 ++ p_nbh_index;

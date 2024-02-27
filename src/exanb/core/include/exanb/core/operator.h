@@ -252,7 +252,7 @@ namespace exanb
     // each call allocates a new context to be used to build up a new parallel operation
     void set_task_group_mode( bool m );
     bool task_group_mode() const;
-    onika::parallel::ParallelExecutionContext* parallel_execution_context();
+    onika::parallel::ParallelExecutionContext* parallel_execution_context( const char* app_tag = nullptr );
     std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_nolock(unsigned int id=0);
     std::shared_ptr<onika::parallel::ParallelExecutionStream> parallel_execution_stream_lock(unsigned int id=0);
     onika::parallel::ParallelExecutionStreamQueue parallel_execution_stream(unsigned int id=0);
