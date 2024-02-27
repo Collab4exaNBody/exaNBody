@@ -64,7 +64,7 @@ namespace exanb
       chunk_neighbors.m_alloc.set_gpu_addressable_allocation( gpu_enabled );
 
       bool build_particle_offset = config.build_particle_offset;
-      if( gpu_enabled && !build_particle_offset && config.chunk_size>1) // specialization for chunk_size=1 now suports list traversal without offset table
+      if( gpu_enabled && !build_particle_offset /* && config.chunk_size>1 */ ) // specialization for chunk_size=1 now suports list traversal without offset table
       {
         ldbg << "INFO: force build_particle_offset to true to ensure Cuda compatibility" << std::endl;
         build_particle_offset = true;
