@@ -90,7 +90,7 @@ namespace exanb
         fatal_error() << "Attempt to use UpdateFromGhosts on uninitialized fields" << std::endl;
       }
     
-      auto pecfunc = [self=this]() { return self->parallel_execution_context(); };
+      auto pecfunc = [self=this](const char* stag) { return self->parallel_execution_context(stag); };
       auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
       auto update_fields = grid->field_accessors_from_field_set( FieldSetT{} );
 

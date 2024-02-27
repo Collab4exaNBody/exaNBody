@@ -56,6 +56,11 @@ namespace onika
       }
     };
 
+    template<class FuncT> struct BlockParallelForFunctorTraits< ParallelForBlockAdapter<FuncT> >
+    {      
+      static inline constexpr bool CudaCompatible = ParallelForFunctorTraits<FuncT>::CudaCompatible;
+    };
+
     template< class FuncT >
     static inline
     ParallelExecutionWrapper

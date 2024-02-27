@@ -84,6 +84,7 @@ namespace onika
       pec->m_execution_end_callback = user_cb;
       pec->m_omp_sched = omp_scheduling;
     
+	    // printf("block_parallel_for: %s %s: cudacompat=%d\n", pec->m_tag != nullptr ? pec->m_tag : "<null>" , pec->m_sub_tag != nullptr ? pec->m_sub_tag : "" , int(  ) );
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
         bool allow_cuda_exec = enable_gpu ;
@@ -91,7 +92,6 @@ namespace onika
         if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();
         if( allow_cuda_exec )
         {
-    	    printf("GPU execution %s\n", pec->m_tag );
           pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_CUDA;
           pec->m_block_size = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
           pec->m_grid_size = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount

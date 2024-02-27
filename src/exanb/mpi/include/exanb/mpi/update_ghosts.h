@@ -79,7 +79,7 @@ namespace exanb
   public:
     inline void execute() override final
     {
-      auto pecfunc = [self=this]() { return self->parallel_execution_context(); };
+      auto pecfunc = [self=this](const char* stag) { return self->parallel_execution_context(stag); };
       auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
       auto update_fields = make_field_tuple_from_field_set( AddDefaultFields<FieldSetT> {} ); 
 

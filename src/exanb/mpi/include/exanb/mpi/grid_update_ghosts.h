@@ -160,7 +160,7 @@ namespace exanb
                                              , update_fields };
 
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
-        auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context() , par_for_opts );
+        auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
         if( async_buffer_pack ) send_pack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
       }
     }
@@ -255,7 +255,7 @@ namespace exanb
                                         , update_fields };
                                         
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
-      auto parallel_op = block_parallel_for( cells_to_receive, m_unpack_functors[p], parallel_execution_context() , par_for_opts );
+      auto parallel_op = block_parallel_for( cells_to_receive, m_unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
       if( async_buffer_pack ) recv_unpack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
     };
     // *** end of packet decoding lamda ***

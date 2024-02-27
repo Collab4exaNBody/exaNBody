@@ -110,6 +110,7 @@ namespace onika
       
       // keep track of creation site
       const char* m_tag = nullptr;
+      const char* m_sub_tag = nullptr;
       
       // device side scratch memory for counters, return_data and functor_data
       onika::cuda::CudaDeviceStorage<GPUKernelExecutionScratch> m_cuda_scratch;
