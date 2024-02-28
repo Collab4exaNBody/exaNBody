@@ -78,22 +78,44 @@ namespace exanb
     }
 
     template<class field_id>
-    ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( onika::soatl::FieldId<field_id> ) const
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    auto operator [] ( onika::soatl::FieldId<field_id> ) const
     {
       return m_cells[m_cell_index][ onika::soatl::FieldId<field_id>{} ];
     }
 
+    template<class field_id>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    auto field_pointer_or_null( onika::soatl::FieldId<field_id> ) const
+    {
+      return m_cells[m_cell_index].field_pointer_or_null( onika::soatl::FieldId<field_id>{} );
+    }
+
     template<class FuncT , class... fids>
-    ONIKA_HOST_DEVICE_FUNC inline auto operator [] ( const onika::soatl::FieldCombiner<FuncT,fids...>& f ) const
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    auto operator [] ( const onika::soatl::FieldCombiner<FuncT,fids...>& f ) const
     {
       return m_cells[m_cell_index][f];
     }
 
     template<class FuncT, class FieldIdT>
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor2<CellsT, ExternalCellParticleFieldAccessor<FuncT,FieldIdT> > operator [] ( const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
+    ONIKA_HOST_DEVICE_FUNC 
+    ONIKA_ALWAYS_INLINE
+    GridParticleFieldAccessor2<CellsT, ExternalCellParticleFieldAccessor<FuncT,FieldIdT> > operator [] ( const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
     {
       return { m_cells , m_cell_index , f };
-    }    
+    }
+
+    template<class FuncT, class FieldIdT>
+    ONIKA_HOST_DEVICE_FUNC 
+    ONIKA_ALWAYS_INLINE
+    auto field_pointer_or_null ( const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& f ) const
+    {
+      return f.m_func( m_cell_index , m_cells );
+    }
   };
 
   template<class CellsT, class FieldAccT>
@@ -102,7 +124,10 @@ namespace exanb
     CellsT m_cells;    
     const size_t m_cell_index;
     const FieldAccT& m_field_acc;
-    ONIKA_HOST_DEVICE_FUNC inline typename FieldAccT::reference_t operator [] ( size_t particle_index ) const
+    
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    typename FieldAccT::reference_t operator [] ( size_t particle_index ) const
     {
       return m_field_acc.m_func( m_cell_index , particle_index , m_cells );
     }
@@ -134,9 +159,18 @@ namespace exanb
     
     template<class CellsT>
     ONIKA_HOST_DEVICE_FUNC
-    inline reference_t operator () ( size_t cell_i, size_t p_i , CellsT ) const
+    ONIKA_ALWAYS_INLINE
+    reference_t operator () ( size_t cell_i, size_t p_i , CellsT ) const
     {
       return m_data_array[ m_cell_particle_offset[cell_i] + p_i ];
+    }
+
+    template<class CellsT>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    pointer_t operator () ( size_t cell_i, CellsT ) const
+    {
+      return m_data_array + m_cell_particle_offset[cell_i] ;
     }
   };
 
