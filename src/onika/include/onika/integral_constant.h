@@ -26,7 +26,11 @@ namespace onika
   template<class T, T _Value>
   struct IntegralConst
   {
+    using value_type = T;
+    static constexpr value_type value = _Value;
     ONIKA_HOST_DEVICE_FUNC inline constexpr operator T () { return _Value; }
+    ONIKA_HOST_DEVICE_FUNC inline bool operator == ( T other ) const { return _Value == other; }
+    ONIKA_HOST_DEVICE_FUNC inline bool operator != ( T other ) const { return _Value != other; }
   };
   template<bool B> using BoolConst = IntegralConst<bool,B>;
   template<unsigned int I> using UIntConst = IntegralConst<unsigned int,I>;
@@ -35,6 +39,19 @@ namespace onika
 
   using FalseType = BoolConst<false>;
   using TrueType = BoolConst<true>;
+  
+  template<class IntegralConstT, bool ConstTypeOrValue>
+  struct GetAsConstTypeOrValue
+  {
+    static constexpr IntegralConstT value = {};
+  };
+  
+  template<class IntegralConstT>
+  struct GetAsConstTypeOrValue<IntegralConstT,false>
+  {
+    static constexpr typename IntegralConstT::value_type value = IntegralConstT::value;
+  };
+  
 }
 
 

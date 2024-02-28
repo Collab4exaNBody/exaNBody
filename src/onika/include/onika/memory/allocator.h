@@ -42,9 +42,23 @@ namespace onika { namespace memory
 # endif
 
   // prefered default alignment and chunk size on this machine
+# ifndef ONIKA_DEFAULT_ALIGNMENT
   static inline constexpr size_t DEFAULT_ALIGNMENT = SimdRequirements<double>::alignment;
+# else
+  static inline constexpr size_t DEFAULT_ALIGNMENT = ONIKA_DEFAULT_ALIGNMENT;
+# endif
+
+# ifndef ONIKA_DEFAULT_CHUNK_SIZE
   static inline constexpr size_t DEFAULT_CHUNK_SIZE = SimdRequirements<float>::chunksize;
+# else
+  static inline constexpr size_t DEFAULT_CHUNK_SIZE = ONIKA_DEFAULT_CHUNK_SIZE;
+# endif
+
+#ifndef ONIKA_MINIMUM_CUDA_ALIGNMENT
   static inline constexpr size_t MINIMUM_CUDA_ALIGNMENT = 64;
+#else
+  static inline constexpr size_t MINIMUM_CUDA_ALIGNMENT = ONIKA_MINIMUM_CUDA_ALIGNMENT;
+#endif
 
   struct MemoryChunkInfo
   {
