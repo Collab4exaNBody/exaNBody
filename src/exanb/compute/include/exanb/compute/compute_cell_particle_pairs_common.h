@@ -42,6 +42,7 @@ under the License.
 namespace exanb
 {
   using DefaultPositionFields = onika::FlatTuple< onika::soatl::FieldId<field::_rx> , onika::soatl::FieldId<field::_ry> , onika::soatl::FieldId<field::_rz> >;
+  template<class... PFields> using PosititionFields = onika::FlatTuple< onika::soatl::FieldId<PFields> ... >;
 
   template< class ComputeBufferT, class CellsT, class FieldAccessorTupleT, size_t ... FieldIndex >
   ONIKA_HOST_DEVICE_FUNC

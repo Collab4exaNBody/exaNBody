@@ -165,7 +165,7 @@ namespace exanb
       using CSType = std::remove_cv_t< std::remove_reference_t<decltype(cs)> >;\
       if constexpr ( std::is_same_v<CSType,onika::UIntConst<1> > && !requires_block_synchronous_call ) \
           return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs)    , exec_ctx ); \
-      else if ( cs == optional.nbh.m_chunk_size ) \
+      else if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
         return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx ); \
     }
     XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )
