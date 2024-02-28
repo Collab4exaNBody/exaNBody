@@ -41,7 +41,7 @@ namespace onika
       void * return_data = nullptr;
       size_t return_data_size = 0;
       bool enable_gpu = true;
-      OMPScheduling omp_scheduling = OMP_SCHED_STATIC;
+      OMPScheduling omp_scheduling = OMP_SCHED_GUIDED;
     };
 
     template<class FuncT>

@@ -50,7 +50,7 @@ namespace onika
       bool enable_gpu = true;
       bool fixed_gpu_grid_size = false;
       bool n_div_blocksize = false; // if true, divide N by block_size, rounding to upper integer
-      OMPScheduling omp_scheduling = OMP_SCHED_DYNAMIC;
+      OMPScheduling omp_scheduling = OMP_SCHED_GUIDED;
     };
 
     template< class FuncT >
