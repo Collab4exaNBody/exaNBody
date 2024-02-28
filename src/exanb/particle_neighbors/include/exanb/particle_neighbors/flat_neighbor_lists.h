@@ -16,25 +16,22 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#pragma once
 
-#include <onika/cuda/cuda.h>
+#include <onika/memory/allocator.h>
 
-namespace onika
+namespace exanb
 {
-
-  template<class T, T _Value>
-  struct IntegralConst
+  template<class _NeighborOffsetT = uint64_t , class _ParticleIndexT = uint32_t , class _NeighborCountT = uint16_t >
+  struct FlatPartNbhListT
   {
-    ONIKA_HOST_DEVICE_FUNC inline constexpr operator T () const { return _Value; }
+    using NeighborOffset = _NeighborOffsetT;
+    using ParticleIndex = _ParticleIndexT;
+    using NeighborCount = _NeighborCountT;
+    onika::memory::CudaMMVector< NeighborOffset > m_neighbor_offset; // size = number of particles + 1 , ast one is the total size
+    onika::memory::CudaMMVector< ParticleIndex > m_neighbor_list;    // size = total number of particle pairs
+    onika::memory::CudaMMVector< NeighborCount > m_half_count;       // size = number of particles    
   };
-  template<bool B> using BoolConst = IntegralConst<bool,B>;
-  template<unsigned int I> using UIntConst = IntegralConst<unsigned int,I>;
-  template<int I> using IntConst = IntegralConst<int,I>;
-  template<unsigned int I> using UIntConst = IntegralConst<unsigned int,I>;
+  using FlatPartNbhList = FlatPartNbhListT<>;
 
-  using FalseType = BoolConst<false>;
-  using TrueType = BoolConst<true>;
 }
-
 

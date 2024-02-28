@@ -49,7 +49,7 @@ namespace exanb
     {
       if( !grid.has_value() ) { return; }
       if( grid->number_of_particles()==0 ) { return; }
-    
+        
       size_t cs = chunk_neighbors->m_chunk_size;
       size_t cs_log2 = 0;
       while( cs > 1 )
