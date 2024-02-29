@@ -38,6 +38,8 @@ namespace onika
     void ParallelExecutionContext::reset()
     {
       // reset to default state
+      m_tag = nullptr;
+      m_sub_tag = nullptr;
       m_cuda_ctx = nullptr;
       m_default_stream = nullptr;
       m_omp_num_tasks = 0;
@@ -81,7 +83,17 @@ namespace onika
     {
       return m_cuda_ctx;
     }
+
+    const char* ParallelExecutionContext::tag() const
+    {
+      return (m_tag!=nullptr) ? m_tag : "<unknown>" ;
+    }
     
+    const char* ParallelExecutionContext::sub_tag() const
+    {
+      return (m_sub_tag!=nullptr) ? m_sub_tag : "" ;
+    }
+   
     void ParallelExecutionContext::init_device_scratch()
     {
       if( m_cuda_scratch == nullptr )

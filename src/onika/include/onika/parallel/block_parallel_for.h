@@ -47,8 +47,11 @@ namespace onika
       ParallelExecutionCallback user_cb = {};
       void * return_data = nullptr;
       size_t return_data_size = 0;
+      unsigned int max_block_size = ONIKA_CU_MAX_THREADS_PER_BLOCK;
       bool enable_gpu = true;
       bool fixed_gpu_grid_size = false;
+      bool n_div_blocksize = false; // if true, divide N by block_size, rounding to upper integer
+      OMPScheduling omp_scheduling = OMP_SCHED_GUIDED;
     };
 
     template< class FuncT >
@@ -64,45 +67,43 @@ namespace onika
       using HostFunctorAdapter = BlockParallelForHostAdapter< FuncT , BlockParallelForFunctorTraits<FuncT>::CudaCompatible >;
       [[maybe_unused]] static constexpr AssertFunctorSizeFitIn< sizeof(HostFunctorAdapter) , HostKernelExecutionScratch::MAX_FUNCTOR_SIZE , FuncT > _check_cpu_functor_size = {};
       assert( pec != nullptr );
-    
-      const auto [ user_cb
-                 , return_data 
-                 , return_data_size 
-                 , enable_gpu
-                 , fixed_gpu_grid_size
-                 ] = opts;
 
       // construct virtual functor adapter inplace, using reserved functor space
       static_assert( ( HostKernelExecutionScratch::MAX_FUNCTOR_ALIGNMENT % alignof(FuncT) ) == 0 , "functor_data alignment is not sufficient for user functor" );
       // printf("inplace construction of host adapter, size=%d, max=%d\n", int(sizeof(HostFunctorAdapter)) , int(HostKernelExecutionScratch::MAX_FUNCTOR_SIZE) );
       new(pec->m_host_scratch.functor_data) HostFunctorAdapter( func );
 
-      pec->m_execution_end_callback = user_cb;
-      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
+      pec->m_execution_end_callback = opts.user_cb;
+      pec->m_omp_sched = opts.omp_scheduling;
     
+	    // printf("block_parallel_for: %s %s: cudacompat=%d\n", pec->m_tag != nullptr ? pec->m_tag : "<null>" , pec->m_sub_tag != nullptr ? pec->m_sub_tag : "" , int(  ) );
       if constexpr ( BlockParallelForFunctorTraits<FuncT>::CudaCompatible )
       {
-        bool allow_cuda_exec = enable_gpu ;
+        bool allow_cuda_exec = opts.enable_gpu ;
         if( allow_cuda_exec ) allow_cuda_exec = ( pec->m_cuda_ctx != nullptr );
         if( allow_cuda_exec ) allow_cuda_exec = pec->m_cuda_ctx->has_devices();
         if( allow_cuda_exec )
         {
           pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_CUDA;
-          pec->m_block_size = std::min( static_cast<size_t>(ONIKA_CU_MAX_THREADS_PER_BLOCK) , static_cast<size_t>(onika::parallel::ParallelExecutionContext::gpu_block_size()) );
+          pec->m_block_size = std::min( size_t(opts.max_block_size) , std::min( size_t(ONIKA_CU_MAX_THREADS_PER_BLOCK) , size_t(onika::parallel::ParallelExecutionContext::gpu_block_size()) ) );
           pec->m_grid_size = pec->m_cuda_ctx->m_devices[0].m_deviceProp.multiProcessorCount
                                       * onika::parallel::ParallelExecutionContext::gpu_sm_mult()
                                       + onika::parallel::ParallelExecutionContext::gpu_sm_add();
-          if( ! fixed_gpu_grid_size )
+
+          if( opts.n_div_blocksize ) N = ( N + pec->m_block_size - 1 ) / pec->m_block_size;
+          pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr };
+
+          if( ! opts.fixed_gpu_grid_size )
           { 
             pec->m_grid_size = 0;
           }
-          pec->m_reset_counters = fixed_gpu_grid_size;
 
-          if( return_data != nullptr && return_data_size > 0 )
+          pec->m_reset_counters = opts.fixed_gpu_grid_size;
+
+          if( opts.return_data != nullptr && opts.return_data_size > 0 )
           {
-	    // printf("bpf: return data input=%p , output=%p , size=%d\n",return_data,return_data, int(return_data_size) );
-            pec->set_return_data_input( return_data , return_data_size );
-            pec->set_return_data_output( return_data , return_data_size );
+            pec->set_return_data_input( opts.return_data , opts.return_data_size );
+            pec->set_return_data_output( opts.return_data , opts.return_data_size );
           }
           else
           {
@@ -114,11 +115,11 @@ namespace onika
       }
 
       // ================== CPU / OpenMP execution path ====================
+      pec->m_parallel_space = ParallelExecutionSpace{ 0, N, nullptr }; // block_size is always 1 for CPU, so we don't care about opts.n_div_blocksize flag
       pec->m_execution_target = ParallelExecutionContext::EXECUTION_TARGET_OPENMP;
       return {pec};
-
     }
-    
+
   }
 
 }

@@ -41,7 +41,7 @@ under the License.
 
 #ifndef XNB_CHUNK_NEIGHBORS_CS_LIST
 #warning XNB_CHUNK_NEIGHBORS_CS_LIST shoud have been defined from CMake. using specializations 1,VARIMPL
-#define XNB_CHUNK_NEIGHBORS_CS_LIST 1 XNB_COMMA VARIMPL
+#define XNB_CHUNK_NEIGHBORS_CS_LIST 8 XNB_COMMA 4 XNB_COMMA 1
 #endif
 
 #define __XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( FUNC , ... ) EXPAND_WITH_FUNC_NOSEP( FUNC ,##__VA_ARGS__ )
