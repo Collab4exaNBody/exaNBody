@@ -75,7 +75,7 @@ endif()
 
 option(ONIKA_CU_ENABLE_KERNEL_BOUNDS "Use NVCC directive to restrict kernel launch bounds" OFF)
 set(ONIKA_TASKS_PER_CORE "4" CACHE STRING "Number of OpenMP tasks per thread")
-set(ONIKA_CU_MAX_THREADS_PER_BLOCK "128" CACHE STRING "Maximum number of threads per Cuda block")
+set(ONIKA_CU_MAX_THREADS_PER_BLOCK "256" CACHE STRING "Maximum number of threads per Cuda block")
 set(ONIKA_CU_MIN_BLOCKS_PER_SM "6" CACHE STRING "Minimum number of blocks per SM")
 if(ONIKA_CU_ENABLE_KERNEL_BOUNDS)
   set(ONIKA_DEFINITIONS ${ONIKA_DEFINITIONS} -DONIKA_CU_ENABLE_KERNEL_BOUNDS=1)

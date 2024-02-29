@@ -53,9 +53,7 @@ namespace exanb
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
     static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
 
-    using exanb::chunknbh_stream_to_next_particle;
     using exanb::chunknbh_stream_info;
-    using exanb::decode_cell_index;
   
     [[maybe_unused]] static constexpr bool has_locks = ! std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
     

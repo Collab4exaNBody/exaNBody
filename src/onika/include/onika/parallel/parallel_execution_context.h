@@ -153,6 +153,9 @@ namespace onika
       // GPU device context, or nullptr if node device available
       onika::cuda::CudaContext* gpu_context() const;
       
+      const char* tag() const;
+      const char* sub_tag() const;
+      
       // convivnience templates
       template<class T> inline void set_return_data_input( const T* init_value )
       {
