@@ -121,6 +121,9 @@ namespace onika
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! atomicCAS((uint32_t*)&(f),0,1) )
 #   define ONIKA_CU_ATOMIC_FLAG_CLEAR(f) * (volatile uint32_t *) &(f) = 0
 
+#   define ONIKA_CU_WARP_ACTIVE_THREADS_ALL(pred) __all_sync( __activemask(), int(pred) )
+#   define ONIKA_CU_WARP_ACTIVE_THREADS_ANY(pred) __any_sync( __activemask(), int(pred) )
+
 #   if defined(__HIP_DEVICE_COMPILE__)
     __device__ inline void _hip_nanosleep(long long nanosecs)
     {
@@ -187,6 +190,9 @@ namespace onika
 
 #   define ONIKA_CU_ATOMIC_FLAG_TEST_AND_SET(f) ( ! (f).m_flag.test_and_set(std::memory_order_acquire) )
 #   define ONIKA_CU_ATOMIC_FLAG_CLEAR(f) (f).m_flag.clear(std::memory_order_release)
+
+#   define ONIKA_CU_WARP_ACTIVE_THREADS_ALL(pred) (pred)
+#   define ONIKA_CU_WARP_ACTIVE_THREADS_ANY(pred) (pred)
 
 #   define ONIKA_CU_NANOSLEEP(ns) std::this_thread::sleep_for(std::chrono::nanoseconds(ns))
 

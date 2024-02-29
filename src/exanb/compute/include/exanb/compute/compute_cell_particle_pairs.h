@@ -149,14 +149,28 @@ namespace exanb
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
 
+    BlockParallelForOptions bpfor_opts = {};
     if constexpr ( compute_pair_traits::cuda_compatible_v<FuncT> )
     {
       if( exec_ctx->has_gpu_context() )
       {
-        if( exec_ctx->m_cuda_ctx->has_devices() ) grid.check_cells_are_gpu_addressable();
+        if( exec_ctx->m_cuda_ctx->has_devices() )
+        {
+          if( !requires_block_synchronous_call && optional.nbh.m_chunk_size>1 && compute_pair_traits::buffer_less_compatible_v<FuncT> )
+          {
+            if( XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE < bpfor_opts.max_block_size )
+            {
+              ldbg << "INFO: GPU block size has been limited to "<< XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE
+                   <<" to enforce synchronized thread computation in kernel "<<exec_ctx->tag()<<" "<<exec_ctx->sub_tag() << std::endl;
+              bpfor_opts.max_block_size = XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE;
+            }
+          }
+          grid.check_cells_are_gpu_addressable();
+        }
       }
     }
-
+    
+    
     auto cellprof = grid.cell_profiler();
     CellsAccessorT cells = { grid.cells() };
         
@@ -164,9 +178,9 @@ namespace exanb
     { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
       using CSType = std::remove_cv_t< std::remove_reference_t<decltype(cs)> >;\
       if constexpr ( std::is_same_v<CSType,onika::UIntConst<1> > && !requires_block_synchronous_call ) \
-          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs)    , exec_ctx ); \
-      else if ( cs == optional.nbh.m_chunk_size ) \
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx ); \
+          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
+      else if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
+        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
     }
     XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )
 #   undef _XNB_CHUNK_NEIGHBORS_CCPP
