@@ -160,7 +160,7 @@ namespace exanb
     
     // decode state machine variables
     int stream_last_p_a = 0;
-    int cell_groups = *(stream++);
+    int cell_groups = 0;
     int nchunks = 0;
     int chunk_particles = 0;
 
@@ -171,6 +171,9 @@ namespace exanb
 
     // compute next particle index to process
     int p_a = ONIKA_CU_THREAD_IDX;
+
+    // initialize number of cell groups for first particle, only if cell is not empty
+    if( cell_a_particles > 0 ) cell_groups = *(stream++);
 
     // -- jump to next particle to process --
     while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a += ONIKA_CU_BLOCK_SIZE; }
