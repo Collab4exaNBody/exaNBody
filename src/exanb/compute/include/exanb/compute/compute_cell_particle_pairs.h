@@ -177,9 +177,7 @@ namespace exanb
 #   define _XNB_CHUNK_NEIGHBORS_CCPP(CS) \
     { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
       using CSType = std::remove_cv_t< std::remove_reference_t<decltype(cs)> >;\
-      if constexpr ( std::is_same_v<CSType,onika::UIntConst<1> > && !requires_block_synchronous_call ) \
-          return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
-      else if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
+      if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
         return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
     }
     XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )

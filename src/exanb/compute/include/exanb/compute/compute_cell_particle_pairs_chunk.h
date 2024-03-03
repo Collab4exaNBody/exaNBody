@@ -22,31 +22,8 @@ under the License.
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <onika/cuda/cuda_math.h>
 
-#ifndef XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE
-#define XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE 4
-#endif
-
-#ifndef XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE
-#define XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE 64
-#endif
-
 namespace exanb
 {
-
-  struct DelayedNeighborCompute
-  {
-    Vec3d dr;
-    double d2;
-    uint32_t cell_b;
-    uint16_t p_b;
-    uint16_t p_nbh_index;
-  };
-
-  template<unsigned int DELAYED_COMPUTE_BUFFER_SIZE>
-  struct DelayedComputeBuffer
-  {
-    DelayedNeighborCompute nbh[DELAYED_COMPUTE_BUFFER_SIZE];
-  };
 
   /************************************************
    *** Chunk neighbors traversal implementation ***
@@ -73,7 +50,6 @@ namespace exanb
     std::index_sequence<FieldIndex...> )
   {
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
-    static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
 
     using exanb::chunknbh_stream_info;
     using onika::cuda::min;
@@ -123,8 +99,8 @@ namespace exanb
       tab.cell = cell_a;
     }
 
-    // with compute buffer, but with delayed computation buffer to resynchronize GPU thread computation phases
-    static constexpr unsigned int DELAYED_COMPUTE_BUFFER_SIZE = ( !requires_block_synchronous_call && !use_compute_buffer && onika::cuda::gpu_device_execution_t::value && CS>1 ) ? XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE : 1; // must be one and not 0 to avoid GCC compiler warnings about %0, even if it is in 'if constexpr' block
+    // without compute buffer, but with delayed computation buffer to resynchronize GPU thread computation phases
+    static constexpr unsigned int DELAYED_COMPUTE_BUFFER_SIZE = ( !use_compute_buffer && onika::cuda::gpu_device_execution_t::value ) ? XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE : 1; // must be one and not 0 to avoid GCC compiler warnings about %0, even if it is in 'if constexpr' block
     using DelayedComputeBufferT = std::conditional_t< (DELAYED_COMPUTE_BUFFER_SIZE>1) , DelayedComputeBuffer<DELAYED_COMPUTE_BUFFER_SIZE*XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE> , onika::BoolConst<false> >;
     [[maybe_unused]] ONIKA_CU_BLOCK_SHARED DelayedComputeBufferT dcb;
 #   define DNCB(i) dcb.nbh[i*XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE+ONIKA_CU_THREAD_IDX]
@@ -247,7 +223,7 @@ namespace exanb
               {
                 if constexpr ( DELAYED_COMPUTE_BUFFER_SIZE > 1 )
                 {
-                  DNCB( dncb_end ) = { dr, d2, static_cast<uint32_t>(cell_b), static_cast<uint16_t>(p_b), static_cast<uint16_t>(p_nbh_index) }; dncb_end = ( dncb_end + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
+                  DNCB( dncb_end ) = { dr.x,dr.y,dr.z, d2, static_cast<uint32_t>(cell_b), static_cast<uint16_t>(p_b), static_cast<uint16_t>(p_nbh_index) }; dncb_end = ( dncb_end + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
                 }
                 else
                 {
@@ -270,11 +246,12 @@ namespace exanb
           {
             if( dncb_start != dncb_end )
             {
+              const Vec3d dr = { DNCB(dncb_start).drx , DNCB(dncb_start).dry , DNCB(dncb_start).drz };
               if constexpr ( has_particle_ctx )
-                func( tab, DNCB(dncb_start).dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells
+                func( tab, dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells
                     , DNCB(dncb_start).cell_b, DNCB(dncb_start).p_b, optional.nbh_data.get(cell_a, p_a, DNCB(dncb_start).p_nbh_index, nbh_data_ctx) );
               if constexpr ( !has_particle_ctx )
-                func(      DNCB(dncb_start).dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells 
+                func(      dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells 
                     , DNCB(dncb_start).cell_b, DNCB(dncb_start).p_b, optional.nbh_data.get(cell_a, p_a, DNCB(dncb_start).p_nbh_index, nbh_data_ctx) );                
               dncb_start = ( dncb_start + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
             }
@@ -285,7 +262,7 @@ namespace exanb
       // --- particle processing end ---
       if constexpr ( use_compute_buffer )
       {
-        if( tab.count > 0 )
+        if( tab.count > 0 || requires_block_synchronous_call )
         {
           if constexpr ( has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
           if constexpr (!has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
@@ -296,11 +273,12 @@ namespace exanb
       {
         while( dncb_start != dncb_end )
         {
+          const Vec3d dr = { DNCB(dncb_start).drx , DNCB(dncb_start).dry , DNCB(dncb_start).drz };
           if constexpr ( has_particle_ctx )
-            func( tab, DNCB(dncb_start).dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells
+            func( tab, dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells
                 , DNCB(dncb_start).cell_b, DNCB(dncb_start).p_b, optional.nbh_data.get(cell_a, p_a, DNCB(dncb_start).p_nbh_index, nbh_data_ctx) );
           if constexpr ( !has_particle_ctx )
-            func(      DNCB(dncb_start).dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells 
+            func(      dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells 
                 , DNCB(dncb_start).cell_b, DNCB(dncb_start).p_b, optional.nbh_data.get(cell_a, p_a, DNCB(dncb_start).p_nbh_index, nbh_data_ctx) );                
           dncb_start = ( dncb_start + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
         }
@@ -324,9 +302,9 @@ namespace exanb
       
     } // end of ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED for loop
 
-# undef NBH_OPT_DATA_ARG
   }
   /*** end of chunk version implementation ***/    
+# undef DNCB
 
 }
 

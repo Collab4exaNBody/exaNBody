@@ -51,7 +51,6 @@ namespace exanb
     )
   {
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
-    static_assert( ! requires_block_synchronous_call ); // this implementation doesn't support this
 
     using exanb::chunknbh_stream_info;
   
@@ -191,7 +190,6 @@ namespace exanb
           const double d2 = norm2(dr);
           if( d2>0.0 && d2 <= rcut2 )
           {            
-#           define NBH_OPT_DATA_ARG optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx)
             if constexpr ( use_compute_buffer )
             {
               tab.check_buffer_overflow();
@@ -199,16 +197,17 @@ namespace exanb
               {
                 compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
               }
-              tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, NBH_OPT_DATA_ARG );
+              tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
             }
             if constexpr ( ! use_compute_buffer )
             {
               if constexpr ( has_particle_ctx )
-                func( tab, dr, d2, /*cell_a_arrays.get(onika::tuple_index_t<FieldIndex>{})[p_a]*/ cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );
+                func( tab, dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... 
+                    , cells , cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
               if constexpr ( !has_particle_ctx )
-                func(      dr, d2, /*cell_a_arrays.get(onika::tuple_index_t<FieldIndex>{})[p_a]*/ cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );                
+                func(      dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ...
+                    , cells , cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );                
             }
-#           undef NBH_OPT_DATA_ARG
           }
           ++ p_nbh_index;
         }
