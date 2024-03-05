@@ -489,6 +489,11 @@ namespace exanb
     return mat.m12==mat.m21 && mat.m13==mat.m31 && mat.m23==mat.m32;
   }
 
+  ONIKA_HOST_DEVICE_FUNC inline bool is_uniform_scale(const Mat3d& mat)
+  {
+    return is_diagonal(mat) && mat.m11==mat.m22 && mat.m11==mat.m33;
+  }
+
   ONIKA_HOST_DEVICE_FUNC inline bool is_identity(const Mat3d& mat)
   {
     return mat.m11==1.0 && mat.m12==0.0 && mat.m13==0.0

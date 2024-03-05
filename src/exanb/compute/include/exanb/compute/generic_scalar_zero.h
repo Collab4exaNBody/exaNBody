@@ -16,35 +16,43 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
+#include <exanb/core/operator.h>
+#include <exanb/core/operator_slot.h>
 #include <exanb/compute/compute_cell_particles.h>
-#include <exanb/core/basic_types_operators.h>
-#include <onika/cuda/cuda.h>
 
 namespace exanb
 {
 
-  struct PushVec3SecondOrderXFormFunctor
+  struct GenericScalarZeroFunctor
   {
-    const Mat3d xform = { 1.0 , 0.0 , 0.0 ,
-                          0.0 , 1.0 , 0.0 ,
-                          0.0 , 0.0 , 1.0 };
-    const double dt = 1.0;
-    const double dt2 = 1.0;
-    ONIKA_HOST_DEVICE_FUNC inline void operator () (double& x, double& y, double& z, double dx, double dy, double dz, double ddx, double ddy, double ddz) const
+    template<class... T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( T& ... d ) const
     {
-      Vec3d d = xform * ( Vec3d{dx,dy,dz} * dt + Vec3d{ddx,ddy,ddz} * dt2 );
-      x += d.x;
-      y += d.y;
-      z += d.z;
+      ( ... , ( d = 0 ) );
     }
   };
 
-  template<> struct ComputeCellParticlesTraits<PushVec3SecondOrderXFormFunctor>
+  template<> struct ComputeCellParticlesTraits< GenericScalarZeroFunctor >
   {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
     static inline constexpr bool CudaCompatible = true;
+  };
+
+  template<class GridT, class... Fields_To_Zero >
+  class GenericScalarZero : public OperatorNode
+  {  
+    ADD_SLOT( GridT  , grid      , INPUT_OUTPUT );
+    ADD_SLOT( bool   , ghost     , INPUT        , true );
+
+  public:
+    inline void execute () override final
+    {
+      if( grid->number_of_cells() == 0 ) return;
+      auto zero_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<Fields_To_Zero>{} ) ...  );
+      compute_cell_particles( *grid , *ghost , GenericScalarZeroFunctor{} , zero_fields , parallel_execution_context() );            
+    }
   };
 
 }
