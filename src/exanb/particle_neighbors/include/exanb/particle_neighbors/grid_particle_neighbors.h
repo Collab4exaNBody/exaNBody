@@ -23,6 +23,7 @@ under the License.
 #include <cstdlib>
 
 #include <exanb/core/particle_id_codec.h>
+#include <onika/memory/allocator.h>
 
 namespace exanb
 {
@@ -31,9 +32,9 @@ namespace exanb
   struct CellParticleNeighbors
   {
     // same size as number of particle in cell
-    std::vector< uint32_t > nbh_start;
+    onika::memory::CudaMMVector< uint32_t > nbh_start;
     // size = total number of bonds starting at particles in cell
-    std::vector< uint64_t > neighbors;
+    onika::memory::CudaMMVector< uint64_t > neighbors;
   };
 
   using GridParticleNeighbors = std::vector< CellParticleNeighbors >;

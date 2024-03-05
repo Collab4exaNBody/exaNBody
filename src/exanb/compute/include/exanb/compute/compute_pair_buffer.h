@@ -38,12 +38,12 @@ namespace exanb
   // Compute buffer post processing API
   struct DefaultComputePairBufferAppendFunc
   {  
-    template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
     void operator () (ComputeBufferT& tab, const Vec3d& dr, double d2,
                       FieldArraysT cells, size_t cell_b, size_t p_b,
-                      const NbhDataT& nbh_data ) const noexcept
+                      const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
       tab.d2[tab.count] = d2;
       tab.drx[tab.count] = dr.x;
@@ -53,6 +53,14 @@ namespace exanb
       tab.nbh_data.set( tab.count , nbh_data );
       ++ tab.count;
     }
+  };
+
+  struct NullComputePairBufferAppendFunc
+  {  
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () (ComputeBufferT&, const Vec3d&, double, FieldArraysT, size_t, size_t, const NbhDataT& ) const noexcept {}
   };
 
   template<bool UseWeights=false , size_t _MaxNeighbors=exanb::MAX_PARTICLE_NEIGHBORS >
@@ -180,6 +188,14 @@ namespace exanb
     }
   };
 
+  template<class _ExtendedStorage>
+  struct ComputeContextNoBuffer
+  {
+    using ExtendedStorage = _ExtendedStorage;
+    ExtendedStorage ext;
+  };
+
+
   template< class _NbhFieldSetT , size_t _MaxNeighbors = exanb::MAX_PARTICLE_NEIGHBORS , bool UserNbhData=false >
   using SimpleNbhComputeBuffer = ComputePairBuffer2< UserNbhData, false, NoExtraStorage, DefaultComputePairBufferAppendFunc, _MaxNeighbors, ComputePairBuffer2Weights, _NbhFieldSetT >;
 
@@ -214,5 +230,7 @@ namespace exanb
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
 
+  template<class ExtStorageT = NoExtraStorage >
+  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
 }
 

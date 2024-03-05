@@ -64,10 +64,17 @@ namespace exanb
       chunk_neighbors.m_alloc.set_gpu_addressable_allocation( gpu_enabled );
 
       bool build_particle_offset = config.build_particle_offset;
-      if( gpu_enabled && !build_particle_offset )
+      if( gpu_enabled && !build_particle_offset ) // specialization for chunk_size=1 now suports list traversal without offset table
       {
-        ldbg << "INFO: force build_particle_offset to true to ensure Cuda compatibility" << std::endl;
-        build_particle_offset = true;
+	if( config.chunk_size > 1 )
+	{
+	  ldbg << "INFO: force build_particle_offset to true to ensure Cuda compatibility" << std::endl;
+          build_particle_offset = true;
+	}
+	else
+	{
+	  lout << "INFO: use of chunk neighbors without 'build_particle_offset' flag with supported whith chunk_size=1, but discouraged for optimal performance<" << std::endl;
+	}
       }
       if( ! build_particle_offset )
       {
@@ -234,7 +241,7 @@ namespace exanb
                   {
                     const Vec3d dr = { rx_a[p_a] - rx_b[p_b] , ry_a[p_a] - ry_b[p_b] , rz_a[p_a] - rz_b[p_b] };
                     double d2 = norm2( xform.transformCoord( dr ) );
-                    if( nbh_filter(d2,max_dist2,cell_a,p_a,cell_b,p_b) )
+                    if( ( cell_a!=cell_b || p_a!=p_b ) && nbh_filter(d2,max_dist2,cell_a,p_a,cell_b,p_b) )
                     {
                       unsigned int chunk_b = p_b >> cs_log2;
                       assert( chunk_b < std::numeric_limits<uint16_t>::max() );
@@ -268,10 +275,27 @@ namespace exanb
            *    are shifted by 1 and are encoded in 32-bits (two consecutive stream values for each offset), so the first
            *    offset will be 0 + 1 = 1, splitted in 2 16-bits words it gives 1,0
            * 3) a cell's neighbor stream data that would start with 1 and then 0 indicates it indeed contains particle offset
+           * 4) the same apply if stream would start with 2,0 : encoded value of 0 for the first (of the 2 cells) is forbidden
+           *    thus, we extend the previous so that the first integer is the number of 32-bits offset tables stored ahead of neighbors stream.
+           * 4-bis) we limit number of tables to MAX_STREAM_OFFSET_TABLES
            */
+          ssize_t offset_table_size = 0;
+          unsigned int num_offset_tables = 0;
           if( build_particle_offset )
           {
-            ccnbh.resize( n_particles_a * 2 );
+            // first table has N+1 elements. it stores start offset of each particle's neighbor stream first is required to be 0, last will be total size of stream
+            offset_table_size = (n_particles_a+1) * 2; 
+            num_offset_tables = 1;
+            // second table has N elements, it stores stream position where to stop/start to process half symmetric portion of neighbor list
+            if( config.dual_particle_offset )
+            {
+              offset_table_size += n_particles_a * 2; 
+              num_offset_tables = 2;
+            }
+          }
+          if( n_particles_a > 0 )
+          {
+            ccnbh.assign( offset_table_size , 0 );
           }
 
           // build compact neighbor stream
@@ -280,14 +304,15 @@ namespace exanb
             // optional stream indexing
             if( build_particle_offset )
             {
-              assert( ccnbh.size() >= n_particles_a * 2 );
-              uint32_t offset = ccnbh.size() - (n_particles_a*2) + 1;
+              assert( ccnbh.size() >= offset_table_size );
+              uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
               ccnbh[p_a*2+0] = offset ;
               ccnbh[p_a*2+1] = offset >> 16 ;
-              assert( reinterpret_cast<const uint32_t*>( ccnbh.data() )[p_a] == offset );
-              assert( p_a!=0 || ( ccnbh[0]==1 && ccnbh[1]==0 ) );
+              [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
+              assert( offset_table[p_a] == offset );
+              assert( p_a!=0 || ( ccnbh[0]==num_offset_tables && ccnbh[1]==0 ) );
             }
-            
+           
             // *** remove potential duplicates ***
             
             // removed because we know chunks are sorted, due to construction method (order of neighbor cells and sub grid pairs)
@@ -305,46 +330,85 @@ namespace exanb
             }
             nbh_count_nodup = std::min( nbh_count_nodup , nbh_count );
             
-            //assert( nbh_count_nodup <= MAX_PARTICLE_NEIGHBORS );
+            // adjust size to fit unique neighbor count                        
             cell_a_particle_nbh[p_a].resize( nbh_count_nodup );
             
+            // initialize neighbor stream for particle p_a
             size_t cell_count_idx = ccnbh.size(); // place of neighbor cell counter in stream
-            ccnbh.push_back(0); // neighbor cell counter initialized to 0
             size_t chunk_count_idx = std::numeric_limits<size_t>::max();
             uint16_t last_cell = 0; // initialized with invalid value : 0 is not a correct encoded cell. minimum encoded cell is 1057 (2^10+2^5+2^0)
-//            uint16_t last_chunk = 0;
+            if( ! config.random_access )
+            {
+              ccnbh.push_back(0); // neighbor cell counter initialized to 0
+            }
+            
+            // encode stream for particle p_a
+            uint32_t n_sym_nbh = 0;
             for( const auto& nbh : cell_a_particle_nbh[p_a] )
             {
               assert( nbh.first >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
-              if( nbh.first!=last_cell )
+              if( config.dual_particle_offset )
               {
-                // start a new neighbor cell chunk
-                assert( ccnbh[cell_count_idx] < std::numeric_limits<uint16_t>::max() );
-                ++ ccnbh[cell_count_idx];
-                last_cell = nbh.first;
-                ccnbh.push_back( last_cell );
-                chunk_count_idx = ccnbh.size();
-                ccnbh.push_back(0);                
+                const int rel_i = int( nbh.first & 31 ) - 16;
+                const int rel_j = int( (nbh.first>>5) & 31 ) - 16;
+                const int rel_k = int( (nbh.first>>10) & 31 ) - 16;
+                ssize_t cell_b = cell_a + ( ( ( rel_k * dims.j ) + rel_j ) * dims.i + rel_i );
+                size_t p_b = int(nbh.second) << cs_log2;
+                if( cell_b<cell_a || ( cell_b==cell_a && p_b<p_a ) )
+                {
+                  ++ n_sym_nbh;
+                }
               }
-              assert( ccnbh[chunk_count_idx] < std::numeric_limits<uint16_t>::max() );
-              ++ ccnbh[chunk_count_idx];
-              ccnbh.push_back( nbh.second );
+              if( config.random_access )
+              {
+                ccnbh.push_back( nbh.first );
+                ccnbh.push_back( nbh.second );
+              }
+              else
+              {
+                if( nbh.first!=last_cell )
+                {
+                  // start a new neighbor cell chunk
+                  assert( ccnbh[cell_count_idx] < std::numeric_limits<uint16_t>::max() );
+                  ++ ccnbh[cell_count_idx];
+                  last_cell = nbh.first;
+                  ccnbh.push_back( last_cell );
+                  chunk_count_idx = ccnbh.size();
+                  ccnbh.push_back(0);                
+                }
+                assert( ccnbh[chunk_count_idx] < std::numeric_limits<uint16_t>::max() );
+                ++ ccnbh[chunk_count_idx];
+                ccnbh.push_back( nbh.second );
+              }
             }
+
+            if( config.dual_particle_offset )
+            {
+              assert( ccnbh.size() >= offset_table_size );
+              assert( /* n_sym_nbh>=0 && */ n_sym_nbh<=nbh_count_nodup );
+              assert(( n_particles_a + 1 + p_a ) * 2 + 1 < offset_table_size );
+              ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 0 ] = n_sym_nbh ;
+              ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 1 ] = n_sym_nbh >> 16 ;
+              [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() + ( n_particles_a + 1 ) * 2 );
+              assert( offset_table[p_a] == n_sym_nbh );
+            }
+          }
+
+          // optional stream indexing
+          // close main offset table with total size of stream.
+          //  to calculate sub stream size for each particle
+          if( n_particles_a>0 && build_particle_offset )
+          {
+            assert( n_particles_a*2+1 < offset_table_size );
+            uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
+            ccnbh[n_particles_a*2+0] = offset ;
+            ccnbh[n_particles_a*2+1] = offset >> 16 ;
+            [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
+            assert( offset_table[n_particles_a] == offset );
           }
 
           uint16_t * output_stream = chunk_nbh.allocate( cell_a , ccnbh.size() );
           std::memcpy( output_stream , ccnbh.data() , ccnbh.size() * sizeof(uint16_t) );
-/*          
-#         ifndef NDEBUG
-          cell_a_particle_chunk_count.clear();
-          chunk_neighbors_stream_check(grid,cs,cell_a,output_stream,ccnbh.size(),cell_a_particle_chunk_count);
-          assert( cell_a_particle_chunk_count.size() == n_particles_a );
-          for(size_t p_a=0;p_a<n_particles_a;p_a++)
-          {
-            assert( cell_a_particle_chunk_count[p_a] == cell_a_particle_nbh[p_a].size() );
-          }
-#         endif
-*/
         }
         GRID_OMP_FOR_END
       }

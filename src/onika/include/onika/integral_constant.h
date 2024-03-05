@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <onika/cuda/cuda.h>
@@ -28,7 +29,7 @@ namespace onika
   {
     using value_type = T;
     static constexpr value_type value = _Value;
-    ONIKA_HOST_DEVICE_FUNC inline constexpr operator T () { return _Value; }
+    ONIKA_HOST_DEVICE_FUNC inline constexpr operator T () const { return _Value; }
     ONIKA_HOST_DEVICE_FUNC inline bool operator == ( T other ) const { return _Value == other; }
     ONIKA_HOST_DEVICE_FUNC inline bool operator != ( T other ) const { return _Value != other; }
   };
