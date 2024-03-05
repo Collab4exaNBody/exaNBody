@@ -128,10 +128,20 @@ namespace onika
         execute_prolog( pec , pes );
 #       pragma omp parallel
         {
-#         pragma omp for schedule(dynamic)
-          for(uint64_t i=0;i<N;i++)
+          switch( pec->m_omp_sched )
           {
-            m_func( i );
+            case OMP_SCHED_DYNAMIC :
+#           pragma omp for schedule(dynamic)
+            for(uint64_t i=0;i<N;i++) { m_func( i ); }
+            break;
+            case OMP_SCHED_GUIDED :
+#           pragma omp for schedule(guided)
+            for(uint64_t i=0;i<N;i++) { m_func( i ); }
+            break;
+            case OMP_SCHED_STATIC :
+#           pragma omp for schedule(static)
+            for(uint64_t i=0;i<N;i++) { m_func( i ); }
+            break;
           }
         }
         execute_epilog( pec , pes );
