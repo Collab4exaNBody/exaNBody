@@ -25,8 +25,9 @@ namespace exanb
 
     struct DefaultNeighborFilterFunc
     {
-      inline bool operator () (double d2, double rcut2,size_t,size_t,size_t,size_t) const
+      inline bool operator () (double d2, double rcut2,size_t cell_a, size_t p_a, size_t cell_b, size_t p_b) const
       {
+        assert( cell_a!=cell_b || p_a!=p_b );
         return d2 > 0.0 && d2 <= rcut2;
       }
     };
@@ -39,6 +40,7 @@ namespace exanb
       bool m_skip_ghost = false;
       inline bool operator () (double d2, double rcut2, size_t cell_a, size_t p_a, size_t cell_b, size_t p_b) const
       {
+        assert( cell_a!=cell_b || p_a!=p_b );
         if( d2 > 0.0 && d2 <= rcut2 )
         {
           if( m_half_symmetric && ( cell_a<cell_b || ( cell_a==cell_b && p_a<p_b ) ) ) return false;

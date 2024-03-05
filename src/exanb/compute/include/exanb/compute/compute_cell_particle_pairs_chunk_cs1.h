@@ -189,6 +189,7 @@ namespace exanb
           
           const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
           const double d2 = norm2(dr);
+          assert( cell_a!=cell_b || p_a!=p_b );
           if( d2>0.0 && d2 <= rcut2 )
           {            
 #           define NBH_OPT_DATA_ARG optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx)
@@ -204,9 +205,9 @@ namespace exanb
             if constexpr ( ! use_compute_buffer )
             {
               if constexpr ( has_particle_ctx )
-                func( tab, dr, d2, /*cell_a_arrays.get(onika::tuple_index_t<FieldIndex>{})[p_a]*/ cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );
+                func( tab, dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );
               if constexpr ( !has_particle_ctx )
-                func(      dr, d2, /*cell_a_arrays.get(onika::tuple_index_t<FieldIndex>{})[p_a]*/ cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );                
+                func(      dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells , cell_b, p_b, NBH_OPT_DATA_ARG );                
             }
 #           undef NBH_OPT_DATA_ARG
           }

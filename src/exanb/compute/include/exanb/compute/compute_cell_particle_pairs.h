@@ -20,7 +20,10 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <exanb/compute/compute_cell_particle_pairs_chunk.h>
+
+#ifdef XNB_USE_CS1_SPECIALIZATION
 #include <exanb/compute/compute_cell_particle_pairs_chunk_cs1.h>
+#endif
 
 #include <exanb/compute/compute_pair_traits.h>
 #include <exanb/core/log.h>
