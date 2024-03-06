@@ -105,7 +105,7 @@ namespace exanb
     [[maybe_unused]] ONIKA_CU_BLOCK_SHARED DelayedComputeBufferT dcb;
 #   define DNCB(i) dcb.nbh[i*XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE+ONIKA_CU_THREAD_IDX]
     [[maybe_unused]] unsigned int dncb_start = 0;
-    [[maybe_unused]] unsigned int dncb_end = 0;
+    [[maybe_unused]] unsigned int dncb_free = DELAYED_COMPUTE_BUFFER_SIZE;
 
     // central particle's coordinates
     const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX);
@@ -223,7 +223,10 @@ namespace exanb
               {
                 if constexpr ( DELAYED_COMPUTE_BUFFER_SIZE > 1 )
                 {
-                  DNCB( dncb_end ) = { dr.x,dr.y,dr.z, d2, static_cast<uint32_t>(cell_b), static_cast<uint16_t>(p_b), static_cast<uint16_t>(p_nbh_index) }; dncb_end = ( dncb_end + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
+                  assert( dncb_free > 0 );
+                  const auto dncb_end = ( dncb_start + DELAYED_COMPUTE_BUFFER_SIZE - dncb_free ) % DELAYED_COMPUTE_BUFFER_SIZE ;
+                  DNCB(dncb_end) = { dr.x,dr.y,dr.z, d2, static_cast<uint32_t>(cell_b), static_cast<uint16_t>(p_b), static_cast<uint16_t>(p_nbh_index) };
+                  -- dncb_free;
                 }
                 else
                 {
@@ -242,9 +245,9 @@ namespace exanb
 
         if constexpr ( !use_compute_buffer && DELAYED_COMPUTE_BUFFER_SIZE>1 )
         {
-          if( ONIKA_CU_WARP_ACTIVE_THREADS_ANY( (dncb_end+1)%DELAYED_COMPUTE_BUFFER_SIZE == dncb_start ) )
+          if( ONIKA_CU_WARP_ACTIVE_THREADS_ANY( dncb_free == 0 ) )
           {
-            if( dncb_start != dncb_end )
+            if( dncb_free < DELAYED_COMPUTE_BUFFER_SIZE )
             {
               const Vec3d dr = { DNCB(dncb_start).drx , DNCB(dncb_start).dry , DNCB(dncb_start).drz };
               if constexpr ( has_particle_ctx )
@@ -254,6 +257,7 @@ namespace exanb
                 func(      dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells 
                     , DNCB(dncb_start).cell_b, DNCB(dncb_start).p_b, optional.nbh_data.get(cell_a, p_a, DNCB(dncb_start).p_nbh_index, nbh_data_ctx) );                
               dncb_start = ( dncb_start + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
+              ++ dncb_free;
             }
           }
         }
@@ -271,7 +275,7 @@ namespace exanb
 
       if constexpr ( !use_compute_buffer && DELAYED_COMPUTE_BUFFER_SIZE>1 )
       {
-        while( dncb_start != dncb_end )
+        while( dncb_free < DELAYED_COMPUTE_BUFFER_SIZE )
         {
           const Vec3d dr = { DNCB(dncb_start).drx , DNCB(dncb_start).dry , DNCB(dncb_start).drz };
           if constexpr ( has_particle_ctx )
@@ -281,8 +285,10 @@ namespace exanb
             func(      dr, DNCB(dncb_start).d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... , cells 
                 , DNCB(dncb_start).cell_b, DNCB(dncb_start).p_b, optional.nbh_data.get(cell_a, p_a, DNCB(dncb_start).p_nbh_index, nbh_data_ctx) );                
           dncb_start = ( dncb_start + 1 ) % DELAYED_COMPUTE_BUFFER_SIZE;
+          ++ dncb_free;
         }
-        dncb_start = 0; dncb_end = 0;
+        assert( dncb_free == DELAYED_COMPUTE_BUFFER_SIZE );
+        dncb_start = 0;
       }
       
       if constexpr ( has_particle_stop ) { func(tab ,cells,cell_a,p_a,ComputePairParticleContextStop{}); }
