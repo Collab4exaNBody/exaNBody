@@ -89,7 +89,7 @@ namespace exanb
       return m_cells[m_cell_index].size();
     }
 
-    ONIKA_HOST_DEVICE_FUNC inline void set_tuple( size_t i, typename std::remove_pointer_t<CellsT>::TupleValueType const & tp ) const
+    ONIKA_HOST_DEVICE_FUNC inline void set_tuple( size_t i, typename exanb::remove_pointer_t<CellsT>::TupleValueType const & tp ) const
     {
       m_cells[m_cell_index].set_tuple( i, tp );
     }
