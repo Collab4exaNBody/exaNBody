@@ -31,6 +31,7 @@ under the License.
 
 #include <exanb/core/cell_particles_from_field_set.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/flat_arrays.h>
 
 #include <cstdlib>
@@ -261,8 +262,13 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
+
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles* __restrict__ > cells_accessor() { return { onika::cuda::vector_data(m_cells) /*, onika::cuda::vector_data(m_cell_particle_offset)*/ }; }
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<const CellParticles* __restrict__ > cells_accessor() const { return { onika::cuda::vector_data(m_cells) /*, onika::cuda::vector_data(m_cell_particle_offset)*/ }; }    
+
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
+
     inline       CellParticles& cell(size_t index)       { return m_cells[index]; }
     inline const CellParticles& cell(size_t index) const { return m_cells[index]; }
 
