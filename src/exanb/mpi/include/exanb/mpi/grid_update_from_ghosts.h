@@ -42,6 +42,23 @@ under the License.
 namespace exanb
 {
 
+/*
+  This function updates some or all of the internal particle fields using values of neighbor subdomain's ghost particles 
+  This done following a previously computed communication scheme in reverse order. UpdateFuncT is the type of the functor
+  responible to merge existing values with incoming values, default is simple addition.
+  Communication consists of asynchronous MPI sends and receives, as well as packing and unpacking of data messages.
+  Executes roughly as follows :
+  1. parallel pack messages to be sent (optionally using GPU)
+  2. asynchronous sends messages
+  3. launch asynchronous receives
+  4. while packets to be received, wait for some message tio be received
+      4.a asynchronous, parallel unpack received message (optionally used the GPU)
+      4.b free send messages resources as acknowledgements for sent messages are received
+  options :
+  staging_buffer option requires to perform a CPU copy to a CPU allocated buffer of messages to be sent and received messages to be unpacked, in case of a non GPU-Aware MPi implementation
+  serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
+  gpu_packing allows pack/unpack operations to execute on the GPU
+  */
   template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT>
   static inline void grid_update_from_ghosts(
     LDBGT& ldbg,

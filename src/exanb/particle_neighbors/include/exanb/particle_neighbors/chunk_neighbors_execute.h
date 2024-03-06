@@ -241,7 +241,7 @@ namespace exanb
                   {
                     const Vec3d dr = { rx_a[p_a] - rx_b[p_b] , ry_a[p_a] - ry_b[p_b] , rz_a[p_a] - rz_b[p_b] };
                     double d2 = norm2( xform.transformCoord( dr ) );
-                    if( nbh_filter(d2,max_dist2,cell_a,p_a,cell_b,p_b) )
+                    if( ( cell_a!=cell_b || p_a!=p_b ) && nbh_filter(d2,max_dist2,cell_a,p_a,cell_b,p_b) )
                     {
                       unsigned int chunk_b = p_b >> cs_log2;
                       assert( chunk_b < std::numeric_limits<uint16_t>::max() );

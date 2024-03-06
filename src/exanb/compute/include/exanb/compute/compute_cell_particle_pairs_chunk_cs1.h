@@ -188,6 +188,7 @@ namespace exanb
           
           const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
           const double d2 = norm2(dr);
+          assert( cell_a!=cell_b || p_a!=p_b );
           if( d2>0.0 && d2 <= rcut2 )
           {            
             if constexpr ( use_compute_buffer )

@@ -44,6 +44,23 @@ under the License.
 namespace exanb
 {
 
+  /*
+  This function updates some or all of the particle fields in ghost particles (i.e particles in surrounding ghost cells)
+  This done following a previously computed communication scheme that tells wich cell/particle goes to which neighbor MPI process.
+  Communication consists of asynchronous MPI sends and receives, as well as packing and unpacking of data messages.
+  Executes roughly as follows :
+  1. parallel pack messages to be sent (optionally using GPU)
+  2. asynchronous sends messages
+  3. launch asynchronous receives
+  4. while packets to be received, wait for some message tio be received
+      4.a asynchronous, parallel unpack received message (optionally used the GPU)
+      4.a.2 resize cell if ghost particles are created for the first time
+      4.b free send messages resources as acknowledgements for sent messages are received
+  options :
+  staging_buffer option requires to perform a CPU copy to a CPU allocated buffer of messages to be sent and received messages to be unpacked, in case of a non GPU-Aware MPi implementation
+  serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
+  gpu_packing allows pack/unpack operations to execute on the GPU
+  */
   template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, bool CreateParticles , class FieldAccTupleT>
   static inline void grid_update_ghosts(
     LDBGT& ldbg,
