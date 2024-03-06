@@ -263,8 +263,8 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
 
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles* __restrict__ > cells_accessor() { return { onika::cuda::vector_data(m_cells) /*, onika::cuda::vector_data(m_cell_particle_offset)*/ }; }
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<const CellParticles* __restrict__ > cells_accessor() const { return { onika::cuda::vector_data(m_cells) /*, onika::cuda::vector_data(m_cell_particle_offset)*/ }; }    
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles* __restrict__ > cells_accessor() { return { onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) }; }
+    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<const CellParticles* __restrict__ > cells_accessor() const { return { onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) }; }    
 
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }

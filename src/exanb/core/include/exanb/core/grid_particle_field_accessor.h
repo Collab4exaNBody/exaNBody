@@ -33,8 +33,7 @@ namespace exanb
     using Id = typename FieldIdT::Id;
     using value_type = typename FuncT::value_type;
     using reference_t = typename FuncT::reference_t;
-    // using unmutable_pointer_t = typename FuncT::unmutable_pointer_t;
-
+    static inline constexpr field_id field() { return {}; }
     static inline constexpr const char* short_name() { return field_id::short_name(); }
     static inline constexpr const char* name() { return field_id::name(); }
   };
@@ -141,6 +140,7 @@ namespace exanb
     auto operator [] ( const OptionalCellParticleFieldAccessor<FieldIdT,IsConst>& f) const
     {
       assert( f.m_flat_array_ptr != nullptr );
+      assert( m_cell_particle_offset != nullptr );
       return f.m_flat_array_ptr + m_cell_particle_offset[m_cell_index];
     }
 
@@ -150,6 +150,7 @@ namespace exanb
     auto field_pointer_or_null( const OptionalCellParticleFieldAccessor<FieldIdT,IsConst>& f) const
     {
       assert( f.m_flat_array_ptr != nullptr );
+      assert( m_cell_particle_offset != nullptr );
       return f.m_flat_array_ptr + m_cell_particle_offset[m_cell_index];
     }
 
