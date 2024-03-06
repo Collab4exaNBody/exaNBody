@@ -39,6 +39,18 @@ namespace exanb
     static inline constexpr const char* name() { return field_id::name(); }
   };
 
+  template<class FieldIdT, bool IsConst=false> struct OptionalCellParticleFieldAccessor
+  {
+    using field_id = FieldIdT;
+    using Id = typename field_id::Id;
+    using value_type = typename field_id::value_type;
+    using reference_t = value_type &;
+    std::conditional_t< IsConst , const value_type , value_type > * __restrict__ m_flat_array_ptr = nullptr;
+    static inline constexpr field_id field() { return {}; }
+    static inline constexpr const char* short_name() { return field_id::short_name(); }
+    static inline constexpr const char* name() { return field_id::name(); }
+  };
+
   template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields;
   template<>
   struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<> >
@@ -55,6 +67,11 @@ namespace exanb
   {
     static inline constexpr bool value = true;
   };
+  template<class FieldIdT, bool IsConst, class... FieldAccT >
+  struct FieldAccessorTupleHasExternalFields< onika::FlatTuple< OptionalCellParticleFieldAccessor<FieldIdT,IsConst> , FieldAccT...> >
+  {
+    static inline constexpr bool value = true;
+  };
   template<class T> static inline constexpr bool field_tuple_has_external_fields_v = FieldAccessorTupleHasExternalFields<T>::value;
 
   template<class CellsT> struct GridParticleFieldAccessor;
@@ -65,7 +82,8 @@ namespace exanb
   struct GridParticleFieldAccessor1
   {
     CellsT m_cells;    
-    const size_t m_cell_index;    
+    const size_t m_cell_index;
+    const size_t * m_cell_particle_offset;
 
     ONIKA_HOST_DEVICE_FUNC inline auto size() const
     {
@@ -116,8 +134,28 @@ namespace exanb
     {
       return f.m_func( m_cell_index , m_cells );
     }
+
+    template<class FieldIdT, bool IsConst>
+    ONIKA_HOST_DEVICE_FUNC 
+    ONIKA_ALWAYS_INLINE
+    auto operator [] ( const OptionalCellParticleFieldAccessor<FieldIdT,IsConst>& f) const
+    {
+      assert( f.m_flat_array_ptr != nullptr );
+      return f.m_flat_array_ptr + m_cell_particle_offset[m_cell_index];
+    }
+
+    template<class FieldIdT, bool IsConst>
+    ONIKA_HOST_DEVICE_FUNC 
+    ONIKA_ALWAYS_INLINE
+    auto field_pointer_or_null( const OptionalCellParticleFieldAccessor<FieldIdT,IsConst>& f) const
+    {
+      assert( f.m_flat_array_ptr != nullptr );
+      return f.m_flat_array_ptr + m_cell_particle_offset[m_cell_index];
+    }
+
   };
 
+  // used for external array accessors only
   template<class CellsT, class FieldAccT>
   struct GridParticleFieldAccessor2
   {
@@ -136,11 +174,12 @@ namespace exanb
   template<class CellsT>
   struct GridParticleFieldAccessor
   {
-    CellsT m_cells = nullptr;    
+    CellsT m_cells = nullptr;
+    const size_t * __restrict__ m_cell_particle_offset = nullptr;
 
     ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor1<CellsT> operator [] (size_t cell_i) const
     {
-      return { m_cells , cell_i };
+      return { m_cells , cell_i , m_cell_particle_offset };
     }
 
   };
