@@ -263,9 +263,9 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
 
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles* __restrict__ > cells_accessor() { return { onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) }; }
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<const CellParticles* __restrict__ > cells_accessor() const { return { onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) }; }    
-
+    ONIKA_HOST_DEVICE_FUNC inline auto cells_accessor()       { return make_cells_accessor      ( onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) ); }
+    ONIKA_HOST_DEVICE_FUNC inline auto cells_accessor() const { return make_cells_const_accessor( onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) ); }
+    
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
 
@@ -546,13 +546,14 @@ namespace exanb
     template<class fid>
     inline auto flat_array_accessor( onika::soatl::FieldId<fid> f )
     {
-      return make_external_field_flat_array_accessor( *this , flat_array_data(f) , f );
+      using details::OptionalCellParticleFieldAccessor;
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , false > { flat_array_data(f) };
     }
     template<class fid>
     inline auto flat_array_const_accessor( onika::soatl::FieldId<fid> f )
     {
-      const auto * c_ptr = flat_array_data(f);
-      return make_external_field_flat_array_accessor( *this , c_ptr , f );
+      using details::OptionalCellParticleFieldAccessor;
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , true >{ flat_array_data(f) };
     }
     inline auto remove_flat_array( const std::string& name )
     {
