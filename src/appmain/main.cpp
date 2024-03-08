@@ -377,7 +377,8 @@ int main(int argc,char*argv[])
        else if(n_gpus==1) lout<< " (1 GPU)"<< endl;
        else lout<< " ("<< n_gpus<<" GPUs)"<< endl;
 # endif
-  lout << "Grids   :" << xstamp_grid_variants_as_string() << endl <<endl;
+  lout << "Align.  : "<< onika::memory::GenericHostAllocator::DefaultAlignBytes << endl
+       << "Grids   :" << xstamp_grid_variants_as_string() << endl <<endl;
 
   // ============= random number generator state ==============
   // initialize random number generator
