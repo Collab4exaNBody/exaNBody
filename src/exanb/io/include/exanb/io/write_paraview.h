@@ -175,7 +175,7 @@ namespace exanb
                   << vtk_space_offset_four << "<PPointData Scalar=\"" ;
         apply_grid_fields( grid, WriteScalarList{file_pvtp,field_selector}, grid_fields... );
         if(write_ghost) file_pvtp <<", ghost";
-        file_pvtp << "\" Vectors=\"" ;
+        file_pvtp << "\" Vector=\"" ;
         apply_grid_fields( grid, WriteVectorList{file_pvtp,field_selector}, grid_fields... ); 
         file_pvtp << "\">" << std::endl;
 
