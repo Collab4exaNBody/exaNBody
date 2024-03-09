@@ -349,10 +349,10 @@ namespace exanb
 #     define DBG_OPT_DATA_COUNTERS
 #     endif
 
-//#     pragma omp parallel
+#     pragma omp parallel
       {
 
-//#       pragma omp master /* replaced single with master, to ensure thread #0 issues MPI commands */ /* nowait clause has been removed */
+#       pragma omp master /* replaced single with master, to ensure thread #0 issues MPI commands */ /* nowait clause has been removed */
         {
           for(int p=0;p<nprocs;p++)
           {

@@ -15,19 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+# =================================
+# === exanb extra storage library  ===
+# =================================
 
-add_subdirectory(core)
-add_subdirectory(compute)
-add_subdirectory(mpi)
-add_subdirectory(defbox)
-add_subdirectory(logic)
-add_subdirectory(amr)
-add_subdirectory(particle_neighbors)
-add_subdirectory(grid_cell_particles)
-add_subdirectory(analytics)
-add_subdirectory(io)
-add_subdirectory(debug)
-add_subdirectory(extra_storage)
 
-AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/regression)
+set(exanbExtraStorage_LINK_LIBRARIES exanbCompute exanbIO)
+xstamp_add_plugin(exanbExtraStorage ${CMAKE_CURRENT_SOURCE_DIR})
+
 
