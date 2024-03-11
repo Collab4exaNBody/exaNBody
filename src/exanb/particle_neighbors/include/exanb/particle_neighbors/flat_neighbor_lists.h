@@ -17,27 +17,21 @@ specific language governing permissions and limitations
 under the License.
 */
 
-// #pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
-
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
-#include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/grid.h>
-
-#include <exanb/defbox/push_vec3_2nd_order.h>
+#include <onika/memory/allocator.h>
 
 namespace exanb
 {
-
-  template<class GridT> using PushAccelVelocityToPosition = PushVec3SecondOrderXForm<GridT, field::_rx,field::_ry,field::_rz,field::_vx,field::_vy,field::_vz,field::_fx,field::_fy,field::_fz>;
-  
- // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  template<class _NeighborOffsetT = uint64_t , class _ParticleIndexT = uint32_t , class _NeighborCountT = uint16_t >
+  struct FlatPartNbhListT
   {
-   OperatorNodeFactory::instance()->register_factory( "push_f_v_r", make_grid_variant_operator< PushAccelVelocityToPosition > );
-  }
+    using NeighborOffset = _NeighborOffsetT;
+    using ParticleIndex = _ParticleIndexT;
+    using NeighborCount = _NeighborCountT;
+    onika::memory::CudaMMVector< NeighborOffset > m_neighbor_offset; // size = number of particles + 1 , ast one is the total size
+    onika::memory::CudaMMVector< ParticleIndex > m_neighbor_list;    // size = total number of particle pairs
+    onika::memory::CudaMMVector< NeighborCount > m_half_count;       // size = number of particles    
+  };
+  using FlatPartNbhList = FlatPartNbhListT<>;
 
 }
 

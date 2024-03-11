@@ -582,7 +582,7 @@ namespace exanb
     return { parallel_execution_stream_nolock(id).get() };
   }
 
-  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context()
+  onika::parallel::ParallelExecutionContext* OperatorNode::parallel_execution_context(const char* app_tag)
   {
     const std::lock_guard<std::mutex> lock(m_parallel_execution_access);    
     if( m_free_parallel_execution_contexts.empty() )
@@ -595,6 +595,7 @@ namespace exanb
 
     pec->reset();
     pec->m_tag = m_tag.get();
+    pec->m_sub_tag = app_tag;
     pec->m_cuda_ctx = m_gpu_execution_allowed ? global_cuda_ctx() : nullptr;
     pec->m_default_stream = parallel_execution_stream_nolock().get();
     pec->m_omp_num_tasks = m_omp_task_mode ? omp_get_max_threads() : 0;

@@ -150,6 +150,7 @@ namespace exanb
   
   template<> struct ComputePairOptionalLocks<true>
   {
+    static inline constexpr bool use_locks = true;
     using CellParticleLocks = spin_mutex_array;
     ONIKA_HOST_DEVICE_FUNC inline CellParticleLocks& operator [] (size_t i) const
     {
@@ -160,6 +161,7 @@ namespace exanb
   
   template<> struct ComputePairOptionalLocks<false>
   {
+    static inline constexpr bool use_locks = false;
     using CellParticleLocks = FakeCellParticleLocks;
     ONIKA_HOST_DEVICE_FUNC inline CellParticleLocks& operator [] (size_t) const
     {

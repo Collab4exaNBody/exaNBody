@@ -19,6 +19,9 @@
 # === micro-stamp pair potential compute operator library library  ===
 # ====================================================================
 
+set(XNB_CHUNK_NEIGHBORS_CS_LIST "4,2,1" CACHE STRING "Chunk neighbors specializations. use VARIMPL for adaptative variable chunk_size.")
+string(REPLACE "," " XNB_COMMA " XNB_CHUNK_NEIGHBORS_CS_LIST ${XNB_CHUNK_NEIGHBORS_CS_LIST})
+set(exanbParticleNeighbors_COMPILE_DEFINITIONS "XNB_CHUNK_NEIGHBORS_CS_LIST=${XNB_CHUNK_NEIGHBORS_CS_LIST}")
 set(exanbParticleNeighbors_LINK_LIBRARIES exanbAMR)
 xstamp_add_plugin(exanbParticleNeighbors ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -17,26 +17,39 @@ specific language governing permissions and limitations
 under the License.
 */
 
-// #pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
+#pragma once
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
-#include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/grid.h>
+#include <onika/parallel/parallel_for.h>
 
-#include <exanb/defbox/push_vec3_2nd_order.h>
-
-namespace exanb
+namespace onika
 {
 
-  template<class GridT> using PushAccelVelocityToPosition = PushVec3SecondOrderXForm<GridT, field::_rx,field::_ry,field::_rz,field::_vx,field::_vy,field::_vz,field::_fx,field::_fy,field::_fz>;
-  
- // === register factories ===  
-  CONSTRUCTOR_FUNCTION
-  {
-   OperatorNodeFactory::instance()->register_factory( "push_f_v_r", make_grid_variant_operator< PushAccelVelocityToPosition > );
+  namespace parallel
+  {  
+
+    template<class T>
+    struct MemSetFunctor
+    {
+      T * __restrict__ m_data = nullptr;
+      T m_value = {};  
+      ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t i ) const
+      {
+        m_data[i] = m_value;
+      }
+    };
+
+    template<class T> struct ParallelForFunctorTraits< MemSetFunctor<T> >
+    {      
+      static inline constexpr bool CudaCompatible = true;
+    };
+
+
+    template<class T>
+    static inline ParallelExecutionWrapper parallel_memset( T * data , uint64_t N, const T& value, ParallelExecutionContext * pec )
+    {
+      return parallel_for( N , MemSetFunctor<T>{ data , value } , pec );
+    }
+
   }
 
 }
