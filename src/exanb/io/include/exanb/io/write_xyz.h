@@ -27,6 +27,7 @@ under the License.
 #include <exanb/core/string_utils.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/basic_types_yaml.h>
+#include <exanb/core/quaternion_operators.h>
 #include <exanb/core/basic_types_stream.h>
 #include <onika/oarray.h>
 
@@ -54,60 +55,125 @@ namespace exanb
     template<class T,size_t N> struct IsArrayOfInteger< onika::oarray_t<T,N> , N > : public std::is_integral<T> {};
     template<class T,size_t N> static inline constexpr bool is_array_of_integral_v = IsArrayOfInteger<T,N>::value ;
     
-    template<class T>
-    inline const std::string& format_for_value(const T& f)
+    struct DefaultFieldFormatter
     {
-      static const std::string integer = "% 10d";
-      static const std::string int4 = "% 10d % 10d % 10d % 10d";
-      static const std::string real = "% .10e";
-      static const std::string real3 = "% .10e % .10e % .10e";
-      static const std::string real9 = "% .10e % .10e % .10e % .10e % .10e % .10e % .10e % .10e % .10e";
-      static const std::string other = "%-8s";
-      using field_type =std::remove_cv_t< std::remove_reference_t<T> >;
-      if constexpr ( ParaViewTypeId<field_type>::ncomp == 1 )
-      {
-        if ( std::is_integral_v<field_type> ) return integer;
-        else if ( std::is_arithmetic_v<field_type> ) return real;
-        else return other;
-      }
-      else if constexpr ( std::is_same_v<field_type,Vec3d> )
-      {
-        return real3;
-      }
-      else if constexpr ( std::is_same_v<field_type,Mat3d> )
-      {
-        return real9;
-      }
-      else if constexpr ( is_array_of_integral_v<field_type,4> )
-      {
-        return int4;
-      }
-      return other;
-    }
+      std::map<std::string,std::string> m_field_unit;
+      std::unordered_map<std::string,double> m_conv_map;
       
-    template<class T>
-    inline int format_value_to_buffer(char* buf, int bufsize, const T& v)
-    {
-      using field_type =std::remove_cv_t< std::remove_reference_t<T> >;
-      if( bufsize < 0 ) return 0;
-      else if constexpr ( std::is_same_v<field_type,Vec3d> )
-      {
-        return format_string_buffer( buf, bufsize, format_for_value(v) , v.x , v.y , v.z );
-      }
-      else if constexpr ( std::is_same_v<field_type,Mat3d> )
-      {
-        return format_string_buffer( buf, bufsize, format_for_value(v) , v.m11 , v.m12 , v.m13 , v.m21 , v.m22 , v.m23 , v.m31 , v.m32 , v.m33 );
-      }
-      else if constexpr ( is_array_of_integral_v<field_type,4> )
-      {
-        return format_string_buffer( buf, bufsize, format_for_value(v) , v[0] , v[1] , v[2] , v[3] );
-      }
-      else
-      {
-        return format_string_buffer( buf, bufsize, format_for_value(v) , v );
-      }
-    }
+      struct no_field_id_t { static inline const char* short_name() { return ""; } };
     
+      template<class T>
+      static inline const std::string& format_for_value (const T& f)
+      {
+        static const std::string integer = "% 10d";
+        static const std::string int4 = "% 10d % 10d % 10d % 10d";
+        static const std::string real = "% .10e";
+        static const std::string real3 = "% .10e % .10e % .10e";
+        static const std::string real9 = "% .10e % .10e % .10e % .10e % .10e % .10e % .10e % .10e % .10e";
+        static const std::string other = "%-8s";
+        using field_type =std::remove_cv_t< std::remove_reference_t<T> >;
+        if constexpr ( ParaViewTypeId<field_type>::ncomp == 1 )
+        {
+          if ( std::is_integral_v<field_type> ) return integer;
+          else if ( std::is_arithmetic_v<field_type> ) return real;
+          else return other;
+        }
+        else if constexpr ( std::is_same_v<field_type,Vec3d> )
+        {
+          return real3;
+        }
+        else if constexpr ( std::is_same_v<field_type,Mat3d> )
+        {
+          return real9;
+        }
+        else if constexpr ( is_array_of_integral_v<field_type,4> )
+        {
+          return int4;
+        }
+        return other;
+      }
+      
+      template<class FieldIdT>
+      inline std::string property_for_field (const FieldIdT& f) const
+      {
+        using field_type =std::remove_cv_t< std::remove_reference_t<typename FieldIdT::value_type> >;      
+        if constexpr ( std::is_same_v<field_type,Vec3d> )
+        {
+          return std::string(f.short_name()) + ":R:3";
+        }
+        else if constexpr ( std::is_same_v<field_type,Mat3d> )
+        {
+          return std::string(f.short_name()) + ":R:9";
+        }
+        else if constexpr ( std::is_same_v<field_type,Quaternion> )
+        {
+          return std::string(f.short_name()) + ":R:4";
+        }
+        else if constexpr ( is_array_of_integral_v<field_type,4> )
+        {
+          return std::string(f.short_name()) + ":I:4";
+        }
+        else if constexpr ( std::is_integral_v<field_type> )
+        {
+          return std::string(f.short_name()) + ":I:1";
+        }
+        else if constexpr ( std::is_arithmetic_v<field_type> )
+        {
+          return std::string(f.short_name()) + ":R:1";
+        }
+        else
+        {
+          return std::string(f.short_name()) + ":S:1";
+        }
+      }
+      
+      template<class T, class FieldIdT = no_field_id_t >
+      inline int operator () (char* buf, int bufsize, const T& in_v , FieldIdT f = {} ) const
+      {
+        static const std::string field_short_name( f.short_name() );
+        double conv = 1.0;
+        if constexpr ( std::is_same_v<FieldIdT,no_field_id_t> )
+        {
+          auto it = m_conv_map.find( f.short_name() );
+          if( it != m_conv_map.end() ) conv = it->second;
+        }
+        using field_type =std::remove_cv_t< std::remove_reference_t<T> >;      
+        if( bufsize < 0 ) return 0;
+        else if constexpr ( std::is_same_v<field_type,Vec3d> )
+        {
+          const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
+          return format_string_buffer( buf, bufsize, format_for_value(v) , v.x , v.y , v.z );
+        }
+        else if constexpr ( std::is_same_v<field_type,Mat3d> )
+        {
+          const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
+          return format_string_buffer( buf, bufsize, format_for_value(v) , v.m11 , v.m12 , v.m13 , v.m21 , v.m22 , v.m23 , v.m31 , v.m32 , v.m33 );
+        }
+        else if constexpr ( std::is_same_v<field_type,Quaternion> )
+        {
+          const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
+          return format_string_buffer( buf, bufsize, format_for_value(v) , v.w , v.x , v.y , v.z );
+        }
+        else if constexpr ( is_array_of_integral_v<field_type,4> )
+        {
+          T v; for(size_t i=0;i<4;i++) v[i] = ( conv != 1.0 ) ? static_cast<decltype(in_v[i])>( in_v[i] * conv ) : in_v[i] ;
+          return format_string_buffer( buf, bufsize, format_for_value(v) , v[0] , v[1] , v[2] , v[3] );
+        }
+        else if constexpr ( std::is_arithmetic_v<field_type> )
+        {
+          const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
+          return format_string_buffer( buf, bufsize, format_for_value(v) , v );
+        }
+        else
+        {
+          assert( ParaViewTypeId<field_type>::ncomp == 1 );
+          if( conv != 1.0 ) { fatal_error() << "Conversion factor not allowed for type "<<typeid(T).name()<<std::endl; }
+          return format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
+        }
+      }
+
+    };
+
     struct NullParticleTypleStrFunctor
     {
       template<class CellsT>
@@ -117,7 +183,7 @@ namespace exanb
       }
     };
 
-    template<class LDBGT, class GridT,  class ParticleTypeStrFuncT, class... FieldsT>
+    template<class LDBGT, class GridT,  class ParticleTypeStrFuncT, class FieldFormatterT, class... FieldsT>
     static inline void write_xyz_grid_fields(
       LDBGT& ldbg,
       MPI_Comm comm, 
@@ -125,8 +191,10 @@ namespace exanb
       const Domain& domain, 
       const std::vector<std::string>& flist, 
       const std::string& filename, 
-      const ParticleTypeStrFuncT& particle_type_func, 
-      bool write_ghosts, 
+      const ParticleTypeStrFuncT& particle_type_func,
+      const FieldFormatterT& formatter ,
+      bool write_ghosts,
+      double time,
       const FieldsT & ... particle_fields)
     {
       namespace fs = std::experimental::filesystem;
@@ -189,9 +257,14 @@ namespace exanb
 
       std::ostringstream oss;
     	oss << format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
-      auto write_fields_header = [&] (auto ... f) { ( ... , ( field_selector(f.short_name()) ? ( oss << '\t' << f.short_name() ) : oss ) ); };
-      write_fields_header( particle_fields ... );
-    	oss << "\n";
+      ( ... , (
+        field_selector(particle_fields.short_name()) ? ( oss << ' ' << particle_fields.short_name() ) : oss
+      ) );
+      oss<<" Properties=species:S:1";
+      ( ... , (
+        field_selector(particle_fields.short_name()) ? ( oss << ':' << formatter.property_for_field(particle_fields) ) : oss
+      ) );
+    	oss << " Time="<<time<<"\n";
     	std::string header_data = oss.str();
       size_t offset_header = header_data.length();
   
@@ -212,7 +285,7 @@ namespace exanb
             return 0;
           }
           *buf = ' ';
-          n = 1 + format_value_to_buffer( buf + 1 , capacity - 1 , cells[c][f][p] );
+          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][f][p] );
           if( capacity < n )
           {
             fatal_error() << "unsexpcted buffer overflow" << std::endl;
@@ -222,12 +295,12 @@ namespace exanb
         return n;
       };
 
-      auto write_position_and_fields = [&] (auto ... f)
+      auto write_position_and_fields = [&] (auto position_field, auto ... f)
       {
         // account for  particle type, then 1 space character, then particle position
-        int data_line_size = format_value_to_buffer(nullptr,0,std::string("XX")) + 1 + format_value_to_buffer(nullptr,0,Vec3d{});
+        int data_line_size = formatter(nullptr,0,std::string("XX")) + 1 + formatter(nullptr,0,decltype(cells[0][position_field][0]){});
         ldbg << "particle data start size = "<<data_line_size<<std::endl;
-        ( ... , ( data_line_size += field_selector(f.short_name()) ? ( 1 + format_value_to_buffer(nullptr,0, typename decltype(f)::value_type {} ) ) : 0 ) );
+        ( ... , ( data_line_size += field_selector(f.short_name()) ? ( 1 + formatter(nullptr,0, typename decltype(f)::value_type {} ) ) : 0 ) );
         ++ data_line_size; // we'll add a '\n' at the end of each line      
         ldbg << "particle data total size = "<<data_line_size<<std::endl;
         std::string line_data( data_line_size , ' ' );
@@ -241,16 +314,16 @@ namespace exanb
       		  int np = cells[c].size();
         		for(int pos=0;pos<np;++pos)
 		        {
-		          Vec3d pos_vec = { cells[c][field::rx][pos] , cells[c][field::ry][pos] , cells[c][field::rz][pos] };
+		          auto pos_vec = cells[c][position_field][pos];
 		          auto type_name = particle_type_func ( cells, c, pos );
 		          pos_vec = xform * pos_vec;
 
 		          line_data.assign( data_line_size , ' ');
 		          char* buf = line_data.data();
 		          int written = 0;
-		          written += format_value_to_buffer( buf+written , data_line_size + 1 - written , type_name );
+		          written += formatter( buf+written , data_line_size + 1 - written , type_name );
 		          buf[written++] = ' ';
-		          written += format_value_to_buffer( buf+written , data_line_size + 1 - written , pos_vec );
+		          written += formatter( buf+written , data_line_size + 1 - written , pos_vec );
 		          //buf[written] = '\0';
               //ldbg << "particle data start = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;		          
 		          ( ... , ( written += write_field_to_buf(buf+written,data_line_size+1-written,f,c,pos) ) );
@@ -275,7 +348,7 @@ namespace exanb
 
   } // end of write_xyz_details namespace
   
-  template<class GridT , class ParticleTypeStrFuncT = write_xyz_details::NullParticleTypleStrFunctor >
+  template<class GridT , class ParticleTypeStrFuncT = write_xyz_details::NullParticleTypleStrFunctor , class FieldFormatterT = write_xyz_details::DefaultFieldFormatter >
   class WriteXYZGeneric : public OperatorNode
   {    
     using StringList = std::vector<std::string>;
@@ -287,6 +360,7 @@ namespace exanb
     ADD_SLOT( std::string          , filename , INPUT , "output"); // default value for backward compatibility
     ADD_SLOT( StringList           , fields   , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to project"} );
     ADD_SLOT( ParticleTypeStrFuncT , particle_type_func , INPUT , ParticleTypeStrFuncT{} );
+    ADD_SLOT( FieldFormatterT      , field_formatter , INPUT , FieldFormatterT{} );
       
     template<class... fid>
     inline void execute_on_field_set( FieldSet<fid...> ) 
@@ -294,13 +368,20 @@ namespace exanb
       int rank=0;
       MPI_Comm_rank(*mpi, &rank);
       ProcessorRankCombiner processor_id = { {rank} };
-      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, *fields, *filename, *particle_type_func, *ghost, processor_id, onika::soatl::FieldId<fid>{} ... );
+      
+      PositionVec3Combiner position = {};
+      VelocityVec3Combiner velocity = {};
+      ForceVec3Combiner    force    = {};
+
+      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, *fields, *filename, *particle_type_func, *field_formatter, *ghost, 0.0
+                                              , position, velocity, force, processor_id, onika::soatl::FieldId<fid>{} ... );
     }
 
     public:
     inline void execute() override
     {
-      execute_on_field_set(grid->field_set);
+      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_rx, field::_ry, field::_rz, field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
+      execute_on_field_set( GridFieldSet{} );
     }
     
   };
