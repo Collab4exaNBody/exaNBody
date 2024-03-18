@@ -102,6 +102,7 @@ namespace exanb
     domain = header.m_domain;
     Mat3d particle_read_xform = make_identity_matrix();
     dump_filter.process_domain( domain , particle_read_xform );
+
     
     if( ! is_identity(particle_read_xform) )
     {

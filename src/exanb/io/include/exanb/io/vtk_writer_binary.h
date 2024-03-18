@@ -130,6 +130,13 @@ namespace exanb
             sources.push_back( value.y );
             sources.push_back( value.z );
           }
+          if constexpr ( std::is_same_v<field_type,Quaternion> )
+          {
+            sources.push_back( value.w );
+            sources.push_back( value.x );
+            sources.push_back( value.y );
+            sources.push_back( value.z );
+          }
           if constexpr ( std::is_same_v<field_type,Mat3d> )
           {
             sources.push_back( value.m11 );

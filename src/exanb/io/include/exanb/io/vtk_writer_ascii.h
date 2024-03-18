@@ -66,6 +66,13 @@ namespace exanb
             file_vtp << ' ' << value.y ;
             file_vtp << ' ' << value.z ;
           }
+          if constexpr ( std::is_same_v<field_type,Quaternion> )
+          {
+            file_vtp << ' ' << value.w ;
+            file_vtp << ' ' << value.x ;
+            file_vtp << ' ' << value.y ;
+            file_vtp << ' ' << value.z ;
+          }
           if constexpr ( std::is_same_v<field_type,Mat3d> )
           {
             file_vtp << ' ' << value.m11 ;
