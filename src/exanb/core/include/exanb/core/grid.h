@@ -665,6 +665,7 @@ namespace exanb
 
   template<typename GridT, typename FieldSetT > struct GridContainFieldSet;
   template<typename GridT, typename... field_ids > struct GridContainFieldSet< GridT, FieldSet<field_ids...> > : public GridHasFields<GridT,field_ids...> {};
+  template<class GridT, class FieldSetT > static inline constexpr bool grid_contains_field_set_v = GridContainFieldSet<GridT,FieldSetT>::value;
 
   template<typename GridT, typename FieldSetT>
   using AssertGridContainFieldSet = std::enable_if_t< GridContainFieldSet<GridT,FieldSetT>::value >;

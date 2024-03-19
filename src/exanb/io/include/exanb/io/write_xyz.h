@@ -60,7 +60,7 @@ namespace exanb
       std::map<std::string,std::string> m_field_unit;
       std::unordered_map<std::string,double> m_conv_map;
       
-      struct no_field_id_t { static inline const char* short_name() { return ""; } };
+      struct no_field_id_t { static inline const char* short_name() { return "no-field-id"; } };
     
       template<class T>
       static inline const std::string& format_for_value (const T& f)
@@ -132,12 +132,12 @@ namespace exanb
       {
         static const std::string field_short_name( f.short_name() );
         double conv = 1.0;
-        if constexpr ( std::is_same_v<FieldIdT,no_field_id_t> )
+        if constexpr ( ! std::is_same_v<FieldIdT,no_field_id_t> )
         {
           auto it = m_conv_map.find( f.short_name() );
           if( it != m_conv_map.end() ) conv = it->second;
         }
-        using field_type =std::remove_cv_t< std::remove_reference_t<T> >;      
+        using field_type =std::remove_cv_t< std::remove_reference_t<T> >; 
         if( bufsize < 0 ) return 0;
         else if constexpr ( std::is_same_v<field_type,Vec3d> )
         {
@@ -166,7 +166,7 @@ namespace exanb
         }
         else
         {
-          assert( ParaViewTypeId<field_type>::ncomp == 1 );
+          if( ParaViewTypeId<field_type>::ncomp != 1 ) { fatal_error() << "number of components not 1 as expected for field "<<f.short_name()<<" with type "<<type_as_string<T>()<<std::endl; }
           if( conv != 1.0 ) { fatal_error() << "Conversion factor not allowed for type "<<typeid(T).name()<<std::endl; }
           return format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
         }
