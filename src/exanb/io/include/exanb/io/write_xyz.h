@@ -207,7 +207,7 @@ namespace exanb
             
       size_t n_cells = grid.number_of_cells();
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-      auto cells = grid.cells_accessor(); //{ grid->cells() };
+      auto cells = grid.cells_accessor();
       
       unsigned long nb_particles = grid.number_of_particles();
       if( ! write_ghosts ) { nb_particles -= grid.number_of_ghost_particles(); }
@@ -314,7 +314,7 @@ namespace exanb
       		  int np = cells[c].size();
         		for(int pos=0;pos<np;++pos)
 		        {
-		          auto pos_vec = cells[c][position_field][pos];
+		          Vec3d pos_vec = cells[c][position_field][pos];
 		          auto type_name = particle_type_func ( cells, c, pos );
 		          pos_vec = xform * pos_vec;
 
