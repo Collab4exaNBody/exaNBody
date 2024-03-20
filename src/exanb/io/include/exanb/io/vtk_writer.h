@@ -60,6 +60,7 @@ namespace exanb
   template<> struct ParaViewTypeId<double>   { using comp_type=double;   static constexpr int ncomp=1; static inline const char* str() { return "Float64"; } };
 
   template<> struct ParaViewTypeId<exanb::Vec3d>    { using comp_type=double;   static constexpr int ncomp=3; static inline const char* str() { return "Float64"; } };
+  template<> struct ParaViewTypeId<exanb::Quaternion>    { using comp_type=double;   static constexpr int ncomp=4; static inline const char* str() { return "Float64"; } };
 
   template<> struct ParaViewTypeId<exanb::Mat3d>    { using comp_type=double;   static constexpr int ncomp=9; static inline const char* str() { return "Float64"; } };
 }

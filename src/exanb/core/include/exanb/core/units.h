@@ -89,7 +89,9 @@ namespace exanb
       double m_to_si = 1.0;
       const char* m_short_name = "?";
       const char* m_name = "unknow";
-      ONIKA_HOST_DEVICE_FUNC inline bool operator == (const UnitDefinition& other) const { return m_class==other.m_class && m_to_si==other.m_to_si; }      
+      ONIKA_HOST_DEVICE_FUNC inline bool operator == (const UnitDefinition& other) const { return m_class==other.m_class && m_to_si==other.m_to_si; }
+      inline const char* short_name() const { return m_short_name; }
+      inline const char* name() const { return m_name; }
     };
 
     /*********************************************************************/
@@ -155,7 +157,15 @@ namespace exanb
      */
     struct UnitSystem
     {
-      UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES];
+      UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES];      
+      inline const UnitDefinition& length() const { return m_units[LENGTH]; }
+      inline const UnitDefinition& time() const { return m_units[TIME]; }
+      inline const UnitDefinition& charge() const { return m_units[CHARGE]; }
+      inline const UnitDefinition& temperature() const { return m_units[TEMP]; }
+      inline const UnitDefinition& amount() const { return m_units[AMOUNT]; }
+      inline const UnitDefinition& luminance() const { return m_units[LUMINOUS]; }
+      inline const UnitDefinition& angle() const { return m_units[ANGLE]; }
+      inline const UnitDefinition& energy() const { return m_units[ENERGY]; }
     };
 
     /*
