@@ -162,7 +162,7 @@ namespace exanb
 		 * @brief Computes the total storage size in bytes.
 		 * @return The total storage size in bytes.
 		 */
-		inline const size_t storage_size() const
+		inline size_t storage_size() const
 		{
 			return m_data.size() * sizeof(ItemType) + m_info.size() * sizeof(InfoType);
 		}
