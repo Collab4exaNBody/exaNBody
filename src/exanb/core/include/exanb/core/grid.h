@@ -33,6 +33,7 @@ under the License.
 #include <exanb/core/grid_cell_compute_profiler.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/flat_arrays.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <cstdlib>
 #include <vector>
@@ -600,8 +601,8 @@ namespace exanb
     {
       return ( ... && ( has_allocated_field( onika::soatl::FieldId<fids>{} ) ) );
     }
-    // *******************************************************
-    
+    inline GridParticleFieldAccessor<CellParticles const * const> cells_accessor() const { return { m_cells.data() }; }
+    // ******************************************************* 
 
   private:
     IJK m_offset = {0,0,0};
