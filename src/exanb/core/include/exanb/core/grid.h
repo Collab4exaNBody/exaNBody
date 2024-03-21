@@ -601,7 +601,6 @@ namespace exanb
     {
       return ( ... && ( has_allocated_field( onika::soatl::FieldId<fids>{} ) ) );
     }
-    inline GridParticleFieldAccessor<CellParticles const * const> cells_accessor() const { return { m_cells.data() }; }
     // ******************************************************* 
 
   private:

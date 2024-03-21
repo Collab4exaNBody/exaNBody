@@ -62,7 +62,15 @@ namespace exanb
       std::map<std::string,std::string> m_field_name_map;
       
       struct no_field_id_t { static inline const char* short_name() { return "no-field-id"; } };
-    
+   
+      template<class T>
+      inline std::string field_name_mapping(const T& f) const
+      {
+        auto it = m_field_name_map.find(f.short_name());
+        if( it != m_field_name_map.end() ) return it->second;
+        else return f.short_name();
+      }
+
       template<class T>
       static inline const std::string& format_for_value (const T& f)
       {
@@ -97,9 +105,7 @@ namespace exanb
       template<class FieldIdT>
       inline std::string property_for_field (const FieldIdT& f) const
       {
-        std::string fname = f.short_name();
-        auto it = m_field_name_map.find(fname);
-        if(it != m_field_name_map.end()) fname = it->second;
+        std::string fname = field_name_mapping(f);
         using field_type =std::remove_cv_t< std::remove_reference_t<typename FieldIdT::value_type> >;      
         if constexpr ( std::is_same_v<field_type,Vec3d> )
         {
@@ -259,17 +265,10 @@ namespace exanb
       Mat3d lattice = diag_matrix( domain.extent() - domain.origin() );
       Mat3d lot = transpose(xform * lattice);
 
-      auto field_name = [&](auto f)
-      {
-        auto it = formatter.m_field_name_map.find(f.short_name());
-        if(it!=formatter.m_field_name_map.end()) return it->second;
-        else return std::string(f.short_name());
-      };
-
       std::ostringstream oss;
       oss << format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
       ( ... , (
-        field_selector(particle_fields.short_name()) ? ( oss << ' ' << field_name(particle_fields) ) : oss
+        field_selector(particle_fields.short_name()) ? ( oss << ' ' << formatter.field_name_mapping(particle_fields) ) : oss
       ) );
       oss<<" Properties=species:S:1";
       ( ... , (
@@ -398,8 +397,10 @@ namespace exanb
 
       // property name for position must be 'Position'
       StringList flist = { "position" };
-      for(const auto& f : *fields) { if( f != "position" ) flist.push_back(f); }      
-      field_formatter.m_field_name_map["position"] = "Position";
+      for(const auto& f : *fields) { if( f != "position" ) flist.push_back(f); }
+
+      auto formatter = *field_formatter;
+      formatter.m_field_name_map["position"] = "Position";
 
       write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, *particle_type_func, *field_formatter, *ghost, 0.0
                                               , position, velocity, force, processor_id, onika::soatl::FieldId<fid>{} ... );
