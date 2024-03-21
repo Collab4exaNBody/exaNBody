@@ -402,7 +402,7 @@ namespace exanb
       auto formatter = *field_formatter;
       formatter.m_field_name_map["position"] = "Position";
 
-      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, *particle_type_func, *field_formatter, *ghost, 0.0
+      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, *particle_type_func, formatter, *ghost, 0.0
                                               , position, velocity, force, processor_id, onika::soatl::FieldId<fid>{} ... );
     }
 
