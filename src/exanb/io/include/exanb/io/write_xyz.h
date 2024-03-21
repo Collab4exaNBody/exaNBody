@@ -59,6 +59,7 @@ namespace exanb
     {
       std::map<std::string,std::string> m_field_unit;
       std::unordered_map<std::string,double> m_conv_map;
+      std::map<std::string,std::string> m_field_name_map;
       
       struct no_field_id_t { static inline const char* short_name() { return "no-field-id"; } };
     
@@ -96,34 +97,37 @@ namespace exanb
       template<class FieldIdT>
       inline std::string property_for_field (const FieldIdT& f) const
       {
+        std::string fname = f.short_name();
+        auto it = m_field_name_map.find(fname);
+        if(it != m_field_name_map.end()) fname = it->second;
         using field_type =std::remove_cv_t< std::remove_reference_t<typename FieldIdT::value_type> >;      
         if constexpr ( std::is_same_v<field_type,Vec3d> )
         {
-          return std::string(f.short_name()) + ":R:3";
+          return fname + ":R:3";
         }
         else if constexpr ( std::is_same_v<field_type,Mat3d> )
         {
-          return std::string(f.short_name()) + ":R:9";
+          return fname + ":R:9";
         }
         else if constexpr ( std::is_same_v<field_type,Quaternion> )
         {
-          return std::string(f.short_name()) + ":R:4";
+          return fname + ":R:4";
         }
         else if constexpr ( is_array_of_integral_v<field_type,4> )
         {
-          return std::string(f.short_name()) + ":I:4";
+          return fname + ":I:4";
         }
         else if constexpr ( std::is_integral_v<field_type> )
         {
-          return std::string(f.short_name()) + ":I:1";
+          return fname + ":I:1";
         }
         else if constexpr ( std::is_arithmetic_v<field_type> )
         {
-          return std::string(f.short_name()) + ":R:1";
+          return fname + ":R:1";
         }
         else
         {
-          return std::string(f.short_name()) + ":S:1";
+          return fname + ":S:1";
         }
       }
       
@@ -255,23 +259,30 @@ namespace exanb
       Mat3d lattice = diag_matrix( domain.extent() - domain.origin() );
       Mat3d lot = transpose(xform * lattice);
 
+      auto field_name = [&](auto f)
+      {
+        auto it = formatter.m_field_name_map.find(f.short_name());
+        if(it!=formatter.m_field_name_map.end()) return it->second;
+        else return std::string(f.short_name());
+      };
+
       std::ostringstream oss;
-    	oss << format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
+      oss << format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
       ( ... , (
-        field_selector(particle_fields.short_name()) ? ( oss << ' ' << particle_fields.short_name() ) : oss
+        field_selector(particle_fields.short_name()) ? ( oss << ' ' << field_name(particle_fields) ) : oss
       ) );
       oss<<" Properties=species:S:1";
       ( ... , (
         field_selector(particle_fields.short_name()) ? ( oss << ':' << formatter.property_for_field(particle_fields) ) : oss
       ) );
-    	oss << " Time="<<time<<"\n";
-    	std::string header_data = oss.str();
+      oss << " Time="<<time<<"\n";
+      std::string header_data = oss.str();
       size_t offset_header = header_data.length();
   
       // only processor 0 writes the header
       if (rank==0)
       {
-      	MPI_File_write(mpiFile, header_data.data() , header_data.length() , MPI_CHAR , &status);
+        MPI_File_write(mpiFile, header_data.data() , header_data.length() , MPI_CHAR , &status);
       }
 
       auto write_field_to_buf = [&] (char* buf, int capacity, auto f, size_t c, size_t p) -> int
@@ -295,54 +306,67 @@ namespace exanb
         return n;
       };
 
+
+      int data_line_size = 0;
+      size_t nb_particles_written = 0;
+
       auto write_position_and_fields = [&] (auto position_field, auto ... f)
       {
         // account for  particle type, then 1 space character, then particle position
-        int data_line_size = formatter(nullptr,0,std::string("XX")) + 1 + formatter(nullptr,0,decltype(cells[0][position_field][0]){});
+        data_line_size = formatter(nullptr,0,std::string("XX")) + 1 + formatter(nullptr,0,decltype(cells[0][position_field][0]){});
         ldbg << "particle data start size = "<<data_line_size<<std::endl;
         ( ... , ( data_line_size += field_selector(f.short_name()) ? ( 1 + formatter(nullptr,0, typename decltype(f)::value_type {} ) ) : 0 ) );
         ++ data_line_size; // we'll add a '\n' at the end of each line      
         ldbg << "particle data total size = "<<data_line_size<<std::endl;
         std::string line_data( data_line_size , ' ' );
 
-        size_t nb_particles_written = 0;
-	      // routine d'écriture MPI des particules dans le fichier .xyz
-	      for(size_t c=0; c<n_cells;++c)
-	      {
-	        if( !grid.is_ghost_cell(c) || write_ghosts )
-	        {
-      		  int np = cells[c].size();
-        		for(int pos=0;pos<np;++pos)
-		        {
-		          Vec3d pos_vec = cells[c][position_field][pos];
-		          auto type_name = particle_type_func ( cells, c, pos );
-		          pos_vec = xform * pos_vec;
+        nb_particles_written = 0;
+        // routine d'écriture MPI des particules dans le fichier .xyz
+        for(size_t c=0; c<n_cells;++c)
+        {
+          if( !grid.is_ghost_cell(c) || write_ghosts )
+          {
+            int np = cells[c].size();
+            for(int pos=0;pos<np;++pos)
+            {
+              Vec3d pos_vec = cells[c][position_field][pos];
+              auto type_name = particle_type_func ( cells, c, pos );
+              pos_vec = xform * pos_vec;
 
-		          line_data.assign( data_line_size , ' ');
-		          char* buf = line_data.data();
-		          int written = 0;
-		          written += formatter( buf+written , data_line_size + 1 - written , type_name );
-		          buf[written++] = ' ';
-		          written += formatter( buf+written , data_line_size + 1 - written , pos_vec );
-		          //buf[written] = '\0';
-              //ldbg << "particle data start = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;		          
-		          ( ... , ( written += write_field_to_buf(buf+written,data_line_size+1-written,f,c,pos) ) );
-		          //buf[written] = '\0';
+              line_data.assign( data_line_size , ' ');
+              char* buf = line_data.data();
+              int written = 0;
+              written += formatter( buf+written , data_line_size + 1 - written , type_name );
+              buf[written++] = ' ';
+              written += formatter( buf+written , data_line_size + 1 - written , pos_vec );
+              //buf[written] = '\0';
+              //ldbg << "particle data start = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;              
+              ( ... , ( written += write_field_to_buf(buf+written,data_line_size+1-written,f,c,pos) ) );
+              //buf[written] = '\0';
               //ldbg << "particle data line = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;
-		          assert( written == (data_line_size-1) );
-		          buf[written++] = '\n';
-		          assert( written == data_line_size );
-		          assert( line_data.length() == size_t(data_line_size) );
-              //ldbg << "particle data final = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;		          
-		          size_t offset = offset_header + ( nb_particles_offset + nb_particles_written ) * data_line_size;
-		          ++ nb_particles_written;
-		          MPI_File_write_at( mpiFile, offset, line_data.data(), data_line_size , MPI_CHAR , &status );
-        		}
-		      }
-	      }
+              assert( written == (data_line_size-1) );
+              buf[written++] = '\n';
+              assert( written == data_line_size );
+              assert( line_data.length() == size_t(data_line_size) );
+              //ldbg << "particle data final = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;              
+              size_t offset = offset_header + ( nb_particles_offset + nb_particles_written ) * data_line_size;
+              ++ nb_particles_written;
+              MPI_File_write_at( mpiFile, offset, line_data.data(), data_line_size , MPI_CHAR , &status );
+            }
+          }
+        }
       };      
       
       write_position_and_fields( particle_fields ... );
+      
+      // ensure file ends with new line
+      /*if(rank == np-1 )
+      {
+        const size_t offset = offset_header + ( nb_particles_offset + nb_particles_written ) * data_line_size;
+        char end_of_file[4] = { '\n' , '\0' , '\0' , '\0' };
+        MPI_File_write_at( mpiFile, offset, end_of_file, 1 , MPI_CHAR , &status );
+      }*/
+      MPI_Barrier(comm);
       MPI_File_close(&mpiFile);
     }
 
@@ -373,7 +397,12 @@ namespace exanb
       VelocityVec3Combiner velocity = {};
       ForceVec3Combiner    force    = {};
 
-      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, *fields, *filename, *particle_type_func, *field_formatter, *ghost, 0.0
+      // property name for position must be 'Position'
+      StringList flist = { "position" };
+      for(const auto& f : *fields) { if( f != "position" ) flist.push_back(f); }      
+      field_formatter.m_field_name_map["position"] = "Position";
+
+      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, *particle_type_func, *field_formatter, *ghost, 0.0
                                               , position, velocity, force, processor_id, onika::soatl::FieldId<fid>{} ... );
     }
 
