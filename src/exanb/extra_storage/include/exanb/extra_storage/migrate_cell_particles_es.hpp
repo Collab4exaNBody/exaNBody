@@ -18,7 +18,6 @@ under the License.
 */
 #pragma once
 
-#pragma xstamp_grid_variant
 
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>

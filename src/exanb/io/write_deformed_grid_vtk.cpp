@@ -73,7 +73,7 @@ namespace exanb
       const IJK dims_no_ghost = dims-2*gl;
       Mat3d xform = domain->xform();
       Mat3d lattice = diag_matrix(domain->extent()-domain->origin());
-      Mat3d lot = transpose(xform * lattice);
+      [[maybe_unused]] Mat3d lot = transpose(xform * lattice);
       
       int rank=0, np=1;
       MPI_Comm_rank(*mpi, &rank);
@@ -120,9 +120,9 @@ namespace exanb
       }
       MPI_Barrier(*mpi);
       
-      int Nxmax=whole_ext.i;
-      int Nymax=whole_ext.j;
-      int Nzmax=whole_ext.k;
+      [[maybe_unused]] int Nxmax=whole_ext.i;
+      [[maybe_unused]] int Nymax=whole_ext.j;
+      [[maybe_unused]] int Nzmax=whole_ext.k;
 
       if( rank == 0 ) 
       {
@@ -339,7 +339,7 @@ namespace exanb
                       assert( sg_loc.i>=0 && sg_loc.j>=0 && sg_loc.k>=0 );
                       assert( sg_loc.i < sg_dims.i && sg_loc.j < sg_dims.j && sg_loc.k < sg_dims.k );
                       size_t buffer_index = grid_ijk_to_index(sg_dims,sg_loc) * n_comps;
-                      Vec3d pos_real = xform * ( pos_cell + subcell_size * Vec3d{ci,cj,ck} );
+                      Vec3d pos_real = xform * ( pos_cell + subcell_size * Vec3d{double(ci), double(cj), double(ck)} );
                       buffer[ buffer_index + 0 ] = pos_real.x;
                       buffer[ buffer_index + 1 ] = pos_real.y;
                       buffer[ buffer_index + 2 ] = pos_real.z;
