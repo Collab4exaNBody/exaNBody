@@ -267,9 +267,9 @@ namespace exanb
 
       std::ostringstream oss;
       oss << format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
-      ( ... , (
-        field_selector(particle_fields.short_name()) ? ( oss << ' ' << formatter.field_name_mapping(particle_fields) ) : oss
-      ) );
+      // ( ... , (
+      //   field_selector(particle_fields.short_name()) ? ( oss << ' ' << formatter.field_name_mapping(particle_fields) ) : oss
+      // ) ;
       oss<<" Properties=species:S:1";
       ( ... , (
         field_selector(particle_fields.short_name()) ? ( oss << ':' << formatter.property_for_field(particle_fields) ) : oss
@@ -400,7 +400,7 @@ namespace exanb
       for(const auto& f : *fields) { if( f != "position" ) flist.push_back(f); }
 
       auto formatter = *field_formatter;
-      formatter.m_field_name_map["position"] = "Position";
+      formatter.m_field_name_map["position"] = "pos";
 
       write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, *particle_type_func, formatter, *ghost, 0.0
                                               , position, velocity, force, processor_id, onika::soatl::FieldId<fid>{} ... );
