@@ -108,5 +108,16 @@ namespace exanb
   template<class R, class... A> static inline constexpr bool function_return_ref( R(A...) ){return false;}
   template<class R, class... A> static inline constexpr bool function_return_ref( R&(A...) ){return true;}
 
+
+  template<class T> struct remove_pointer { typedef T type; };
+  template<class T> struct remove_pointer<T*> { typedef T type; };
+  template<class T> struct remove_pointer<T* const> { typedef T type; };
+  template<class T> struct remove_pointer<T* volatile> { typedef T type; };
+  template<class T> struct remove_pointer<T* const volatile> { typedef T type; };
+  template<class T> struct remove_pointer<T* __restrict__ > { typedef T type; };
+  template<class T> struct remove_pointer<T* __restrict__ const> { typedef T type; };
+  template<class T> struct remove_pointer<T* __restrict__ volatile> { typedef T type; };
+  template<class T> struct remove_pointer<T* __restrict__ const volatile> { typedef T type; };
+  template<class T> using remove_pointer_t = typename ::exanb::remove_pointer<T>::type ;
 }
 
