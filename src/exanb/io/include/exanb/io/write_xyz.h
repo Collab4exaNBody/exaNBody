@@ -357,13 +357,6 @@ namespace exanb
       
       write_position_and_fields( particle_fields ... );
       
-      // ensure file ends with new line
-      /*if(rank == np-1 )
-      {
-        const size_t offset = offset_header + ( nb_particles_offset + nb_particles_written ) * data_line_size;
-        char end_of_file[4] = { '\n' , '\0' , '\0' , '\0' };
-        MPI_File_write_at( mpiFile, offset, end_of_file, 1 , MPI_CHAR , &status );
-      }*/
       MPI_Barrier(comm);
       MPI_File_close(&mpiFile);
     }
