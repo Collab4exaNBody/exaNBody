@@ -65,9 +65,14 @@ namespace exanb
     return a;
   }
 
-  inline Vec3d min (const Vec3d& a, const Vec3d& b)
+  ONIKA_HOST_DEVICE_FUNC inline Vec3d min (const Vec3d& a, const Vec3d& b)
   {
-    return Vec3d{ std::min(a.x,b.x), std::min(a.y,b.y), std::min(a.z,b.z) };
+    return Vec3d{ onika::cuda::min(a.x,b.x), onika::cuda::min(a.y,b.y), onika::cuda::min(a.z,b.z) };
+  }
+
+  ONIKA_HOST_DEVICE_FUNC inline Vec3d max(const Vec3d& a, const Vec3d& b)
+  {
+    return Vec3d{ onika::cuda::max(a.x,b.x), onika::cuda::max(a.y,b.y), onika::cuda::max(a.z,b.z) };
   }
 
   inline Vec3d floor(const Vec3d& a)
@@ -658,17 +663,6 @@ namespace exanb
 
 namespace std
 {
-
-  inline exanb::Vec3d min( const exanb::Vec3d& a, const exanb::Vec3d& b )
-  {
-    return { std::min(a.x,b.x) , std::min(a.y,b.y) , std::min(a.z,b.z) };
-  }
-
-  inline exanb::Vec3d max( const exanb::Vec3d& a, const exanb::Vec3d& b )
-  {
-    return { std::max(a.x,b.x) , std::max(a.y,b.y) , std::max(a.z,b.z) };
-  }
-
   template<> struct hash< exanb::IJK >
   {
     size_t operator () ( const exanb::IJK& v ) const
