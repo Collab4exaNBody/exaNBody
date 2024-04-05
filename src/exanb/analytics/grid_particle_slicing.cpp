@@ -59,8 +59,8 @@ namespace exanb
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; };
       auto field_average = [&avg] ( const std::string& name ) -> bool { for(const auto& f:avg) if( std::regex_match(name,std::regex(f)) ) return true; return false; };
       auto pecfunc = [op=this]() { return op->parallel_execution_context(); };
-      using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
-      ParticleAcessor pacc = {grid->cells()};
+      //using ParticleAcessor = GridParticleFieldAccessor<typename GridT::CellParticles *>;
+      /*ParticleAcessor*/ auto pacc = grid->cells_accessor(); //{grid->cells()};
       slice_grid_particles( *mpi, *grid, domain->xform(), *direction, *thickness, *plots, pacc, field_selector, field_average, pecfunc, grid_fields... );
       for(const auto& f: *fields) { plots->m_captions[ f ] = f; }
       for(const auto& c: *caption) { plots->m_captions[ c.first ] = c.second; }
