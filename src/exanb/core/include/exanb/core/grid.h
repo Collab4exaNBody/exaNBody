@@ -31,6 +31,7 @@ under the License.
 
 #include <exanb/core/cell_particles_from_field_set.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/flat_arrays.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 
@@ -262,8 +263,13 @@ namespace exanb
     
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
+
+    ONIKA_HOST_DEVICE_FUNC inline auto cells_accessor()       { return make_cells_accessor      ( onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) ); }
+    ONIKA_HOST_DEVICE_FUNC inline auto cells_accessor() const { return make_cells_const_accessor( onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) ); }
+    
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
+
     inline       CellParticles& cell(size_t index)       { return m_cells[index]; }
     inline const CellParticles& cell(size_t index) const { return m_cells[index]; }
 
@@ -541,13 +547,14 @@ namespace exanb
     template<class fid>
     inline auto flat_array_accessor( onika::soatl::FieldId<fid> f )
     {
-      return make_external_field_flat_array_accessor( *this , flat_array_data(f) , f );
+      using details::OptionalCellParticleFieldAccessor;
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , false > { flat_array_data(f) };
     }
     template<class fid>
     inline auto flat_array_const_accessor( onika::soatl::FieldId<fid> f )
     {
-      const auto * c_ptr = flat_array_data(f);
-      return make_external_field_flat_array_accessor( *this , c_ptr , f );
+      using details::OptionalCellParticleFieldAccessor;
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , true >{ flat_array_data(f) };
     }
     inline auto remove_flat_array( const std::string& name )
     {
@@ -594,7 +601,6 @@ namespace exanb
     {
       return ( ... && ( has_allocated_field( onika::soatl::FieldId<fids>{} ) ) );
     }
-    inline GridParticleFieldAccessor<CellParticles const * const> cells_accessor() const { return { m_cells.data() }; }
     // ******************************************************* 
 
   private:
@@ -659,6 +665,7 @@ namespace exanb
 
   template<typename GridT, typename FieldSetT > struct GridContainFieldSet;
   template<typename GridT, typename... field_ids > struct GridContainFieldSet< GridT, FieldSet<field_ids...> > : public GridHasFields<GridT,field_ids...> {};
+  template<class GridT, class FieldSetT > static inline constexpr bool grid_contains_field_set_v = GridContainFieldSet<GridT,FieldSetT>::value;
 
   template<typename GridT, typename FieldSetT>
   using AssertGridContainFieldSet = std::enable_if_t< GridContainFieldSet<GridT,FieldSetT>::value >;

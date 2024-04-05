@@ -304,7 +304,7 @@ namespace exanb
             // optional stream indexing
             if( build_particle_offset )
             {
-              assert( ccnbh.size() >= offset_table_size );
+              assert( ssize_t(ccnbh.size()) >= offset_table_size );
               uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
               ccnbh[p_a*2+0] = offset ;
               ccnbh[p_a*2+1] = offset >> 16 ;
@@ -384,9 +384,9 @@ namespace exanb
 
             if( config.dual_particle_offset )
             {
-              assert( ccnbh.size() >= offset_table_size );
+              assert( ssize_t(ccnbh.size()) >= offset_table_size );
               assert( /* n_sym_nbh>=0 && */ n_sym_nbh<=nbh_count_nodup );
-              assert(( n_particles_a + 1 + p_a ) * 2 + 1 < offset_table_size );
+              assert( ssize_t( ( n_particles_a + 1 + p_a ) * 2 + 1 ) < offset_table_size );
               ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 0 ] = n_sym_nbh ;
               ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 1 ] = n_sym_nbh >> 16 ;
               [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() + ( n_particles_a + 1 ) * 2 );
@@ -399,7 +399,7 @@ namespace exanb
           //  to calculate sub stream size for each particle
           if( n_particles_a>0 && build_particle_offset )
           {
-            assert( n_particles_a*2+1 < offset_table_size );
+            assert( ssize_t(n_particles_a*2+1) < offset_table_size );
             uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
             ccnbh[n_particles_a*2+0] = offset ;
             ccnbh[n_particles_a*2+1] = offset >> 16 ;

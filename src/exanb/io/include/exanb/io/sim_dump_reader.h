@@ -27,7 +27,9 @@ under the License.
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/log.h>
 #include <exanb/core/domain.h>
+#include <exanb/core/particle_id_codec.h>
 #include <exanb/core/check_particles_inside_cell.h>
+#include <onika/soatl/field_tuple.h>
 
 #include <exanb/io/mpi_file_io.h>
 #include <exanb/io/sim_dump_io.h>
@@ -38,17 +40,23 @@ under the License.
 namespace exanb
 {
   
+  template<class CellsAccessorT, class TupleT, class FieldAccTupleT, size_t... I>
+  static inline void write_cell_fields( CellsAccessorT cells, FieldAccTupleT fields, TupleT tp, size_t cell_idx, size_t p_idx, std::index_sequence<I...> )
+  {
+    ( ... , ( cells[cell_idx][ fields.get(onika::tuple_index<I>) ][p_idx] = tp[ fields.get(onika::tuple_index<I>).field() ] ) );
+  }
 
   template<class LDBG, class GridT, class OptionalDumpFilter, class ... DumpFieldIds>
   static inline void read_dump_transcode(MPI_Comm comm, LDBG& ldbg, GridT& grid, Domain& domain, double & phystime, long & timestep, const std::string& filename, OptionalDumpFilter dump_filter, FieldSet< DumpFieldIds... > dump_fields )
   {
-    using RealDumpFields = FieldSetIntersection< typename GridT::Fields , FieldSet< DumpFieldIds... > >;
-    using ParticleTuple = onika::soatl::FieldTupleFromFieldIds< RealDumpFields >;
+    using ParticleTuple = onika::soatl::FieldTupleFromFieldIds< FieldSet< DumpFieldIds... > >;
     using StorageTuple = std::remove_cv_t< std::remove_reference_t< decltype( dump_filter.encode( ParticleTuple{} ) ) > >;
     using CompactFieldArrays = compact_field_arrays_from_tuple_t< StorageTuple >;
     
-    //static constexpr RealDumpFields real_dump_fields = {};
-    //static constexpr size_t READ_BUFFER_SIZE = 262144;
+    // auto dump_fields = onika::make_flat_tuple( grid.field_accessor(onika::soatl::FieldId<DumpFieldIds>{}) ... );
+    using GridOptionalFields = RemoveFields< FieldSet< DumpFieldIds... > , typename GridT::Fields >;
+    using OptionalFieldTuple = onika::soatl::FieldTupleFromFieldIds< GridOptionalFields >;
+    static constexpr size_t OptionalFieldCount = OptionalFieldTuple::TupleSize;
 
     std::string basename;
     std::string::size_type p = filename.rfind("/");
@@ -82,6 +90,13 @@ namespace exanb
     lout << "fields        =" ;
     StorageTuple{}.apply_fields( print_tuple_field_list(lout) );
     lout <<std::endl;
+    
+    if constexpr ( OptionalFieldCount > 0 )
+    {
+      lout << "opt. fields   =" ;
+      OptionalFieldTuple{}.apply_fields( print_tuple_field_list(lout) );
+      lout <<std::endl;
+    }
 
     // get grid setup
     domain = header.m_domain;
@@ -202,6 +217,9 @@ namespace exanb
     std::string compressed_buffer;
     std::vector<uint8_t> optional_data_buffer;
     std::vector<uint8_t> uncompress_buffer;
+    
+    std::vector<OptionalFieldTuple> particle_optional_data;
+    std::vector<uint64_t> particle_optional_place;
 
     // lout.progress_bar("Loading ",0.0);
     for( size_t i = rank ; i < header.m_chunk_count ; i += np ) if( ! chunk_table[i].empty() )
@@ -330,6 +348,13 @@ namespace exanb
           const size_t p_idx = cell.size();
           assert( is_inside( grid.cell_bounds(loc) , Vec3d{tp[field::rx],tp[field::ry],tp[field::rz]} ) );
           cell.push_back( tp );
+          
+          if constexpr ( OptionalFieldCount > 0 )
+          {
+            particle_optional_data.push_back( tp );
+            particle_optional_place.push_back( encode_cell_particle( cell_idx , p_idx ) );
+          }
+          
           dump_filter.append_cell_particle( cell_idx , p_idx );
           ++ at_id;
           ++ particle_count;          
@@ -371,6 +396,21 @@ namespace exanb
     grid.set_origin( grid.origin() + cell_shift * domain.cell_size() );
     grid.set_offset( grid.offset() - cell_shift );
     grid.rebuild_particle_offsets();
+
+    if constexpr ( OptionalFieldCount > 0 )
+    {
+      const size_t n_particles = particle_optional_data.size();
+      assert( n_particles == particle_optional_place.size() );
+      auto cells = grid.cells_accessor();
+      auto optional_fields = grid.field_accessors_from_field_set( GridOptionalFields{} );
+      for(size_t i=0;i<n_particles;i++)
+      {
+        size_t cell_idx=0 , p_idx=0;
+        decode_cell_particle( particle_optional_place[i] , cell_idx , p_idx );
+        write_cell_fields( cells, optional_fields, particle_optional_data[i], cell_idx, p_idx, std::make_index_sequence<OptionalFieldCount>{} );
+      }
+    }
+
     assert( check_particles_inside_cell(grid/*,true,true*/) );
     ldbg << "grid has "<< grid.number_of_particles() << " particles" << std::endl; 
     
