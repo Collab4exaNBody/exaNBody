@@ -175,7 +175,9 @@ namespace exanb
        {
          lout << "  " << p.first << " : subdiv="<< p.second.m_subdiv<<", components="<<p.second.m_components<<std::endl;
        }
-     }     
+     }
+     lout << "PFA Calculator = ";
+     onika::soatl::pfa_size_calculator_t< GridT::Alignment , typename GridT::field_set_t , GridT::ChunkSize >::print( lout );
      lout << "=================================" << std::endl;
     }
   };
