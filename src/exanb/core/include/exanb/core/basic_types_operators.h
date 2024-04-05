@@ -333,14 +333,15 @@ namespace exanb
     return u.x*v.x + u.y*v.y + u.z*v.z;
   }
 
+  ONIKA_HOST_DEVICE_FUNC
   inline double angle(const Vec3d& a, const Vec3d& b)
   {
     //double err = 1.0e-4;
-    double cosA = dot(a,b) / std::sqrt(dot(a,a)*dot(b,b));
+    double cosA = dot(a,b) / sqrt( dot(a,a)*dot(b,b) );
     //When angle is near 0 or pi, numerical error can give incoherent result
     if(cosA <= -1.0 ) { return M_PI; }
     else if(cosA >= 1.0) { return 0.0; }
-    return std::acos(cosA);
+    return acos(cosA);
   }
 
   ONIKA_HOST_DEVICE_FUNC inline bool operator == (const GridBlock& a, const GridBlock& b)
