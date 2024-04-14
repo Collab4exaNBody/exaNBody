@@ -1130,9 +1130,6 @@ namespace exanb
         
         if( null_opt_data || opt_data_payload == 0 ) // normal particle to insert
         {
-//          const double rx = data[i][field::rx];
-//          const double ry = data[i][field::ry];
-//          const double rz = data[i][field::rz];
           const Vec3d r = { data[i][field::rx] , data[i][field::ry] , data[i][field::rz] };
           
           IJK loc = grid.locate_cell( r /*Vec3d{rx,ry,rz}*/ );

@@ -191,10 +191,15 @@ namespace exanb
 			const unsigned int global_info_shift = 2 * sizeof(UIntType);
 
 			assert ( migration_test::check_info_consistency( m_info.data(), m_info.size() ));  
+			assert ( migration_test::check_info_value<1>( m_info.data(), m_info.size() , 1e6 )); // check number of item
 
 			// first offset, then type T
 			std::copy ( info_ptr, info_ptr + info_size, buffer_ptr + global_info_shift );
 			std::copy ( data_ptr, data_ptr + data_size, buffer_ptr + global_info_shift + info_size );
+
+      // re-check
+			[[maybe_unused]] InfoType * __restrict__ check_ptr = (InfoType*)(buffer_ptr + global_info_shift);
+			assert ( migration_test::check_info_value<1>( check_ptr, m_info.size() , 1e6  )); // check number of item
 		}
 
 		/**
@@ -227,11 +232,15 @@ namespace exanb
 			ItemType * const __restrict__ data_ptr = onika::cuda::vector_data( m_data );
 
 
-			// get buffer pointers
+			// get buffer pointers, buff_ptr type is char*
 			const UIntType first_info = 2 * sizeof(UIntType);
 			const UIntType first_data = first_info + info_size * sizeof(InfoType); 
 			const InfoType * const __restrict__ buff_info_ptr = (const InfoType*) (buff_ptr + first_info);
 			const ItemType * const __restrict__ buff_data_ptr = (const ItemType*) (buff_ptr + first_data);
+
+      // Some checks
+			assert ( migration_test::check_info_consistency( buff_info_ptr, info_size));  
+			assert ( migration_test::check_info_value<1>( buff_info_ptr, info_size , 1e6 )); // check number of item
 
 			// first informaions, then items
 			std::copy ( buff_info_ptr, buff_info_ptr + info_size, info_ptr );
@@ -268,6 +277,8 @@ namespace exanb
 					const auto [last_offset, last_size, id] = buff_info[lastIdx];
 					std::get<0> (buff_info[i]) = last_offset + last_size;
 				}
+//				if( std::get<1> (buff_info[i]) > 1e6 ) std::get<1> (buff_info[i]) = 0;
+        assert (  std::get<1> (buff_info[i]) < 1e6 && "too many particles for one cell, error"); 
 			}
 			assert ( migration_test::check_info_doublon    ( buff_info, buff_n_particles));
 			assert ( migration_test::check_info_consistency( buff_info, buff_n_particles));
@@ -298,7 +309,7 @@ namespace exanb
 
 			size_t old_data_size = m_data.size();
 
-			// now resize data and copy new data in this memory place 
+			// now resize data and copy new data in this memory place
 			m_data.resize(m_data.size() + new_items_to_append);
 			std::copy ( buff_data + first_item , buff_data + last_item , m_data.data() + old_data_size);	
 		}
