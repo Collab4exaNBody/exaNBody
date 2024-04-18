@@ -376,6 +376,10 @@ namespace exanb
     s_profiling_timestamp_ref = std::chrono::high_resolution_clock::now();
   }
 
+  void OperatorNode::set_omp_max_threads(int nt)
+  {
+    m_omp_num_threads = nt;
+  }
 
   void OperatorNode::run_prolog()
   {
@@ -428,6 +432,14 @@ namespace exanb
 
     wait_all_parallel_execution_streams();
 
+
+    int old_omp_max_threads = omp_get_max_threads();
+    if( m_omp_num_threads > 0 )
+    {
+      // lout << "limit number of threads to "<<m_omp_num_threads<<" for "<<pathname()<<std::endl;
+      omp_set_num_threads( m_omp_num_threads );
+    }
+
     // sequential execution of fork-join parallel components
     // except if OperatorNode derived class implements generate_tasks instead of execute, in which case, task parallelism mode is used
   
@@ -460,6 +472,13 @@ namespace exanb
       wait_all_parallel_execution_streams();
       run_epilog();
     }
+
+    if( m_omp_num_threads > 0 )
+    {
+      // lout << "restore number of threads to "<<old_omp_max_threads<<" for "<<pathname()<<std::endl;
+      omp_set_num_threads( old_omp_max_threads );
+    }
+
   }
 
   void OperatorNode::run_epilog()
