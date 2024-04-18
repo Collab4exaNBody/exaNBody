@@ -326,12 +326,16 @@ int main(int argc,char*argv[])
   onika::cuda::CudaContext::set_global_gpu_enable( ! configuration.nogpu );
   if( onika::cuda::CudaContext::global_gpu_enable() )
   {
-    ONIKA_CU_CHECK_ERRORS( ONIKA_CU_GET_DEVICE_COUNT(&n_gpus) );
+    auto cu_dev_count_rc = ONIKA_CU_GET_DEVICE_COUNT(&n_gpus);
+    if( n_gpus > 0 )
+    {
+      ONIKA_CU_CHECK_ERRORS( cu_dev_count_rc );
+    }
   }
 # else
-  onika::cuda::CudaContext::set_global_gpu_enable( false );
   n_gpus = 0;
 # endif
+  if( n_gpus == 0 ) { onika::cuda::CudaContext::set_global_gpu_enable( false ); }
   onika::memory::GenericHostAllocator::set_cuda_enabled( n_gpus > 0 );
 
   // generate a compact string representing cpu set assigned to current process
@@ -722,6 +726,21 @@ int main(int argc,char*argv[])
       {
         if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
       });
+  }
+
+  // setup OpenMP threads limitations for filtered operators
+  if( ! configuration.omp_max_threads_filter.empty() )
+  {
+    for(const auto& p : configuration.omp_max_threads_filter )
+    {
+      const int nthreads = p.second;
+      auto hashes = operator_set_from_regex( simulation_graph, { p.first } );
+      simulation_graph->apply_graph(
+        [&hashes,nthreads](OperatorNode* o)
+        {
+          if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
+        });
+    }    
   }
 
   /**********************************/
