@@ -48,6 +48,16 @@ namespace exanb
 			return true;
 		}
 
+		template <size_t FIELD>
+		inline bool check_info_value(const InfoType* __restrict__ info_ptr, const UIntType info_size, UIntType value)
+		{
+			for (size_t p = 0 ; p < info_size ; p++)
+			{
+				if( std::get<FIELD> (info_ptr[p]) >= value) return false;
+			}
+			return true;
+		}
+
 		inline bool check_info_doublon(const InfoType* __restrict__ info_ptr, const UIntType info_size)
 		{
 			for (size_t p1 = 0 ; p1 < info_size ; p1++)
