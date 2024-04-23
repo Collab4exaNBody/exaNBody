@@ -23,7 +23,7 @@ under the License.
 namespace exanb
 {
 
-  void Domain::set_xform(const Mat3d mat)
+  void Domain::set_xform(const Mat3d& mat)
   {
     m_xform = mat;
     m_xform_is_identity = is_identity( m_xform );
