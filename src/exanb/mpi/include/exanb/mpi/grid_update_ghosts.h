@@ -26,6 +26,7 @@ under the License.
 #include <exanb/field_sets.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
+#include <exanb/core/domain.h>
 
 #include <onika/soatl/field_tuple.h>
 
@@ -68,6 +69,7 @@ namespace exanb
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
     GridT& grid,
+    const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
@@ -158,6 +160,12 @@ namespace exanb
       send_buf_ptr = send_staging.data();
     }
 
+    Vec3d mirror_domain_size = { 0.0 , 0.0 , 0.0 };
+    if( domain.mirror_x() ) mirror_domain_size.x = domain.bounds_size().x;
+    if( domain.mirror_y() ) mirror_domain_size.y = domain.bounds_size().y;
+    if( domain.mirror_z() ) mirror_domain_size.z = domain.bounds_size().z;
+    double mirror_speed_factor = CreateParticles ? -1.0 : 1.0;
+
     for(int p=0;p<nprocs;p++)
     {
       send_pack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
@@ -173,7 +181,10 @@ namespace exanb
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
                                              , ghost_comm_buffers.sendbuf_size(p)
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr 
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
+                                             , domain.origin()
+                                             , mirror_domain_size
+                                             , mirror_speed_factor
                                              , update_fields };
 
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;

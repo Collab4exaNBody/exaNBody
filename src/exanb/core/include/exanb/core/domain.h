@@ -58,7 +58,23 @@ namespace exanb
     inline bool periodic_boundary_x() const { return periodic_boundary(0); }
     inline bool periodic_boundary_y() const { return periodic_boundary(1); }
     inline bool periodic_boundary_z() const { return periodic_boundary(2); }
-    inline void set_periodic_boundary(bool x, bool y, bool z) { m_periodic[0]=x; m_periodic[1]=y; m_periodic[2]=z; }
+    inline void set_periodic_boundary(bool x, bool y, bool z)
+    {
+      m_periodic[0]=x; if( ! m_periodic[0] ) m_mirror[0]=false;
+      m_periodic[1]=y; if( ! m_periodic[1] ) m_mirror[1]=false;
+      m_periodic[2]=z; if( ! m_periodic[2] ) m_mirror[2]=false;
+    }
+
+    inline bool mirror(size_t axis) const { assert( /*axis>=0 &&*/ axis<3); return m_mirror[axis]; }
+    inline bool mirror_x() const { return mirror(0); }
+    inline bool mirror_y() const { return mirror(1); }
+    inline bool mirror_z() const { return mirror(2); }
+    inline void set_mirror(bool x, bool y, bool z) 
+    { 
+      m_mirror[0]=x; if( m_mirror[0] ) m_periodic[0]=true;
+      m_mirror[1]=y; if( m_mirror[1] ) m_periodic[1]=true;
+      m_mirror[2]=z; if( m_mirror[2] ) m_periodic[2]=true;
+    }
 
     inline bool expandable() const { return m_expandable; }
     inline void set_expandable(bool v) { m_expandable=v; }
@@ -87,6 +103,14 @@ namespace exanb
     
     // expandable in the non periodic directions
     bool m_expandable = true;
+
+    // tells if corresponding periodic directions are in 'mirror' mode,
+    // i.e. particles are mirrored inside their domain's replica for every
+    // odd replica in one of the 3 directions.
+    // exemple : if m_mirror = {true, false, flase} and m_periodic={true,true,true}
+    // replica [0,0,0] is the original domain, replica [1,0,0] is the replica on its right and is mirrored,
+    // [2,0,0] is no mirrored, and so on.
+    bool m_mirror[3] = {false,false,false};
   };
 
   enum class ReadBoundsSelectionMode
@@ -231,6 +255,8 @@ namespace YAML
       std::vector<bool> p = { domain.periodic_boundary_x(), domain.periodic_boundary_y(), domain.periodic_boundary_z() };
       node["periodic"] = p;
       node["expandable"] = domain.expandable();
+      std::vector<bool> m = { domain.mirror_x(), domain.mirror_y(), domain.mirror_z() };
+      node["mirror"] = m;
       return node;
     }
 

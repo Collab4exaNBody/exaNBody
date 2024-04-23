@@ -31,9 +31,36 @@ under the License.
 
 namespace exanb
 {
+
   namespace UpdateFromGhostsUtils
   {
-    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class UpdateFuncT, class FieldAccTuple>
+
+    struct NullGhostBackwardFilter
+    {
+      template<class fid, class T>
+      ONIKA_HOST_DEVICE_FUNC
+      inline T operator () ( const GhostCellSendScheme& info, const onika::soatl::FieldId<fid>& field, const T& value ) const { return value; }
+    };
+
+    struct MirrorForceGhostBackwardFilter
+    {
+      Vec3d m_domain_size = { 0.0 , 0.0 , 0.0 }; // different than 0 to activate ghost force mirroring
+      template<class fid, class T>
+      ONIKA_HOST_DEVICE_FUNC
+      inline T operator () ( const GhostCellSendScheme& info, const onika::soatl::FieldId<fid>& field, const T& value ) const
+      {
+        using FieldT = onika::soatl::FieldId<fid>;
+        int r = 0;
+        if constexpr ( std::is_same_v<FieldT,field::_fx> ) if( m_domain_size.x > 0.0 ) { r = static_cast<int>( ( info.m_x_shift * 1.5 ) / m_domain_size.x ); }
+        if constexpr ( std::is_same_v<FieldT,field::_fy> ) if( m_domain_size.y > 0.0 ) { r = static_cast<int>( ( info.m_y_shift * 1.5 ) / m_domain_size.y ); }
+        if constexpr ( std::is_same_v<FieldT,field::_fz> ) if( m_domain_size.z > 0.0 ) { r = static_cast<int>( ( info.m_z_shift * 1.5 ) / m_domain_size.z ); }
+        if constexpr ( std::is_same_v<FieldT,field::_fx> || std::is_same_v<FieldT,field::_fy> || std::is_same_v<FieldT,field::_fz> ) if( ( r % 2 ) != 0 ) return -value;
+        return value;
+      }
+    };
+
+
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class UpdateFuncT, class FieldAccTuple, class GhostBackwardFilterFuncT>
     struct GhostSendUnpackFromReceiveBuffer
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
@@ -46,6 +73,7 @@ namespace exanb
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
       UpdateFuncT m_merge_func;
       FieldAccTuple m_fields = {};
+      GhostBackwardFilterFuncT m_ghost_filter = {};
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
@@ -65,12 +93,12 @@ namespace exanb
 
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
-      inline void unpack_particle_fields( const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t i, uint64_t j, std::index_sequence<FieldIndex...> ) const
+      inline void unpack_particle_fields( const GhostCellSendScheme& info, const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t i, uint64_t j, std::index_sequence<FieldIndex...> ) const
       {
         using exanb::field_id_fom_acc_v;
         ( ... , (
           m_merge_func( m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i]
-                      , data->m_particles[j][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ]
+                      , m_ghost_filter( info, exanb::details::field_id_fom_acc_t< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) >{} , data->m_particles[j][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ] )
                       , onika::TrueType{} )
         ) );
       }
@@ -85,13 +113,13 @@ namespace exanb
 
         assert( data->m_cell_i == m_sends[i].m_partner_cell_i );
         
-        const size_t cell_i = m_sends[i].m_cell_i;
+        const size_t cell_i = m_sends[i].m_cell_i;        
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
-          unpack_particle_fields( data, cell_i, particle_index[j], j, FieldIndexSeq{} );
+          unpack_particle_fields( m_sends[i], data, cell_i, particle_index[j], j, FieldIndexSeq{} );
           //m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
         }
         size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
@@ -106,7 +134,7 @@ namespace exanb
       }
     };
 
-    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class FieldAccTuple>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class FieldAccTuple >
     struct GhostReceivePackToSendBuffer
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
@@ -190,8 +218,8 @@ namespace onika
   namespace parallel
   {
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class MergeFuncT, class FieldAccTupleT>
-    struct BlockParallelForFunctorTraits< exanb::UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,MergeFuncT,FieldAccTupleT> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class MergeFuncT, class FieldAccTupleT, class GhostBackwardFilterFuncT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,MergeFuncT,FieldAccTupleT,GhostBackwardFilterFuncT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };

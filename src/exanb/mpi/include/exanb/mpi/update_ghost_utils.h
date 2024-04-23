@@ -38,26 +38,39 @@ namespace exanb
     template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
     template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
 
-    template<typename TupleT, class fid, class T>
+    template<typename TupleT, class pos_id, class vel_id, class T>
     ONIKA_HOST_DEVICE_FUNC
-    static inline void apply_field_shift( TupleT& t , onika::soatl::FieldId<fid> f, T x )
+    static inline void apply_field_shift( TupleT& t , onika::soatl::FieldId<pos_id> pos_field, onika::soatl::FieldId<vel_id> vel_field, T x , T rmin, T rmax , double mirror_vel_factor = 1.0 )
     {
-      static constexpr bool has_field = onika::soatl::field_tuple_has_field_v<TupleT,fid>;
-      if constexpr ( has_field ) { t[ f ] += x; }
+      static constexpr bool has_pos_field = onika::soatl::field_tuple_has_field_v<TupleT,pos_id>;
+      static constexpr bool has_vel_field = onika::soatl::field_tuple_has_field_v<TupleT,vel_id>;
+      if constexpr ( has_pos_field )
+      {
+        t[pos_field] += x;
+        if( t[pos_field] > rmin && t[pos_field] < rmax )
+        {
+          t[pos_field] = rmax + rmin - t[pos_field];
+          if constexpr ( has_vel_field )
+          {
+            t[vel_field] = t[vel_field] * mirror_vel_factor;
+          }
+        }
+      }
     }
     
     template<typename TupleT>
     ONIKA_HOST_DEVICE_FUNC
-    static inline void apply_r_shift( TupleT& t , double x, double y, double z )
+    static inline void apply_r_shift( TupleT& t , double x, double y, double z, double mirror_x_min, double mirror_x_max, double mirror_y_min, double mirror_y_max,double  mirror_z_min, double mirror_z_max, double mirror_vel_factor = 1.0 )
     {
-      apply_field_shift( t , field::rx , x );
-      apply_field_shift( t , field::ry , y );
-      apply_field_shift( t , field::rz , z );
+      apply_field_shift( t , field::rx , field::vx , x , mirror_x_min, mirror_x_max , mirror_vel_factor );
+      apply_field_shift( t , field::ry , field::vy , y , mirror_y_min, mirror_y_max , mirror_vel_factor );
+      apply_field_shift( t , field::rz , field::vz , z , mirror_z_min, mirror_z_max , mirror_vel_factor );
       if constexpr ( HAS_POSITION_BACKUP_FIELDS )
       {
-        apply_field_shift( t , PositionBackupFieldX , x );
-        apply_field_shift( t , PositionBackupFieldY , y );
-        apply_field_shift( t , PositionBackupFieldZ , z );
+        static constexpr onika::soatl::FieldId<void> no_field = {}; 
+        apply_field_shift( t , PositionBackupFieldX , no_field, x , mirror_x_min, mirror_x_max );
+        apply_field_shift( t , PositionBackupFieldY , no_field, y , mirror_y_min, mirror_y_max );
+        apply_field_shift( t , PositionBackupFieldZ , no_field, z , mirror_z_min, mirror_z_max );
       }
     }
 
@@ -140,7 +153,12 @@ namespace exanb
       uint8_t * m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
+      Vec3d m_mirror_domain_origin = {0.,0.,0.};
+      Vec3d m_mirror_domain_size = {0.,0.,0.}; // if != 0.0 for any direction, then periodic mirroring is applied for this direction
+      double m_mirror_speed_factor = 1.0;
       FieldAccTuple m_fields = {};
+
+      struct MirrorRange { double rmin; double rmax; };
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
@@ -166,6 +184,20 @@ namespace exanb
       }
 
       ONIKA_HOST_DEVICE_FUNC
+      static inline MirrorRange mirror_range(double shift, double size, double origin)
+      {
+        if( size > 0.0 )
+        {
+          int r = static_cast<int>( ( shift * 1.5 ) / size );
+          if( ( r % 2 ) != 0 )
+          {
+            return {origin + r * size , origin + (r+1) * size };
+          }
+        }
+        return { 0.0 , 0.0 };
+      }
+
+      ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( uint64_t i ) const
       {
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
@@ -182,6 +214,11 @@ namespace exanb
         const double rx_shift = m_sends[i].m_x_shift;
         const double ry_shift = m_sends[i].m_y_shift;
         const double rz_shift = m_sends[i].m_z_shift;
+        
+        const auto [mirror_x_min,mirror_x_max] = mirror_range( rx_shift, m_mirror_domain_size.x , m_mirror_domain_origin.x );
+        const auto [mirror_y_min,mirror_y_max] = mirror_range( ry_shift, m_mirror_domain_size.y , m_mirror_domain_origin.y );
+        const auto [mirror_z_min,mirror_z_max] = mirror_range( rz_shift, m_mirror_domain_size.z , m_mirror_domain_origin.z );
+        
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -189,7 +226,7 @@ namespace exanb
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );          
           // m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
           pack_particle_fields( data, cell_i, particle_index[j] , j , FieldIndexSeq{} );
-          apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
+          apply_r_shift( data->m_particles[j], rx_shift, ry_shift, rz_shift, mirror_x_min,mirror_x_max, mirror_y_min,mirror_y_max, mirror_z_min,mirror_z_max, m_mirror_speed_factor );
         }
         if( m_cell_scalars != nullptr )
         {

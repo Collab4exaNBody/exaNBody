@@ -60,7 +60,7 @@ namespace exanb
   serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
   gpu_packing allows pack/unpack operations to execute on the GPU
   */
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT>
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT, class GhostFilterFuncT >
   static inline void grid_update_from_ghosts(
     LDBGT& ldbg,
     MPI_Comm comm,
@@ -77,7 +77,8 @@ namespace exanb
     bool staging_buffer ,
     bool serialize_pack_send ,
     bool wait_all,
-    UpdateFuncT update_func )
+    UpdateFuncT update_func,
+    GhostFilterFuncT ghost_filter_func )
   {
     using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
     using CellParticles = typename GridT::CellParticles;
@@ -93,7 +94,7 @@ namespace exanb
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
     using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
-    using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT,FieldAccTupleT>;
+    using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT,FieldAccTupleT,GhostFilterFuncT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
@@ -256,7 +257,8 @@ namespace exanb
                                               , ghost_comm_buffers.sendbuf_size(p)
                                               , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
                                               , UpdateValueFunctor{} 
-                                              , update_fields };
+                                              , update_fields
+                                              , ghost_filter_func };
       // = parallel_execution_context(p);
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
       auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts ); 

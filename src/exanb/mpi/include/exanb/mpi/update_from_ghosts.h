@@ -54,7 +54,7 @@ namespace exanb
     class GridT,
     class FieldSetT,
     class UpdateFuncT = UpdateValueAdd >
-  struct UpdateFromGhosts : public OperatorNode
+  class UpdateFromGhosts : public OperatorNode
   {  
     using CellParticles = typename GridT::CellParticles;
     using ParticleFullTuple = typename CellParticles::TupleValueType;
@@ -80,6 +80,7 @@ namespace exanb
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
+  public:
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
     inline void execute() override final
     {
@@ -97,7 +98,7 @@ namespace exanb
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, grid_cell_values.get_pointer(),
                           *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
                           *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
-                          *serialize_pack_send, *wait_all, UpdateFuncT{} );
+                          *serialize_pack_send, *wait_all, UpdateFuncT{} , UpdateFromGhostsUtils::NullGhostBackwardFilter{} );
     }
 
   };
