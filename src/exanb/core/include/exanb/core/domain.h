@@ -123,6 +123,7 @@ namespace exanb
     double m_xform_max_scale = 1.0;
 
     uint32_t m_flags = FLAG_EXPANDABLE | FLAG_XFORM_IDENTITY;
+    uint32_t m_reserved_padding = 0;
   };
 
   enum class ReadBoundsSelectionMode

@@ -75,7 +75,7 @@ namespace exanb
     file.open( comm, filename , "r" );
 
     // read header from file 
-    SimDumpHeader<> header = {};
+    SimDumpHeader header = {};
     file.read( &header );
     file.increment_offset( &header );
 
