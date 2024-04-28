@@ -36,6 +36,20 @@ namespace exanb
   class alignas(8) Domain
   {
   public:
+
+    static inline constexpr uint32_t FLAG_PERIODIC_X      = 1u << 0;    
+    static inline constexpr uint32_t FLAG_PERIODIC_Y      = 1u << 1;
+    static inline constexpr uint32_t FLAG_PERIODIC_Z      = 1u << 2;
+    static inline constexpr uint32_t FLAG_MIRROR_X_MIN    = 1u << 3;
+    static inline constexpr uint32_t FLAG_MIRROR_X_MAX    = 1u << 4;
+    static inline constexpr uint32_t FLAG_MIRROR_Y_MIN    = 1u << 5;
+    static inline constexpr uint32_t FLAG_MIRROR_Y_MAX    = 1u << 6;
+    static inline constexpr uint32_t FLAG_MIRROR_Z_MIN    = 1u << 7;
+    static inline constexpr uint32_t FLAG_MIRROR_Z_MAX    = 1u << 8;
+    
+    static inline constexpr uint32_t FLAG_EXPANDABLE      = 1u << 16;
+    static inline constexpr uint32_t FLAG_XFORM_IDENTITY  = 1u << 17;
+
     // grid_dimension() and m_grid_dims is the total size (in cells) of the whole simulation domain
     inline IJK grid_dimension() const { return m_grid_dims; }
     inline void set_grid_dimension(const IJK& dims) { m_grid_dims = dims; }
@@ -54,39 +68,50 @@ namespace exanb
     inline void set_cell_size(double v) { m_cell_size=v; }
 
     // tells if particular directions are periodic or not
-    inline bool periodic_boundary(size_t axis) const { assert( /*axis>=0 &&*/ axis<3); return m_periodic[axis]; }
-    inline bool periodic_boundary_x() const { return periodic_boundary(0); }
-    inline bool periodic_boundary_y() const { return periodic_boundary(1); }
-    inline bool periodic_boundary_z() const { return periodic_boundary(2); }
-    inline void set_periodic_boundary(bool x, bool y, bool z)
-    {
-      m_periodic[0]=x; if( ! m_periodic[0] ) m_mirror[0]=false;
-      m_periodic[1]=y; if( ! m_periodic[1] ) m_mirror[1]=false;
-      m_periodic[2]=z; if( ! m_periodic[2] ) m_mirror[2]=false;
-    }
+    inline bool periodic_boundary_x() const { return get_bit(FLAG_PERIODIC_X); }
+    inline void set_periodic_boundary_x(bool b) { set_bit(FLAG_PERIODIC_X,b); if(b) set_bit(FLAG_MIRROR_X_MIN|FLAG_MIRROR_X_MAX,false); }
+    inline bool periodic_boundary_y() const { return get_bit(FLAG_PERIODIC_Y); }
+    inline void set_periodic_boundary_y(bool b) { set_bit(FLAG_PERIODIC_Y,b); if(b) set_bit(FLAG_MIRROR_Y_MIN|FLAG_MIRROR_Y_MAX,false); }
+    inline bool periodic_boundary_z() const { return get_bit(FLAG_PERIODIC_Z); }
+    inline void set_periodic_boundary_z(bool b) { set_bit(FLAG_PERIODIC_Z,b); if(b) set_bit(FLAG_MIRROR_Z_MIN|FLAG_MIRROR_Z_MAX,false); }
+    inline void set_periodic_boundary(bool x, bool y, bool z) { set_periodic_boundary_x(x); set_periodic_boundary_y(y); set_periodic_boundary_z(z); }
 
-    inline bool mirror(size_t axis) const { assert( /*axis>=0 &&*/ axis<3); return m_mirror[axis]; }
-    inline bool mirror_x() const { return mirror(0); }
-    inline bool mirror_y() const { return mirror(1); }
-    inline bool mirror_z() const { return mirror(2); }
-    inline void set_mirror(bool x, bool y, bool z) 
-    { 
-      m_mirror[0]=x; if( m_mirror[0] ) m_periodic[0]=true;
-      m_mirror[1]=y; if( m_mirror[1] ) m_periodic[1]=true;
-      m_mirror[2]=z; if( m_mirror[2] ) m_periodic[2]=true;
-    }
+    inline bool mirror_x_min() const { return get_bit(FLAG_MIRROR_X_MIN); }
+    inline void set_mirror_x_min(bool b) { set_bit(FLAG_MIRROR_X_MIN,b); if(b) set_periodic_boundary_x(false); }
+    inline bool mirror_x_max() const { return get_bit(FLAG_MIRROR_X_MAX); }
+    inline void set_mirror_x_max(bool b) { set_bit(FLAG_MIRROR_X_MAX,b); if(b) set_periodic_boundary_x(false); }
 
-    inline bool expandable() const { return m_expandable; }
-    inline void set_expandable(bool v) { m_expandable=v; }
+    inline bool mirror_y_min() const { return get_bit(FLAG_MIRROR_Y_MIN); }
+    inline void set_mirror_y_min(bool b) { set_bit(FLAG_MIRROR_Y_MIN,b); if(b) set_periodic_boundary_y(false); }
+    inline bool mirror_y_max() const { return get_bit(FLAG_MIRROR_Y_MAX); }
+    inline void set_mirror_y_max(bool b) { set_bit(FLAG_MIRROR_Y_MAX,b); if(b) set_periodic_boundary_y(false); }
+
+    inline bool mirror_z_min() const { return get_bit(FLAG_MIRROR_Z_MIN); }
+    inline void set_mirror_z_min(bool b) { set_bit(FLAG_MIRROR_Z_MIN,b); if(b) set_periodic_boundary_z(false); }
+    inline bool mirror_z_max() const { return get_bit(FLAG_MIRROR_Z_MAX); }
+    inline void set_mirror_z_max(bool b) { set_bit(FLAG_MIRROR_Z_MAX,b); if(b) set_periodic_boundary_z(false); }
+
+    inline bool expandable() const { return get_bit(FLAG_EXPANDABLE); }
+    inline void set_expandable(bool b) { set_bit(FLAG_EXPANDABLE,b); }
 
     inline Mat3d xform() const { return m_xform; }
     inline Mat3d inv_xform() const { return m_inv_xform; }
-    inline bool xform_is_identity() const { return m_xform_is_identity; }
+    inline bool xform_is_identity() const { return get_bit(FLAG_XFORM_IDENTITY); }
     inline double xform_min_scale() const { return m_xform_min_scale; }
     inline double xform_max_scale() const { return m_xform_max_scale; }
     void set_xform(const Mat3d mat);
 
   private:
+    inline void set_bit(uint32_t mask, bool b)
+    {
+      if(b) m_flags |=  mask;
+      else  m_flags &= ~mask;
+    }
+    inline bool get_bit(uint32_t mask) const
+    {
+      return ( m_flags & mask ) == mask;
+    }
+  
     AABB m_bounds { {0.,0.,0.} , {0.,0.,0.} };
     IJK m_grid_dims { 0, 0, 0 };
     double m_cell_size = 0.0;
@@ -96,21 +121,8 @@ namespace exanb
     Mat3d m_inv_xform = { 1.,0.,0., 0.,1.,0., 0.,0.,1. };
     double m_xform_min_scale = 1.0;
     double m_xform_max_scale = 1.0;
-    bool m_xform_is_identity = true;
 
-    // boundary periodicity
-    bool m_periodic[3] = {false,false,false};
-    
-    // expandable in the non periodic directions
-    bool m_expandable = true;
-
-    // tells if corresponding periodic directions are in 'mirror' mode,
-    // i.e. particles are mirrored inside their domain's replica for every
-    // odd replica in one of the 3 directions.
-    // exemple : if m_mirror = {true, false, flase} and m_periodic={true,true,true}
-    // replica [0,0,0] is the original domain, replica [1,0,0] is the replica on its right and is mirrored,
-    // [2,0,0] is no mirrored, and so on.
-    bool m_mirror[3] = {false,false,false};
+    uint32_t m_flags = FLAG_EXPANDABLE | FLAG_XFORM_IDENTITY;
   };
 
   enum class ReadBoundsSelectionMode
@@ -238,87 +250,19 @@ namespace exanb
 
 
 // **** YAML Conversion ****
-
 namespace YAML
 {
-  using exanb::Domain;
-    
-  template<> struct convert< Domain >
+  template<> struct convert< exanb::Domain >
   {
-    static inline Node encode(const Domain& domain)
-    {
-      Node node;
-      node["bounds"] = domain.bounds();
-      node["grid_dims"] = domain.grid_dimension();
-      node["cell_size"]["value"] = domain.cell_size();
-      node["cell_size"]["unity"] = "ang";
-      std::vector<bool> p = { domain.periodic_boundary_x(), domain.periodic_boundary_y(), domain.periodic_boundary_z() };
-      node["periodic"] = p;
-      node["expandable"] = domain.expandable();
-      std::vector<bool> m = { domain.mirror_x(), domain.mirror_y(), domain.mirror_z() };
-      node["mirror"] = m;
-      return node;
-    }
-
-    static inline bool decode(const Node& node, Domain& domain)
-    {
-//      std::cout << "conv Domain yaml" << std::endl;
-      if( ! node.IsMap() ) { return false; }
-
-      domain = exanb::Domain();
-
-      if(node["bounds"])
-      {
-        domain.set_bounds( node["bounds"].as<AABB>() );
-      }
-      if(node["grid_dims"])
-      {
-        domain.set_grid_dimension( node["grid_dims"].as<IJK>() );
-      }
-      if(node["cell_size"])
-      {
-        domain.set_cell_size( node["cell_size"].as<Quantity>().convert() );
-      }
-      if(node["periodic"])
-      {
-        if( node["periodic"].size() != 3 ) { return false; }
-        domain.set_periodic_boundary( node["periodic"][0].as<bool>() , node["periodic"][1].as<bool>() , node["periodic"][2].as<bool>() );
-      }
-      if(node["expandable"])
-      {
-        domain.set_expandable( node["expandable"].as<bool>() );
-      }
-      return true;
-    }
-
+    static Node encode(const exanb::Domain& domain);
+    static bool decode(const Node& node, exanb::Domain& domain);
   };
 
-  using exanb::ReadBoundsSelectionMode;
-    
-  template<> struct convert< ReadBoundsSelectionMode >
+  template<> struct convert< exanb::ReadBoundsSelectionMode >
   {
-    static inline Node encode(const ReadBoundsSelectionMode& v)
-    {
-      Node node;
-      switch( v )
-      {
-        case ReadBoundsSelectionMode::FILE_BOUNDS : node = "FILE"; break;
-        case ReadBoundsSelectionMode::DOMAIN_BOUNDS : node = "DOMAIN"; break;
-        case ReadBoundsSelectionMode::COMPUTED_BOUNDS : node = "COMPUTED"; break;
-      }
-      return node;
-    }
-    
-    static inline bool decode(const Node& node, ReadBoundsSelectionMode& v)
-    {
-      if( node.as<std::string>() == "FILE" ) { v = ReadBoundsSelectionMode::FILE_BOUNDS; return true; }
-      if( node.as<std::string>() == "COMPUTED" ) { v = ReadBoundsSelectionMode::COMPUTED_BOUNDS; return true; }
-      if( node.as<std::string>() == "DOMAIN" ) { v = ReadBoundsSelectionMode::DOMAIN_BOUNDS; return true; }
-      return false;
-    }
+    static Node encode(const exanb::ReadBoundsSelectionMode& v);
+    static bool decode(const Node& node, exanb::ReadBoundsSelectionMode& v);
   };
-
-
 }
 
 

@@ -60,12 +60,13 @@ namespace exanb
   serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
   gpu_packing allows pack/unpack operations to execute on the GPU
   */
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT, class GhostFilterFuncT >
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT>
   static inline void grid_update_from_ghosts(
     LDBGT& ldbg,
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
     GridT& grid,
+    const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
@@ -77,8 +78,7 @@ namespace exanb
     bool staging_buffer ,
     bool serialize_pack_send ,
     bool wait_all,
-    UpdateFuncT update_func,
-    GhostFilterFuncT ghost_filter_func )
+    UpdateFuncT update_func )
   {
     using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
     using CellParticles = typename GridT::CellParticles;
@@ -94,7 +94,7 @@ namespace exanb
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
     using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
-    using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT,FieldAccTupleT,GhostFilterFuncT>;
+    using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
@@ -109,6 +109,7 @@ namespace exanb
     MPI_Comm_rank(comm,&rank);
 
     CellParticles* cells = grid.cells();
+    const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -148,8 +149,8 @@ namespace exanb
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
-    assert( send_pack_async.size() == nprocs );
-    assert( recv_unpack_async.size() == nprocs );
+    assert( send_pack_async.size() == size_t(nprocs) );
+    assert( recv_unpack_async.size() == size_t(nprocs) );
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs );
@@ -242,7 +243,6 @@ namespace exanb
     std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
     size_t ghost_cells_recv = 0;
 
-
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
@@ -256,9 +256,9 @@ namespace exanb
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
                                               , ghost_comm_buffers.sendbuf_size(p)
                                               , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
+                                              , ghost_boundary
                                               , UpdateValueFunctor{} 
-                                              , update_fields
-                                              , ghost_filter_func };
+                                              , update_fields };
       // = parallel_execution_context(p);
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
       auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts ); 

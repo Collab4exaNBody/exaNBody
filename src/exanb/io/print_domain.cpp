@@ -46,7 +46,7 @@ namespace exanb
       }
 
       if( *hexfloat ) lout << std::hexfloat;
-
+      const char * sep = ""; auto nsep = [&sep](const std::string& str) -> std::string { auto r=std::string(sep)+str; sep=","; return r; };    
       lout << "======= Simulation Domain ======="<< std::endl
            << "bounds    = " << domain->bounds() <<std::endl
            << "dom size  = " << (domain->bounds().bmax - domain->bounds().bmin ) <<std::endl
@@ -54,6 +54,9 @@ namespace exanb
            << "cell size = " << domain->cell_size() << std::endl
            << "grid size = " << domain->grid_dimension() * domain->cell_size() << std::endl
            << "periodic  = " << std::boolalpha << domain->periodic_boundary_x()<<" , "<<domain->periodic_boundary_y()<<" , "<<domain->periodic_boundary_z() << std::endl
+           << "mirror    = " << (domain->mirror_x_min()?nsep("X-"):"") << (domain->mirror_x_max()?nsep("X+"):"")
+                             << (domain->mirror_y_min()?nsep("Y-"):"") << (domain->mirror_y_max()?nsep("Y+"):"")
+                             << (domain->mirror_z_min()?nsep("Z-"):"") << (domain->mirror_z_max()?nsep("Z+"):"") << std::endl
            << "xform     = " << domain->xform() << mat_property << std::endl
            << "inv_xform = " << domain->inv_xform() << std::endl
            << "scale     = " << domain->xform_min_scale()<< " / " <<domain->xform_max_scale() << std::endl;

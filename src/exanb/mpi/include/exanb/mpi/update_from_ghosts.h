@@ -24,6 +24,7 @@ under the License.
 #include <exanb/core/log.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/grid.h>
+#include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
@@ -69,6 +70,7 @@ namespace exanb
     ADD_SLOT( MPI_Comm                 , mpi               , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
+    ADD_SLOT( Domain                   , domain            , INPUT );
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
 
@@ -95,10 +97,10 @@ namespace exanb
       auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
       auto update_fields = grid->field_accessors_from_field_set( FieldSetT{} );
 
-      grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, grid_cell_values.get_pointer(),
-                          *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
-                          *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
-                          *serialize_pack_send, *wait_all, UpdateFuncT{} , UpdateFromGhostsUtils::NullGhostBackwardFilter{} );
+      grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, *domain, grid_cell_values.get_pointer(),
+                        *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                        *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
+                        *serialize_pack_send, *wait_all, UpdateFuncT{} );
     }
 
   };

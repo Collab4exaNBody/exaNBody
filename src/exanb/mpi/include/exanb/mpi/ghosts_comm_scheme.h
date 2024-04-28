@@ -26,21 +26,83 @@ under the License.
 #include <exanb/core/basic_types.h>
 #include <onika/memory/allocator.h> 
 #include <onika/cuda/cuda.h> 
+#include <onika/cuda/cuda_math.h> 
 
 #include <mpi.h>
 
 namespace exanb
 {
-  
+
+  // ghost particle coordinate filter,
+  // apply periodic or mirror boundary conditions to one ore more of the particle's coordinate
+  struct GhostBoundaryModifier
+  {
+    static inline constexpr uint32_t SHIFT_X        = 1u << 0;
+    static inline constexpr uint32_t MIRROR_X       = 1u << 1;
+    static inline constexpr uint32_t SIDE_X         = 1u << 2;
+    static inline constexpr uint32_t MASK_SHIFT_X   = 0;
+    
+    static inline constexpr uint32_t SHIFT_Y        = 1u << 3;
+    static inline constexpr uint32_t MIRROR_Y       = 1u << 4;
+    static inline constexpr uint32_t SIDE_Y         = 1u << 5;
+    static inline constexpr uint32_t MASK_SHIFT_Y   = 3;
+    
+    static inline constexpr uint32_t SHIFT_Z        = 1u << 6;
+    static inline constexpr uint32_t MIRROR_Z       = 1u << 7;
+    static inline constexpr uint32_t SIDE_Z         = 1u << 8;
+    static inline constexpr uint32_t MASK_SHIFT_Z   = 6;
+    
+    Vec3d m_domain_min = { 0. , 0. , 0. };
+    Vec3d m_domain_max = { 0. , 0. , 0. };
+
+    ONIKA_HOST_DEVICE_FUNC
+    static inline bool bit(uint32_t flags, uint32_t mask) { return ( flags & mask ) == mask ; }
+
+    ONIKA_HOST_DEVICE_FUNC
+    static inline double apply_vector_modifier(double x, uint32_t flags) // velocity or force
+    {
+      return x * ( bit(flags,MIRROR_X) ? -1.0 : 1.0 );
+    }
+    
+    ONIKA_HOST_DEVICE_FUNC
+    static inline double apply_coord_modifier(double x, double rmin, double rmax, uint32_t flags)
+    {
+           if( bit(flags, SHIFT_X) ) return  x + ( bit(flags,SIDE_X) ? 1.0  : -1.0 ) * ( rmax - rmin );
+      else if( bit(flags,MIRROR_X) ) return -x + ( bit(flags,SIDE_X) ? rmax : rmin ) * 2.0 ;
+      else return x;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline double apply_rx_modifier(double rx, uint32_t flags) const
+    {
+      return apply_coord_modifier( rx , flags >> MASK_SHIFT_X , m_domain_min.x , m_domain_max.x );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline double apply_ry_modifier(double ry, uint32_t flags) const
+    {
+      return apply_coord_modifier( ry , flags >> MASK_SHIFT_Y , m_domain_min.y , m_domain_max.y );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline double apply_rz_modifier(double rz, uint32_t flags) const
+    {
+      return apply_coord_modifier( rz , flags >> MASK_SHIFT_Z , m_domain_min.z , m_domain_max.z );
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline Vec3d apply_r_modifier(const Vec3d& r , uint32_t flags) const
+    {
+      return { apply_rx_modifier(r.x,flags) , apply_ry_modifier(r.y,flags) , apply_rz_modifier(r.z,flags) }; 
+    }
+  };
 
   struct GhostCellSendScheme
   {
-    size_t m_cell_i;  // sender's cell index
-    size_t m_partner_cell_i;  // partner's cell index
+    size_t m_cell_i = 0;  // sender's cell index
+    size_t m_partner_cell_i = 0;  // partner's cell index
     ssize_t m_send_buffer_offset = -1;
-    double m_x_shift;
-    double m_y_shift;
-    double m_z_shift;
+    uint32_t m_flags = 0; // GhostBoundaryModifier compatible flags to pilot coordinate filtering
     onika::memory::CudaMMVector<uint32_t> m_particle_i; // sender's particle index
 
     GhostCellSendScheme() = default;
@@ -49,18 +111,14 @@ namespace exanb
     inline GhostCellSendScheme( GhostCellSendScheme && other )
       : m_cell_i( other.m_cell_i )
       , m_partner_cell_i( other.m_partner_cell_i )
-      , m_x_shift( other.m_x_shift )
-      , m_y_shift( other.m_y_shift )
-      , m_z_shift( other.m_z_shift )
+      , m_flags( other.m_flags )
       , m_particle_i( std::move(other.m_particle_i) ) {}
 
     inline GhostCellSendScheme& operator = ( GhostCellSendScheme && other )
     {
       m_cell_i = other.m_cell_i;
       m_partner_cell_i = other.m_partner_cell_i;
-      m_x_shift = other.m_x_shift;
-      m_y_shift = other.m_y_shift;
-      m_z_shift = other.m_z_shift;
+      m_flags = other.m_flags;
       m_particle_i = std::move(other.m_particle_i);
       return *this;
     }
@@ -138,8 +196,8 @@ namespace exanb
       out << "  sends :"<<std::endl;
       for(size_t c=0;c<cs.m_partner[p].m_sends.size();c++)
       {
-        out << "    cell #"<<cs.m_partner[p].m_sends[c].m_cell_i<<" to cell #"<<cs.m_partner[p].m_sends[c].m_partner_cell_i<<" with shift "
-            <<cs.m_partner[p].m_sends[c].m_x_shift<<","<<cs.m_partner[p].m_sends[c].m_y_shift<<","<<cs.m_partner[p].m_sends[c].m_z_shift<<std::endl;
+        out << "    cell #"<<cs.m_partner[p].m_sends[c].m_cell_i<<" to cell #"<<cs.m_partner[p].m_sends[c].m_partner_cell_i<<" with flags "
+            << std::hex << cs.m_partner[p].m_sends[c].m_flags << std::dec << std::endl;
       }
       out << "  receives :"<<std::endl;
       for(size_t c=0;c<cs.m_partner[p].m_receives.size();c++)
