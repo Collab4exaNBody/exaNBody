@@ -39,6 +39,18 @@ under the License.
 
 #include <cstddef>
 
+#ifndef XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE
+#define XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE 4
+#endif
+
+#ifndef XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE
+#define XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE 64
+#endif
+
+#ifndef XNB_CHUNK_NBH_DELAYED_COMPUTE_CS1
+#define XNB_CHUNK_NBH_DELAYED_COMPUTE_CS1 false
+#endif
+
 namespace exanb
 {
   using DefaultPositionFields = onika::FlatTuple< onika::soatl::FieldId<field::_rx> , onika::soatl::FieldId<field::_ry> , onika::soatl::FieldId<field::_rz> >;
@@ -51,6 +63,23 @@ namespace exanb
     using NbhTuple = typename ComputeBufferT::NbhFieldTuple;
     tab.nbh_pt[tab.count] = NbhTuple { cells[cell_b][nbh_fields.get(onika::tuple_index_t<FieldIndex>{})][p_b] ... };
   }
+
+  struct DelayedNeighborCompute
+  {
+    double drx;
+    double dry;
+    double drz;
+    double d2;
+    uint32_t cell_b;
+    uint16_t p_b;
+    uint16_t p_nbh_index;
+  };
+
+  template<unsigned int DELAYED_COMPUTE_BUFFER_SIZE>
+  struct DelayedComputeBuffer
+  {
+    DelayedNeighborCompute nbh[DELAYED_COMPUTE_BUFFER_SIZE];
+  };
 
 }
 

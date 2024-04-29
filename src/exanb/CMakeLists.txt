@@ -27,6 +27,7 @@ add_subdirectory(grid_cell_particles)
 add_subdirectory(analytics)
 add_subdirectory(io)
 add_subdirectory(debug)
+add_subdirectory(extra_storage)
 
 AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/regression)
 

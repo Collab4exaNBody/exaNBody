@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/basic_types_stream.h>
@@ -44,6 +45,23 @@ under the License.
 namespace exanb
 {
 
+  /*
+  This function updates some or all of the particle fields in ghost particles (i.e particles in surrounding ghost cells)
+  This done following a previously computed communication scheme that tells wich cell/particle goes to which neighbor MPI process.
+  Communication consists of asynchronous MPI sends and receives, as well as packing and unpacking of data messages.
+  Executes roughly as follows :
+  1. parallel pack messages to be sent (optionally using GPU)
+  2. asynchronous sends messages
+  3. launch asynchronous receives
+  4. while packets to be received, wait for some message tio be received
+      4.a asynchronous, parallel unpack received message (optionally used the GPU)
+      4.a.2 resize cell if ghost particles are created for the first time
+      4.b free send messages resources as acknowledgements for sent messages are received
+  options :
+  staging_buffer option requires to perform a CPU copy to a CPU allocated buffer of messages to be sent and received messages to be unpacked, in case of a non GPU-Aware MPi implementation
+  serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
+  gpu_packing allows pack/unpack operations to execute on the GPU
+  */
   template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, bool CreateParticles , class FieldAccTupleT>
   static inline void grid_update_ghosts(
     LDBGT& ldbg,
@@ -75,7 +93,7 @@ namespace exanb
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
-    using CellsAccessorT = GridParticleFieldAccessor<CellParticles *>;
+    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
     using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
     using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -88,7 +106,6 @@ namespace exanb
     MPI_Comm_rank(comm,&rank);
 
     CellParticles* cells = grid.cells();
-    CellsAccessorT cells_acc = { cells };
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -151,7 +168,7 @@ namespace exanb
 
         const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_sends.data()
-                                             , cells_acc
+                                             , grid.cells_accessor()
                                              , cell_scalars
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
@@ -247,7 +264,7 @@ namespace exanb
       m_unpack_functors[p] = UnpackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data()
                                         , comm_scheme.m_partner[p].m_receive_offset.data()
                                         , (p!=rank) ? ghost_comm_buffers.recvbuf_ptr(p) : ghost_comm_buffers.sendbuf_ptr(p)
-                                        , cells_acc 
+                                        , grid.cells_accessor() 
                                         , cell_scalar_components 
                                         , cell_scalars
                                         , ghost_comm_buffers.recvbuf_size(p)

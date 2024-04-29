@@ -386,9 +386,11 @@ namespace exanb
                   // PER NEIGHBOR DATA : ASK FOR BUFFER SPACE TO STORE NEIGHBOR DATA
                   if constexpr ( ! null_opt_data )
                   {
-                    const auto [ opt_ptr , opt_size ] = opt_data_helper.cell_particles_data(grid_index);
+										// Add size of the optional data storage
+                    const unsigned int opt_size= opt_data_helper.cell_particles_data_size(grid_index);
                     // if we have additional data to transport, we'll have to insert a marker particle
                     opt_size_as_particles = ( opt_size + sizeof(ParticleTuple) - 1 ) / sizeof(ParticleTuple);
+                    //if( opt_size_as_particles > 0 ) ++ opt_size_as_particles;
                     if( opt_size_as_particles > 0 ) ++ opt_size_as_particles;
                   }
                   send_buf_ptr = allocate_send_buffer_storage( n_particles + opt_size_as_particles , comm_buffer_size, cur_send_buffer_offset, send_buffer[p] );
@@ -423,13 +425,15 @@ namespace exanb
                   // here copy optional particle data
                   if constexpr ( ! null_opt_data )
                   {
-                    const auto [ opt_ptr , opt_size ] = opt_data_helper.cell_particles_data(grid_index);
+                    //const auto [ opt_ptr , opt_size ] = opt_data_helper.cell_particles_data(grid_index);
+                    const unsigned int opt_size = opt_data_helper.cell_particles_data_size(grid_index);
                     size_t opt_size_as_particles = ( opt_size + sizeof(ParticleTuple) - 1 ) / sizeof(ParticleTuple);
                     if( opt_size_as_particles > 0 ) ++ opt_size_as_particles; // useless here, > 0 will hold even though we don't increment
                     if( opt_size_as_particles > 0 )
                     {
                       send_buf_ptr[npart] = make_particle_marker( opt_size );
-                      std::memcpy( & send_buf_ptr[npart+1] , opt_ptr , opt_size );
+											opt_data_helper.write_cell_particles_data_in_buffer ( & send_buf_ptr[npart+1], grid_index);
+                      //std::memcpy( & send_buf_ptr[npart+1] , opt_ptr , opt_size );
                     }
 
 #                   ifndef NDEBUG
@@ -1126,9 +1130,6 @@ namespace exanb
         
         if( null_opt_data || opt_data_payload == 0 ) // normal particle to insert
         {
-//          const double rx = data[i][field::rx];
-//          const double ry = data[i][field::ry];
-//          const double rz = data[i][field::rz];
           const Vec3d r = { data[i][field::rx] , data[i][field::ry] , data[i][field::rz] };
           
           IJK loc = grid.locate_cell( r /*Vec3d{rx,ry,rz}*/ );

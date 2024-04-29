@@ -69,7 +69,9 @@ namespace exanb
       {
         using exanb::field_id_fom_acc_v;
         ( ... , (
-          m_merge_func( m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i] , data->m_particles[j][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ] )
+          m_merge_func( m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i]
+                      , data->m_particles[j][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ]
+                      , onika::TrueType{} )
         ) );
       }
 
@@ -98,7 +100,7 @@ namespace exanb
           const GridCellValueType* gcv = reinterpret_cast<const GridCellValueType*>( data_ptr + data_cur );
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
-            m_merge_func( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] /*, onika::TrueType{}*/ );
+            m_merge_func( m_cell_scalars[cell_i*m_cell_scalar_components+c] , gcv[c] , onika::TrueType{} );
           }
         }
       }

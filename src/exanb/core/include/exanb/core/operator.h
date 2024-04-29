@@ -249,6 +249,8 @@ namespace exanb
     void set_gpu_enabled(bool en);
     // Warning! : this methods has a wrong name, for backward compatibility purposes
 
+    void set_omp_max_threads(int nt);
+
     // each call allocates a new context to be used to build up a new parallel operation
     void set_task_group_mode( bool m );
     bool task_group_mode() const;
@@ -326,6 +328,9 @@ namespace exanb
     std::vector< std::shared_ptr<onika::parallel::ParallelExecutionStream> > m_parallel_execution_streams;
     std::vector< onika::parallel::ParallelExecutionContext* > m_free_parallel_execution_contexts;
     std::unordered_set< onika::parallel::ParallelExecutionContext* > m_allocated_parallel_execution_contexts;
+
+    // if not -1, this will limit the number of OpenMP threads available in parallel regions for this particular operator
+    int m_omp_num_threads = -1;
         
     // Operator protection after compilation
     bool m_compiled = false;

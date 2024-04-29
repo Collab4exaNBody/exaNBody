@@ -68,8 +68,7 @@ namespace exanb
 
       const auto& flist = *fields;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-
-      GridParticleFieldAccessor<typename GridT::CellParticles *> gridacc = { grid->cells() };
+      auto gridacc = grid->cells_accessor(); //{ grid->cells() };
 
       ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_external_box,*write_ghost, grid_fields ... );
     }

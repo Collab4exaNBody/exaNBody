@@ -55,7 +55,7 @@ namespace onika { namespace memory
 # endif
 
 #ifndef ONIKA_MINIMUM_CUDA_ALIGNMENT
-  static inline constexpr size_t MINIMUM_CUDA_ALIGNMENT = 64;
+  static inline constexpr size_t MINIMUM_CUDA_ALIGNMENT = 256;
 #else
   static inline constexpr size_t MINIMUM_CUDA_ALIGNMENT = ONIKA_MINIMUM_CUDA_ALIGNMENT;
 #endif

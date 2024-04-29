@@ -278,10 +278,13 @@ namespace exanb
             //particle_buffer.write_tuple( write_buf_cur++ , stp );        
           }
           const size_t optional_data_size = dump_filter.optional_cell_data_size(i);
+					// Add extra data storage, data are stored like in a Move buffer, i.e. header, info, data
           if( optional_data_size > 0 )
           {
-            const uint8_t* optional_data_ptr = dump_filter.optional_cell_data_ptr(i);
-            optional_data_buffer.insert( optional_data_buffer.end() , optional_data_ptr , optional_data_ptr+optional_data_size );
+						const unsigned int old_size = optional_data_buffer.size();
+						optional_data_buffer.resize(old_size + optional_data_size); // resize first
+						uint8_t* buff_ptr = optional_data_buffer.data() + old_size;
+						dump_filter.write_optional_cell_data(buff_ptr, i);
           }
         }
 

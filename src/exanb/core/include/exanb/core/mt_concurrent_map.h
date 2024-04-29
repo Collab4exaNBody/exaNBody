@@ -30,7 +30,7 @@ namespace exanb
     and safe concurent finds and accesses IF AND ONLY IF no insertion happen concurrently with finds/accesses (find/access is lock free)
     Nevertheless, one can render concurent insert() and safe_at() calls 
   */
-  template<class MapType , size_t NbMetaBuckets = ::exanb::max_threads_hint*2 > // NbMetaBuckets may not exceed 65536
+  template<class MapType , size_t _NbMetaBuckets = ::exanb::max_threads_hint*2 > // NbMetaBuckets may not exceed 65536
   struct MultiThreadedConcurrentMap
   {
     using key_type = typename MapType::key_type;
@@ -38,6 +38,8 @@ namespace exanb
     using value_type = typename MapType::value_type;
     using iterator = typename MapType::iterator;
     using const_iterator = typename MapType::const_iterator;
+    
+    static inline constexpr size_t NbMetaBuckets = _NbMetaBuckets;
     
     static inline size_t meta_bucket( const key_type& k )
     {

@@ -21,6 +21,7 @@ under the License.
 #include <cstdint>
 #include <iomanip>
 #include <exanb/core/basic_types_def.h>
+#include <onika/oarray.h>
 
 namespace exanb
 {
@@ -40,7 +41,7 @@ namespace exanb
   template<class T> struct ParaViewTypeId
   {
     using comp_type = T;
-    static constexpr int ncomp = 0;
+    static constexpr int ncomp = 1;
     static inline const char* str() { return "Void"; }
   };
   
@@ -60,7 +61,11 @@ namespace exanb
   template<> struct ParaViewTypeId<double>   { using comp_type=double;   static constexpr int ncomp=1; static inline const char* str() { return "Float64"; } };
 
   template<> struct ParaViewTypeId<exanb::Vec3d>    { using comp_type=double;   static constexpr int ncomp=3; static inline const char* str() { return "Float64"; } };
+  template<> struct ParaViewTypeId<exanb::Quaternion>    { using comp_type=double;   static constexpr int ncomp=4; static inline const char* str() { return "Float64"; } };
 
   template<> struct ParaViewTypeId<exanb::Mat3d>    { using comp_type=double;   static constexpr int ncomp=9; static inline const char* str() { return "Float64"; } };
+
+  template<class T, size_t N> struct ParaViewTypeId<std::array<T,N> > { using comp_type=T;   static constexpr int ncomp=N; static inline const char* str() { return "std::array<T,N>"; } };
+  template<class T, size_t N> struct ParaViewTypeId<onika::oarray_t<T,N> > { using comp_type=T;   static constexpr int ncomp=N; static inline const char* str() { return "onika::oarray_t<T,N>"; } };
 }
 

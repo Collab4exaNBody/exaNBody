@@ -137,9 +137,10 @@ namespace exanb
   {
     using onika::parallel::block_parallel_for;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
-    using CellT = typename GridT::CellParticles;
+    using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> , GridParticleFieldAccessor< CellT const * const > , CellT const * const >;
+    static constexpr bool has_external_or_optional_fields = field_tuple_has_external_fields_v<FieldTupleT>;    
+    using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ReduceCellParticlesFunctor<CellsAccessorT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
 
     const IJK dims = grid.dimension();
@@ -157,7 +158,10 @@ namespace exanb
       }
     }
     
-    CellsAccessorT cells = { grid.cells() };
+    CellsAccessorT cells = {};
+    if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
+    else cells = grid.cells();
+
     PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , cp_fields };
     return block_parallel_for( N, pfor_func , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) } );
   }
