@@ -63,9 +63,9 @@ namespace exanb
         if constexpr(std::is_same_v<FieldT,field::_rx>) return GhostBoundaryModifier::apply_coord_modifier(value, bmin.x, bmax.x, flags_x );
         if constexpr(std::is_same_v<FieldT,field::_ry>) return GhostBoundaryModifier::apply_coord_modifier(value, bmin.y, bmax.y, flags_y );
         if constexpr(std::is_same_v<FieldT,field::_rz>) return GhostBoundaryModifier::apply_coord_modifier(value, bmin.z, bmax.z, flags_z );
-        if constexpr(std::is_same_v<FieldT,field::_fx>||std::is_same_v<FieldT,field::_vx>) return GhostBoundaryModifier::apply_vector_modifier(value, flags_x);
-        if constexpr(std::is_same_v<FieldT,field::_fy>||std::is_same_v<FieldT,field::_vy>) return GhostBoundaryModifier::apply_vector_modifier(value, flags_y);
-        if constexpr(std::is_same_v<FieldT,field::_fz>||std::is_same_v<FieldT,field::_vz>) return GhostBoundaryModifier::apply_vector_modifier(value, flags_z);
+        if constexpr( std::is_same_v<FieldT,field::_fx>|| std::is_same_v<FieldT,field::_vx> ) return GhostBoundaryModifier::apply_vector_modifier(value, flags_x);
+        if constexpr( std::is_same_v<FieldT,field::_fy>|| std::is_same_v<FieldT,field::_vy> ) return GhostBoundaryModifier::apply_vector_modifier(value, flags_y);
+        if constexpr( std::is_same_v<FieldT,field::_fz>|| std::is_same_v<FieldT,field::_vz> ) return GhostBoundaryModifier::apply_vector_modifier(value, flags_z);
         return value;
       }
 

@@ -66,13 +66,11 @@ namespace exanb
     // under mirrored periodic boundary conditions, it's usually impossible, and explicitly forbidden, to cross domain's boundary in one of mirrored directions
     if( mirror_lo && r < rmin )
     {
-      lerr<<"Cell@"<<src_loc<<"/P#"<<p_i<<" crossed "<<axis<<"- mirror : "<<axis<<"="<<r<<" , lo="<<rmin<<std::endl;
-      r = rmin;
+      fatal_error() << "Cell@"<<src_loc<<"/P#"<<p_i<<" crossed "<<axis<<"- mirror : "<<axis<<"="<<r<<" , lo="<<rmin<<std::endl;
     }
     if( mirror_hi && r > rmax )
     {
-      lerr<<"Cell@"<<src_loc<<"/P#"<<p_i<<" crossed "<<axis<<"+ mirror : "<<axis<<"="<<r<<" , hi="<<rmax<<std::endl;
-      r = rmax;
+      fatal_error() <<"Cell@"<<src_loc<<"/P#"<<p_i<<" crossed "<<axis<<"+ mirror : "<<axis<<"="<<r<<" , hi="<<rmax<<std::endl;
     }
   }
 

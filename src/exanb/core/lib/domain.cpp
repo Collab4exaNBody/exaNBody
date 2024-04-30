@@ -19,6 +19,7 @@ under the License.
 #include <exanb/core/domain.h>
 #include <exanb/core/log.h>
 #include <exanb/core/math_utils.h>
+#include <exanb/core/string_utils.h>
 
 namespace exanb
 {
@@ -388,12 +389,15 @@ namespace YAML
       if( ! node["mirror"].IsSequence() ) { return false; }
       for(auto m : node["mirror"])
       {
-        if( m.as<std::string>() == "X-" ) domain.set_mirror_x_min(true);
-        if( m.as<std::string>() == "X+" ) domain.set_mirror_x_max(true);
-        if( m.as<std::string>() == "Y-" ) domain.set_mirror_y_min(true);
-        if( m.as<std::string>() == "Y+" ) domain.set_mirror_y_max(true);
-        if( m.as<std::string>() == "Z-" ) domain.set_mirror_z_min(true);
-        if( m.as<std::string>() == "Z+" ) domain.set_mirror_z_max(true);
+        if( exanb::str_tolower(m.as<std::string>()) == "x-" ) { domain.set_mirror_x_min(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "x+" ) { domain.set_mirror_x_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "x" )  { domain.set_mirror_x_min(true); domain.set_mirror_x_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "y-" ) { domain.set_mirror_y_min(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "y+" ) { domain.set_mirror_y_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "y" )  { domain.set_mirror_y_min(true); domain.set_mirror_y_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "z-" ) { domain.set_mirror_z_min(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "z+" ) { domain.set_mirror_z_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "z" )  { domain.set_mirror_z_min(true); domain.set_mirror_z_max(true); }
       }
     }
     if(node["expandable"])

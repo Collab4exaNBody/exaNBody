@@ -75,25 +75,33 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC
     inline double apply_rx_modifier(double rx, uint32_t flags) const
     {
-      return apply_coord_modifier( rx , flags >> MASK_SHIFT_X , m_domain_min.x , m_domain_max.x );
+      return apply_coord_modifier( rx , m_domain_min.x , m_domain_max.x , flags >> MASK_SHIFT_X );
     }
 
     ONIKA_HOST_DEVICE_FUNC
     inline double apply_ry_modifier(double ry, uint32_t flags) const
     {
-      return apply_coord_modifier( ry , flags >> MASK_SHIFT_Y , m_domain_min.y , m_domain_max.y );
+      return apply_coord_modifier( ry , m_domain_min.y , m_domain_max.y , flags >> MASK_SHIFT_Y );
     }
 
     ONIKA_HOST_DEVICE_FUNC
     inline double apply_rz_modifier(double rz, uint32_t flags) const
     {
-      return apply_coord_modifier( rz , flags >> MASK_SHIFT_Z , m_domain_min.z , m_domain_max.z );
+      return apply_coord_modifier( rz , m_domain_min.z , m_domain_max.z , flags >> MASK_SHIFT_Z );
     }
 
     ONIKA_HOST_DEVICE_FUNC
     inline Vec3d apply_r_modifier(const Vec3d& r , uint32_t flags) const
     {
       return { apply_rx_modifier(r.x,flags) , apply_ry_modifier(r.y,flags) , apply_rz_modifier(r.z,flags) }; 
+    }
+    
+    template<class StreamT>
+    static inline void print_flags(StreamT& out, uint32_t flags)
+    {
+      out<<(bit(flags,SHIFT_X)?" SHIFT_X":"")<<(bit(flags,MIRROR_X)?" MIRROR_X":"")<<(bit(flags,SIDE_X)?" SIDE_X":"") 
+         <<(bit(flags,SHIFT_Y)?" SHIFT_Y":"")<<(bit(flags,MIRROR_Y)?" MIRROR_Y":"")<<(bit(flags,SIDE_Y)?" SIDE_Y":"") 
+         <<(bit(flags,SHIFT_Z)?" SHIFT_Z":"")<<(bit(flags,MIRROR_Z)?" MIRROR_Z":"")<<(bit(flags,SIDE_Z)?" SIDE_Z":"") ;
     }
   };
 

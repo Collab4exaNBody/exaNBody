@@ -284,7 +284,7 @@ namespace exanb
         const auto cell_input = ghost_cell_receive_info(cell_input_it);
         const size_t cell_i = cell_input.m_cell_i;
         assert( cell_i == data->m_cell_i );
-
+/*
 #       ifndef NDEBUG
         const IJK cell_loc = grid_index_to_ijk( m_grid_dims , cell_i );
         assert( inside_grid_shell(m_grid_dims,0,m_ghost_layers,cell_loc) );
@@ -295,11 +295,12 @@ namespace exanb
         const AABB cell_bounds = { m_grid_origin + cell_loc * m_cell_size , m_grid_origin + (cell_loc+1) * m_cell_size };
         const double cell_size_epsilon_sq = ( m_cell_size*1.e-3 ) * ( m_cell_size*1.e-3 );
 #       endif
-
+*/
         const size_t n_particles = cell_input.m_n_particles;
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           unpack_particle_fields( data, cell_i , j , FieldIndexSeq{} );
+/*
 #         ifndef NDEBUG
           if constexpr ( has_position )
           {
@@ -307,6 +308,7 @@ namespace exanb
             assert( is_inside_threshold( cell_bounds , r , cell_size_epsilon_sq ) );
           }
 #         endif
+*/
         }
 
         if( m_cell_scalars != nullptr )

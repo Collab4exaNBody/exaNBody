@@ -44,12 +44,17 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
 # ifndef NDEBUG
-  // FIXME: not sure about this. shouldn't ghost_layers be part of equation ?
-  static inline bool self_connected_block( const Domain& domain, const GridBlock& b)
+  static inline bool self_connected_block( const Domain& domain, const GridBlock& b, ssize_t gl)
   {
-    return ( domain.periodic_boundary_x() && b.start.i==0 && b.end.i==domain.grid_dimension().i )
-        || ( domain.periodic_boundary_y() && b.start.j==0 && b.end.j==domain.grid_dimension().j )
-        || ( domain.periodic_boundary_z() && b.start.k==0 && b.end.k==domain.grid_dimension().k );
+    return ( domain.periodic_boundary_x() && ( b.start.i + domain.grid_dimension().i - b.end.i ) < gl )
+        || ( domain.periodic_boundary_y() && ( b.start.j + domain.grid_dimension().j - b.end.j ) < gl )
+        || ( domain.periodic_boundary_z() && ( b.start.k + domain.grid_dimension().k - b.end.k ) < gl )
+        || ( domain.mirror_x_min() && b.start.i*2 < gl )
+        || ( domain.mirror_y_min() && b.start.j*2 < gl )
+        || ( domain.mirror_z_min() && b.start.k*2 < gl )
+        || ( domain.mirror_x_max() && ( ( domain.grid_dimension().i - b.end.i ) * 2 ) < gl )
+        || ( domain.mirror_y_max() && ( ( domain.grid_dimension().j - b.end.j ) * 2 ) < gl )
+        || ( domain.mirror_z_max() && ( ( domain.grid_dimension().k - b.end.k ) * 2 ) < gl );
   }
 # endif
 
@@ -119,19 +124,19 @@ namespace exanb
 
       // for periodic conditions we shift simulation box once to the right or to the left
       // FIXME: this could be more than 1 and less than -1, in case the nieghborhood distance is greater than the domain itself
-      assert( domain.periodic_boundary_x() ^ ( domain.mirror_x_min() || domain.mirror_x_max() ) );
+      assert( ! ( domain.periodic_boundary_x() && ( domain.mirror_x_min() || domain.mirror_x_max() ) ) ); // a direction cannot use periodicity and mirroring at the same time
       int periodic_i_start = -1;
       int periodic_i_end = 1;
       if( ! domain.periodic_boundary_x() && ! domain.mirror_x_min() ) { periodic_i_start = 0; }
       if( ! domain.periodic_boundary_x() && ! domain.mirror_x_max() ) { periodic_i_end   = 0; }
 
-      assert( domain.periodic_boundary_y() ^ ( domain.mirror_y_min() || domain.mirror_y_max() ) );
+      assert( ! ( domain.periodic_boundary_y() && ( domain.mirror_y_min() || domain.mirror_y_max() ) ) ); // a direction cannot use periodicity and mirroring at the same time
       int periodic_j_start = -1;
       int periodic_j_end = 1;
       if( ! domain.periodic_boundary_y() && ! domain.mirror_y_min() ) { periodic_j_start = 0; }
       if( ! domain.periodic_boundary_y() && ! domain.mirror_y_max() ) { periodic_j_end   = 0; }
 
-      assert( domain.periodic_boundary_z() ^ ( domain.mirror_z_min() || domain.mirror_z_max() ) );
+      assert( ! ( domain.periodic_boundary_z() && ( domain.mirror_z_min() || domain.mirror_z_max() ) ) ); // a direction cannot use periodicity and mirroring at the same time
       int periodic_k_start = -1;
       int periodic_k_end = 1;
       if( ! domain.periodic_boundary_z() && ! domain.mirror_z_min() ) { periodic_k_start = 0; }
@@ -246,9 +251,9 @@ namespace exanb
 
       // build receive counts from send counts
       std::vector<size_t> recv_count(nprocs,0);
-      assert( send_count[rank] == 0 || self_connected_block(domain,my_block) );
+      assert( send_count[rank] == 0 || self_connected_block(domain,my_block,ghost_layers) );
       MPI_Alltoall( send_count.data(), 1, mpi_datatype<size_t>(), recv_count.data(), 1, mpi_datatype<size_t>(), comm );
-      assert( recv_count[rank] == 0 || self_connected_block(domain,my_block) );
+      assert( recv_count[rank] == 0 || self_connected_block(domain,my_block,ghost_layers) );
 
       // initialize MPI requests for both sends and receives
       size_t total_requests = 2 * nprocs;
@@ -418,7 +423,7 @@ namespace exanb
         const auto* cells = grid.cells();
         
         size_t n_intersecting_cells = 0;
-        
+
         GRID_FOR_BEGIN( grid.dimension()-2*grid.ghost_layers() , _ , loc )
         {
           const auto my_cell_loc = loc + grid.ghost_layers();
@@ -454,8 +459,12 @@ namespace exanb
 
             for(size_t p_i=0;p_i<n_particles;p_i++)
             {
-              Vec3d r{ rx[p_i], ry[p_i], rz[p_i] };
-              if( is_inside( partner_outter_bounds, boundary.apply_r_modifier(r,cell_boundary_flags) ) ) send_scheme.m_particle_i.push_back( p_i );
+              const Vec3d r{ rx[p_i], ry[p_i], rz[p_i] };
+              const Vec3d ghost_r = boundary.apply_r_modifier(r,cell_boundary_flags);
+              if( is_inside( partner_outter_bounds, ghost_r ) )
+              {
+                send_scheme.m_particle_i.push_back( p_i );
+              }
             }
             size_t n_particles_to_send = send_scheme.m_particle_i.size();
             assert( cur_send_item < comm_scheme.m_sends.size() );
