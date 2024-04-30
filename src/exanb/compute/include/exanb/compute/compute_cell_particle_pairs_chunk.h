@@ -49,6 +49,9 @@ namespace exanb
     onika::BoolConst<PreferComputeBuffer> ,
     std::index_sequence<FieldIndex...> )
   {
+  	
+    printf("MARIOOOOOOOOOOOOOOOOOOOOOOO\n");
+  
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
     using exanb::chunknbh_stream_info;
@@ -293,7 +296,7 @@ namespace exanb
       
       if constexpr ( has_particle_stop ) { func(tab ,cells,cell_a,p_a,ComputePairParticleContextStop{}); }
       // --------------------------------
-      
+      //printf("CELLULE: %d, PARTICULE: %d\n", cell_a, p_a);
       // -- jump to next particle to process --
       p_a += ONIKA_CU_BLOCK_SIZE ;
       while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a += ONIKA_CU_BLOCK_SIZE; }

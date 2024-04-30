@@ -73,6 +73,7 @@ namespace exanb
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
       m_cell_profiler.start_cell_profiling(cell_a);
+      //printf("CELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLUUUUUUUUUUUUUUUUUUUUUUULLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLEEEEEEEEEEEEEEEE\n");
       compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2
                                       , m_cpbuf_factory, m_optional, m_func
                                       , m_cpfields, m_cs, symmetrical, m_posfields
