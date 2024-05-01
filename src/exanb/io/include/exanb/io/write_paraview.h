@@ -181,7 +181,7 @@ namespace exanb
                   << vtk_space_offset_four << "<PPolyData GhostLevel=\"0\">" << std::endl
                   << vtk_space_offset_four << "<PPointData Scalar=\"" ;
         apply_grid_fields( grid, WriteScalarList{file_pvtp,field_selector}, grid_fields... );
-        if(write_ghost) file_pvtp <<", FANTOMAS";
+        if(write_ghost) file_pvtp <<", ghost";
         file_pvtp << "\" Vector=\"" ;
         apply_grid_fields( grid, WriteVectorList{file_pvtp,field_selector}, grid_fields... ); 
         file_pvtp << "\">" << std::endl;
@@ -190,7 +190,7 @@ namespace exanb
           
         if(write_ghost)
         {
-          file_pvtp << vtk_space_offset_six << "<PDataArray type=\"UInt8\" Name=\"FANTOMAS\"/>" << std::endl;
+          file_pvtp << vtk_space_offset_six << "<PDataArray type=\"UInt8\" Name=\"ghost\"/>" << std::endl;
         }
 
         file_pvtp << vtk_space_offset_four << "</PPointData>" << std::endl
@@ -245,12 +245,12 @@ namespace exanb
         {
           std::vector<uint8_t> sources;
           for(size_t c=0; c<n_cells;++c) { sources.insert( sources.end() , cells[c].size() , uint8_t(grid.is_ghost_cell(c)) ); }
-          file_vtp <<  vtk_space_offset_eight << "<DataArray type=\"UInt8\" Name=\"FANTOMAS\" format=\"binary\">"<< std::endl;
+          file_vtp <<  vtk_space_offset_eight << "<DataArray type=\"UInt8\" Name=\"ghost\" format=\"binary\">"<< std::endl;
           write_binary_datas(file_vtp, compression_level, sources);
         }
         else
         {
-          file_vtp <<  vtk_space_offset_eight << "<DataArray type=\"UInt8\" Name=\"FANTOMAS\" format=\"ascii\">" << std::endl;
+          file_vtp <<  vtk_space_offset_eight << "<DataArray type=\"UInt8\" Name=\"ghost\" format=\"ascii\">" << std::endl;
           for(size_t c=0; c<n_cells;++c)
           {
             if(grid.is_ghost_cell(c)) for(size_t pos=0;pos<cells[c].size();++pos) file_vtp << ' ' << 1;
