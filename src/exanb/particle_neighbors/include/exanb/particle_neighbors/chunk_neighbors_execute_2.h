@@ -52,7 +52,9 @@ namespace exanb
 		   const bool gpu_enabled,
 		   std::integral_constant<bool,EnableZOrder> enable_z_order,
 		   std::vector< std::vector< std::vector< std::pair<int,int>>>>& cell_particles_nbh,//HOOKE_FORCE_GPU
-		   NeighborFilterFuncT nbh_filter = {} )
+		   std::vector<std::vector <int>>& id_un,//HOOKE_FORCE_GPU
+		   std::vector< std::vector< std::vector<int>>>& id_deux,//HOOKE_FORCE_GPU
+		   NeighborFilterFuncT nbh_filter = {})
     {
       //using PointerTuple = onika::soatl::FieldPointerTuple< GridT::CellParticles::Alignment , GridT::CellParticles::ChunkSize , field::_rx, field::_ry, field::_rz >;
 
@@ -101,6 +103,8 @@ namespace exanb
       const size_t n_cells = grid.number_of_cells();
       
       cell_particles_nbh.resize(n_cells);//HOOKE_FORCE_GPU
+      id_un.resize(n_cells);//HOOKE_FORCE_GPU
+      id_deux.resize(n_cells);//HOOKE_FORCE_GPU
       
       chunk_neighbors.clear();
       chunk_neighbors.set_number_of_cells( n_cells );
@@ -136,16 +140,18 @@ namespace exanb
             cell_a_particle_nbh.resize( n_particles_a );
             
             cell_particles_nbh[cell_a].resize(n_particles_a);//HOOKE_FORCE_GPU
+            id_un[cell_a].resize(n_particles_a);//HOOKE_FORCE_GPU
+            id_deux[cell_a].resize(n_particles_a);//HOOKE_FORCE_GPU
           //}
           for(size_t i=0;i<n_particles_a;i++)
           {
             cell_a_particle_nbh[i].clear();
-             cell_particles_nbh[cell_a][i].clear();
           }
 
           const auto* __restrict__ rx_a = cells[cell_a][ field::rx ]; ONIKA_ASSUME_ALIGNED(rx_a);
           const auto* __restrict__ ry_a = cells[cell_a][ field::ry ]; ONIKA_ASSUME_ALIGNED(ry_a);
           const auto* __restrict__ rz_a = cells[cell_a][ field::rz ]; ONIKA_ASSUME_ALIGNED(rz_a);
+          const auto* __restrict__ id_a = cells[cell_a][ field::id ]; ONIKA_ASSUME_ALIGNED(id_a);
 
           ssize_t sgstart_a = sub_grid_start[cell_a];
           ssize_t sgsize_a = sub_grid_start[cell_a+1] - sgstart_a;
@@ -179,7 +185,8 @@ namespace exanb
             const auto* __restrict__ rx_b = cells[cell_b][ field::rx ]; ONIKA_ASSUME_ALIGNED(rx_b);
             const auto* __restrict__ ry_b = cells[cell_b][ field::ry ]; ONIKA_ASSUME_ALIGNED(ry_b);
             const auto* __restrict__ rz_b = cells[cell_b][ field::rz ]; ONIKA_ASSUME_ALIGNED(rz_b);
-
+            const auto* __restrict__ id_b = cells[cell_b][ field::id ]; ONIKA_ASSUME_ALIGNED(id_b);
+            
             IJK rloc_b = loc_b - loc_a; // relative (to cell b) position of cell a in grid
             uint16_t cell_b_enc = encode_cell_index( rloc_b );
             
@@ -243,6 +250,9 @@ namespace exanb
               {
                 for(unsigned int p_a=p_start_a;p_a<p_end_a;p_a++)
                 {
+                	
+                  id_un[cell_a][p_a] = id_a[p_a];//HOOKE_FORCE_GPU
+                  
                   for(unsigned int p_b=p_start_b;p_b<p_end_b;)
                   {
                     const Vec3d dr = { rx_a[p_a] - rx_b[p_b] , ry_a[p_a] - ry_b[p_b] , rz_a[p_a] - rz_b[p_b] };
@@ -252,6 +262,7 @@ namespace exanb
                     	std::pair<int, int> pair = std::make_pair(p_b, cell_b);
                     	
                     	cell_particles_nbh[cell_a][p_a].push_back(pair);//HOOKE_FORCE_GPU
+                    	id_deux[cell_a][p_a].push_back(id_b[p_b]);//HOOKE_FORCE_GPU
                     	
                       unsigned int chunk_b = p_b >> cs_log2;
                       assert( chunk_b < std::numeric_limits<uint16_t>::max() );
