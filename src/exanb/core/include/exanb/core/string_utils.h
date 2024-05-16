@@ -30,7 +30,7 @@ namespace exanb
 {
 
   template<typename FormatArg>
-  inline const FormatArg& convert_format_arg(const FormatArg& a) { return a; }
+  inline FormatArg convert_format_arg(const FormatArg& a) { return a; }
 
   inline const char* convert_format_arg(const std::string& a) { return a.c_str(); }
 
