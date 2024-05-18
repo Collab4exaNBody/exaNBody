@@ -68,6 +68,8 @@ namespace exanb
 			bes->clear();
 			ExtraDynamicStorageDataGridMoveBufferT <ESType> interaction_opt_buffer = { ges->m_data , *bes };
 			exanb::move_particles_across_cells( ldbg, *domain, *grid, *otb_particles, *move_particles_scratch, interaction_opt_buffer );
+			assert( interaction_opt_buffer.check() );
+			assert( bes->check() );
 		}    
 	};
 }
