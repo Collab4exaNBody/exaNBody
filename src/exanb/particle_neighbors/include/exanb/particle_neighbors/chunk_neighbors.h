@@ -178,7 +178,7 @@ namespace exanb
       const int offset_table_size = ( num_offset_tables >= 1 ) ? ( ( n_particles * num_offset_tables + 1 ) * 2 ) : 0 ;
       return {
         stream + offset_table_size , 
-        reinterpret_cast<const uint32_t*>(stream) , 
+        ( num_offset_tables >= 1 ) ? reinterpret_cast<const uint32_t*>(stream) : nullptr , 
         ( num_offset_tables >= 2 ) ? ( reinterpret_cast<const uint32_t*>(stream) + n_particles + 1 ) : nullptr ,
         - num_offset_tables };
     }
