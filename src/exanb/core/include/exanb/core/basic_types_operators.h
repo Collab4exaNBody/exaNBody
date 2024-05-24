@@ -640,9 +640,11 @@ namespace exanb
     return std::sqrt( mat.m11*mat.m11+mat.m12*mat.m12+mat.m13*mat.m13 + mat.m21*mat.m21+mat.m22*mat.m22+mat.m23*mat.m23 + mat.m31*mat.m31+mat.m32*mat.m32+mat.m33*mat.m33 );
   }
 
-  static inline void save_nan(Mat3d& mat)
+  static inline bool has_nan(Mat3d& mat)
   {
-    if(std::isnan(mat.m11) || std::isnan(mat.m13) || std::isnan(mat.m13) || std::isnan(mat.m21) || std::isnan(mat.m22) || std::isnan(mat.m23) || std::isnan(mat.m31) || std::isnan(mat.m32) || std::isnan(mat.m33)) mat = make_identity_matrix();
+    return ( std::isnan(mat.m11) || std::isnan(mat.m13) || std::isnan(mat.m13)
+          || std::isnan(mat.m21) || std::isnan(mat.m22) || std::isnan(mat.m23)
+          || std::isnan(mat.m31) || std::isnan(mat.m32) || std::isnan(mat.m33) );
   }
 
   // conversion to/from std arrays
