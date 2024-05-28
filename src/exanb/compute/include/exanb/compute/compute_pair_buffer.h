@@ -128,6 +128,13 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void copy(size_t,size_t) noexcept {}
   };
 
+  template<class _ExtendedStorage>
+  struct ComputeContextNoBuffer
+  {
+    using ExtendedStorage = _ExtendedStorage;
+    ExtendedStorage ext;
+  };
+
   template<
     bool                        UserNbhData                 = false,
     bool                        UseNeighbors                = false,
@@ -147,6 +154,7 @@ namespace exanb
     static inline constexpr NbhFieldSet nbh_field_set = {};
     using CPBufNbhFields = ComputePairBuffer2NbhFields<MaxNeighbors,NbhFieldSet>;
     using NbhFieldTuple = typename CPBufNbhFields::FieldTupleT;
+    using ContextWithoutBuffer = ComputeContextNoBuffer<ExtendedStorage>;
   
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drx[MaxNeighbors];     // neighbor's relative position x to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double dry[MaxNeighbors];     // neighbor's relative position y to reference particle
@@ -188,14 +196,6 @@ namespace exanb
     }
   };
 
-  template<class _ExtendedStorage>
-  struct ComputeContextNoBuffer
-  {
-    using ExtendedStorage = _ExtendedStorage;
-    ExtendedStorage ext;
-  };
-
-
   template< class _NbhFieldSetT , size_t _MaxNeighbors = exanb::MAX_PARTICLE_NEIGHBORS , bool UserNbhData=false >
   using SimpleNbhComputeBuffer = ComputePairBuffer2< UserNbhData, false, NoExtraStorage, DefaultComputePairBufferAppendFunc, _MaxNeighbors, ComputePairBuffer2Weights, _NbhFieldSetT >;
 
@@ -230,7 +230,7 @@ namespace exanb
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
 
-  template<class ExtStorageT = NoExtraStorage >
-  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
+//  template<class ExtStorageT = NoExtraStorage >
+//  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
 }
 
