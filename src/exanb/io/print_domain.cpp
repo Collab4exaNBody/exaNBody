@@ -34,7 +34,6 @@ namespace exanb
   struct PrintDomain : public OperatorNode
   {
     ADD_SLOT( Domain , domain , INPUT );
-    ADD_SLOT( bool   , hexfloat , INPUT , false );
 
     inline void execute() override final
     {
@@ -45,9 +44,8 @@ namespace exanb
         else mat_property = " (diagonal)";
       }
 
-      if( *hexfloat ) lout << std::hexfloat;
-
-      lout << "======= Simulation Domain ======="<< std::endl
+      lout << std::defaultfloat
+           << "======= Simulation Domain ======="<< std::endl
            << "bounds    = " << domain->bounds() <<std::endl
            << "dom size  = " << (domain->bounds().bmax - domain->bounds().bmin ) <<std::endl
            << "grid      = " << domain->grid_dimension() << std::endl
@@ -63,9 +61,7 @@ namespace exanb
         auto cell_size = domain->xform() * Vec3d { domain->cell_size() , domain->cell_size() , domain->cell_size() };
         lout << "phys size = " << dom_size << " , cell size = "<< cell_size <<std::endl;
       }
-      lout << "================================="<< std::endl << std::endl;
-      
-      if( *hexfloat ) lout << std::defaultfloat;
+      lout << "================================="<< std::endl << std::endl;      
     }
 
   };
