@@ -21,6 +21,7 @@ under the License.
 
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/grid.h>
+#include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/field_sets.h>
