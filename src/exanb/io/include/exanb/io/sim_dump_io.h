@@ -157,7 +157,8 @@ namespace exanb
       if( m_version < XNB_IO_MAKE_VERSION_NUMBER(1,3) )
       {
         // data that has been read are actually the content of Domain_legacy_v1_2 struct
-        const Domain_legacy_v1_2 legacy_domain = * reinterpret_cast<Domain_legacy_v1_2*>( & m_domain );
+        const Domain_legacy_v1_2 * legacy_domain_p = reinterpret_cast<const Domain_legacy_v1_2*>( & m_domain );
+        const Domain_legacy_v1_2 legacy_domain = * legacy_domain_p;
         m_domain.set_bounds( legacy_domain.bounds() );
         m_domain.set_grid_dimension( legacy_domain.grid_dimension() );
         m_domain.set_cell_size( legacy_domain.cell_size() );
