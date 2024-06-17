@@ -34,6 +34,14 @@ namespace onika
     }
     */;
 
+    template<> struct FieldId<void>
+    {
+      using value_type = void;
+      using Id = void;
+      static const char* name() { return "<uknown>"; }
+    };
+
+
     // field to index utilities
     static constexpr size_t bad_field_index = 1ull << 30; // no more than 1 billion field ids are allowed
 

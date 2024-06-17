@@ -38,26 +38,44 @@ namespace exanb
     template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
     template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
 
-    template<typename TupleT, class fid, class T>
+    template<typename TupleT, class pos_id, class vel_id, class force_id>
     ONIKA_HOST_DEVICE_FUNC
-    static inline void apply_field_shift( TupleT& t , onika::soatl::FieldId<fid> f, T x )
+    static inline void apply_field_boundary( TupleT& t
+                                           , onika::soatl::FieldId<pos_id> pos_field
+                                           , onika::soatl::FieldId<vel_id> vel_field
+                                           , onika::soatl::FieldId<force_id> force_field
+                                           , double rmin, double rmax , uint32_t flags )
     {
-      static constexpr bool has_field = onika::soatl::field_tuple_has_field_v<TupleT,fid>;
-      if constexpr ( has_field ) { t[ f ] += x; }
+      static constexpr bool has_pos_field   = onika::soatl::field_tuple_has_field_v<TupleT,pos_id>;
+      static constexpr bool has_vel_field   = onika::soatl::field_tuple_has_field_v<TupleT,vel_id>;
+      static constexpr bool has_force_field = onika::soatl::field_tuple_has_field_v<TupleT,force_id>;
+      if constexpr ( has_pos_field )
+      {
+        t[pos_field] = GhostBoundaryModifier::apply_coord_modifier( t[pos_field] , rmin , rmax , flags );
+      }
+      if constexpr ( has_vel_field )
+      {
+        t[vel_field] = GhostBoundaryModifier::apply_vector_modifier( t[vel_field] , flags );
+      }
+      if constexpr ( has_force_field )
+      {
+        t[force_field] = GhostBoundaryModifier::apply_vector_modifier( t[force_field] , flags );
+      }
     }
     
     template<typename TupleT>
     ONIKA_HOST_DEVICE_FUNC
-    static inline void apply_r_shift( TupleT& t , double x, double y, double z )
+    static inline void apply_particle_boundary( TupleT& t , const GhostBoundaryModifier& boundary , uint32_t flags )
     {
-      apply_field_shift( t , field::rx , x );
-      apply_field_shift( t , field::ry , y );
-      apply_field_shift( t , field::rz , z );
+      apply_field_boundary( t, field::rx, field::vx, field::fx, boundary.m_domain_min.x, boundary.m_domain_max.x, flags >> GhostBoundaryModifier::MASK_SHIFT_X );
+      apply_field_boundary( t, field::ry, field::vy, field::fy, boundary.m_domain_min.y, boundary.m_domain_max.y, flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
+      apply_field_boundary( t, field::rz, field::vz, field::fz, boundary.m_domain_min.z, boundary.m_domain_max.z, flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
       if constexpr ( HAS_POSITION_BACKUP_FIELDS )
       {
-        apply_field_shift( t , PositionBackupFieldX , x );
-        apply_field_shift( t , PositionBackupFieldY , y );
-        apply_field_shift( t , PositionBackupFieldZ , z );
+        static constexpr onika::soatl::FieldId<void> no_field = {}; 
+        apply_field_boundary( t, PositionBackupFieldX, no_field, no_field, boundary.m_domain_min.x, boundary.m_domain_max.x, flags >> GhostBoundaryModifier::MASK_SHIFT_X );
+        apply_field_boundary( t, PositionBackupFieldY, no_field, no_field, boundary.m_domain_min.y, boundary.m_domain_max.y, flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
+        apply_field_boundary( t, PositionBackupFieldZ, no_field, no_field, boundary.m_domain_min.z, boundary.m_domain_max.z, flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
       }
     }
 
@@ -140,6 +158,7 @@ namespace exanb
       uint8_t * m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
+      GhostBoundaryModifier m_boundary = {};
       FieldAccTuple m_fields = {};
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
@@ -179,9 +198,8 @@ namespace exanb
           data->m_cell_i = m_sends[i].m_partner_cell_i;
         }        
         const size_t cell_i = m_sends[i].m_cell_i;
-        const double rx_shift = m_sends[i].m_x_shift;
-        const double ry_shift = m_sends[i].m_y_shift;
-        const double rz_shift = m_sends[i].m_z_shift;
+        const uint32_t cell_boundary_flags = m_sends[i].m_flags;
+                
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -189,7 +207,7 @@ namespace exanb
           assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );          
           // m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
           pack_particle_fields( data, cell_i, particle_index[j] , j , FieldIndexSeq{} );
-          apply_r_shift( data->m_particles[j] , rx_shift, ry_shift, rz_shift );
+          apply_particle_boundary( data->m_particles[j], m_boundary, cell_boundary_flags );
         }
         if( m_cell_scalars != nullptr )
         {
@@ -216,6 +234,15 @@ namespace exanb
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
       FieldAccTuple m_fields = {};
+
+      // debug members
+#     ifndef NDEBUG
+      size_t m_ghost_layers = 0;
+      IJK m_grid_dims = {0,0,0};
+      Vec3d m_grid_origin = {0.,0.,0.};
+      double m_cell_size = 0.0;
+#     endif
+      // ------------
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
@@ -257,13 +284,33 @@ namespace exanb
         const auto cell_input = ghost_cell_receive_info(cell_input_it);
         const size_t cell_i = cell_input.m_cell_i;
         assert( cell_i == data->m_cell_i );
-        
+/*
+#       ifndef NDEBUG
+        const IJK cell_loc = grid_index_to_ijk( m_grid_dims , cell_i );
+        assert( inside_grid_shell(m_grid_dims,0,m_ghost_layers,cell_loc) );
+        using has_field_rx_t = typename ParticleTuple::template HasField < field::_rx >;
+        using has_field_ry_t = typename ParticleTuple::template HasField < field::_ry >;
+        using has_field_rz_t = typename ParticleTuple::template HasField < field::_rz >;
+        static constexpr bool has_position = has_field_rx_t::value && has_field_ry_t::value && has_field_rz_t::value ;
+        const AABB cell_bounds = { m_grid_origin + cell_loc * m_cell_size , m_grid_origin + (cell_loc+1) * m_cell_size };
+        const double cell_size_epsilon_sq = ( m_cell_size*1.e-3 ) * ( m_cell_size*1.e-3 );
+#       endif
+*/
         const size_t n_particles = cell_input.m_n_particles;
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           unpack_particle_fields( data, cell_i , j , FieldIndexSeq{} );
+/*
+#         ifndef NDEBUG
+          if constexpr ( has_position )
+          {
+            const Vec3d r = { data->m_particles[j][field::rx] , data->m_particles[j][field::ry] , data->m_particles[j][field::rz] };
+            assert( is_inside_threshold( cell_bounds , r , cell_size_epsilon_sq ) );
+          }
+#         endif
+*/
         }
-        
+
         if( m_cell_scalars != nullptr )
         {
           const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
