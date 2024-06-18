@@ -29,8 +29,8 @@ namespace exanb
 	template<typename ItemType>
 		struct ExtraDynamicDataStorageReadHelper
 		{
-			using UIntType = uint64_t;
-			using InfoType = std::tuple<UIntType, UIntType, UIntType>;
+      using InfoType = ExtraStorageInfo; 
+      using UIntType = ExtraStorageInfo::UIntType;
 			std::vector< std::vector< std::vector< ItemType > > > m_out_item; /** [cell->particles->items] */
 			std::vector<CellExtraDynamicDataStorageT < ItemType > > m_in_item; /** not grid cells, just chunks of item data */
 			std::map< UIntType , std::pair<size_t,size_t> > m_id_map; /** makes relation between particle id and (cell, position in cell) */
@@ -44,7 +44,6 @@ namespace exanb
 
 			inline void read_from_stream( const uint8_t* stream_start , size_t stream_size )
 			{
-				using UIntType = uint64_t;
 				m_in_item.clear();
 				m_id_map.clear();
 
