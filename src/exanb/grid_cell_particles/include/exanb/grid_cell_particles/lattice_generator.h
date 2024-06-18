@@ -105,12 +105,13 @@ namespace exanb
     ADD_SLOT( double                   , user_threshold, INPUT , 0.0 , DocString{"if user_function(...) returns a value greater or equal to this threshold, allows particle generation, otherwise prevent it"} );
 
     // Variables related to the crystal structure
-    ADD_SLOT( std::string      , structure , INPUT , REQUIRED );
-    ADD_SLOT( StringVector     , types     , INPUT , REQUIRED );    
-    ADD_SLOT( IJK              , repeats   , INPUT , IJK{10,10,10} );
-    ADD_SLOT( Vec3d            , size      , INPUT , REQUIRED );    
-    ADD_SLOT( double           , noise , INPUT , 0.0);
+    ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
+    ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
+    ADD_SLOT( double           , noise        , INPUT , 0.0);
+    ADD_SLOT( IJK              , repeats      , INPUT , IJK{10,10,10} );
+    ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
+    ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
     ADD_SLOT( std::string      , void_mode          , INPUT , "none"); // none means no void, simple is the one void mode, porosity means randomly distributed voids
@@ -161,7 +162,8 @@ namespace exanb
       //        BCT   2
       //        FCT   4
       //       2BCT   4
-      Vec3d size = *(this->size); // size may be modified locally
+      Vec3d lattice_size = *size; // size may be modified locally
+      const Vec3d position_shift = *shift;
       
       uint64_t n_particles_cell = 0.;
       std::vector<Vec3d> positions;
@@ -213,8 +215,8 @@ namespace exanb
 	        {0.25000000,    0.58333333,    0.75000000} ,
 	        {0.75000000,    0.08333333,    0.75000000} };
 
-      	size.y = 2. * size.y * sin(120. * exanb::legacy_constant::pi / 180.);
-    	  ldbg << "hcp cell = " << size << std::endl;
+      	lattice_size.y = 2. * lattice_size.y * sin(120. * exanb::legacy_constant::pi / 180.);
+    	  ldbg << "hcp cell = " << lattice_size << std::endl;
       } else if (*structure == "DIAMOND" ) {
         n_particles_cell = 8;
         if( types->size() != n_particles_cell )
@@ -403,9 +405,9 @@ namespace exanb
       
       if( *init_domain )
       {    
-        const double box_size_x = repeats->i * size.x;
-        const double box_size_y = repeats->j * size.y;
-        const double box_size_z = repeats->k * size.z;
+        const double box_size_x = repeats->i * lattice_size.x;
+        const double box_size_y = repeats->j * lattice_size.y;
+        const double box_size_z = repeats->k * lattice_size.z;
         domain_size = Vec3d{ box_size_x, box_size_y, box_size_z };
 
         if(rank==0)
@@ -465,8 +467,8 @@ namespace exanb
       // local processor's bounds
       AABB local_bounds = grid->grid_bounds();
       ldbg<<"local_bounds = "<< local_bounds << std::endl;
-      ldbg<<"size = "<< size << std::endl;      
-      Vec3d size_corr = domain->inv_xform() * size;
+      ldbg<<"size = "<< lattice_size << std::endl;      
+      Vec3d size_corr = domain->inv_xform() * lattice_size;
       ldbg<<"size_corr = "<< size_corr << std::endl;            
 
       ldbg << "local_bounds.bmin.x " << local_bounds.bmin.x << std::endl;
@@ -566,8 +568,8 @@ namespace exanb
         auto& re = rand::random_engine();
         std::normal_distribution<double> f_rand(0.,1.);
 
-        const Vec3d lattice = { size.x , size.y , size.z };
-        const Vec3d pbc_adjust_invxform_lattice = domain->inv_xform() * lattice;	
+        //const Vec3d lattice = { size.x , size.y , size.z };
+        const Vec3d pbc_adjust_invxform_lattice = domain->inv_xform() * lattice_size;	
         
 #       pragma omp for collapse(3) reduction(+:local_generated_count)
         for (int i=repeat_i_start; i<repeat_i_end; i++)
@@ -590,9 +592,9 @@ namespace exanb
                   if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
 
                   Vec3d pos = Vec3d{ reduced_pos.x * pbc_adjust_invxform_lattice.x
-                              , reduced_pos.y * pbc_adjust_invxform_lattice.y
-                              , reduced_pos.z * pbc_adjust_invxform_lattice.z }
-                              + noise;
+                                   , reduced_pos.y * pbc_adjust_invxform_lattice.y
+                                   , reduced_pos.z * pbc_adjust_invxform_lattice.z }
+                              + noise + position_shift;
 		        		        		            
 		            IJK loc = grid->locate_cell(pos); //domain_periodic_location( domain , pos );
 

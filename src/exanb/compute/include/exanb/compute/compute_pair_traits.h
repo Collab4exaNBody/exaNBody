@@ -39,22 +39,24 @@ namespace exanb
     static inline constexpr bool RequiresNbhOptionalData      = true;
   };
 
-#define COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT(name,member) \
+# define COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT(name,member) \
   template<class T , class = void > struct Test_##member { static inline constexpr bool value = ComputePairTraits<void>::member; }; \
   template<class T> struct Test_##member <T , decltype(void(sizeof(T{}.member))) > { static inline constexpr bool value = T::member; }; \
   template<class FuncT> static inline constexpr bool name = Test_##member < ComputePairTraits<FuncT> >::value
 
   namespace compute_pair_traits
   {
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_block_synchronous_call_v , RequiresBlockSynchronousCall );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( compute_buffer_compatible_v       , ComputeBufferCompatible );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( buffer_less_compatible_v          , BufferLessCompatible );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( cuda_compatible_v                 , CudaCompatible );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_v            , HasParticleContext );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_start_v      , HasParticleContextStart );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_stop_v       , HasParticleContextStop );
-    COMPUTE_PAIR_VUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_nbh_optional_data_v      , RequiresNbhOptionalData );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_block_synchronous_call_v , RequiresBlockSynchronousCall );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( compute_buffer_compatible_v       , ComputeBufferCompatible );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( buffer_less_compatible_v          , BufferLessCompatible );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( cuda_compatible_v                 , CudaCompatible );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_v            , HasParticleContext );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_start_v      , HasParticleContextStart );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_stop_v       , HasParticleContextStop );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_nbh_optional_data_v      , RequiresNbhOptionalData );
   }
+
+# undef COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT
 
   template<class FuncT> struct ComputePairDebugTraits
   {

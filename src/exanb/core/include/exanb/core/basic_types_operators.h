@@ -65,9 +65,14 @@ namespace exanb
     return a;
   }
 
-  inline Vec3d min (const Vec3d& a, const Vec3d& b)
+  ONIKA_HOST_DEVICE_FUNC inline Vec3d min (const Vec3d& a, const Vec3d& b)
   {
-    return Vec3d{ std::min(a.x,b.x), std::min(a.y,b.y), std::min(a.z,b.z) };
+    return Vec3d{ onika::cuda::min(a.x,b.x), onika::cuda::min(a.y,b.y), onika::cuda::min(a.z,b.z) };
+  }
+
+  ONIKA_HOST_DEVICE_FUNC inline Vec3d max(const Vec3d& a, const Vec3d& b)
+  {
+    return Vec3d{ onika::cuda::max(a.x,b.x), onika::cuda::max(a.y,b.y), onika::cuda::max(a.z,b.z) };
   }
 
   inline Vec3d floor(const Vec3d& a)
@@ -145,6 +150,11 @@ namespace exanb
     a.y /= b;
     a.z /= b;
     return a;
+  }
+
+  ONIKA_HOST_DEVICE_FUNC inline IJK operator - (const IJK& v)
+  {
+    return { - v.i , - v.j , - v.k };
   }
 
   ONIKA_HOST_DEVICE_FUNC inline IJK vclamp(const IJK& a, const IJK& min, const IJK& max)
@@ -328,14 +338,15 @@ namespace exanb
     return u.x*v.x + u.y*v.y + u.z*v.z;
   }
 
+  ONIKA_HOST_DEVICE_FUNC
   inline double angle(const Vec3d& a, const Vec3d& b)
   {
     //double err = 1.0e-4;
-    double cosA = dot(a,b) / std::sqrt(dot(a,a)*dot(b,b));
+    double cosA = dot(a,b) / sqrt( dot(a,a)*dot(b,b) );
     //When angle is near 0 or pi, numerical error can give incoherent result
     if(cosA <= -1.0 ) { return M_PI; }
     else if(cosA >= 1.0) { return 0.0; }
-    return std::acos(cosA);
+    return acos(cosA);
   }
 
   ONIKA_HOST_DEVICE_FUNC inline bool operator == (const GridBlock& a, const GridBlock& b)
@@ -634,9 +645,11 @@ namespace exanb
     return std::sqrt( mat.m11*mat.m11+mat.m12*mat.m12+mat.m13*mat.m13 + mat.m21*mat.m21+mat.m22*mat.m22+mat.m23*mat.m23 + mat.m31*mat.m31+mat.m32*mat.m32+mat.m33*mat.m33 );
   }
 
-  static inline void save_nan(Mat3d& mat)
+  static inline bool has_nan(Mat3d& mat)
   {
-    if(std::isnan(mat.m11) || std::isnan(mat.m13) || std::isnan(mat.m13) || std::isnan(mat.m21) || std::isnan(mat.m22) || std::isnan(mat.m23) || std::isnan(mat.m31) || std::isnan(mat.m32) || std::isnan(mat.m33)) mat = make_identity_matrix();
+    return ( std::isnan(mat.m11) || std::isnan(mat.m13) || std::isnan(mat.m13)
+          || std::isnan(mat.m21) || std::isnan(mat.m22) || std::isnan(mat.m23)
+          || std::isnan(mat.m31) || std::isnan(mat.m32) || std::isnan(mat.m33) );
   }
 
   // conversion to/from std arrays
@@ -657,17 +670,6 @@ namespace exanb
 
 namespace std
 {
-
-  inline exanb::Vec3d min( const exanb::Vec3d& a, const exanb::Vec3d& b )
-  {
-    return { std::min(a.x,b.x) , std::min(a.y,b.y) , std::min(a.z,b.z) };
-  }
-
-  inline exanb::Vec3d max( const exanb::Vec3d& a, const exanb::Vec3d& b )
-  {
-    return { std::max(a.x,b.x) , std::max(a.y,b.y) , std::max(a.z,b.z) };
-  }
-
   template<> struct hash< exanb::IJK >
   {
     size_t operator () ( const exanb::IJK& v ) const

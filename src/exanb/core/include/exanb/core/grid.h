@@ -33,6 +33,7 @@ under the License.
 #include <exanb/core/grid_cell_compute_profiler.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/flat_arrays.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <cstdlib>
 #include <vector>
@@ -263,9 +264,9 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline       CellParticles* cells()       { return onika::cuda::vector_data(m_cells); }
     ONIKA_HOST_DEVICE_FUNC inline const CellParticles* cells() const { return onika::cuda::vector_data(m_cells); }
 
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<CellParticles* __restrict__ > cells_accessor() { return { onika::cuda::vector_data(m_cells) /*, onika::cuda::vector_data(m_cell_particle_offset)*/ }; }
-    ONIKA_HOST_DEVICE_FUNC inline GridParticleFieldAccessor<const CellParticles* __restrict__ > cells_accessor() const { return { onika::cuda::vector_data(m_cells) /*, onika::cuda::vector_data(m_cell_particle_offset)*/ }; }    
-
+    ONIKA_HOST_DEVICE_FUNC inline auto cells_accessor()       { return make_cells_accessor      ( onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) ); }
+    ONIKA_HOST_DEVICE_FUNC inline auto cells_accessor() const { return make_cells_const_accessor( onika::cuda::vector_data(m_cells) , onika::cuda::vector_data(m_cell_particle_offset) ); }
+    
     inline       CellParticles& cell(IJK loc)       { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
     inline const CellParticles& cell(IJK loc) const { return m_cells[grid_ijk_to_index(m_dimension,loc)]; }
 
@@ -546,13 +547,14 @@ namespace exanb
     template<class fid>
     inline auto flat_array_accessor( onika::soatl::FieldId<fid> f )
     {
-      return make_external_field_flat_array_accessor( *this , flat_array_data(f) , f );
+      using details::OptionalCellParticleFieldAccessor;
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , false > { flat_array_data(f) };
     }
     template<class fid>
     inline auto flat_array_const_accessor( onika::soatl::FieldId<fid> f )
     {
-      const auto * c_ptr = flat_array_data(f);
-      return make_external_field_flat_array_accessor( *this , c_ptr , f );
+      using details::OptionalCellParticleFieldAccessor;
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , true >{ flat_array_data(f) };
     }
     inline auto remove_flat_array( const std::string& name )
     {
@@ -573,16 +575,21 @@ namespace exanb
 
     // *** unification of per cell arrays dans flat arrays ***
     template<class fid>
-    inline auto field_accessor( onika::soatl::FieldId<fid> f )
+    inline auto
+    field_accessor( onika::soatl::FieldId<fid> f )
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_accessor(f);
-      else return f;
+      if constexpr (   HasField<fid>::value ) return f;
+      // we shall never get there, but intel compiler needs this to avoid compile warnings
+      return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_accessor(f)) >{} ;
     }
     template<class fid>
     inline auto field_const_accessor( onika::soatl::FieldId<fid> f )
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_const_accessor(f);
-      else return f;
+      if constexpr (   HasField<fid>::value ) return f;
+      // we shall never get there, but intel compiler needs this to avoid compile warnings
+      return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_const_accessor(f)) >{} ; // should never get ther
     }
     template<class... fids>
     inline auto field_accessors_from_field_set( FieldSet<fids...> fs )
@@ -599,8 +606,7 @@ namespace exanb
     {
       return ( ... && ( has_allocated_field( onika::soatl::FieldId<fids>{} ) ) );
     }
-    // *******************************************************
-    
+    // ******************************************************* 
 
   private:
     IJK m_offset = {0,0,0};
@@ -664,6 +670,7 @@ namespace exanb
 
   template<typename GridT, typename FieldSetT > struct GridContainFieldSet;
   template<typename GridT, typename... field_ids > struct GridContainFieldSet< GridT, FieldSet<field_ids...> > : public GridHasFields<GridT,field_ids...> {};
+  template<class GridT, class FieldSetT > static inline constexpr bool grid_contains_field_set_v = GridContainFieldSet<GridT,FieldSetT>::value;
 
   template<typename GridT, typename FieldSetT>
   using AssertGridContainFieldSet = std::enable_if_t< GridContainFieldSet<GridT,FieldSetT>::value >;

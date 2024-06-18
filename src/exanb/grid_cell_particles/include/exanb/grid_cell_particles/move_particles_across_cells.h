@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/domain.h>
@@ -25,6 +26,7 @@ under the License.
 #include <exanb/core/log.h>
 
 #include <vector>
+#include <algorithm>
 
 namespace exanb
 {
@@ -43,6 +45,7 @@ namespace exanb
     static inline constexpr void initialize( size_t ) {}
     inline NullCellParticleOptionalBuffer* otb_buffer() { return &m_null_buffer; }
     inline NullCellParticleOptionalBuffer* cell_buffer( size_t ) { return &m_null_buffer; }
+    inline bool check() { return true; }
     static inline constexpr void pack_cell_particles( size_t, const std::vector<int32_t> &, bool removed_particles = true ){}
   };
 
@@ -58,6 +61,19 @@ namespace exanb
       std::vector< std::vector<ssize_t> > m_removed_particles;
     };
   };
+
+  static inline void check_mirror_clamping(double & r, double rmin, double rmax, bool mirror_lo, bool mirror_hi, const IJK& src_loc, size_t p_i, char axis)
+  {
+    // under mirrored periodic boundary conditions, it's usually impossible, and explicitly forbidden, to cross domain's boundary in one of mirrored directions
+    if( mirror_lo && r < rmin )
+    {
+      fatal_error() << "Cell@"<<src_loc<<"/P#"<<p_i<<" crossed "<<axis<<"- mirror : "<<axis<<"="<<r<<" , lo="<<rmin<<std::endl;
+    }
+    if( mirror_hi && r > rmax )
+    {
+      fatal_error() <<"Cell@"<<src_loc<<"/P#"<<p_i<<" crossed "<<axis<<"+ mirror : "<<axis<<"="<<r<<" , hi="<<rmax<<std::endl;
+    }
+  }
 
   template<class LDBG, class GridT, class ParticleVector, class MovePaticlesScratch, class ParticleOptionalBuffer>
   inline void move_particles_across_cells( LDBG& ldbg, const Domain& domain, GridT& grid, ParticleVector& otb_particles, MovePaticlesScratch& move_particles_scratch, ParticleOptionalBuffer& opt_buffer )
@@ -98,6 +114,9 @@ namespace exanb
         for(size_t p_i=0;p_i<n;p_i++)
         {
           Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
+          check_mirror_clamping( r.x , domain.origin().x , domain.extent().x , domain.mirror_x_min() , domain.mirror_x_max() , src_loc , p_i , 'X' );
+          check_mirror_clamping( r.y , domain.origin().y , domain.extent().y , domain.mirror_y_min() , domain.mirror_y_max() , src_loc , p_i , 'Y' );
+          check_mirror_clamping( r.z , domain.origin().z , domain.extent().z , domain.mirror_z_min() , domain.mirror_z_max() , src_loc , p_i , 'Z' );          
           Vec3d ro = r;
           IJK dst_loc = domain_periodic_location( domain , r ) - grid_offset; //grid.locate_cell( r );
           if( src_loc != dst_loc || min_distance2_between( ro, grid.cell_bounds(dst_loc) ) >= grid.epsilon_cell_size2() )
@@ -199,6 +218,7 @@ namespace exanb
       GRID_OMP_FOR_END
     }
 
+		assert( opt_buffer.check() );
     assert( total_particles == expected_total_particles );
     ldbg<<"total particles = "<<total_particles<<std::endl;
     ldbg<<"outgoing (total/min/max) = "<<outgoing_particles<<"/"<<out_min<<"/"<<out_max<< std::endl;

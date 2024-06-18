@@ -73,7 +73,7 @@ namespace exanb
           const IJK loc_b = loc_a + decode_cell_index(cell_b_enc);
           if( !( loc_b.i>=0 && loc_b.j>=0 && loc_b.j>=0 && loc_b.i<dims.i && loc_b.j<dims.j && loc_b.j<dims.j ) )
           {
-            printf("nbh stream corrupted: cell=%llu, p=%u, cg=%u/%u, loc=%d,%d,%d\n",cell_a,p_a,cg,cell_groups,int(loc_b.i),int(loc_b.j),int(loc_b.k));
+            printf("nbh stream corrupted: cell=%lu, p=%u, cg=%u/%u, loc=%d,%d,%d\n",cell_a,p_a,cg,cell_groups,int(loc_b.i),int(loc_b.j),int(loc_b.k));
             ONIKA_CU_ABORT();            
           }
           const size_t cell_b = grid_ijk_to_index( dims , loc_b );

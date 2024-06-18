@@ -16,10 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/grid.h>
+#include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/field_sets.h>
@@ -65,6 +67,7 @@ namespace exanb
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
     GridT& grid,
+    const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
@@ -90,7 +93,7 @@ namespace exanb
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
-    using CellsAccessorT = GridParticleFieldAccessor<CellParticles *>;
+    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
     using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
     using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -107,7 +110,7 @@ namespace exanb
     MPI_Comm_rank(comm,&rank);
 
     CellParticles* cells = grid.cells();
-    CellsAccessorT cells_acc = { cells };
+    const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -147,8 +150,8 @@ namespace exanb
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
-    assert( send_pack_async.size() == nprocs );
-    assert( recv_unpack_async.size() == nprocs );
+    assert( send_pack_async.size() == size_t(nprocs) );
+    assert( recv_unpack_async.size() == size_t(nprocs) );
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs );
@@ -170,7 +173,7 @@ namespace exanb
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                              , comm_scheme.m_partner[p].m_receive_offset.data()
                                              , ghost_comm_buffers.recvbuf_ptr(p)
-                                             , cells_acc
+                                             , grid.cells_accessor()
                                              , cell_scalar_components
                                              , cell_scalars
                                              , ghost_comm_buffers.recvbuf_size(p)
@@ -241,7 +244,6 @@ namespace exanb
     std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
     size_t ghost_cells_recv = 0;
 
-
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
@@ -249,12 +251,13 @@ namespace exanb
       const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
       ghost_cells_recv += cells_to_receive;
       unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
-                                              , cells_acc
+                                              , grid.cells_accessor()
                                               , cell_scalars
                                               , cell_scalar_components
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
                                               , ghost_comm_buffers.sendbuf_size(p)
                                               , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
+                                              , ghost_boundary
                                               , UpdateValueFunctor{} 
                                               , update_fields };
       // = parallel_execution_context(p);

@@ -50,7 +50,6 @@ namespace exanb
     ADD_SLOT( Domain      , domain          , INPUT );
     ADD_SLOT( bool        , binary_mode       , INPUT , true);
     ADD_SLOT( bool        , write_box          , INPUT , true);
-    ADD_SLOT( bool        , write_external_box , INPUT , false);
     ADD_SLOT( bool        , write_ghost        , INPUT , false);
     ADD_SLOT( std::string , compression  , INPUT , "default");
     ADD_SLOT( std::string , filename     , INPUT , "output"); // default value for backward compatibility
@@ -59,6 +58,11 @@ namespace exanb
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
+      ldbg << "ParaviewGenericWriter: filename="<< *filename
+           << " , write_box="<< std::boolalpha << *write_box
+           << " , write_ghost="<< std::boolalpha << *write_ghost
+           << " , binary_mode="<< std::boolalpha << *binary_mode << std::endl;
+    
       {
         int s=0;
         ldbg << "Paraview writer available fields:";
@@ -68,10 +72,9 @@ namespace exanb
 
       const auto& flist = *fields;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      auto gridacc = grid->cells_accessor(); //{ grid->cells() };
 
-      GridParticleFieldAccessor<typename GridT::CellParticles *> gridacc = { grid->cells() };
-
-      ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_external_box,*write_ghost, grid_fields ... );
+      ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, grid_fields ... );
     }
 
     template<class... fid>

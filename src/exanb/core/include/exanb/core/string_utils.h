@@ -18,6 +18,7 @@ under the License.
 */
 #pragma once
 
+#include <cstring>
 #include <string>
 #include <vector>
 #include <cstdlib>
@@ -29,9 +30,16 @@ namespace exanb
 {
 
   template<typename FormatArg>
-  inline const FormatArg& convert_format_arg(const FormatArg& a) { return a; }
+  inline FormatArg convert_format_arg(const FormatArg& a) { return a; }
 
   inline const char* convert_format_arg(const std::string& a) { return a.c_str(); }
+
+  template<typename... Args>
+  inline int format_string_buffer(char* buf, size_t bufsize, const std::string& format, const Args & ... args)
+  {
+    std::memset(buf,'\0',bufsize);
+    return std::snprintf( buf, bufsize, format.c_str(), convert_format_arg(args)... );
+  }
 
   template<typename... Args>
   inline std::string format_string(const std::string& format, const Args & ... args)
@@ -44,7 +52,7 @@ namespace exanb
     s.resize(len);
     return s;
   }
-
+  
   std::vector<std::string> split_string(const std::string& s, char delim=' ');
 
   void function_name_and_args(const std::string& proto, std::string& name, std::vector<std::string>& args );

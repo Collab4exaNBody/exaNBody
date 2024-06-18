@@ -60,7 +60,6 @@ namespace exanb
 
     // optionally override domain bounds
     bool override_domain_bounds = false;
-    //bool override_domain_bounds = true;
     bool shrink_to_fit = false;
     AABB domain_bounds = { {0,0,0} , {0,0,0} };
 
@@ -94,7 +93,7 @@ namespace exanb
         domain.set_expandable( expandable );
       }
 
-			domain_bounds = domain.bounds();
+			// domain_bounds = domain.bounds(); // looks wrong
 
       if( override_domain_bounds )
       {

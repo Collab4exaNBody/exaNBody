@@ -81,6 +81,23 @@ struct XStampV2OptionState< std::vector<T> >
   }
 };
 
+template<class T, class U>
+struct XStampV2OptionState< std::map<T,U> >
+{
+  static inline std::string to_string(const std::map<T,U>* state)
+  {
+    if(state==nullptr) return "<null>";
+    else
+    {
+      std::ostringstream oss;
+      oss<<"{ "; const char* sep="";
+      for(const auto& x:*state) { oss << sep << xsv2_to_string_helper(& x.first) << ": " << xsv2_to_string_helper(& x.second); sep=" , "; }
+      oss<<" }";
+      return oss.str();
+    }
+  }
+};
+
 template<class T> static inline std::string xsv2_to_string_helper( const T* state )
 {
   return XStampV2OptionState<T>::to_string(state);

@@ -21,7 +21,6 @@ under the License.
 #include<tuple>
 #include <cstddef>
 
-
 namespace exanb
 {
 	template<typename ItemType>
@@ -34,10 +33,10 @@ namespace exanb
 	template <typename ItemType>
 		struct ExtraDynamicDataStorageCellMoveBufferT
 		{
-			using UIntType = uint64_t;
-			using InfoType = std::tuple<UIntType, UIntType, UIntType>; /**< Alias for information tuple containing offset, data size and particle id. */
+      using InfoType = ExtraStorageInfo; 
+      using UIntType = ExtraStorageInfo::UIntType;
 			std::vector< size_t > m_indirection; /**< Indirection vector storing indices of the start of each particle's data in m_data. */
-			std::vector< char > m_data; /**< Data vector storing the actual data for each cell, packed contiguously. */
+			std::vector< uint8_t > m_data; /**< Data vector storing the actual data for each cell, packed contiguously. */
 
 			/**
 			 * @brief Clears the extra dynamic data storage and resets global information.
@@ -110,6 +109,7 @@ namespace exanb
 			inline size_t number_of_particles() const
 			{
 #ifndef NDEBUG
+				if( m_indirection.size() == 0 ) return 0;
 				UIntType* glob_info_ptr = (UIntType*) m_data.data();
 				UIntType np = glob_info_ptr[0];
 				assert( m_indirection.size() == np );
@@ -134,11 +134,11 @@ namespace exanb
 			 * @param p The index of the particle.
 			 * @return The particle's id.
 			 */
-			inline UIntType particle_id(size_t p) const
+			inline uint64_t particle_id(size_t p) const
 			{
 				assert ( p < m_indirection.size() );
 				auto& particle_information = this->get_info(p);
-				return std::get<2> (particle_information);
+				return particle_information.pid;
 			}
 
 			/**
@@ -146,11 +146,11 @@ namespace exanb
 			 * @param p The index of the particle.
 			 * @return The number of items associated with the particle.
 			 */
-			inline size_t particle_number_of_items(size_t p) const
+			inline UIntType particle_number_of_items(size_t p) const
 			{
 				assert ( p < m_indirection.size() );
 				auto& particle_information = this->get_info(p);
-				return std::get<1> (particle_information);
+				return particle_information.size;
 			}
 
 			/**
@@ -194,10 +194,33 @@ namespace exanb
 			 */
 			inline bool check_info_consistency()
 			{
+				if( number_of_particles() == 0) return true; 
 				const auto [glob_ptr, info_ptr, data_ptr] = decode_pointers(number_of_particles());
 				UIntType n_particles = glob_ptr[0];
 				return migration_test::check_info_consistency ( info_ptr, n_particles) ;
 			}
+
+      /** @brief test if the number of items per particle doesn't exceed 1e6.
+			 * @return True the number of items per particle doesn't exceed 1e6, false otherwise.
+       */
+      inline bool check_info_value()
+			{
+				if( number_of_particles() == 0) return true; 
+				constexpr UIntType limit = 1e6; // maximal number of item allowed for one particle.
+        const auto [glob_ptr, info_ptr, data_ptr] = decode_pointers(number_of_particles());
+        UIntType n_particles = glob_ptr[0];
+				return migration_test::check_info_value ( info_ptr, n_particles, limit ); 
+			}
+
+      /** @brief active all tests availables.
+			 * @return True if the information is consistent across all particles and the number of items per particle doesn't exceed 1e6, false otherwise.
+       */
+      inline bool check()
+      {
+        bool consistency = this->check_info_consistency();
+        bool value       = this->check_info_value();
+        return consistency && value;
+      }
 
 			/**
 			 * @brief Copies incoming particle data from a ExtraDynamicStorageDataGridMoveBufferT into the current move buffer.
@@ -215,8 +238,8 @@ namespace exanb
 	template<typename ItemType>
 		struct ExtraDynamicStorageDataGridMoveBufferT
 		{
-			using UIntType = uint64_t;
-			using InfoType = std::tuple<UIntType,UIntType,UIntType>;
+      using InfoType = ExtraStorageInfo; 
+      using UIntType = ExtraStorageInfo::UIntType;
 			using CellMoveBuffer = ExtraDynamicDataStorageCellMoveBufferT<ItemType>;
 			using CellStorage    = CellExtraDynamicDataStorageT<ItemType>;
 			onika::memory::CudaMMVector< CellExtraDynamicDataStorageT<ItemType> > & m_cell_data;
@@ -245,7 +268,8 @@ namespace exanb
 			 * @param packed_particles Reference to a vector to store the packed particles.
 			 * @param removed_particles Flag indicating whether to include removed particles in the packing. Default is true.
 			 */
-			inline void pack_cell_particles( size_t cell_i, const std::vector<int32_t> & packed_particles, bool removed_particles = true )
+			//inline void pack_cell_particles( size_t cell_i, const std::vector<int32_t> & packed_particles, bool removed_particles = true )
+			inline void pack_cell_particles( size_t cell_i, const std::vector<int> & packed_particles, bool removed_particles = true )
 			{
 				assert( cell_i < m_cell_data.size() );
 				auto & cell = m_cell_data[cell_i];
@@ -265,10 +289,11 @@ namespace exanb
 					for( p = 0 ; p < n_particles ; p++)
 					{
 						// update information -> (offset , number of items, particle id) 
-						const UIntType id = cell.particle_id( packed_particles[p] );
-						const size_t n_items = cell.particle_number_of_items( packed_particles[p] );
+						const uint64_t id = cell.particle_id( packed_particles[p] );
+						const UIntType n_items = cell.particle_number_of_items( packed_particles[p] );
+					  assert( n_items < UIntType(1e6) ); // safe guard
 						auto& particle_information = pf.m_info[p];
-						particle_information = std::make_tuple(offset, n_items, id);
+						particle_information = {offset, n_items, id};
 						// update data
 						pf.m_data.resize (offset + n_items);
 						for(size_t i = 0 ; i < n_items ; i++)
@@ -283,8 +308,9 @@ namespace exanb
 					for( p = 0 ; p < n_particles ; p++)
 					{
 						// update information
-						const auto id = cell.particle_id( p );
-						const size_t n_items = cell.particle_number_of_items( p );
+						const uint64_t id = cell.particle_id( p );
+						const UIntType n_items = cell.particle_number_of_items( p );
+					  assert( n_items < UIntType(1e6) ); // safe guard
 						auto& particle_information = pf.m_info[p];
 						particle_information = {offset, n_items, id};
 						// update data
@@ -301,8 +327,9 @@ namespace exanb
 				for(size_t i = 0 ; i < n_incoming_particles ; i++)
 				{
 					// update information -> (offset , number of items, particle id) 
-					auto id = m_cell_buffer[cell_i].particle_id(i);
-					size_t n_items = m_cell_buffer[cell_i].particle_number_of_items(i);
+					const uint64_t id = m_cell_buffer[cell_i].particle_id(i);
+					const UIntType n_items = m_cell_buffer[cell_i].particle_number_of_items(i);
+					assert( n_items < UIntType(1e6) ); // safe guard
 					auto& particle_information = pf.m_info[p];
 					particle_information = {offset, n_items, id};
 					// update data
@@ -314,11 +341,43 @@ namespace exanb
 					++ p;
 				}
 
-				assert (pf.check_info_consistency());
-				// copy ad fit new dynamic extra data in the cell
 				assert( p == total_particles );
+				assert ( pf.check_info_consistency() );
+			  assert ( migration_test::check_info_value( pf.m_info.data(), pf.m_info.size() , 1e6 )); // check number of item
+				// copy ad fit new dynamic extra data in the cell
 				cell = std::move( pf );
 				cell.shrink_to_fit();
+			}
+
+      inline bool check()
+			{
+#ifndef NDEBUG
+//				// Warning, the error message is displayed if the mpi process is 0
+				for (auto& it : m_cell_data ) 
+				{	
+					if(!it.check())
+					{
+						std::cout << "CHECK= Error in m_cell_data" << std::endl; 
+						return false;
+					}
+				}
+				if(!m_otb_buffer.check())
+				{
+					std::cout << "CHECK= Error in m_otb_buffer" << std::endl;
+					return false;
+				}
+				for (auto& it : m_cell_buffer ) 
+				{
+					if(!it.check())
+					{
+						std::cout << "CHECK= Error in m_cell_buffer" << std::endl;
+						return false;
+					}
+				}
+				return true;
+#else
+				return true;
+#endif
 			}
 		};
 
@@ -337,6 +396,7 @@ namespace exanb
 			const CellExtraDynamicDataStorageT<ItemType>& cell = opt_buffer.m_cell_data[cell_i];
 			const auto [offset, size, id] = cell.m_info[p_i];
 			UIntType n_items_to_copy = size;
+			assert ( n_items_to_copy <= UIntType(1e6) ); // less than 1M of new item
 			assert ( migration_test :: check_info_consistency (cell.m_info.data(), cell.m_info.size()) );
 
 			// reminder : buffer layout : N/nb particles, M/nb items, info1, info2 ..., infoN, item1, ..., itemM
@@ -357,8 +417,8 @@ namespace exanb
 			InfoType * info_ptr = (InfoType*) (m_data.data() + global_information_shift);
 
 			// -> shift item data and new info
-			char* old_item_ptr = m_data.data() + global_information_shift + buffer_n_particles * sizeof(InfoType);
-			char* new_item_ptr = m_data.data() + global_information_shift + (buffer_n_particles + 1) * sizeof(InfoType);
+			uint8_t* old_item_ptr = m_data.data() + global_information_shift + buffer_n_particles * sizeof(InfoType);
+			uint8_t* new_item_ptr = m_data.data() + global_information_shift + (buffer_n_particles + 1) * sizeof(InfoType);
 			UIntType nb_bytes_n_items = buffer_n_items * sizeof(ItemType);
 
 			// --> create a space for info
@@ -369,13 +429,13 @@ namespace exanb
 			{
 				InfoType& old_last = info_ptr[buffer_n_particles - 1];
 				InfoType& new_last = info_ptr[buffer_n_particles];
-				new_last = {std::get<0>(old_last) + std::get<1> (old_last), n_items_to_copy, id};
+				new_last = {old_last.offset + old_last.size, n_items_to_copy, id};
 			}
 			else
 			{
 				info_ptr[0] = {0, n_items_to_copy, id};
 			}
-
+			assert ( migration_test::check_info_value( info_ptr, buffer_n_particles , 1e6 )); // check number of item
 			assert ( check_info_consistency () );
 
 			// copy items at the end

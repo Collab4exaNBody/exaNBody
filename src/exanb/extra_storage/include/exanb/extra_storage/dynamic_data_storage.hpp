@@ -20,6 +20,7 @@ under the License.
 
 #include <exanb/core/grid.h>
 #include <memory>
+#include <exanb/extra_storage/extra_storage_info.hpp>
 #include <exanb/extra_storage/migration_test.hpp>
 #include <vector>
 #include <cstddef>
@@ -27,6 +28,23 @@ under the License.
 namespace exanb
 {
 	using namespace std;
+  using InfoType = ExtraStorageInfo; //std::tuple<UIntType,UIntType, UIntType>;
+  using UIntType = ExtraStorageInfo::UIntType;
+
+	/**
+	 * @brief Decodes the data storage in 3 pointers.
+	 * @param n_particles The number of particles.
+	 * @return A tuple containing const pointers to the global information, information tuple, and data vector.
+	 */
+  template<typename ItemType>
+	std::tuple<UIntType*, InfoType*, ItemType*> decode_pointers(void* buffer, const unsigned int n_particles)
+	{
+		UIntType* glob_info_ptr = (UIntType*) buffer;
+		InfoType*      info_ptr = (InfoType*) (glob_info_ptr + 2);
+		ItemType*      data_ptr = (ItemType*) (info_ptr + n_particles);
+		return {glob_info_ptr, info_ptr, data_ptr};
+	}
+
 	/**
 	 * @brief Template struct representing the storage for extra dynamic data associated with cells.
 	 *
@@ -37,8 +55,6 @@ namespace exanb
 	 */
 	template<typename ItemType> struct CellExtraDynamicDataStorageT
 	{
-		using UIntType = uint64_t;
-		using InfoType = std::tuple<UIntType,UIntType, UIntType>;
 		onika::memory::CudaMMVector<InfoType> m_info; /**< Info vector storing indices of the [start, number of items, particle id] of each cell's extra dynamic data in m_data. */ 
 		onika::memory::CudaMMVector<ItemType> m_data; /**< Data vector storing the extra dynamic data for each cell. */
 
@@ -58,9 +74,9 @@ namespace exanb
 		 * @param p The index of the particle in the cell.
 		 * @return The number of items associated with the particle.
 		 */
-		inline size_t particle_number_of_items( size_t p ) const
+		inline UIntType particle_number_of_items( size_t p ) const
 		{
-			return std::get<1> (m_info[p]);
+			return m_info[p].size;
 		}
 
 		/**
@@ -72,7 +88,7 @@ namespace exanb
 		 */
 		inline void push_back( const UIntType id, const std::vector<ItemType>& ppf )
 		{
-			if(	m_info.size() == 0 )
+			if(  m_info.size() == 0 )
 			{
 				InfoType new_info = {0, ppf.size(), id};
 				m_info.push_back( new_info );
@@ -80,7 +96,7 @@ namespace exanb
 			else
 			{
 				const auto & last = m_info.back();
-				const unsigned int offset = std::get<0> (last) + std::get<1> (last);
+				const unsigned int offset = last.offset + last.size;
 				InfoType new_info = {offset, ppf.size(), id};
 				m_info.push_back( new_info );
 			}
@@ -122,7 +138,8 @@ namespace exanb
 			}
 
 			m_info.resize (n_particles);
-			m_info.assign (n_particles, {0,0,UIntType(-1)});
+			//m_info.assign (n_particles, {0,0,0});
+			//m_info.assign (n_particles, {0,0,UIntType(-1)});
 		}
 
 		inline void clear()
@@ -162,7 +179,7 @@ namespace exanb
 		 * @brief Computes the total storage size in bytes.
 		 * @return The total storage size in bytes.
 		 */
-		inline const size_t storage_size() const
+		inline size_t storage_size() const
 		{
 			return m_data.size() * sizeof(ItemType) + m_info.size() * sizeof(InfoType);
 		}
@@ -179,9 +196,9 @@ namespace exanb
 			const size_t info_size = m_info.size() * sizeof(InfoType);
 			const size_t data_size = m_data.size() * sizeof(ItemType);
 
-			const char * const __restrict__ info_ptr   = (const char*) onika::cuda::vector_data( m_info );
-			const char * const __restrict__ data_ptr   = (const char*) onika::cuda::vector_data( m_data );
-			char * __restrict__ buffer_ptr = (char*) buffer;
+			const uint8_t * const __restrict__ info_ptr   = (const uint8_t*) onika::cuda::vector_data( m_info );
+			const uint8_t * const __restrict__ data_ptr   = (const uint8_t*) onika::cuda::vector_data( m_data );
+			uint8_t * __restrict__ buffer_ptr = (uint8_t*) buffer;
 
 			// cast ptr in UIntType to store the number of particles and items
 			UIntType * __restrict__ buffer_ptr_global_info = (UIntType*) buffer_ptr;
@@ -191,10 +208,15 @@ namespace exanb
 			const unsigned int global_info_shift = 2 * sizeof(UIntType);
 
 			assert ( migration_test::check_info_consistency( m_info.data(), m_info.size() ));  
+			assert ( migration_test::check_info_value( m_info.data(), m_info.size() , 1e6 )); // check number of item
 
 			// first offset, then type T
 			std::copy ( info_ptr, info_ptr + info_size, buffer_ptr + global_info_shift );
 			std::copy ( data_ptr, data_ptr + data_size, buffer_ptr + global_info_shift + info_size );
+
+			// re-check
+			[[maybe_unused]] InfoType * __restrict__ check_ptr = (InfoType*)(buffer_ptr + global_info_shift);
+			assert ( migration_test::check_info_value( check_ptr, m_info.size() , 1e6  )); // check number of item
 		}
 
 		/**
@@ -204,18 +226,18 @@ namespace exanb
 		inline void decode_buffer_to_cell ( void* buffer)
 		{
 			// cast ptr
-			const char* buff_ptr = (const char *) buffer;
+			const UIntType* buff_ptr = (const UIntType*) buffer;
 
 			// first two variables contains the number of particles and the second one contains the number of items (it could be deduced from offset)
-			UIntType n_particles = ((UIntType *) buffer) [0];
-			UIntType n_items     = ((UIntType *) buffer) [1];
+			UIntType n_particles = buff_ptr [0];
+			UIntType n_items     = buff_ptr [1];
 
 			if ( n_particles == 0 && m_info.size() == 0)
 			{
 				this->clear();
 				return;
 			}
-			//auto& last = m_info.size() > 0 ? m_info.back() : {0,0,0};	 // only used in the next line		
+			//auto& last = m_info.size() > 0 ? m_info.back() : {0,0,0};   // only used in the next line    
 			// resize data
 			m_info.resize(n_particles);
 			m_data.resize(n_items);
@@ -226,26 +248,27 @@ namespace exanb
 			InfoType * const __restrict__ info_ptr = onika::cuda::vector_data( m_info );
 			ItemType * const __restrict__ data_ptr = onika::cuda::vector_data( m_data );
 
-
 			// get buffer pointers
-			const UIntType first_info = 2 * sizeof(UIntType);
-			const UIntType first_data = first_info + info_size * sizeof(InfoType); 
-			const InfoType * const __restrict__ buff_info_ptr = (const InfoType*) (buff_ptr + first_info);
-			const ItemType * const __restrict__ buff_data_ptr = (const ItemType*) (buff_ptr + first_data);
+      auto [buff_global, buff_info_ptr, buff_data_ptr] = decode_pointers<ItemType> (buffer, n_particles);
+
+			// Some checks
+			assert ( migration_test::check_info_consistency( buff_info_ptr, info_size));  
+			assert ( migration_test::check_info_value( buff_info_ptr, info_size , 1e6 )); // check number of item
 
 			// first informaions, then items
 			std::copy ( buff_info_ptr, buff_info_ptr + info_size, info_ptr );
 			std::copy ( buff_data_ptr, buff_data_ptr + data_size, data_ptr );
 		}
 
-		inline void append_data_stream_range (const void* buffer, size_t start, size_t end)
+		inline void append_data_stream_range (const uint8_t* buffer, size_t start, size_t end)
 		{
+/*
 			if( start == 0 && end == 0 && this->number_of_particles() == 0 )
 			{
 				m_data.clear();
 				return;
 			}
-
+*/
 			if ( start >= end ) return;
 
 			// resize info vector to add new infos
@@ -254,35 +277,26 @@ namespace exanb
 			m_info.resize(new_info_size);
 
 			// compute shift pointers for info and data vectors
-			 UIntType * const __restrict__ buff      = ( UIntType*) buffer;
-			 UIntType buff_n_particles = buff[0];
-			 InfoType * const __restrict__ buff_info = ( InfoType*) (buff + 2);
-			 ItemType * const __restrict__ buff_data = ( ItemType*) (buff_info + buff_n_particles);
-
-			for(size_t i = 0 ; i < buff[0] ; i++)
-			{
-				if(i == 0) std::get<0> (buff_info[i]) = 0;
-				else
-				{
-					const size_t lastIdx = i - 1;
-					const auto [last_offset, last_size, id] = buff_info[lastIdx];
-					std::get<0> (buff_info[i]) = last_offset + last_size;
-				}
-			}
-			assert ( migration_test::check_info_doublon    ( buff_info, buff_n_particles));
-			assert ( migration_test::check_info_consistency( buff_info, buff_n_particles));
+			const UIntType * const buff      = ( UIntType*) buffer;
+			const UIntType buff_n_particles = buff[0];
+			[[maybe_unused]] const UIntType buff_n_items = buff[1];
+	
+		// get buffer pointers
+      const auto [buff_global, buff_info, buff_data] = decode_pointers<ItemType> ((void*)buffer, buff_n_particles);
+			assert ( migration_test::check_info_value( buff_info, buff_n_particles, 1e6) && "too many items for one particle, error"); // check the number of items per info
 
 			// copy new information and update offset to fit with the current cell extra data storage
 			// sizes and ids do not change
 			std::copy ( buff_info + start, buff_info + end , m_info.data() + old_info_size);
-			for(size_t i = 0 ; i < end - start ; i++)
+			for(size_t i = 0 ; i < (end - start) ; i++)
 			{
-				if(old_info_size + i == 0) std::get<0> (m_info[old_info_size + i]) = 0;
-				else
+				const size_t idx = old_info_size + i;
+				if(idx == 0) m_info[idx].offset = 0;
+				else // idx > 0
 				{
-					const size_t lastIdx = old_info_size + i - 1;
+					const size_t lastIdx = idx - 1;
 					const auto [last_offset, last_size, id] = m_info[lastIdx];
-					std::get<0> (m_info[old_info_size + i]) = last_offset + last_size;
+					m_info[idx].offset = last_offset + last_size;
 				}
 			}
 
@@ -290,17 +304,20 @@ namespace exanb
 			assert ( migration_test::check_info_consistency( m_info.data(), m_info.size() ));
 
 			// define item range [first, last] | note: last particle idx = end-1 
-			UIntType first_item = std::get<0> (buff_info[start]);
-			UIntType last_item  = std::get<0> (buff_info[end -1] ) + std::get<1> (buff_info[end-1]);
+			UIntType first_item = buff_info[start].offset;
+			UIntType last_item  = buff_info[end - 1].offset + buff_info[end-1].size;
 			UIntType new_items_to_append = last_item - first_item;
 
-			if( new_items_to_append == 0 ) return;			 
+			//if( buff_n_items != new_items_to_append ) std::cout << buff_n_items << " != " << new_items_to_append  << " start " << start << "end " << end << " values " << buff_info[start].offset << " " << buff_info[end - 1].offset   << " " << buff_info[end-1].size << std::endl;
+			assert ( buff_n_items >= new_items_to_append );
 
-			size_t old_data_size = m_data.size();
+			if( new_items_to_append == 0 ) return;       
 
-			// now resize data and copy new data in this memory place 
-			m_data.resize(m_data.size() + new_items_to_append);
-			std::copy ( buff_data + first_item , buff_data + last_item , m_data.data() + old_data_size);	
+			const size_t old_data_size = m_data.size();
+
+			// now resize data and copy new data in this memory place
+			m_data.resize(old_data_size + new_items_to_append);
+			std::copy ( buff_data + first_item , buff_data + last_item , m_data.data() + old_data_size);  
 		}
 
 		/**
@@ -308,11 +325,10 @@ namespace exanb
 		 * @param p The index of the particle.
 		 * @return A tuple containing a pointer to the particle data and the size of the data.
 		 */
-		ONIKA_HOST_DEVICE_FUNC inline UIntType particle_id(const unsigned int p) const
+		ONIKA_HOST_DEVICE_FUNC inline uint64_t particle_id(const unsigned int p) const
 		{
-			const ItemType * const __restrict__ data_ptr = onika::cuda::vector_data( m_data );
 			const InfoType * const __restrict__ info_ptr = onika::cuda::vector_data( m_info );
-			return std::get<2> (info_ptr[p]);
+			return info_ptr[p].pid;
 		}
 
 		/**
@@ -320,10 +336,10 @@ namespace exanb
 		 * @param p The index of the particle.
 		 * @return A tuple containing a pointer to the particle data and the size of the data.
 		 */
-		ONIKA_HOST_DEVICE_FUNC inline UIntType particle_id(const unsigned int p) 
+		ONIKA_HOST_DEVICE_FUNC inline uint64_t particle_id(const unsigned int p) 
 		{
 			InfoType * const __restrict__ info_ptr = onika::cuda::vector_data( m_info );
-			return std::get<2> (info_ptr[p]);
+			return info_ptr[p].pid;
 		}
 
 
@@ -365,49 +381,74 @@ namespace exanb
 		template<typename Func>
 			inline void compress_data(const Func& save_data)
 			{
+				if(m_info.size() == 0) return;
 				if(m_data.size() == 0) return;
 				// compress for each particle
 				UIntType cur_off = 0;
-				int itData = 0;
+				size_t itData = 0;
 				// this function do not conserve the same data order per particle.
 				for(size_t i = 0 ; i < m_info.size() ; i++)
 				{
-					auto& [offset, size, id] = m_info[i];
 					UIntType acc = 0;
-
-					size_t last_item = offset + size;
-					size_t first_item = offset;
-
+					size_t first_item = m_info[i].offset;
+					size_t last_item = m_info[i].offset + m_info[i].size;
 					for (size_t it = first_item ; it < last_item ; it++)
 					{
 						assert ( it < m_data.size() );
 						if ( save_data( m_data[it] ) )
 						{
 							assert ( itData <= it );
-							m_data[itData++] = std::move(m_data[it]);
 							//m_data[itData++] = std::move(m_data[it]);
+							m_data[itData++] = m_data[it];
 							acc++;
 						}
 					}
 					// update new information
-					offset = cur_off;
-					size = acc;
-					cur_off += acc;
-
+					m_info[i].offset = cur_off;
+					m_info[i].size = acc;
+					cur_off += acc; 
 				}
 
-				m_data.resize(itData);
+	  		m_data.resize(itData);
 
 				// some tests
+		    check_info_consistency();
+		    check_info_value();
+/*
 				[[maybe_unused]] auto [last_offset, last_size, last_id] = m_info.back();
 				assert ( itData == last_offset + last_size );
-				assert ( check_info_consistency() );	
+*/
 			}
 
-
+		/**
+		 * @brief Checks the consistency of the information stored in the storage.
+		 * This function checks the consistency of the information stored in the storage.
+		 * It verifies whether the information is consistent across all particles and returns true if consistent,
+		 * indicating that the data is correctly structured and organized.
+		 * @return True if the information is consistent across all particles, false otherwise.
+		 */
 		inline bool check_info_consistency()
 		{
 			return migration_test::check_info_consistency( m_info.data(), m_info.size() );  
+		}
+
+		/** @brief test if the number of items per particle doesn't exceed 1e6.
+		 * @return True the number of items per particle doesn't exceed 1e6, false otherwise.
+		 */
+		inline bool check_info_value()
+		{
+			constexpr UIntType limit = 1e6; // maximal number of item allowed for one particle.
+			return migration_test::check_info_value ( m_info.data(), m_info.size(), limit );
+		}
+
+		/** @brief active all tests availables.
+		 * @return True if the information is consistent across all particles and the number of items per particle doesn't exceed 1e6, false otherwise.
+		 */
+		inline bool check()
+		{
+			bool consistency = this->check_info_consistency();
+			bool value       = this->check_info_value();
+			return consistency && value;
 		}
 	};
 
@@ -417,7 +458,7 @@ namespace exanb
 	 * @tparam T The type of extra data stored in each cell.
 	 */
 	template<typename ItemType>
-		struct GridExtraDynamicDataStorageT	
+		struct GridExtraDynamicDataStorageT  
 		{
 			onika::memory::CudaMMVector< CellExtraDynamicDataStorageT< ItemType > > m_data; /**< Memory-managed vector storing extra dynamic data storage for each cell. */
 			GridExtraDynamicDataStorageT() {};

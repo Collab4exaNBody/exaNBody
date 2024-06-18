@@ -128,7 +128,7 @@ namespace exanb
 
     //amount of substance
     static inline constexpr UnitDefinition mol                = { AMOUNT   , 1.0                     , "mol"      , "mol" };
-    static inline constexpr UnitDefinition particle           = { AMOUNT   , (1/6.02214076)*1.0e23   , "particle" , "particle" };
+    static inline constexpr UnitDefinition particle           = { AMOUNT   , 1.0e-23 / 6.02214076    , "particle" , "particle" }; 
 
     //luminous intensity
     static inline constexpr UnitDefinition candela            = { LUMINOUS , 1.0                     , "cd"       , "candela" };
@@ -231,6 +231,7 @@ namespace exanb
     static inline constexpr units::UnitDefinition elementary_charge = units::elementary_charge;
     static inline constexpr units::UnitDefinition kelvin = units::kelvin;
     static inline constexpr units::UnitDefinition particle = units::particle;
+    static inline constexpr units::UnitDefinition mol = units::mol;
     static inline constexpr units::UnitDefinition candela = units::candela;
     static inline constexpr units::UnitDefinition radian = units::radian;
   };

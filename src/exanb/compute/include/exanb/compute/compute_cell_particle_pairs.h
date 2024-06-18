@@ -138,8 +138,9 @@ namespace exanb
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
-    using CellT = typename GridT::CellParticles;
-    using CellsAccessorT = std::conditional_t< field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT> , GridParticleFieldAccessor< CellT * const > , CellT * const >;
+    using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
+    static constexpr bool has_external_or_optional_fields = field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT>;    
+    using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
 
     const double rcut2 = rcut * rcut;
@@ -175,11 +176,12 @@ namespace exanb
     
     
     auto cellprof = grid.cell_profiler();
-    CellsAccessorT cells = { grid.cells() };
+    CellsAccessorT cells = {};
+    if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
+    else cells = grid.cells();
         
 #   define _XNB_CHUNK_NEIGHBORS_CCPP(CS) \
     { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
-      using CSType = std::remove_cv_t< std::remove_reference_t<decltype(cs)> >;\
       if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
         return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
     }

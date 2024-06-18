@@ -30,242 +30,227 @@ under the License.
 namespace onika
 {
 
-namespace soatl
-{
-
-  // forward declaration for friend types
-  template<size_t _Alignment, size_t _ChunkSize,typename _Allocator, size_t nsp, typename... ids > struct FieldArraysWithAllocator;
-
-
-  // ================ Field Arrays Storage Size Calculator =========================
-  template<size_t _C> using ChkSz = cst::chunk<_C>;
-  template<size_t _A> using AlSz = cst::align<_A>;
-
-  // represents a succession of element types having the same byte size
-  template<size_t _ElementSize, size_t _Repeats, class CS, class AL
-         , bool UsePadding = ( (_ElementSize*CS::value) % AL::value != 0 ) >
-  struct PFASizeCalculatorItem;
-
-  template<size_t _ElementSize, size_t _Repeats, size_t _C , size_t _A>  
-  struct PFASizeCalculatorItem<_ElementSize,_Repeats, ChkSz<_C> , AlSz<_A> , true >
+  namespace soatl
   {
-    static constexpr bool UsePadding = true;
-    static constexpr size_t Alignment = _A;
-    static constexpr size_t ChunkSize = _C;
-    static constexpr size_t ElementSize = _ElementSize;
-    static constexpr size_t Repeats = _Repeats;
-    ONIKA_HOST_DEVICE_FUNC static inline size_t storage_size( size_t capacity )
+
+    namespace pfa_details
     {
-	    static constexpr size_t AlignmentLowMask = Alignment - 1;
-	    static constexpr size_t AlignmentHighMask = ~AlignmentLowMask;
-      return Repeats * ( ( ( capacity * ElementSize ) + AlignmentLowMask ) & AlignmentHighMask );
-    }
-  };
-
-  template<size_t _ElementSize, size_t _Repeats, size_t _C , size_t _A>  
-  struct PFASizeCalculatorItem<_ElementSize,_Repeats, ChkSz<_C> , AlSz<_A> , false >
-  {
-    static constexpr bool UsePadding = false;
-    static constexpr size_t Alignment = _A;
-    static constexpr size_t ChunkSize = _C;
-    static constexpr size_t ElementSize = _ElementSize;
-    static constexpr size_t Repeats = _Repeats;
-    ONIKA_HOST_DEVICE_FUNC static inline size_t storage_size( size_t capacity )
-    {
-#     ifndef NDEBUG
-      using padded_calculator = PFASizeCalculatorItem<ElementSize,Repeats, cst::chunk<ChunkSize> , cst::align<Alignment>,true>;
-#     endif
-      static_assert( (ElementSize*ChunkSize) % Alignment == 0 , "inconsistent ChunkSize/Alignment for no padding option");
-      assert( capacity % ChunkSize == 0 );
-      assert( padded_calculator::storage_size(capacity) == capacity * ( Repeats * ElementSize ) );
-      return capacity * ( Repeats * ElementSize );
-    }
-  };
-
-  // array size calculator item merge strategy
-  template<class Item1 , class Item2 ,
-  // do we need padding
-  bool padding = ( (Item1::ElementSize*Item1::ChunkSize) % Item1::Alignment != 0 ) || ( (Item2::ElementSize*Item2::ChunkSize) % Item2::Alignment != 0 ) >
-  struct Merge2PFAItems
-  {
-    static constexpr bool is_valid = ( Item1::ElementSize == Item2::ElementSize );
-    static_assert( Item1::ChunkSize == Item2::ChunkSize , "Items chunksize mismatch" );
-    static_assert( Item1::Alignment == Item2::Alignment , "Items alignment mismatch" );
-    using type = PFASizeCalculatorItem< Item1::ElementSize , Item1::Repeats+Item2::Repeats , ChkSz<Item1::ChunkSize> , AlSz<Item1::Alignment> >;
-  };
-  // specialization where none of items need padding for the next pointer to be aligned
-  // in this case, size computation can be factorized
-  template<class Item1 , class Item2>
-  struct Merge2PFAItems<Item1,Item2,false>
-  {
-    static constexpr bool is_valid = true;
-    static_assert( Item1::ChunkSize == Item2::ChunkSize , "Items chunksize mismatch" );
-    static_assert( Item1::Alignment == Item2::Alignment , "Items alignment mismatch" );
-    using type = PFASizeCalculatorItem< Item1::ElementSize*Item1::Repeats+Item2::ElementSize*Item2::Repeats ,1, ChkSz<Item1::ChunkSize> , AlSz<Item1::Alignment> >;
-  };
-  template<class Item1 , class Item2> using merge_pfa_items_t = typename Merge2PFAItems<Item1,Item2>::type;
-  template<class Item1 , class Item2> inline constexpr bool mergeable_pfa_items_v = Merge2PFAItems<Item1,Item2>::is_valid;
-
-  // placeholder for a set of PFASizeCalculatorItem
-  template<typename... Items> struct PFASizeCalculatorItems {};
-
-  // Prepend an item to a list of items 
-  template<typename Item1, typename Items> struct PFASizeCalculatorItemsPrepend;
-  template<typename Item1, typename... Items>
-  struct PFASizeCalculatorItemsPrepend< Item1 , PFASizeCalculatorItems<Items...> >
-  {
-    using type = PFASizeCalculatorItems< Item1, Items... >;
-  };
-  template<typename Item1, typename Items> using prepend_pfasci_t = typename PFASizeCalculatorItemsPrepend<Item1,Items>::type;
-
-  template<typename Fids, size_t, size_t> struct PFASizeCalculatorItemsFromIdsRaw;
-  template<size_t _C,size_t _A, typename... ids> struct PFASizeCalculatorItemsFromIdsRaw< FieldIds<ids...> , _C , _A >
-  {
-    using type = PFASizeCalculatorItems< PFASizeCalculatorItem<sizeof(typename FieldId<ids>::value_type),1,ChkSz<_C>,AlSz<_A> > ...  >;
-  };
-  template<typename Fids, size_t _C, size_t _A> using pfascitems_from_fids_raw_t = typename PFASizeCalculatorItemsFromIdsRaw<Fids,_C,_A>::type;
-
-  // compact a list of PFASizeCalculatorItem by merging successive items with the same ElementSize
-  template<typename Items> struct PFASizeCalculatorItemsCompacter;
-  template<> struct PFASizeCalculatorItemsCompacter< PFASizeCalculatorItems<> >
-  {
-    using type = PFASizeCalculatorItems<>;
-  };
-  template<typename Item1> struct PFASizeCalculatorItemsCompacter< PFASizeCalculatorItems<Item1> >
-  {
-    using type = PFASizeCalculatorItems<Item1>;
-  };
-  template<typename Item1,typename Item2> struct PFASizeCalculatorItemsCompacter< PFASizeCalculatorItems<Item1,Item2> >
-  {
-    static_assert( Item1::ChunkSize == Item2::ChunkSize );
-    using type = std::conditional_t<
-        mergeable_pfa_items_v<Item1,Item2>,
-        PFASizeCalculatorItems< merge_pfa_items_t<Item1,Item2> > ,
-        PFASizeCalculatorItems<Item1,Item2>
-        >;
-  };
-  template<typename Item1,typename Item2, typename... Items> struct PFASizeCalculatorItemsCompacter< PFASizeCalculatorItems<Item1,Item2,Items...> >
-  {
-    static_assert( Item1::ChunkSize == Item2::ChunkSize );
-    using type = std::conditional_t<
-        mergeable_pfa_items_v<Item1,Item2>,
-        typename PFASizeCalculatorItemsCompacter< prepend_pfasci_t< merge_pfa_items_t<Item1,Item2> , PFASizeCalculatorItems<Items...> > >::type,
-        prepend_pfasci_t< Item1, typename PFASizeCalculatorItemsCompacter< PFASizeCalculatorItems<Item2,Items...> >::type >
-        >;
-  };
-
-  // finally, we define size calculator items to be the compacted version of the set of items obtained from field ids
-  // NPS = no padding size, size abov which padding will never be added after a field array storage space
-  template<typename Fids, size_t _C, size_t _A> using pfa_size_calculator_items_from_ids_t = typename PFASizeCalculatorItemsCompacter< pfascitems_from_fids_raw_t<Fids,_C,_A> >::type;
-
-  // final field ids storage size calculator
-  template<typename PFAItems> struct PFASizeCalculator;
-  template<> struct PFASizeCalculator< PFASizeCalculatorItems<> >
-  {
-    using PFAItems = PFASizeCalculatorItems<>;
-    ONIKA_HOST_DEVICE_FUNC static inline constexpr size_t storage_size(size_t) { return 0; }
-  };
-  template<typename... Items>
-  struct PFASizeCalculator< PFASizeCalculatorItems<Items...> >
-  {
-    using PFAItems = PFASizeCalculatorItems<Items...>;
-    ONIKA_HOST_DEVICE_FUNC static inline size_t storage_size(size_t capacity)
-    {
-      return ( ... + ( Items::storage_size(capacity) ) );
-    }
-  };
-
-  template<size_t _A, typename Fids, size_t _C> using pfa_size_calculator_t = PFASizeCalculator< pfa_size_calculator_items_from_ids_t<Fids,_C,_A> >;
-
-  template<size_t _A, size_t _C, typename Fids>
-  ONIKA_HOST_DEVICE_FUNC static inline size_t pfa_storage_size(size_t capacity)
-  {
-    using calculator = pfa_size_calculator_t<_A,Fids,_C>;
-    return calculator::storage_size(capacity);
-  }
-
-  template<size_t _A, size_t _C, typename id, typename... ids>
-  ONIKA_HOST_DEVICE_FUNC static inline size_t pfa_pointer_offset(size_t capacity)
-  {
-    using preceding_fids = preceding_field_ids_t< id , ids... >;
-    using calculator = pfa_size_calculator_t<_A,preceding_fids,_C>;
-    return calculator::storage_size(capacity);
-  }
-
-
-
-
-  /**************************************
-   *** Packed field arrays allocators ***
-   **************************************/
-
-  class PackedFieldArraysAllocator
-  {
-  public:
-    virtual size_t allocation_bytes(size_t n_elements) const =0;
-    virtual void* allocate(size_t n_elements) const =0;
-    virtual void deallocate(void* ptr, size_t n_elements) const =0;
-    virtual bool is_gpu_addressable(void* ptr, size_t n_elements) const =0;
-    virtual bool allocates_gpu_addressable() const =0;
-    virtual void set_gpu_addressable_allocation(bool) =0;
-  };
-
-  template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class... ids>
-  class PackedFieldArraysAllocatorImpl : public PackedFieldArraysAllocator
-  {
-  public:
-    // allocator that doesn't allocate anything. it's usefull to free pointers about which we don't known allocated size
-    // BaseAllocT allocator si supposed to have specific behavior when pointer is not null and size is 0 (free without size information)
-//    using NullAllocator = PackedFieldArraysAllocatorImpl<BaseAllocT,Alignment,ChunkSize>;
     
-    PackedFieldArraysAllocatorImpl() = default;
-    virtual ~PackedFieldArraysAllocatorImpl() = default;
+      template<size_t _SZ, size_t _N> struct SizeCount
+      {
+        static constexpr size_t SIZE = _SZ;
+        static constexpr size_t N = _N;
+      };
 
-    inline PackedFieldArraysAllocatorImpl(const BaseAllocT& base_alloc) : m_alloc( base_alloc ) {}
+      template<size_t ALIGNMENT, size_t CHUNK_SIZE, class... SzCnts> struct SizeCounts
+      {
+        ONIKA_HOST_DEVICE_FUNC
+        ONIKA_ALWAYS_INLINE
+        static size_t storage_size(size_t capacity)
+        {
+          constexpr size_t CA = ALIGNMENT / CHUNK_SIZE ;
+          constexpr size_t CA_lowmask = CA - 1;
+          constexpr size_t CA_himask = ~ CA_lowmask;
+          capacity = capacity / CHUNK_SIZE;
+          return CHUNK_SIZE * ( ... + (
+		           		SzCnts::N * ( ( capacity * SzCnts::SIZE + CA - 1 ) & CA_himask )
+		                      ));
+        }
+        template<class StreamT> static inline StreamT& print(StreamT & out )
+        {
+          out<<"SizeCounts<"<<ALIGNMENT<<","<<CHUNK_SIZE;
+          ( ... , ( out<<" , (sz="<<SzCnts::SIZE<<",n="<<SzCnts::N<<")" ) );
+          out << " >\n";
+          return out;
+        }
+      };
+
+      template<size_t ALIGNMENT, size_t CHUNK_SIZE>
+      struct SizeCounts< ALIGNMENT, CHUNK_SIZE >
+      {
+        ONIKA_HOST_DEVICE_FUNC
+        ONIKA_ALWAYS_INLINE
+        static constexpr size_t storage_size(size_t capacity) { return 0; }
+        template<class StreamT>
+        static inline StreamT& print(StreamT & out )
+        {
+          out<<"SizeCounts<"<<ALIGNMENT<<","<<CHUNK_SIZE<<",empty-set>"<< "\n";
+          return out;
+        }
+      };
+
+      template<size_t ALIGNMENT, size_t CHUNK_SIZE, size_t NCA, class... SzCnts>
+      struct SizeCounts< ALIGNMENT, CHUNK_SIZE, SizeCount<ALIGNMENT/CHUNK_SIZE,NCA> , SzCnts... >
+      {
+        ONIKA_HOST_DEVICE_FUNC
+        ONIKA_ALWAYS_INLINE
+        static size_t storage_size(size_t capacity)
+        {
+          constexpr size_t CA = ALIGNMENT / CHUNK_SIZE ;
+          constexpr size_t CA_himask = ~ (CA - 1);
+          capacity = capacity / CHUNK_SIZE;
+          if constexpr ( sizeof...(SzCnts) > 0 ) return CHUNK_SIZE * ( capacity * CA * NCA + ( ... + ( SzCnts::N * ( ( capacity * SzCnts::SIZE + CA - 1 ) & CA_himask ) )) );
+          return CHUNK_SIZE * capacity * CA * NCA;
+        }
+        template<class StreamT>
+        static inline StreamT& print(StreamT & out )
+        {
+          out<<"SizeCounts<"<<ALIGNMENT<<","<<CHUNK_SIZE<<" , (sz="<< ALIGNMENT / CHUNK_SIZE <<",n="<<NCA<<")*";
+          ( ... , ( out<<" , (sz="<<SzCnts::SIZE<<",n="<<SzCnts::N<<")" ) );
+          out << " >\n";
+          return out;
+        }
+      };
+
+      template<size_t A, size_t C, class... ids>
+      ONIKA_HOST_DEVICE_FUNC
+      static inline size_t check_size_for_capacity( std::integral_constant<size_t,A> , std::integral_constant<size_t,C> , FieldIds<ids...> , size_t capacity )
+      {
+        static_assert( A >= 1 );
+        assert( capacity % C == 0 );
+        size_t N=0, S=0, P=0;
+        ( ... , (
+        	S = capacity * sizeof( typename FieldId<ids>::value_type ) ,
+	        P = ( A - ( S % A ) ) % A ,
+	        N += S + P
+        ));
+        return N;
+      }
+
+      template<size_t A, size_t C>
+      struct PFACalc
+      {
+        static_assert( A % C == 0 );
+        static constexpr size_t MAX_FIELD_SIZE = 1 + (A/C);
+        size_t size[MAX_FIELD_SIZE] = {};
+        size_t count[MAX_FIELD_SIZE] = {};
+        size_t n_sizes = 0;
+        template<class... Args> inline constexpr PFACalc( std::tuple<Args ...> )
+        {
+          constexpr size_t CA = A / C;
+          for(size_t i=0;i<MAX_FIELD_SIZE;i++) { size[i] = i; count[i] = 0; }
+          ( ... , (
+	          count[sizeof(Args)%CA] += 1 ,
+	          count[CA] += sizeof(Args)/CA
+	          ) );
+          count[0] = count[CA];
+          size[0] = size[CA];
+          count[CA] = 0;
+          for(size_t i=0;i<MAX_FIELD_SIZE;i++) if( count[i] != 0 ) { count[n_sizes]=count[i]; size[n_sizes]=size[i]; ++n_sizes; }
+        }
+      };
+
+      template< size_t A, size_t C, class ArgsTupleT , size_t... I>
+      static constexpr auto make_size_counts( std::integral_constant<size_t,A> , std::integral_constant<size_t,C> , ArgsTupleT , std::index_sequence<I...> )
+      {
+        constexpr PFACalc<A,C> pfa( ArgsTupleT{} );
+        using SizeCountsT = SizeCounts< A, C, SizeCount< pfa.size[I], pfa.count[I] > ... >;
+        return SizeCountsT{};
+      };
+
+      template< size_t A, size_t C, class Fids> struct MakeSizeCounts;
+      template< size_t A, size_t C, class... ids> struct MakeSizeCounts<A,C,FieldIds<ids...> >
+      {
+        using ArgsT = std::tuple< typename FieldId<ids>::value_type ... >;
+        static constexpr size_t n_sizes = PFACalc<A,C>( ArgsT{} ).n_sizes;
+        using type = decltype( make_size_counts( std::integral_constant<size_t,A>{} , std::integral_constant<size_t,C>{} , ArgsT{} , std::make_index_sequence<n_sizes>{} ) );
+      };
+
+    } // end of pfa_details
+
+    template<size_t _A, typename Fids, size_t _C> using pfa_size_calculator_t = typename pfa_details::MakeSizeCounts< _A, _C, Fids >::type;
+
+    template<size_t _A, size_t _C, typename Fids>
+    ONIKA_HOST_DEVICE_FUNC static inline size_t pfa_storage_size(size_t capacity)
+    {
+      using calculator = pfa_size_calculator_t<_A,Fids,_C>;
+      assert( calculator::storage_size(capacity) == pfa_details::check_size_for_capacity( std::integral_constant<size_t,_A>{} , std::integral_constant<size_t,_C>{} , Fids{} , capacity ) );
+      return calculator::storage_size(capacity);
+    }
+
+    template<size_t _A, size_t _C, typename id, typename... ids>
+    ONIKA_HOST_DEVICE_FUNC static inline size_t pfa_pointer_offset(size_t capacity)
+    {
+      using preceding_fids = preceding_field_ids_t< id , ids... >;
+      using calculator = pfa_size_calculator_t<_A,preceding_fids,_C>;
+      assert( calculator::storage_size(capacity) == pfa_details::check_size_for_capacity( std::integral_constant<size_t,_A>{} , std::integral_constant<size_t,_C>{} , preceding_fids{} , capacity ) );
+      return calculator::storage_size(capacity);
+    }
+
+
+
+
+    /**************************************
+     *** Packed field arrays allocators ***
+     **************************************/
+
+    class PackedFieldArraysAllocator
+    {
+    public:
+      virtual size_t allocation_bytes(size_t n_elements) const =0;
+      virtual void* allocate(size_t n_elements) const =0;
+      virtual void deallocate(void* ptr, size_t n_elements) const =0;
+      virtual bool is_gpu_addressable(void* ptr, size_t n_elements) const =0;
+      virtual bool allocates_gpu_addressable() const =0;
+      virtual void set_gpu_addressable_allocation(bool) =0;
+    };
+
+    template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class... ids>
+    class PackedFieldArraysAllocatorImpl : public PackedFieldArraysAllocator
+    {
+    public:
+      // allocator that doesn't allocate anything. it's usefull to free pointers about which we don't known allocated size
+      // BaseAllocT allocator si supposed to have specific behavior when pointer is not null and size is 0 (free without size information)
+  //    using NullAllocator = PackedFieldArraysAllocatorImpl<BaseAllocT,Alignment,ChunkSize>;
+      
+      PackedFieldArraysAllocatorImpl() = default;
+      virtual ~PackedFieldArraysAllocatorImpl() = default;
+
+      inline PackedFieldArraysAllocatorImpl(const BaseAllocT& base_alloc) : m_alloc( base_alloc ) {}
+      
+      inline size_t allocation_bytes(size_t n_elements) const override final
+      {
+        return pfa_storage_size<Alignment,ChunkSize,FieldIds<ids...> >( n_elements );
+      }
+      inline void* allocate(size_t n_elements) const override final
+      {
+        return m_alloc.allocate( allocation_bytes(n_elements) , Alignment );
+      }
+      inline void deallocate(void* ptr, size_t n_elements) const override final
+      {
+        m_alloc.deallocate( ptr , allocation_bytes(n_elements) );
+      }
+      inline bool is_gpu_addressable(void* ptr, size_t n_elements) const override final
+      {
+        return m_alloc.is_gpu_addressable( ptr , allocation_bytes(n_elements) );
+      }
+      inline bool allocates_gpu_addressable() const override final
+      {
+        return m_alloc.allocates_gpu_addressable();
+      }
+      inline void set_gpu_addressable_allocation(bool yn) override final
+      {
+        m_alloc.set_gpu_addressable_allocation( yn );
+      }
+
+      inline BaseAllocT& base_allocator() { return m_alloc; }
+    private:
+      BaseAllocT m_alloc;
+    };
+
+    template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class Fids>
+    struct PackedFieldArraysAllocatorImplFromFieldIds;
     
-    inline size_t allocation_bytes(size_t n_elements) const override final
+    template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class... ids>
+    struct PackedFieldArraysAllocatorImplFromFieldIds<BaseAllocT,Alignment,ChunkSize, FieldIds<ids...> >
     {
-      return pfa_storage_size<Alignment,ChunkSize,FieldIds<ids...> >( n_elements );
-    }
-    inline void* allocate(size_t n_elements) const override final
-    {
-      return m_alloc.allocate( allocation_bytes(n_elements) , Alignment );
-    }
-    inline void deallocate(void* ptr, size_t n_elements) const override final
-    {
-      m_alloc.deallocate( ptr , allocation_bytes(n_elements) );
-    }
-    inline bool is_gpu_addressable(void* ptr, size_t n_elements) const override final
-    {
-      return m_alloc.is_gpu_addressable( ptr , allocation_bytes(n_elements) );
-    }
-    inline bool allocates_gpu_addressable() const override final
-    {
-      return m_alloc.allocates_gpu_addressable();
-    }
-    inline void set_gpu_addressable_allocation(bool yn) override final
-    {
-      m_alloc.set_gpu_addressable_allocation( yn );
-    }
-
-    inline BaseAllocT& base_allocator() { return m_alloc; }
-  private:
-    BaseAllocT m_alloc;
-  };
-
-  template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class Fids>
-  struct PackedFieldArraysAllocatorImplFromFieldIds;
-  
-  template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class... ids>
-  struct PackedFieldArraysAllocatorImplFromFieldIds<BaseAllocT,Alignment,ChunkSize, FieldIds<ids...> >
-  {
-    using type = PackedFieldArraysAllocatorImpl<BaseAllocT,Alignment,ChunkSize,ids...>;
-  };
-  template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class Fids>
-  using pfa_allocator_impl_from_field_ids_t = typename PackedFieldArraysAllocatorImplFromFieldIds<BaseAllocT,Alignment,ChunkSize,Fids>::type;
+      using type = PackedFieldArraysAllocatorImpl<BaseAllocT,Alignment,ChunkSize,ids...>;
+    };
+    template<class BaseAllocT, size_t Alignment, size_t ChunkSize, class Fids>
+    using pfa_allocator_impl_from_field_ids_t = typename PackedFieldArraysAllocatorImplFromFieldIds<BaseAllocT,Alignment,ChunkSize,Fids>::type;
 
 
-} // namespace soatl
+  } // namespace soatl
 
 } // namespace onika
 

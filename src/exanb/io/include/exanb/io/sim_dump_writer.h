@@ -41,10 +41,9 @@ under the License.
 namespace exanb
 {
   
-  template<uint64_t _VER>
   struct SimDumpInitializer
   {
-    SimDumpHeader<_VER> & m_header;
+    SimDumpHeader & m_header;
 
     template<class FieldId,class T>
     inline void operator () ( FieldId , T )
@@ -119,13 +118,13 @@ namespace exanb
     lout << "============ "<< basename <<" ============" << std::endl ;
 
     // number of threads used for compression
-    SimDumpHeader<> header = {};
+    SimDumpHeader header = {};
     const unsigned int compression_threads = omp_get_max_threads();
     lout << "compr. level   = "<<compression_level <<std::endl
          << "compr. threads = "<< compression_threads <<std::endl;
 
     // initialize header
-    StorageTuple{}.apply_fields( SimDumpInitializer<header.VERSION>{header} );
+    StorageTuple{}.apply_fields( SimDumpInitializer{header} );
     header.m_tuple_size = sizeof(StorageTuple);
     header.m_domain = domain;
     header.m_time = phystime;

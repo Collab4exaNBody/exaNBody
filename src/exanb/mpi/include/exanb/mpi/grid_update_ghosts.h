@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/basic_types_stream.h>
@@ -25,6 +26,7 @@ under the License.
 #include <exanb/field_sets.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
+#include <exanb/core/domain.h>
 
 #include <onika/soatl/field_tuple.h>
 
@@ -67,6 +69,7 @@ namespace exanb
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
     GridT& grid,
+    const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
@@ -92,7 +95,7 @@ namespace exanb
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
-    using CellsAccessorT = GridParticleFieldAccessor<CellParticles *>;
+    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
     using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
     using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -105,7 +108,7 @@ namespace exanb
     MPI_Comm_rank(comm,&rank);
 
     CellParticles* cells = grid.cells();
-    CellsAccessorT cells_acc = { cells };
+    const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -144,8 +147,8 @@ namespace exanb
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
-    assert( send_pack_async.size() == nprocs );
-    assert( recv_unpack_async.size() == nprocs );
+    assert( send_pack_async.size() == size_t(nprocs) );
+    assert( recv_unpack_async.size() == size_t(nprocs) );
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
@@ -158,6 +161,8 @@ namespace exanb
       send_buf_ptr = send_staging.data();
     }
 
+    ldbg << "update ghost domain : "<<domain << std::endl;
+
     for(int p=0;p<nprocs;p++)
     {
       send_pack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
@@ -168,12 +173,13 @@ namespace exanb
 
         const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_sends.data()
-                                             , cells_acc
+                                             , grid.cells_accessor()
                                              , cell_scalars
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
                                              , ghost_comm_buffers.sendbuf_size(p)
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr 
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
+                                             , ghost_boundary
                                              , update_fields };
 
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
@@ -252,6 +258,7 @@ namespace exanb
           const auto cell_input = ghost_cell_receive_info(cell_input_it);
           const size_t n_particles = cell_input.m_n_particles;
           const size_t cell_i = cell_input.m_cell_i;
+          assert( grid.is_ghost_cell(cell_i) );
           assert( /*cell_i>=0 &&*/ cell_i<n_cells );
           assert( cells[cell_i].empty() );
           cells[cell_i].resize( n_particles , grid.cell_allocator() );
@@ -264,12 +271,19 @@ namespace exanb
       m_unpack_functors[p] = UnpackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data()
                                         , comm_scheme.m_partner[p].m_receive_offset.data()
                                         , (p!=rank) ? ghost_comm_buffers.recvbuf_ptr(p) : ghost_comm_buffers.sendbuf_ptr(p)
-                                        , cells_acc 
+                                        , grid.cells_accessor() 
                                         , cell_scalar_components 
                                         , cell_scalars
                                         , ghost_comm_buffers.recvbuf_size(p)
                                         , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr
-                                        , update_fields };
+                                        , update_fields
+#                                       ifndef NDEBUG
+                                        , grid.ghost_layers()
+                                        , grid.dimension()
+                                        , grid.cell_position({0,0,0})
+                                        , grid.cell_size()
+#                                       endif
+                                        };
                                         
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
       auto parallel_op = block_parallel_for( cells_to_receive, m_unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
@@ -366,6 +380,20 @@ namespace exanb
     if( CreateParticles )
     {
       grid.rebuild_particle_offsets();
+#     ifndef NDEBUG
+      double cell_size_epsilon_sq = grid.cell_size() * 1.e-3; cell_size_epsilon_sq *= cell_size_epsilon_sq;
+      for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( grid.is_ghost_cell(cell_i) )
+      {
+        const IJK cell_loc = grid.cell_ijk(cell_i);
+        const AABB cell_bounds = grid.cell_bounds(cell_loc);
+        unsigned int n_particles = cells[cell_i].size();
+        for(unsigned int p=0;p<n_particles;p++)
+        {
+          const Vec3d r = { cells[cell_i][field::rx][p] , cells[cell_i][field::ry][p] , cells[cell_i][field::rz][p] };
+          assert( is_inside_threshold( cell_bounds , r , cell_size_epsilon_sq ) );
+        }
+      }
+#     endif
     }
 
     ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  

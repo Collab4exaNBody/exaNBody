@@ -61,14 +61,20 @@ namespace exanb
     static constexpr bool has_particle_stop  = compute_pair_traits::has_particle_context_stop_v<FuncT>;
     static constexpr bool has_particle_ctx   = compute_pair_traits::has_particle_context_v<FuncT>;
     
-    static constexpr bool use_compute_buffer = (PreferComputeBuffer || has_particle_start || has_particle_stop) && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
+    static constexpr bool use_compute_buffer = PreferComputeBuffer && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
     static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
     static constexpr size_t nbh_fields_count = onika::tuple_size_const_v< NbhFields >;
-    static_assert( nbh_fields_count==0 || use_compute_buffer , "Neighbor field auto packaging is only supported when using compute bufer by now." );
+    static_assert( nbh_fields_count==0 || use_compute_buffer , "Neighbor field auto packaging is only supported when using compute buffer by now." );
 
-    using ComputePairBufferT = std::conditional_t< use_compute_buffer || has_particle_ctx || has_particle_start || has_particle_stop, typename ComputePairBufferFactoryT::ComputePairBuffer , onika::BoolConst<false> >;
+    using ComputePairBufferT = std::conditional_t< use_compute_buffer 
+                                                 , typename ComputePairBufferFactoryT::ComputePairBuffer
+                                                 , std::conditional_t< has_particle_ctx || has_particle_start || has_particle_stop
+                                                                     , typename ComputePairBufferFactoryT::ComputePairBuffer::ContextWithoutBuffer
+                                                                     , onika::BoolConst<false>
+                                                                     >
+                                                 >;
         
     const auto RX = pos_fields.e0;
     const auto RY = pos_fields.e1;
@@ -99,32 +105,24 @@ namespace exanb
       tab.cell = cell_a;
     }
 
-    // central particle's coordinates
+    // pointers to central particle's coordinates
     const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX);
     const double* __restrict__ ry_a = cells[cell_a].field_pointer_or_null(RY);
     const double* __restrict__ rz_a = cells[cell_a].field_pointer_or_null(RZ);
 
-/*    
-    using pointer_tuple_t = std::remove_cv_t< std::remove_reference_t< decltype( onika::make_flat_tuple( cells[cell_a].field_pointer_or_null( cp_fields.get(onika::tuple_index_t<FieldIndex>{}) ) ... ) ) > >;
-    ONIKA_CU_BLOCK_SHARED pointer_tuple_t cell_a_arrays;
-    if( ONIKA_CU_THREAD_IDX == 0 )
-    {
-      cell_a_arrays = onika::make_flat_tuple( cells[cell_a].field_pointer_or_null( cp_fields.get(onika::tuple_index_t<FieldIndex>{}) ) ... );
-    }
-    ONIKA_CU_BLOCK_SYNC();
-*/
-
+    // chunk neighbors data stream
     const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
     const uint16_t* stream_base = stream_info.stream;
     const uint16_t* __restrict__ stream = stream_base;
     const uint32_t* __restrict__ particle_offset = stream_info.offset;
     const int32_t poffshift = stream_info.shift;
 
+    // pointers to neighbor particle's coordinates
     const double* __restrict__ rx_b = nullptr;
     const double* __restrict__ ry_b = nullptr;
     const double* __restrict__ rz_b = nullptr;
     
-    // decode state machine variables
+    // decode neighbors sream variables
     unsigned int stream_last_p_a = 0;
     int cell_groups = 0;
     int nchunks = 0;
