@@ -28,6 +28,7 @@ under the License.
 
 // associates a number of threads to a set of regular expressions selecting targeted operators' pathnames
 using StringVector = std::vector<std::string>;
+using StringIntMap = std::map<std::string,int>;
 using UInt64Vector = std::vector<uint64_t>;
 using IntVector = std::vector<long>;
 
@@ -104,6 +105,7 @@ xsv2ConfigBegin( configuration                                , "exaStampV2 conf
   xsv2ConfigItem( int           , omp_num_threads     , -1    , "number of OpenMP threads (-1 means default)");
   xsv2ConfigItem( int           , omp_max_nesting     , -1    , "maximum nesting level for OpenMP nested parallelism");
   xsv2ConfigItem( bool          , omp_nested          , false , "enables OpenMP nesting");
+  xsv2ConfigItem( StringIntMap  , omp_max_threads_filter      , {}                             , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
 
   xsv2ConfigItem( std::string   , plugin_dir          , USTAMP_PLUGIN_DIR , "plugin directory");  
   xsv2ConfigItem( std::string   , plugin_db           , ""    , "plugin dictionary file");

@@ -43,6 +43,7 @@ namespace exanb
     static inline constexpr void initialize( size_t ) {}
     inline NullCellParticleOptionalBuffer* otb_buffer() { return &m_null_buffer; }
     inline NullCellParticleOptionalBuffer* cell_buffer( size_t ) { return &m_null_buffer; }
+    inline bool check() { return true; }
     static inline constexpr void pack_cell_particles( size_t, const std::vector<int32_t> &, bool removed_particles = true ){}
   };
 
@@ -199,6 +200,7 @@ namespace exanb
       GRID_OMP_FOR_END
     }
 
+		assert( opt_buffer.check() );
     assert( total_particles == expected_total_particles );
     ldbg<<"total particles = "<<total_particles<<std::endl;
     ldbg<<"outgoing (total/min/max) = "<<outgoing_particles<<"/"<<out_min<<"/"<<out_max<< std::endl;

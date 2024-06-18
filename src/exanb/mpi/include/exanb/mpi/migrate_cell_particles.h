@@ -61,6 +61,7 @@ under the License.
 #define TIC_TOC_M(mesg) do{}while(0)
 #endif
 
+
 namespace exanb
 {
 
@@ -75,6 +76,7 @@ namespace exanb
     static inline constexpr void swap_otb_particles( size_t, size_t) {}
     static inline constexpr size_t storage_size_for_otb_range(size_t, size_t) { return 0; }
     static inline constexpr size_t serialize_otb_range( void*, size_t, size_t) { return 0; }
+    static inline constexpr bool check() { return true; }
     template<class CellIndexFuncT, class CellLockFuncT, class CellUnlockFuncT, class ParticleIdFuncT=NullParticleIdFunc>
     static inline constexpr void append_data_stream(const void*,size_t,size_t,CellIndexFuncT,CellLockFuncT,CellUnlockFuncT,ParticleIdFuncT={}) {}
   };
@@ -279,6 +281,9 @@ namespace exanb
       {
         ldbg << "migrate cell values with "<< cell_scalar_components << " components"<<std::endl;
       }
+
+			assert( opt_data_helper.check() );
+
       // =================================
 
       // first we count number of times a cell will be used (how many processors' grid it contributes to)
@@ -565,6 +570,9 @@ namespace exanb
         // synchronize
 #       pragma omp barrier
 
+        // check optional extra data storage
+ 			  assert( opt_data_helper.check() );
+
         // at this point, all cells must have been visited and cleared.
         // all particles are copied in the send buffers
         // note : n_in_block_with_ghost_cells == grid.number_of_cells()
@@ -840,6 +848,7 @@ namespace exanb
       size_t total_particles_copied = 0;
 #     endif
 
+ 			assert( opt_data_helper.check() );
 #     pragma omp parallel
       {
 #       pragma omp single nowait
@@ -883,6 +892,10 @@ namespace exanb
       /************ compact requests to avoid null values *******************/
       std::vector<size_t> partner_idx( requests.size() , -1 );
       for(size_t i=0;i<requests.size();i++) { partner_idx[i] = i; }
+
+
+ 			assert( opt_data_helper.check() );
+
 
       /********** request wait and received pack decoding *****************/
 #     pragma omp parallel
@@ -1048,6 +1061,7 @@ namespace exanb
 #     pragma omp taskwait
 
       } // end of parallel section
+ 			assert( opt_data_helper.check() );
     
       //std::cout <<"P"<<rank<<" unpacked buffers (sync/async) = "<< n_unpacked_buffers_sync << "/"<<n_unpacked_buffers_async<<std::endl;
 
@@ -1115,6 +1129,7 @@ namespace exanb
     {
       static constexpr bool null_opt_data = std::is_same_v<OptDataMigrationT,NullOptionalParticleDataMigrationHelper>;
       using ParticleTuplePtrT = std::conditional_t< null_opt_data , ParticleTuple const * const __restrict__ , ParticleTuple * const __restrict__ >;
+ 			assert( opt_data_helper.check() );
     
       size_t n_particles_inserted = 0;
     
@@ -1181,141 +1196,151 @@ namespace exanb
             if constexpr ( ParticleTuple::has_field( field::id ) )
             {
               auto particle_id_func = [data,opt_seq_start](size_t p) -> uint64_t { return data[opt_seq_start+p][field::id]; } ;
-              opt_data_helper.append_data_stream( & data[i] , opt_data_payload, opt_seq_len, cell_index_func, cell_lock_func, cell_unlock_func, particle_id_func );
-            }
-            if constexpr ( ! ParticleTuple::has_field( field::id ) )
-            {
-              opt_data_helper.append_data_stream( & data[i] , opt_data_payload, opt_seq_len, cell_index_func, cell_lock_func, cell_unlock_func );
-            }
 
-            i += opt_data_payload_as_particles;
-            opt_seq_start = i;
-          }
-        }
-      }
-      
-      if( cur_locked_cell != std::numeric_limits<size_t>::max() )
-      {
-        cell_locks[cur_locked_cell].unlock();
-      }
-      
-      return n_particles_inserted;
-    }
+//#ifndef NDEBUG
+/*
+							const uint64_t * buff = (uint64_t *) (&data[i]);
+							const uint64_t buff_n_particles = buff[0];
+							//uint64_t * const buff_info = ( uint64_t*) (buff + 2); std::cout << buff_n_particles << std::endl;
+							uint64_t * const buff_info = ( uint64_t*) (buff + 2); std::cout << buff_n_particles << std::endl;
+							for( uint64_t j = 0 ; j < buff_n_particles ; j++ ) assert( buff_info[3*j + 1] < uint64_t(1e6) );
+*/
+//#endif
+							opt_data_helper.append_data_stream( & data[i] , opt_data_payload, opt_seq_len, cell_index_func, cell_lock_func, cell_unlock_func, particle_id_func );
+						}
+						if constexpr ( ! ParticleTuple::has_field( field::id ) )
+						{
+							opt_data_helper.append_data_stream( & data[i] , opt_data_payload, opt_seq_len, cell_index_func, cell_lock_func, cell_unlock_func );
+						}
 
+						i += opt_data_payload_as_particles;
+						opt_seq_start = i;
+					}
+				}
+			}
 
-     // import values of cell_scalars
-    static inline void insert_cell_values(GridT& grid, const std::vector<GridCellValueType>& recv_cell_value_buffer, size_t nvalues, GridCellValues& grid_cell_values, const MergeOp& merge_func )
-    {
-      MIGRATE_CELL_PARTICLE_ASSERT( nvalues == recv_cell_value_buffer.size() );
+			if( cur_locked_cell != std::numeric_limits<size_t>::max() )
+			{
+				cell_locks[cur_locked_cell].unlock();
+			}
 
-      size_t cell_scalar_components = grid_cell_values.components();
-      GridCellValueType* cell_scalars = grid_cell_values.data().data();
-      IJK out_grid_dims = grid.dimension();
-            
-      //size_t nvalues = recv_cell_value_count[p];
-      size_t stride = cell_scalar_components + 3;
-      MIGRATE_CELL_PARTICLE_ASSERT( nvalues % stride == 0 );
-      nvalues /= stride;
-      for(size_t v=0;v<nvalues;v++)
-      {
-        IJK abs_loc { static_cast<ssize_t>(recv_cell_value_buffer[v*stride+0])
-                    , static_cast<ssize_t>(recv_cell_value_buffer[v*stride+1])
-                    , static_cast<ssize_t>(recv_cell_value_buffer[v*stride+2]) };
-        IJK grid_loc = abs_loc - grid.offset();
-        MIGRATE_CELL_PARTICLE_ASSERT( grid.contains(grid_loc) );
-        size_t cell_i = grid_ijk_to_index( out_grid_dims , grid_loc );
-        for(size_t c=0;c<cell_scalar_components;c++)
-        {
-          size_t cell_scalars_index = cell_i * cell_scalar_components + c ;
-          MIGRATE_CELL_PARTICLE_ASSERT( cell_scalars_index>=0 && cell_scalars_index < grid_cell_values.data().size() );
-          MIGRATE_CELL_PARTICLE_ASSERT( v*stride+3+c < recv_cell_value_buffer.size() );
-          
-          // cell value merge is done through the + operator
-          merge_func( cell_scalars[cell_scalars_index] , recv_cell_value_buffer[v*stride+3+c] );
-        }
-      }
-    }
+			return n_particles_inserted;
+		}
 
 
-    // ====================== send buffer management ========================
-    static inline void mark_send_buffer_end(size_t buffer_offset, ParticleBuffer& send_buffer)
-    {
-      static_assert( sizeof(ParticleTuple) >= sizeof(uint64_t) , "ParticleTuple type must be at least as large as uint64_t to hold next packet particle count" );
-      MIGRATE_CELL_PARTICLE_ASSERT( (buffer_offset+1) <= send_buffer.size() );
-      uint64_t* buffer_length_ptr = reinterpret_cast<uint64_t*>( send_buffer.data()+send_buffer.size()-1 );
-      *buffer_length_ptr = buffer_offset;
-    }
+		// import values of cell_scalars
+		static inline void insert_cell_values(GridT& grid, const std::vector<GridCellValueType>& recv_cell_value_buffer, size_t nvalues, GridCellValues& grid_cell_values, const MergeOp& merge_func )
+		{
+			MIGRATE_CELL_PARTICLE_ASSERT( nvalues == recv_cell_value_buffer.size() );
 
-    static inline void resize_send_buffer(ParticleBuffer& send_buffer)
-    {
-      static_assert( sizeof(ParticleTuple) >= sizeof(uint64_t) , "ParticleTuple type must be at least as large as uint64_t to hold next packet particle count" );
-      MIGRATE_CELL_PARTICLE_ASSERT( send_buffer.size() >= 1 );
-      const uint64_t* buffer_length_ptr = reinterpret_cast<const uint64_t*>( send_buffer.data()+send_buffer.size()-1 );
-      const uint64_t buffer_length = *buffer_length_ptr;
-      MIGRATE_CELL_PARTICLE_ASSERT( buffer_length <= (send_buffer.size()-1) );
-      send_buffer.resize( buffer_length + 1 );
-    }
+			size_t cell_scalar_components = grid_cell_values.components();
+			GridCellValueType* cell_scalars = grid_cell_values.data().data();
+			IJK out_grid_dims = grid.dimension();
 
-    static inline ParticleTuple* allocate_send_buffer_storage(size_t n_particles, size_t max_buffer_size, size_t& buffer_offset, std::list<ParticleBuffer>& send_buffers)
-    {
-      MIGRATE_CELL_PARTICLE_ASSERT( n_particles > 0 );
-      ParticleBuffer* cur_send_buffer = nullptr;
-      
-      if( send_buffers.empty() ) // first send buffer created (for partner of interest)
-      {
-        // create a new buffer 
-        size_t bufsize = std::max( max_buffer_size , n_particles ) + 1;
-        cur_send_buffer = & send_buffers.emplace_back( bufsize );
-        buffer_offset = 0;
-      }
-      else if( ( buffer_offset + n_particles ) > ( send_buffers.back().size() - 1) ) // not enough space left in current buffer for incoming particles
-      {
-        // shrink previous buffer to fit stored particles in buffer , +1 (space for buffer size end mark)
-        size_t bufsize = std::max( max_buffer_size , n_particles ) + 1;
-        // we do not actually resize it so that allocated memory pointer remains valid for on the fly tasks that are currently filling this buffer
-        
-        // resize last used buffer to fit payload
-        mark_send_buffer_end( buffer_offset , send_buffers.back() );
-        //send_buffers.back().resize(buffer_offset + 1 ); // later on, to avoid reallocating potentially in use pointer
-        
-        // create a new buffer
-        cur_send_buffer = & send_buffers.emplace_back( bufsize );
-        buffer_offset = 0;        
-      }
-      else
-      {
-        cur_send_buffer = & send_buffers.back();
-      }
+			//size_t nvalues = recv_cell_value_count[p];
+			size_t stride = cell_scalar_components + 3;
+			MIGRATE_CELL_PARTICLE_ASSERT( nvalues % stride == 0 );
+			nvalues /= stride;
+			for(size_t v=0;v<nvalues;v++)
+			{
+				IJK abs_loc { static_cast<ssize_t>(recv_cell_value_buffer[v*stride+0])
+					, static_cast<ssize_t>(recv_cell_value_buffer[v*stride+1])
+						, static_cast<ssize_t>(recv_cell_value_buffer[v*stride+2]) };
+				IJK grid_loc = abs_loc - grid.offset();
+				MIGRATE_CELL_PARTICLE_ASSERT( grid.contains(grid_loc) );
+				size_t cell_i = grid_ijk_to_index( out_grid_dims , grid_loc );
+				for(size_t c=0;c<cell_scalar_components;c++)
+				{
+					size_t cell_scalars_index = cell_i * cell_scalar_components + c ;
+					MIGRATE_CELL_PARTICLE_ASSERT( cell_scalars_index>=0 && cell_scalars_index < grid_cell_values.data().size() );
+					MIGRATE_CELL_PARTICLE_ASSERT( v*stride+3+c < recv_cell_value_buffer.size() );
 
-      ParticleTuple* buf_ptr = cur_send_buffer->data() + buffer_offset;
-      buffer_offset += n_particles;
-      return buf_ptr;
-    }
-    // =====================================================================
+					// cell value merge is done through the + operator
+					merge_func( cell_scalars[cell_scalars_index] , recv_cell_value_buffer[v*stride+3+c] );
+				}
+			}
+		}
 
 
-    // ======= lock free extra reveive buffer management ===================
-    static inline std::pair<ssize_t,ParticleBuffer*> pick_receive_buffer( std::atomic<ParticleBuffer*> * rcv_buffer_ptrs , size_t n_buffers , size_t hint=0 )
-    {
-      for( size_t j=0; j<n_buffers; ++j )
-      {
-        size_t i = ( j + hint ) % n_buffers;
-        ParticleBuffer* bufptr = rcv_buffer_ptrs[i].exchange( nullptr );
-        if( bufptr!=nullptr ) return { i , bufptr };
-      }
-      return { -1 , nullptr };
-    }
+		// ====================== send buffer management ========================
+		static inline void mark_send_buffer_end(size_t buffer_offset, ParticleBuffer& send_buffer)
+		{
+			static_assert( sizeof(ParticleTuple) >= sizeof(uint64_t) , "ParticleTuple type must be at least as large as uint64_t to hold next packet particle count" );
+			MIGRATE_CELL_PARTICLE_ASSERT( (buffer_offset+1) <= send_buffer.size() );
+			uint64_t* buffer_length_ptr = reinterpret_cast<uint64_t*>( send_buffer.data()+send_buffer.size()-1 );
+			*buffer_length_ptr = buffer_offset;
+		}
 
-    static inline void give_receive_buffer_back( std::atomic<ParticleBuffer*> * rcv_buffer_ptrs, size_t n_buffers, std::pair<ssize_t,ParticleBuffer*> p )
-    {
-      MIGRATE_CELL_PARTICLE_ASSERT( p.first>=0 && size_t(p.first)<n_buffers );
-      MIGRATE_CELL_PARTICLE_ASSERT( p.second != nullptr );
-      rcv_buffer_ptrs[ p.first ].exchange( p.second );
-    }
-    // =====================================================================
+		static inline void resize_send_buffer(ParticleBuffer& send_buffer)
+		{
+			static_assert( sizeof(ParticleTuple) >= sizeof(uint64_t) , "ParticleTuple type must be at least as large as uint64_t to hold next packet particle count" );
+			MIGRATE_CELL_PARTICLE_ASSERT( send_buffer.size() >= 1 );
+			const uint64_t* buffer_length_ptr = reinterpret_cast<const uint64_t*>( send_buffer.data()+send_buffer.size()-1 );
+			const uint64_t buffer_length = *buffer_length_ptr;
+			MIGRATE_CELL_PARTICLE_ASSERT( buffer_length <= (send_buffer.size()-1) );
+			send_buffer.resize( buffer_length + 1 );
+		}
 
-  };
-  // --- end of MigrateCellParticlesNode class ---
+		static inline ParticleTuple* allocate_send_buffer_storage(size_t n_particles, size_t max_buffer_size, size_t& buffer_offset, std::list<ParticleBuffer>& send_buffers)
+		{
+			MIGRATE_CELL_PARTICLE_ASSERT( n_particles > 0 );
+			ParticleBuffer* cur_send_buffer = nullptr;
+
+			if( send_buffers.empty() ) // first send buffer created (for partner of interest)
+			{
+				// create a new buffer 
+				size_t bufsize = std::max( max_buffer_size , n_particles ) + 1;
+				cur_send_buffer = & send_buffers.emplace_back( bufsize );
+				buffer_offset = 0;
+			}
+			else if( ( buffer_offset + n_particles ) > ( send_buffers.back().size() - 1) ) // not enough space left in current buffer for incoming particles
+			{
+				// shrink previous buffer to fit stored particles in buffer , +1 (space for buffer size end mark)
+				size_t bufsize = std::max( max_buffer_size , n_particles ) + 1;
+				// we do not actually resize it so that allocated memory pointer remains valid for on the fly tasks that are currently filling this buffer
+
+				// resize last used buffer to fit payload
+				mark_send_buffer_end( buffer_offset , send_buffers.back() );
+				//send_buffers.back().resize(buffer_offset + 1 ); // later on, to avoid reallocating potentially in use pointer
+
+				// create a new buffer
+				cur_send_buffer = & send_buffers.emplace_back( bufsize );
+				buffer_offset = 0;        
+			}
+			else
+			{
+				cur_send_buffer = & send_buffers.back();
+			}
+
+			ParticleTuple* buf_ptr = cur_send_buffer->data() + buffer_offset;
+			buffer_offset += n_particles;
+			return buf_ptr;
+		}
+		// =====================================================================
+
+
+		// ======= lock free extra reveive buffer management ===================
+		static inline std::pair<ssize_t,ParticleBuffer*> pick_receive_buffer( std::atomic<ParticleBuffer*> * rcv_buffer_ptrs , size_t n_buffers , size_t hint=0 )
+		{
+			for( size_t j=0; j<n_buffers; ++j )
+			{
+				size_t i = ( j + hint ) % n_buffers;
+				ParticleBuffer* bufptr = rcv_buffer_ptrs[i].exchange( nullptr );
+				if( bufptr!=nullptr ) return { i , bufptr };
+			}
+			return { -1 , nullptr };
+		}
+
+		static inline void give_receive_buffer_back( std::atomic<ParticleBuffer*> * rcv_buffer_ptrs, size_t n_buffers, std::pair<ssize_t,ParticleBuffer*> p )
+		{
+			MIGRATE_CELL_PARTICLE_ASSERT( p.first>=0 && size_t(p.first)<n_buffers );
+			MIGRATE_CELL_PARTICLE_ASSERT( p.second != nullptr );
+			rcv_buffer_ptrs[ p.first ].exchange( p.second );
+		}
+		// =====================================================================
+
+	};
+	// --- end of MigrateCellParticlesNode class ---
 
 }
 

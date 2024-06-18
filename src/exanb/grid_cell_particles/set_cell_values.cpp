@@ -40,14 +40,22 @@ namespace exanb
     ADD_SLOT( Domain           , domain           , INPUT , REQUIRED );
     
     ADD_SLOT( ParticleRegions  , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG, region           , INPUT_OUTPUT , OPTIONAL );
-
+    ADD_SLOT( ParticleRegionCSG, region           , INPUT_OUTPUT , OPTIONAL , DocString{"Region of the field where the value is to be applied."} );
     ADD_SLOT( GridCellValues   , grid_cell_values , INPUT_OUTPUT );
-    ADD_SLOT( long             , grid_subdiv      , INPUT , 1 );
-    ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED );
-    ADD_SLOT( DoubleVector     , value            , INPUT , DoubleVector{0.0} );
+    ADD_SLOT( long             , grid_subdiv      , INPUT , 1, DocString{"Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});
+    ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED , DocString{"Name of the field."});
+    ADD_SLOT( DoubleVector     , value            , INPUT , DoubleVector{0.0} , DocString{"List of the values affected to the field."});
 
   public:  
+
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+              This operator assigns a value to a point on a Cartesian grid, such as the velocity of a fluid. This operator can also be used to refine the grid and define different behaviors in different spatial regions. 
+                )EOF";
+    }
+
+
     inline void execute() override final
     {
       // initialization of localization based particle filter (regions and masking)
