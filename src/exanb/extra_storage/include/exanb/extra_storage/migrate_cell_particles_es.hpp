@@ -123,6 +123,7 @@ the ghost cells are always empty after this operator.
 			auto& optional_data = ges->m_data;
 			ExtraDynamicDataStorageMigrationHelper< ESType > optional_helper = { optional_data , optional_buffer };
 
+			assert( bes->check() );
 			exanb::MigrateCellParticlesImpl<GridT,CellValueMergeOperatorT>::migrate_cell_particles(
 					ldbg
 					, cptask_threshold
