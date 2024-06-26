@@ -71,25 +71,28 @@ namespace exanb
       static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
       static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
 
-      const size_t cell_a = m_cell_filter.cell_index(i);
-      const unsigned int n = m_cells[cell_a].size();
-      
-      //if( ONIKA_CU_THREAD_IDX == 0 ) printf("GPU: cell particles functor: cell #%d @%d,%d,%d : %d particles\n",int(cell_a),int(cell_a_loc.i),int(cell_a_loc.j),int(cell_a_loc.k),int(n));
-      ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
+      const size_t n_cells = m_cell_filter.cell_group_size( i );
+      for(size_t ci=0;ci<n_cells;ci++)
       {
-			  if constexpr ( call_func_without_idx )
-				{
-          static_assert( ! ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx );
-	        m_func( m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
-				}
-				else if constexpr ( call_func_with_cell_idx )
-				{
-	        m_func(cell_a, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
-				}
-				else if constexpr ( call_func_with_cell_particle_idx )
-				{
-	        m_func(cell_a, p, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
-				}
+        const size_t cell_a = m_cell_filter.cell_index(i,ci);
+        const unsigned int n = m_cells[cell_a].size();        
+        //if( ONIKA_CU_THREAD_IDX == 0 ) printf("GPU: cell particles functor: cell #%d @%d,%d,%d : %d particles\n",int(cell_a),int(cell_a_loc.i),int(cell_a_loc.j),int(cell_a_loc.k),int(n));
+        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
+        {
+			    if constexpr ( call_func_without_idx )
+				  {
+            static_assert( ! ComputeCellParticlesTraitsUseCellIdx<FuncT>::UseCellIdx );
+	          m_func( m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
+				  }
+				  else if constexpr ( call_func_with_cell_idx )
+				  {
+	          m_func(cell_a, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
+				  }
+				  else if constexpr ( call_func_with_cell_particle_idx )
+				  {
+	          m_func(cell_a, p, m_cells[cell_a][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][p] ... );
+				  }
+        }
       }
     }
   };
@@ -114,21 +117,17 @@ namespace exanb
   struct ComputeCellParticlesCellFilterDefault
   {
     IJK m_grid_dims = {0,0,0};
-    int m_ghost_layers = 0;
+    size_t m_ghost_layers = 0;
     IJK m_block_dims = m_grid_dims - (2*m_ghost_layers);
-    size_t m_number_of_cells = m_block_dims.i * m_block_dims.j * m_block_dims.k;    
-
-    inline size_t number_of_cells() const
-    {
-      return m_number_of_cells;
-    }
+    size_t m_number_of_cells = m_block_dims.i * m_block_dims.j * m_block_dims.k;
     
-    inline size_t cell_index(size_t i) const
+    ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cell_groups() const { return m_number_of_cells; }
+    ONIKA_HOST_DEVICE_FUNC inline constexpr size_t cell_group_size(size_t cg) const { return 1; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t cell_index(size_t cell_a, size_t) const
     {
-      size_t cell_a = i;
       if( m_ghost_layers != 0 )
       {
-        IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
+        IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , cell_a ); ;
         cell_a_loc = cell_a_loc + m_ghost_layers;
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
@@ -140,8 +139,9 @@ namespace exanb
   {
     const size_t * __restrict__ m_cell_indices = nullptr;
     size_t m_number_of_cells = 0;
-    inline size_t number_of_cells() const { return m_number_of_cells; }
-    inline size_t cell_index(size_t i) const { return m_cell_indices[i]; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cell_groups() const { return m_number_of_cells; }
+    ONIKA_HOST_DEVICE_FUNC inline constexpr size_t cell_group_size(size_t cg) const { return 1; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t cell_index(size_t i, size_t) const { return m_cell_indices[i]; }
   };
 
   template<class GridT, class FuncT, class FieldSetT, class CellFilterT = ComputeCellParticlesCellFilterDefault >
@@ -152,8 +152,17 @@ namespace exanb
     const FuncT& func,
     FieldSetT cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx ,
-    const CellFilterT& cell_filter = {}
-    )
+    const CellFilterT& cell_filter = {} );
+
+  template<class GridT, class FuncT, class CellFilterT, class... FieldAccT >
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particles2(
+    GridT& grid,
+    const FuncT& func,
+    const onika::FlatTuple<FieldAccT...>& cpfields ,
+    onika::parallel::ParallelExecutionContext * exec_ctx ,
+    const CellFilterT& cell_filter )
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
@@ -163,14 +172,12 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,CellFilterT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
-    const size_t N = cell_filter.number_of_cells();
-
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
     PForFuncT pfor_func = { cells , cell_filter , func , cpfields };
-    return block_parallel_for( N, pfor_func, exec_ctx );
+    return block_parallel_for( cell_filter.number_of_cell_groups(), pfor_func, exec_ctx );
   }
 
 
@@ -203,14 +210,14 @@ namespace exanb
     using CellFilterT = ComputeCellParticlesCellFilterDefault;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,CellFilterT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
-    CellFilterT cell_filter = { grid.dimension() , enable_ghosts ? 0 : grid.ghost_layers() };
+    CellFilterT cell_filter = { grid.dimension() , enable_ghosts ? 0ull : grid.ghost_layers() };
 
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
     PForFuncT pfor_func = { cells , cell_filter , func , cpfields };
-    return block_parallel_for( N, pfor_func, exec_ctx );
+    return block_parallel_for( cell_filter.number_of_cell_groups(), pfor_func, exec_ctx );
   }
 
   template<class GridT, class FuncT, class... field_ids>
