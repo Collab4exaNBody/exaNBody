@@ -505,6 +505,8 @@ namespace exanb
       ssize_t j_end   = lattice_hi.j + 1;
       ssize_t k_start = lattice_lo.k - 1;
       ssize_t k_end   = lattice_hi.k + 1;
+      lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
+      lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
 #     pragma omp parallel
       {
