@@ -152,7 +152,7 @@ namespace exanb
       lout << std::defaultfloat
            << "======= Lattice generator ======="<< std::endl
            << "structure         = " << *structure << std::endl
-           << "types             = ";
+           << "types             =";
       for(const auto& s:*types) lout <<" "<<s;
       lout << std::endl
            << "lattice cell size = "<< lattice_size << std::endl
