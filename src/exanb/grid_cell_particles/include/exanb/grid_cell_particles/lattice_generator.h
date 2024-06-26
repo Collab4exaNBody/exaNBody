@@ -104,7 +104,6 @@ namespace exanb
     ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise        , INPUT , 0.0);
-    ADD_SLOT( IJK              , repeats      , INPUT , IJK{10,10,10} );
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
@@ -156,7 +155,6 @@ namespace exanb
       for(const auto& s:*types) lout <<" "<<s;
       lout << std::endl
            << "lattice cell size = "<< lattice_size << std::endl
-           << "repeats           = "<< *repeats <<std::endl
            << "position shift    = "<< *shift <<std::endl
            << "noise sigma       = "<< *noise <<std::endl
            << "noise cutoff      = "<< *noise_cutoff <<std::endl;
