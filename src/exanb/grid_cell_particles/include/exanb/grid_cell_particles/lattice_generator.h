@@ -104,7 +104,6 @@ namespace exanb
     ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise        , INPUT , 0.0);
-    ADD_SLOT( IJK              , repeats      , INPUT , IJK{10,10,10} );
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
@@ -156,7 +155,6 @@ namespace exanb
       for(const auto& s:*types) lout <<" "<<s;
       lout << std::endl
            << "lattice cell size = "<< lattice_size << std::endl
-           << "repeats           = "<< *repeats <<std::endl
            << "position shift    = "<< *shift <<std::endl
            << "noise sigma       = "<< *noise <<std::endl
            << "noise cutoff      = "<< *noise_cutoff <<std::endl;
@@ -507,6 +505,8 @@ namespace exanb
       ssize_t j_end   = lattice_hi.j + 1;
       ssize_t k_start = lattice_lo.k - 1;
       ssize_t k_end   = lattice_hi.k + 1;
+      lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
+      lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
 #     pragma omp parallel
       {
