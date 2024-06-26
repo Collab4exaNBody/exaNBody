@@ -118,8 +118,7 @@ namespace exanb
   {
     IJK m_grid_dims = {0,0,0};
     size_t m_ghost_layers = 0;
-    IJK m_block_dims = m_grid_dims - (2*m_ghost_layers);
-    size_t m_number_of_cells = m_block_dims.i * m_block_dims.j * m_block_dims.k;
+    size_t m_number_of_cells = (m_grid_dims.i-2*m_ghost_layers) * (m_grid_dims.j-2*m_ghost_layers) * (m_grid_dims.k-2*m_ghost_layers);
     
     ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cell_groups() const { return m_number_of_cells; }
     ONIKA_HOST_DEVICE_FUNC inline constexpr size_t cell_group_size(size_t cg) const { return 1; }
