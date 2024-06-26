@@ -491,8 +491,9 @@ namespace exanb
 */
 
       const Mat3d inv_xform = domain->inv_xform();
-      Vec3d lab_lo = domain->xform() * domain->origin();
-      Vec3d lab_hi = domain->xform() * domain->extent();
+      const AABB grid_bounds = grid->grid_bounds();
+      Vec3d lab_lo = domain->xform() * grid_bounds.bmin;
+      Vec3d lab_hi = domain->xform() * grid_bounds.bmax;
       IJK lattice_lo = { static_cast<ssize_t>( lab_lo.x / lattice_size.x )
                        , static_cast<ssize_t>( lab_lo.y / lattice_size.y )
                        , static_cast<ssize_t>( lab_lo.z / lattice_size.z ) };
