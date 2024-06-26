@@ -122,6 +122,7 @@ namespace exanb
       const double sigma_noise = *noise;
       double noise_upper_bound = std::numeric_limits<double>::max();
       if( noise_cutoff.has_value() ) noise_upper_bound = *noise_cutoff;
+      else noise_upper_bound = std::min(size->x,std::min(size->y,size->z)) * 0.5;
 
       // MPI Initialization
       int rank=0, np=1;
@@ -492,9 +493,20 @@ namespace exanb
 */
 
       const Mat3d inv_xform = domain->inv_xform();
-      const int repeat_i = repeats->i;
-      const int repeat_j = repeats->j;
-      const int repeat_k = repeats->k;
+      Vec3d lab_lo = domain->xform() * domain->origin();
+      Vec3d lab_hi = domain->xform() * domain->extent();
+      IJK lattice_lo = { static_cast<ssize_t>( lab_lo.x / lattice_size.x )
+                       , static_cast<ssize_t>( lab_lo.y / lattice_size.y )
+                       , static_cast<ssize_t>( lab_lo.z / lattice_size.z ) };
+      IJK lattice_hi = { static_cast<ssize_t>( lab_hi.x / lattice_size.x )
+                       , static_cast<ssize_t>( lab_hi.y / lattice_size.y )
+                       , static_cast<ssize_t>( lab_hi.z / lattice_size.z ) };
+      ssize_t i_start = lattice_lo.i - 1;
+      ssize_t i_end   = lattice_hi.i + 1;
+      ssize_t j_start = lattice_lo.j - 1;
+      ssize_t j_end   = lattice_hi.j + 1;
+      ssize_t k_start = lattice_lo.k - 1;
+      ssize_t k_end   = lattice_hi.k + 1;
 
 #     pragma omp parallel
       {
@@ -502,32 +514,30 @@ namespace exanb
         std::normal_distribution<double> f_rand(0.,1.);
         
 #       pragma omp for collapse(3) reduction(+:local_generated_count)
-        for (int i=0; i<repeat_i; i++)
+	      for (ssize_t k=k_start; k<=k_end; k++)
 	      {
-	        for (int j=0; j<repeat_j; j++)
+	        for (ssize_t j=j_start; j<=j_end; j++)
           {
-    	      for (int k=0; k<repeat_k; k++)
+            for (ssize_t i=i_start; i<=i_end; i++)
         		{
-		          //size_t global_lattice_cell_index = i * repeats->j * repeats->k + j * repeats->k + k;
-		          //size_t global_particle_index = global_lattice_cell_index * n_particles_cell;
 		          for (size_t l=0; l<n_particles_cell;l++)
       		    {
-                Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
-                const double noiselen = norm(noise);
-                if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
-                const Vec3d lab_pos = ( Vec3d{ i + positions[l].x , j + positions[l].y , k + positions[l].z } * lattice_size ) + noise + position_shift;
-                const Vec3d grid_pos = inv_xform * lab_pos;
+                Vec3d lab_pos = ( Vec3d{ i + positions[l].x , j + positions[l].y , k + positions[l].z } * lattice_size ) + position_shift;
+                Vec3d grid_pos = inv_xform * lab_pos;
 		            const IJK loc = grid->locate_cell(grid_pos); //domain_periodic_location( domain , pos );
 
-		            if( loc.i>=0 && loc.i<local_grid_dim.i &&
-			              loc.j>=0 && loc.j<local_grid_dim.j &&
-			              loc.k>=0 && loc.k<local_grid_dim.k &&
-			              is_inside( domain->bounds() , grid_pos ) )
+		            if( is_inside( domain->bounds() , grid_pos ) && is_inside( grid->grid_bounds() , grid_pos ) )
           			{          			
+                  Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
+                  const double noiselen = norm(noise);
+                  if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
+                  lab_pos += noise;
+                  grid_pos = inv_xform * lab_pos;
+
                   if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
 		              {
 		              	assert( grid->contains(loc) );
-		              	assert( min_distance2_between( grid_pos, grid->cell_bounds(loc) ) < grid->epsilon_cell_size2() );
+		              	assert( min_distance_between( grid_pos, grid->cell_bounds(loc) ) <= grid->cell_size()/2.0 );
 		              	size_t cell_i = grid_ijk_to_index(local_grid_dim, loc);
                     ++ local_generated_count;
                     
@@ -582,7 +592,7 @@ namespace exanb
       }
       
       MPI_Allreduce(MPI_IN_PLACE,&local_generated_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-      lout << "output particles   = " << local_generated_count<<std::endl
+      lout << "output particles  = " << local_generated_count<<std::endl
            << "================================="<< std::endl << std::endl;
     }
 
