@@ -230,6 +230,10 @@ namespace exanb
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
 
+  template<class AnyOther> struct IsComputePairBufferFactory : public std::false_type {};
+  template<class CPBufT,class InitFuncT> struct IsComputePairBufferFactory< ComputePairBufferFactory<CPBufT,InitFuncT> > : public std::true_type {};
+  template<class T> static inline constexpr bool is_compute_buffer_factory_v = IsComputePairBufferFactory<T>::value ;
+
 //  template<class ExtStorageT = NoExtraStorage >
 //  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
 }
