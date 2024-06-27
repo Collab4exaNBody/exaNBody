@@ -131,10 +131,10 @@ namespace exanb
         {
           return fname + ":R:1";
         }
-        else
-        {
+	//else // commented out to avoid intel compiler fake warning about missing return value
+	//{
           return fname + ":S:1";
-        }
+	//}
       }
       
       template<class T, class FieldIdT = no_field_id_t >
@@ -174,12 +174,13 @@ namespace exanb
           const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
           return format_string_buffer( buf, bufsize, format_for_value(v) , v );
         }
-        else
+        else // commented out to avoid intel compiler fake warning about missing return value
         {
           if( ParaViewTypeId<field_type>::ncomp != 1 ) { fatal_error() << "number of components not 1 as expected for field "<<f.short_name()<<" with type "<<type_as_string<T>()<<std::endl; }
           if( conv != 1.0 ) { fatal_error() << "Conversion factor not allowed for type "<<typeid(T).name()<<std::endl; }
           return format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
         }
+	return 0; // should never get there
       }
 
     };

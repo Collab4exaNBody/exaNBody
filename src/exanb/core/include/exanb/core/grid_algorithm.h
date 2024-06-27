@@ -67,13 +67,13 @@ namespace exanb
 # endif
   using NullCellOperator = decltype(null_cell_operator);
 
-  ONIKA_HOST_DEVICE_FUNC inline IJK dimension(GridBlock gb)
+  ONIKA_HOST_DEVICE_FUNC inline IJK dimension(const GridBlock& gb)
   {
     return IJK{ gb.end.i-gb.start.i , gb.end.j-gb.start.j , gb.end.k-gb.start.k };
   }
 
   // number of cells in a grid
-  ONIKA_HOST_DEVICE_FUNC inline ssize_t grid_cell_count(IJK dims)
+  ONIKA_HOST_DEVICE_FUNC inline ssize_t grid_cell_count(const IJK& dims)
   {
     return dims.i * dims.j * dims.k;
   }
@@ -83,7 +83,7 @@ namespace exanb
 
   // computes grid element index from its (i,j,k) coordinates, given that the grid size is dims
   // assumes elements are ordered according to the lexicographic order of (k,j,i)
-  ONIKA_HOST_DEVICE_FUNC inline ssize_t grid_ijk_to_index(IJK dims, IJK p)
+  ONIKA_HOST_DEVICE_FUNC inline ssize_t grid_ijk_to_index(const IJK& dims, const IJK& p)
   {
     ssize_t index = p.k;
     index *= dims.j;
@@ -94,7 +94,7 @@ namespace exanb
   }
 
   // loc is relative (to grid) IJK coordinate.
-  ONIKA_HOST_DEVICE_FUNC inline bool grid_contains(IJK dims, IJK loc)
+  ONIKA_HOST_DEVICE_FUNC inline bool grid_contains(const IJK& dims, const IJK& loc)
   {
     return loc.i>=0 && loc.i<dims.i
         && loc.j>=0 && loc.j<dims.j
@@ -103,7 +103,7 @@ namespace exanb
 
   // computes grid element index from its (i,j,k) coordinates, given that the grid size is dims
   // assumes elements are ordered according to the lexicographic order of (k,j,i)
-  ONIKA_HOST_DEVICE_FUNC inline IJK grid_index_to_ijk(IJK dims, ssize_t index)
+  ONIKA_HOST_DEVICE_FUNC inline IJK grid_index_to_ijk(const IJK& dims, ssize_t index)
   {
     ssize_t i = index % dims.i;
     index /= dims.i;
@@ -113,22 +113,22 @@ namespace exanb
     return IJK{i,j,k};
   }
 
-  inline IJK min (IJK a, IJK b)
+  inline IJK min (const IJK& a, const IJK& b)
   {
     return IJK{ std::min(a.i,b.i) , std::min(a.j,b.j) , std::min(a.k,b.k) };
   }
 
-  inline IJK max (IJK a, IJK b)
+  inline IJK max (const IJK& a, const IJK& b)
   {
     return IJK{ std::max(a.i,b.i) , std::max(a.j,b.j) , std::max(a.k,b.k) };
   }
 
-  inline GridBlock intersection(GridBlock a, GridBlock b)
+  inline GridBlock intersection(const GridBlock& a, const GridBlock& b)
   {
     return GridBlock{ max(a.start,b.start) , min(a.end,b.end) };
   }
 
-  ONIKA_HOST_DEVICE_FUNC inline bool is_empty(GridBlock b)
+  ONIKA_HOST_DEVICE_FUNC inline bool is_empty(const GridBlock& b)
   {
     return b.start.i>=b.end.i || b.start.j>=b.end.j || b.start.k>=b.end.k;
   }
@@ -141,12 +141,13 @@ namespace exanb
     APPLY_GRID_BLOCK( dims, IJK(margin,margin,margin) , IJK(dims.i-margin,dims.j-margin,dims.k-margin) , cell_func );
   }
   
-  inline bool inside_grid_shell(const IJK& dims, ssize_t margin, ssize_t thickness,const IJK& cell)
+  ONIKA_HOST_DEVICE_FUNC inline bool inside_grid_shell(const IJK& dims, ssize_t margin, ssize_t thickness,const IJK& cell)
   {
-    ssize_t di = std::min( cell.i , (dims.i-1-cell.i) );
-    ssize_t dj = std::min( cell.j , (dims.j-1-cell.j) );
-    ssize_t dk = std::min( cell.k , (dims.k-1-cell.k) );
-    ssize_t b = std::min( std::min(di,dj) , dk ); // b is the distance to the nearest border
+    using onika::cuda::min;
+    ssize_t di = min( cell.i , (dims.i-1-cell.i) );
+    ssize_t dj = min( cell.j , (dims.j-1-cell.j) );
+    ssize_t dk = min( cell.k , (dims.k-1-cell.k) );
+    ssize_t b = min( min(di,dj) , dk ); // b is the distance to the nearest border
     return ( b>=margin && b<(margin+thickness) );
   }
   

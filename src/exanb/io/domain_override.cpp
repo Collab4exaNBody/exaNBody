@@ -31,15 +31,20 @@ under the License.
 namespace exanb
 {
 
-  struct DomainOverride : public OperatorNode
+  class DomainOverride : public OperatorNode
   {
-    ADD_SLOT( Domain , domain , INPUT_OUTPUT );
-    ADD_SLOT( double , cell_size , INPUT , OPTIONAL );
-    ADD_SLOT( AABB , bounds , INPUT , OPTIONAL );
-    ADD_SLOT( IJK , grid_dims , INPUT , OPTIONAL );
-    ADD_SLOT( bool , expandable , INPUT , OPTIONAL );
-    ADD_SLOT( std::vector<bool> , periodic , INPUT , OPTIONAL );
+    using BoolVector = std::vector<bool>;
+    using StringVector = std::vector<std::string>;
 
+    ADD_SLOT( Domain       , domain     , INPUT_OUTPUT );
+    ADD_SLOT( double       , cell_size  , INPUT , OPTIONAL );
+    ADD_SLOT( AABB         , bounds     , INPUT , OPTIONAL );
+    ADD_SLOT( IJK          , grid_dims  , INPUT , OPTIONAL );
+    ADD_SLOT( bool         , expandable , INPUT , OPTIONAL );
+    ADD_SLOT( BoolVector   , periodic   , INPUT , OPTIONAL );
+    ADD_SLOT( StringVector , mirror     , INPUT ,OPTIONAL , DocString{"if set, overrides domain's boundary mirror flags in file with provided values"}  );
+
+  public:
     inline void execute() override final
     {
       if( cell_size.has_value() )
@@ -73,8 +78,29 @@ namespace exanb
         lout << "override domain's expandable to "<< *expandable << std::endl;
         domain->set_expandable( *expandable );
       }
+      if( mirror.has_value() )
+      {
+        domain->set_mirror_x_min(false); domain->set_mirror_x_max(false); 
+        domain->set_mirror_y_min(false); domain->set_mirror_y_max(false); 
+        domain->set_mirror_z_min(false); domain->set_mirror_z_max(false); 
+        lout << "override domain's boundary mirror flags to [";
+        for(auto m : *mirror)
+        {
+          lout << " "<<m;
+          if( exanb::str_tolower(m) == "x-" ) { domain->set_mirror_x_min(true); }
+          if( exanb::str_tolower(m) == "x+" ) { domain->set_mirror_x_max(true); }
+          if( exanb::str_tolower(m) == "x" )  { domain->set_mirror_x_min(true); domain->set_mirror_x_max(true); }
+          if( exanb::str_tolower(m) == "y-" ) { domain->set_mirror_y_min(true); }
+          if( exanb::str_tolower(m) == "y+" ) { domain->set_mirror_y_max(true); }
+          if( exanb::str_tolower(m) == "y" )  { domain->set_mirror_y_min(true); domain->set_mirror_y_max(true); }
+          if( exanb::str_tolower(m) == "z-" ) { domain->set_mirror_z_min(true); }
+          if( exanb::str_tolower(m) == "z+" ) { domain->set_mirror_z_max(true); }
+          if( exanb::str_tolower(m) == "z" )  { domain->set_mirror_z_min(true); domain->set_mirror_z_max(true); }
+        }
+        lout << " ]"<<std::endl;
+      }
 
-      ldbg<<"domain override: "<< *domain << std::endl;
+      ldbg<<"domain new values : "<< *domain << std::endl;
       //check_domain( *domain );
     }
 

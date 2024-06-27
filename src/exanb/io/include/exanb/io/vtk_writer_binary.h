@@ -171,7 +171,7 @@ namespace exanb
   }
 
   template<typename GridT, typename FType_x, typename FType_y, typename FType_z>
-  inline void write_binary_datas_from_fields(const GridT& grid, const FType_x& ftype_x, const FType_y& ftype_y, const FType_z& ftype_z, const std::string& name, const std::string& type, std::ofstream& file_vtp, const int compression_level, bool is_ghosts)
+  inline void write_binary_datas_from_fields(const GridT& grid, const FType_x& ftype_x, const FType_y& ftype_y, const FType_z& ftype_z, const std::string& name, const std::string& type, std::ofstream& file_vtp, const int compression_level, bool write_ghosts)
   {
     //compilation time test
     static_assert(std::is_same<typename FType_x::value_type,typename FType_y::value_type>::value, "write_binary_datas_from_fields bad types");
@@ -185,7 +185,7 @@ namespace exanb
     for(size_t c=0; c<n_cells;++c)
     {
       //Check if cell is a ghost cell
-      if(!grid.is_ghost_cell(c) || is_ghosts)
+      if(!grid.is_ghost_cell(c) || write_ghosts)
       {
         const auto * __restrict__ field_x_ptr = cells[c].field_pointer_or_null(ftype_x);
         const auto * __restrict__ field_y_ptr = cells[c].field_pointer_or_null(ftype_y);
@@ -208,7 +208,7 @@ namespace exanb
 
   // case of positions : we need to do an exception because xform (deformation of the box)
   template<typename GridT>
-  inline void write_binary_positions(const GridT& grid, const std::string& name, const std::string& type, std::ofstream& file_vtp, const int compression_level, bool is_ghosts, const Mat3d& xform)
+  inline void write_binary_positions(const GridT& grid, const std::string& name, const std::string& type, std::ofstream& file_vtp, const int compression_level, bool write_ghosts, const Mat3d& xform)
   {
     size_t n_cells = grid.number_of_cells();
     auto cells = grid.cells();
@@ -218,7 +218,7 @@ namespace exanb
     for(size_t c=0; c<n_cells;++c)
     {
       //Check if cell is a ghost cell
-      if(!grid.is_ghost_cell(c) || is_ghosts)
+      if(!grid.is_ghost_cell(c) || write_ghosts)
       {
         size_t np = cells[c].size();
         const auto * __restrict__ rx = cells[c].field_pointer_or_null(field::rx);
