@@ -121,7 +121,7 @@ namespace exanb
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
 
-  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, class... FieldAccT >
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, bool ForceUseCellsAccessor=false,class... FieldAccT >
   static inline
   onika::parallel::ParallelExecutionWrapper
   compute_cell_particle_pairs2(
@@ -133,13 +133,16 @@ namespace exanb
     const FuncT& func,
     const onika::FlatTuple<FieldAccT...>& cpfields,
     const PosFieldsT& posfields,
-    onika::parallel::ParallelExecutionContext * exec_ctx )
+    onika::parallel::ParallelExecutionContext * exec_ctx,
+    std::integral_constant<bool,ForceUseCellsAccessor> = {} )
   {
+    static_assert( is_compute_buffer_factory_v<ComputePairBufferFactoryT> , "Only ComputePairBufferFactory<...> template instance is accepted as cpbuf_factory parameter" );
+
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
     using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
-    static constexpr bool has_external_or_optional_fields = field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT>;    
+    static constexpr bool has_external_or_optional_fields = ForceUseCellsAccessor || field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT>;    
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
 
@@ -173,8 +176,7 @@ namespace exanb
         }
       }
     }
-    
-    
+        
     auto cellprof = grid.cell_profiler();
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();

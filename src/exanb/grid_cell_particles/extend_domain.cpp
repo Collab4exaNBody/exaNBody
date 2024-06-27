@@ -97,17 +97,14 @@ namespace exanb
         const double domain_dist2 = min_distance2_between( r , domain->bounds() );
         if( domain_dist2 > cell_size_sqr )
         {
-#         pragma omp critical(dbg_msg)
-          {
-            print_particle( lerr , particles[i] , false );
-            fatal_error()
-              << "********************************************\n"
-              << "Suspicious out of domain particle\n"
-              << "bounds         = "<<domain->bounds()<<"\n"
-              << "dist to domain = "<<sqrt(domain_dist2)<<"\n"
-              << "cell size      = "<<cell_size<<"\n"
-              << "********************************************"<<std::endl;
-          }
+          print_particle( lerr , particles[i] , false );
+          fatal_error()
+            << "********************************************\n"
+            << "Suspicious out of domain particle\n"
+            << "bounds         = "<<domain->bounds()<<"\n"
+            << "dist to domain = "<<sqrt(domain_dist2)<<"\n"
+            << "cell size      = "<<cell_size<<"\n"
+            << "********************************************"<<std::endl;
         }
 
       }

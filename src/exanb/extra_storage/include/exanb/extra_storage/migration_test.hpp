@@ -21,14 +21,15 @@ under the License.
 #include <cassert>
 #include <cstdint>
 #include <tuple>
+#include <exanb/extra_storage/extra_storage_info.hpp>
 
 namespace exanb
 {
 	namespace migration_test
 	{
 		using namespace std;
-		using UIntType = uint64_t;
-		using InfoType = std::tuple<UIntType,UIntType,UIntType>;
+    using InfoType = ExtraStorageInfo; 
+    using UIntType = ExtraStorageInfo::UIntType;
 
 		inline bool check_info_consistency(const InfoType* __restrict__ info_ptr, const UIntType info_size)
 		{
@@ -48,12 +49,11 @@ namespace exanb
 			return true;
 		}
 
-		template <size_t FIELD>
 		inline bool check_info_value(const InfoType* __restrict__ info_ptr, const UIntType info_size, UIntType value)
 		{
 			for (size_t p = 0 ; p < info_size ; p++)
 			{
-				if( std::get<FIELD> (info_ptr[p]) >= value) return false;
+				if( info_ptr[p].size >= value) return false;
 			}
 			return true;
 		}

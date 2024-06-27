@@ -24,7 +24,6 @@ under the License.
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/fields.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/simple_block_rcb.h>
 //#include "exanb/container_utils.h"
 
 #include <exanb/core/basic_types_yaml.h>
@@ -84,9 +83,6 @@ namespace exanb
     ADD_SLOT( ReadBoundsSelectionMode, bounds_mode   , INPUT , ReadBoundsSelectionMode::FILE_BOUNDS );
     ADD_SLOT( Domain          , domain       , INPUT_OUTPUT );
     ADD_SLOT( GridT           , grid         , INPUT_OUTPUT );
-    ADD_SLOT( double          , enlarge_bounds, INPUT , 0.0 );
-    ADD_SLOT( bool            , pbc_adjust_xform , INPUT , true );
-    ADD_SLOT( bool            , init_domain  , INPUT , true );
 
     // get a type id from a type name
     ADD_SLOT( ParticleTypeMap , particle_type_map , INPUT , OPTIONAL );
@@ -108,7 +104,6 @@ namespace exanb
     ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise        , INPUT , 0.0);
-    ADD_SLOT( IJK              , repeats      , INPUT , IJK{10,10,10} );
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
@@ -126,19 +121,7 @@ namespace exanb
       const double sigma_noise = *noise;
       double noise_upper_bound = std::numeric_limits<double>::max();
       if( noise_cutoff.has_value() ) noise_upper_bound = *noise_cutoff;
-
-      if( *pbc_adjust_xform && *init_domain)
-      {
-        if( ! domain->xform_is_identity() )
-        {
-          lout << "pbc_adjust_xform needs initial XForm to be identity, resetting XForm"<<std::endl;
-          domain->set_xform( make_identity_matrix() );
-        }
-      }
-
-      // using ParticleTuple = decltype( grid->cells()[0][0] );
-
-      assert( (*init_domain)==false || grid->number_of_particles()==0 );
+      else noise_upper_bound = std::min(size->x,std::min(size->y,size->z)) * 0.5;
 
       // MPI Initialization
       int rank=0, np=1;
@@ -164,6 +147,17 @@ namespace exanb
       //       2BCT   4
       Vec3d lattice_size = *size; // size may be modified locally
       const Vec3d position_shift = *shift;
+
+      lout << std::defaultfloat
+           << "======= Lattice generator ======="<< std::endl
+           << "structure         = " << *structure << std::endl
+           << "types             =";
+      for(const auto& s:*types) lout <<" "<<s;
+      lout << std::endl
+           << "lattice cell size = "<< lattice_size << std::endl
+           << "position shift    = "<< *shift <<std::endl
+           << "noise sigma       = "<< *noise <<std::endl
+           << "noise cutoff      = "<< *noise_cutoff <<std::endl;
       
       uint64_t n_particles_cell = 0.;
       std::vector<Vec3d> positions;
@@ -399,93 +393,26 @@ namespace exanb
       // Need to define the size of the box
       // NOTE : only one processor need to do that   
          
-      Vec3d domain_size = { 0. , 0. , 0. };
-      IJK local_grid_dim = { 0 , 0 , 0 };
-      unsigned long long next_id = 0;
+      const IJK local_grid_dim = grid->dimension();
+      unsigned long long next_id = 0;      
       
-      if( *init_domain )
-      {    
-        const double box_size_x = repeats->i * lattice_size.x;
-        const double box_size_y = repeats->j * lattice_size.y;
-        const double box_size_z = repeats->k * lattice_size.z;
-        domain_size = Vec3d{ box_size_x, box_size_y, box_size_z };
-
-        if(rank==0)
-        {
-	        AABB lattice_bounds  = { { 0., 0., 0. } , {box_size_x,box_size_y,box_size_z} };
-	        ldbg << "Lattice bounds      = "<<lattice_bounds<<std::endl;
-
-	        AABB computed_bounds = lattice_bounds;
-	        ldbg << "Computed_bounds  = " << computed_bounds << std::endl;
-
-          compute_domain_bounds(*domain,*bounds_mode,*enlarge_bounds,lattice_bounds,computed_bounds, *pbc_adjust_xform );
-
-          ldbg << "xform = " << domain->xform() << std::endl;
-        }
-        
-        //send bounds and size_box values to all cores
-        MPI_Bcast( & (*domain), sizeof(Domain), MPI_CHARACTER, 0, *mpi );
-        assert( check_domain(*domain) );
-
-        // compute local processor's grid size and location so that cells are evenly distributed
-        GridBlock in_block = { IJK{0,0,0} , domain->grid_dimension() };
-        GridBlock out_block = simple_block_rcb( in_block, np, rank );
-        ldbg<<"Domain = "<< *domain << std::endl;
-        ldbg<<"In  block = "<< in_block << std::endl;
-        ldbg<<"Out block = "<< out_block << std::endl;
-
-        // initializes local processor's grid
-        grid->set_offset( out_block.start );
-        grid->set_origin( domain->bounds().bmin );
-        grid->set_cell_size( domain->cell_size() );
-        local_grid_dim = out_block.end - out_block.start;
-        grid->set_dimension( local_grid_dim );      
-      }
-      else
+      if( has_field_id )
       {
-        domain_size = domain->bounds_size();
-        local_grid_dim = grid->dimension();
-        if( has_field_id )
+        size_t n_cells = grid->number_of_cells();
+        auto cells = grid->cells();
+#       pragma omp parallel for schedule(dynamic) reduction(max:next_id)
+        for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( ! grid->is_ghost_cell(cell_i) )
         {
-          size_t n_cells = grid->number_of_cells();
-          auto cells = grid->cells();
-#         pragma omp parallel for schedule(dynamic) reduction(max:next_id)
-          for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( ! grid->is_ghost_cell(cell_i) )
+          size_t n_particles = cells[cell_i].size();
+          for(size_t p=0;p<n_particles;p++)
           {
-            size_t n_particles = cells[cell_i].size();
-            for(size_t p=0;p<n_particles;p++)
-            {
-              const unsigned long long id = cells[cell_i][field::id][p];
-              next_id = std::max( next_id , id );
-            }
+            const unsigned long long id = cells[cell_i][field::id][p];
+            next_id = std::max( next_id , id );
           }
-          MPI_Allreduce(MPI_IN_PLACE,&next_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
         }
+        MPI_Allreduce(MPI_IN_PLACE,&next_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
         ++ next_id; // start right after gretest id
       }
-
-      // local processor's bounds
-      AABB local_bounds = grid->grid_bounds();
-      ldbg<<"local_bounds = "<< local_bounds << std::endl;
-      ldbg<<"size = "<< lattice_size << std::endl;      
-      Vec3d size_corr = domain->inv_xform() * lattice_size;
-      ldbg<<"size_corr = "<< size_corr << std::endl;            
-
-      ldbg << "local_bounds.bmin.x " << local_bounds.bmin.x << std::endl;
-      ldbg << "local_bounds.bmax.x " << local_bounds.bmax.x << std::endl << std::endl;
-      ldbg << "local_bounds.bmin.y " << local_bounds.bmin.y << std::endl;
-      ldbg << "local_bounds.bmax.y " << local_bounds.bmax.y << std::endl << std::endl;
-      ldbg << "local_bounds.bmin.z " << local_bounds.bmin.z << std::endl;
-      ldbg << "local_bounds.bmax.z " << local_bounds.bmax.z << std::endl;
-
-      // compute local processor's lattice portion
-      ssize_t repeat_i_start = static_cast<ssize_t>( std::floor( local_bounds.bmin.x / size_corr.x ) ) ;
-      ssize_t repeat_i_end   = static_cast<ssize_t>( std::ceil ( local_bounds.bmax.x / size_corr.x ) ) ;
-      ssize_t repeat_j_start = static_cast<ssize_t>( std::floor( local_bounds.bmin.y / size_corr.y ) ) ;
-      ssize_t repeat_j_end   = static_cast<ssize_t>( std::ceil ( local_bounds.bmax.y / size_corr.y ) ) ;
-      ssize_t repeat_k_start = static_cast<ssize_t>( std::floor( local_bounds.bmin.z / size_corr.z ) ) ;
-      ssize_t repeat_k_end   = static_cast<ssize_t>( std::ceil ( local_bounds.bmax.z / size_corr.z ) ) ;
-      ldbg<<"lattice range = "<< IJK{repeat_i_start,repeat_j_start,repeat_k_start} << " - " << IJK{repeat_i_end,repeat_j_end,repeat_k_end} << std::endl;
 
       // =============== Section that concerns the porosity mode ========================
 
@@ -563,58 +490,61 @@ namespace exanb
       }    
 */
 
+      const Mat3d inv_xform = domain->inv_xform();
+      const AABB grid_bounds = grid->grid_bounds();
+      Vec3d lab_lo = domain->xform() * grid_bounds.bmin;
+      Vec3d lab_hi = domain->xform() * grid_bounds.bmax;
+      IJK lattice_lo = { static_cast<ssize_t>( lab_lo.x / lattice_size.x )
+                       , static_cast<ssize_t>( lab_lo.y / lattice_size.y )
+                       , static_cast<ssize_t>( lab_lo.z / lattice_size.z ) };
+      IJK lattice_hi = { static_cast<ssize_t>( lab_hi.x / lattice_size.x )
+                       , static_cast<ssize_t>( lab_hi.y / lattice_size.y )
+                       , static_cast<ssize_t>( lab_hi.z / lattice_size.z ) };
+      ssize_t i_start = lattice_lo.i - 1;
+      ssize_t i_end   = lattice_hi.i + 1;
+      ssize_t j_start = lattice_lo.j - 1;
+      ssize_t j_end   = lattice_hi.j + 1;
+      ssize_t k_start = lattice_lo.k - 1;
+      ssize_t k_end   = lattice_hi.k + 1;
+      lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
+      lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
+
 #     pragma omp parallel
       {
         auto& re = rand::random_engine();
         std::normal_distribution<double> f_rand(0.,1.);
-
-        //const Vec3d lattice = { size.x , size.y , size.z };
-        const Vec3d pbc_adjust_invxform_lattice = domain->inv_xform() * lattice_size;	
         
 #       pragma omp for collapse(3) reduction(+:local_generated_count)
-        for (int i=repeat_i_start; i<repeat_i_end; i++)
+	      for (ssize_t k=k_start; k<=k_end; k++)
 	      {
-	        for (int j=repeat_j_start; j<repeat_j_end; j++)
+	        for (ssize_t j=j_start; j<=j_end; j++)
           {
-    	      for (int k=repeat_k_start; k<repeat_k_end; k++)
+            for (ssize_t i=i_start; i<=i_end; i++)
         		{
-		          //size_t global_lattice_cell_index = i * repeats->j * repeats->k + j * repeats->k + k;
-		          //size_t global_particle_index = global_lattice_cell_index * n_particles_cell;
 		          for (size_t l=0; l<n_particles_cell;l++)
       		    {
-		            Vec3d reduced_pos = {
-			            (i + positions[l].x ) ,
-			            (j + positions[l].y ) ,
-			            (k + positions[l].z ) };
-	              
+                Vec3d lab_pos = ( Vec3d{ i + positions[l].x , j + positions[l].y , k + positions[l].z } * lattice_size ) + position_shift;
+                Vec3d grid_pos = inv_xform * lab_pos;
+		            const IJK loc = grid->locate_cell(grid_pos); //domain_periodic_location( domain , pos );
+
+		            if( is_inside( domain->bounds() , grid_pos ) && is_inside( grid->grid_bounds() , grid_pos ) )
+          			{          			
                   Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
                   const double noiselen = norm(noise);
                   if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
+                  lab_pos += noise;
+                  grid_pos = inv_xform * lab_pos;
 
-                  Vec3d pos = Vec3d{ reduced_pos.x * pbc_adjust_invxform_lattice.x
-                                   , reduced_pos.y * pbc_adjust_invxform_lattice.y
-                                   , reduced_pos.z * pbc_adjust_invxform_lattice.z }
-                              + noise + position_shift;
-		        		        		            
-		            IJK loc = grid->locate_cell(pos); //domain_periodic_location( domain , pos );
-
-		            if( loc.i>=0 && loc.i<local_grid_dim.i &&
-			              loc.j>=0 && loc.j<local_grid_dim.j &&
-			              loc.k>=0 && loc.k<local_grid_dim.k &&
-			              pos.x>=0.0 && pos.x<domain_size.x && 
-			              pos.y>=0.0 && pos.y<domain_size.y && 
-			              pos.z>=0.0 && pos.z<domain_size.z /* && empty_cell[grid_ijk_to_index(local_grid_dim,loc)] */ )
-          			{          			
-                  if( particle_filter(pos,no_id) && live_or_die_void_porosity(pos,domain_size,void_centers,void_radiuses) )
+                  if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
 		              {
 		              	assert( grid->contains(loc) );
-		              	assert( min_distance2_between( pos, grid->cell_bounds(loc) ) < grid->epsilon_cell_size2() );
+		              	assert( min_distance_between( grid_pos, grid->cell_bounds(loc) ) <= grid->cell_size()/2.0 );
 		              	size_t cell_i = grid_ijk_to_index(local_grid_dim, loc);
                     ++ local_generated_count;
                     
                     ParticleTupleIO pt;
-                    if constexpr (  has_field_type ) pt = ParticleTupleIO( pos.x,pos.y,pos.z, no_id, particle_type_id[l] );
-		              	if constexpr ( !has_field_type ) pt = ParticleTupleIO( pos.x,pos.y,pos.z, no_id );
+                    if constexpr (  has_field_type ) pt = ParticleTupleIO( grid_pos.x,grid_pos.y,grid_pos.z, no_id, particle_type_id[l] );
+		              	if constexpr ( !has_field_type ) pt = ParticleTupleIO( grid_pos.x,grid_pos.y,grid_pos.z, no_id );
                     
 		              	cell_locks[cell_i].lock();
 		              	cells[cell_i].push_back( pt , grid->cell_allocator() );
@@ -663,21 +593,17 @@ namespace exanb
       }
       
       MPI_Allreduce(MPI_IN_PLACE,&local_generated_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-      ldbg << "total generated particles = "<< local_generated_count<<std::endl;
+      lout << "output particles  = " << local_generated_count<<std::endl
+           << "================================="<< std::endl << std::endl;
     }
 
   private:
 
-    static inline bool live_or_die_void_porosity(const Vec3d pos, const Vec3d domain_size, const std::vector<Vec3d>& void_center, const std::vector<double>& void_radius)
+    static inline bool live_or_die_void_porosity(const Vec3d& pos, const std::vector<Vec3d>& void_center, const std::vector<double>& void_radius)
     {
       for (size_t i=0; i < void_center.size(); i++)
       {
-        Vec3d dist_vec = pos - void_center[i];
-        if (dist_vec.x > domain_size.x/2.) dist_vec.x -= domain_size.x;
-        if (dist_vec.y > domain_size.y/2.) dist_vec.y -= domain_size.y;
-        if (dist_vec.z > domain_size.z/2.) dist_vec.z -= domain_size.z;
-        double dist = norm(dist_vec);
-        if (dist < void_radius[i]) return false;
+        if( distance(pos,void_center[i]) < void_radius[i] ) return false;
       }
       return true;
     }
