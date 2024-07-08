@@ -8,7 +8,7 @@ class Exadem(CMakePackage):
     git = "https://github.com/Collab4exaNBody/exaDEM.git"
 
 
-    version("master", branch="main")
+    version("main", branch="main")
     version("1.0.1", commit="a68904c87f3889a36b9fdb64cdd03efc25d06914")
     variant("cuda", default=False, description="Support for GPU")
 
