@@ -20,3 +20,8 @@ jobs:
         buildcache: true  # Configure oci://ghcr.io/spack/github-actions-buildcache
         color: true       # Force color output (SPACK_COLOR=always)
         path: spack       # Where to clone Spack
+    - name: Add ExaDEM repository
+      run: spack repo add thirdparty/spack_repo
+    - name: Install ExaDEM (main)
+      run: spack install exadem@main
+
