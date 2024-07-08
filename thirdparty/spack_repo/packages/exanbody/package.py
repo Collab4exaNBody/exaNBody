@@ -10,8 +10,9 @@ class Exanbody(CMakePackage):
 
     version("main", branch="main")
 
-    depends_on("cmake")
     variant("cuda", default=False, description="Support for GPU")
+    depends_on("cmake@3.27.9")
+    depends_on("yaml-cpp@0.6.3")
     depends_on("yaml-cpp")
     depends_on("cuda", when="+cuda")
 #    build_system("cmake", "autotools", default="cmake")
