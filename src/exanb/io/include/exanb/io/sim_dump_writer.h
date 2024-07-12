@@ -240,6 +240,8 @@ namespace exanb
 
     // main write process
     dump_filter.initialize_write();
+
+    ldbg << "Ready to write particles..." <<std::endl;
     
 #   pragma omp parallel
     {

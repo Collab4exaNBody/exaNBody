@@ -308,8 +308,13 @@ namespace exanb
               uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
               ccnbh[p_a*2+0] = offset ;
               ccnbh[p_a*2+1] = offset >> 16 ;
-              [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
-              assert( offset_table[p_a] == offset );
+#             ifndef NDEBUG
+              const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
+              if( offset_table[p_a] != offset )
+              {
+                fatal_error() << "corrupted particle offset : table["<<p_a<<"]="<<std::hex<<offset_table[p_a]<<" , expected "<<offset<<std::endl;
+	            }
+#             endif
               assert( p_a!=0 || ( ccnbh[0]==num_offset_tables && ccnbh[1]==0 ) );
             }
            
