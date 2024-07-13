@@ -22,6 +22,7 @@ under the License.
 #include <exanb/core/quaternion.h>
 #include <cmath>
 #include <onika/cuda/cuda.h>
+#include <random>
 
 namespace exanb
 {
@@ -153,7 +154,7 @@ namespace exanb
 		return v + qv*2.0*q.w + qqv*2.0;
 	}
 
-	inline void randomize(bool seedTime = false) 
+	inline void randomize(Quaternion& q, bool seedTime = false) 
 	{
 		// @see http://hub.jmonkeyengine.org/t/random-quaternions/8431
 		static std::default_random_engine engine;
@@ -161,11 +162,11 @@ namespace exanb
 		static std::uniform_real_distribution<double> distrib(-1.0, 1.0);
 		double sum = 0.0;
 		q.w = distrib(engine);
-		sum += s * s;
+		sum += q.w * q.w;
 		q.x = sqrt(1 - sum) * distrib(engine);
-		sum += v.x * v.x;
+		sum += q.x * q.x;
 		q.y = sqrt(1 - sum) * distrib(engine);
-		sum += v.y * v.y;
+		sum += q.y * q.y;
 		q.z = sqrt(1 - sum) * (distrib(engine) < 0.0 ? -1.0 : 1.0);
 	}
 }
