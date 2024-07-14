@@ -51,6 +51,7 @@ namespace exanb
     size_t m_stream_pool_hint = 0; // guessed best value for m_fixed_stream_pool capacity
     size_t m_nb_dyn_alloc = 0;
     unsigned int m_chunk_size = 4;
+    unsigned int m_max_neighbors = 0; // maximum neighbors a particle can have in current data
     onika::memory::GenericHostAllocator m_alloc = {};
     
     GridChunkNeighborsData data() const ;

@@ -45,6 +45,7 @@ namespace exanb
                       FieldArraysT cells, size_t cell_b, size_t p_b,
                       const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
+      assert( static_cast<size_t>(tab.count) < ComputeBufferT::MaxNeighbors );
       tab.d2[tab.count] = d2;
       tab.drx[tab.count] = dr.x;
       tab.dry[tab.count] = dr.y;
