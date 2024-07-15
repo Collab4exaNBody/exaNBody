@@ -134,7 +134,8 @@ namespace exanb
     const onika::FlatTuple<FieldAccT...>& cpfields,
     const PosFieldsT& posfields,
     onika::parallel::ParallelExecutionContext * exec_ctx,
-    std::integral_constant<bool,ForceUseCellsAccessor> = {} )
+    std::integral_constant<bool,ForceUseCellsAccessor> = {} ,
+    onika::parallel::BlockParallelForOptions bpfor_opts = {} )
   {
     static_assert( is_compute_buffer_factory_v<ComputePairBufferFactoryT> , "Only ComputePairBufferFactory<...> template instance is accepted as cpbuf_factory parameter" );
 
@@ -156,7 +157,6 @@ namespace exanb
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
 
-    BlockParallelForOptions bpfor_opts = {};
     if constexpr ( compute_pair_traits::cuda_compatible_v<FuncT> )
     {
       if( exec_ctx->has_gpu_context() )

@@ -61,6 +61,8 @@ namespace exanb
         std::abort();
       }
 
+
+      chunk_neighbors.m_max_neighbors = 0;
       chunk_neighbors.m_alloc.set_gpu_addressable_allocation( gpu_enabled );
 
       bool build_particle_offset = config.build_particle_offset;
@@ -291,6 +293,7 @@ namespace exanb
           }
 
           // build compact neighbor stream
+          unsigned int cell_max_particle_neighbors = 0;
           for(size_t p_a=0;p_a<n_particles_a;p_a++)
           {
             // optional stream indexing
@@ -326,7 +329,8 @@ namespace exanb
               }
             }
             nbh_count_nodup = std::min( nbh_count_nodup , nbh_count );
-            
+            cell_max_particle_neighbors = std::max( cell_max_particle_neighbors , nbh_count_nodup * cs );
+
             // adjust size to fit unique neighbor count                        
             cell_a_particle_nbh[p_a].resize( nbh_count_nodup );
             
@@ -402,6 +406,15 @@ namespace exanb
             ccnbh[n_particles_a*2+1] = offset >> 16 ;
             [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
             assert( offset_table[n_particles_a] == offset );
+          }
+
+          if( n_particles_a > 0 )
+          {
+            // update known maximum number of neighbors for a particle
+#           pragma omp critical(max_neighbors_update)
+            {
+              chunk_neighbors.m_max_neighbors = std::max( chunk_neighbors.m_max_neighbors , cell_max_particle_neighbors );
+            }
           }
 
           uint16_t * output_stream = chunk_nbh.allocate( cell_a , ccnbh.size() );

@@ -207,8 +207,8 @@ namespace onika { namespace cuda { namespace _details {
 //  inline unsigned int __onika_cu_gvars_use(){ return __onika_cu_grid_size + __onika_cu_block_idx; }
 } } }
 */
-#   define ONIKA_CU_GRID_SIZE  1 //((const unsigned int&)(::onika::cuda::_details::__onika_cu_grid_size))
-#   define ONIKA_CU_BLOCK_IDX  0 //((const unsigned int&)(::onika::cuda::_details::__onika_cu_block_idx))
+#   define ONIKA_CU_GRID_SIZE  omp_get_num_threads()
+#   define ONIKA_CU_BLOCK_IDX  omp_get_thread_num()
 #   define ONIKA_CU_BLOCK_SIZE 1
 #   define ONIKA_CU_THREAD_IDX 0
 
