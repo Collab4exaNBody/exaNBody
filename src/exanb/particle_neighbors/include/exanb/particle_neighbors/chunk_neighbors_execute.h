@@ -66,15 +66,7 @@ namespace exanb
       bool build_particle_offset = config.build_particle_offset;
       if( gpu_enabled && !build_particle_offset ) // specialization for chunk_size=1 now suports list traversal without offset table
       {
-	if( config.chunk_size > 1 )
-	{
-	  ldbg << "INFO: force build_particle_offset to true to ensure Cuda compatibility" << std::endl;
-          build_particle_offset = true;
-	}
-	else
-	{
-	  lout << "INFO: use of chunk neighbors without 'build_particle_offset' flag with supported whith chunk_size=1, but discouraged for optimal performance<" << std::endl;
-	}
+        lout << "INFO: use of chunk neighbors without 'build_particle_offset' flag with supported, but is discouraged for optimal performance<" << std::endl;
       }
       if( ! build_particle_offset )
       {
