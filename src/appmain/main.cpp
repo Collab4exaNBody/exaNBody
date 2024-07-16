@@ -564,6 +564,7 @@ int main(int argc,char*argv[])
       lout<<"   Or: "<<argv[0]<<" --help default-config"<<endl;
       lout<<"   Or: "<<argv[0]<<" --help command-line"<<endl;
       lout<<"   Or: "<<argv[0]<<" --help plugins"<<endl<<endl;
+      lout<<"   Or: "<<argv[0]<<" --help show-plugins"<<endl<<endl;
       lout<<"   Or: "<<argv[0]<<" --help [operator-name]"<<endl<<endl;
 #     ifndef NDEBUG
       lout<<"Debug with gdb -ex 'break simulation_start_breakpoint' -ex run --args"<<argv[0]<<endl<<endl;
@@ -583,215 +584,233 @@ int main(int argc,char*argv[])
       configuration.m_doc.print_command_line_options( lout );
       lout<<endl;
     }
-    else if( configuration.help == "plugins" )
+    else if( configuration.help == "show-plugins" )
     {
-      lout<<"Plugin data base:"<<endl
+      lout<<"Operator data base:"<<endl
           <<"================="<<endl<<endl;
-      std::set<std::string> available_plugins;
-      std::map< std::string , std::set<std::string> > available_items;
+      std::ostringstream oss;
       for(const auto& cp : *plugin_db )
       {
         for(const auto& op : cp.second )
         {
-          available_items[cp.first].insert(op.first);
-          available_plugins.insert( op.second );
-        }
-      }
-      lout<<"Available plugins :"<<endl;
-      for(const auto& s : available_plugins) { lout<<"\t"<<s<<std::endl; }
-      
-      for(const auto& cp : available_items)
-      {
-        lout<<endl<<"Available "<<cp.first<<"s :"<<endl;
-        for(const auto& item : cp.second)
-        {
-          lout<<"\t"<<item<<std::endl;
-        }
-      }
-    }
-    else
-    {
-      std::shared_ptr<OperatorNode> op = OperatorNodeFactory::instance()->make_operator( configuration.help , YAML::Node(YAML::NodeType::Map) );
-      std::ostringstream oss;
-      op->print_documentation( oss );
-      lout << oss.str() << std::endl;
-    }
-    return 0;
-  }
+          if( op.first == "batch") continue;
+          if( op.first == "matrix_4d") continue;
+          if( op.first == "particle_region_csg") continue;
+					std::shared_ptr<OperatorNode> ope = OperatorNodeFactory::instance()->make_operator( op.first , YAML::Node(YAML::NodeType::Map ) );
+					ope->print_documentation( oss );
+				}
+			}
+			lout << oss.str() << std::endl;
+		}
+		else if( configuration.help == "plugins" )
+		{
+			lout<<"Plugin data base:"<<endl
+				<<"================="<<endl<<endl;
+			std::set<std::string> available_plugins;
+			std::map< std::string , std::set<std::string> > available_items;
+			for(const auto& cp : *plugin_db )
+			{
+				for(const auto& op : cp.second )
+				{
+					available_items[cp.first].insert(op.first);
+					available_plugins.insert( op.second );
+				}
+			}
+			lout<<"Available plugins :"<<endl;
+			for(const auto& s : available_plugins) { lout<<"\t"<<s<<std::endl; }
 
-  // prepare operator assembly strategy
-  std::shared_ptr<OperatorNode> simulation_graph = OperatorNodeFactory::instance()->make_operator( "simulation" , simulation_node );  
-  simulation_graph->apply_graph( [](OperatorNode* o){ o->post_graph_build(); } );
+			for(const auto& cp : available_items)
+			{
+				lout<<endl<<"Available "<<cp.first<<"s :"<<endl;
+				for(const auto& item : cp.second)
+				{
+					lout<<"\t"<<item<<std::endl;
+				}
+			}
+		}
+		else
+		{
+			std::shared_ptr<OperatorNode> op = OperatorNodeFactory::instance()->make_operator( configuration.help , YAML::Node(YAML::NodeType::Map) );
+			std::ostringstream oss;
+			op->print_documentation( oss );
+			lout << oss.str() << std::endl;
+		}
+		return 0;
+	}
 
-  //  print simulation graph
-  if( configuration.debug.graph )
-  {
-    std::set<OperatorNode*> shrunk_nodes;
-    for(const std::string& f : configuration.debug.graph_filter)
-    {
-      const std::regex re(f);
-      simulation_graph->apply_graph(
-        [&re,&shrunk_nodes](OperatorNode* op)
-        {
-          if( std::regex_match(op->pathname(),re) )
-          {
-            // std::cout <<"shrink graph node "<< op->pathname() << std::endl;
-            shrunk_nodes.insert(op);
-          }
-        });
-    }
+	// prepare operator assembly strategy
+	std::shared_ptr<OperatorNode> simulation_graph = OperatorNodeFactory::instance()->make_operator( "simulation" , simulation_node );  
+	simulation_graph->apply_graph( [](OperatorNode* o){ o->post_graph_build(); } );
 
-    if( configuration.debug.graph_fmt == "console" )
-    {
-      lout<<endl<<"======= simulation graph ========"<<endl;
-      simulation_graph->pretty_print(lout, configuration.debug.graph_lod );
-      lout<<      "================================="<<endl<<endl;
-    }
-    else if( configuration.debug.graph_fmt == "dot" )
-    {
-      const std::string filename = "sim_graph.dot";
-      bool show_unconnected_nodes = ( configuration.debug.graph_lod >= 2 );
-      lout << "output simulation graph to "<<filename<<" ..." << std::endl;
-      bool expose_batch_slots = true;
-      bool remove_batch_ended_path = true;
-      bool invisible_batch_slots = true;
-      DotGraphOutput dotgen { expose_batch_slots, remove_batch_ended_path, invisible_batch_slots, configuration.debug.graph_rsc };
-      dotgen.dot_sim_graph(simulation_graph.get(),filename, show_unconnected_nodes, shrunk_nodes);
-    }
-    else
-    {
-      lerr << "Unrecognized graph output format "<< configuration.debug.graph_fmt << std::endl;
-      std::abort();
-    }
-  }
+	//  print simulation graph
+	if( configuration.debug.graph )
+	{
+		std::set<OperatorNode*> shrunk_nodes;
+		for(const std::string& f : configuration.debug.graph_filter)
+		{
+			const std::regex re(f);
+			simulation_graph->apply_graph(
+					[&re,&shrunk_nodes](OperatorNode* op)
+					{
+					if( std::regex_match(op->pathname(),re) )
+					{
+					// std::cout <<"shrink graph node "<< op->pathname() << std::endl;
+					shrunk_nodes.insert(op);
+					}
+					});
+		}
 
-  // setup debug log filtering
-  if( ! configuration.debug.filter.empty() )
-  {
-    //lout << "set debug filtering"<< std::endl;
-    //for(const auto& f:configuration.debug.filter) lout << "\t" << f<< std::endl;
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.debug.filter, { { "ooo" , std::numeric_limits<uint64_t>::max() } } , "debug filter: add " );
-    //lout << "hashes =>"<< std::endl;
-    //for(auto h:hashes) lout << "\t" << h << std::endl;
-    ldbg_raw.set_filters( hashes );
-  }
+		if( configuration.debug.graph_fmt == "console" )
+		{
+			lout<<endl<<"======= simulation graph ========"<<endl;
+			simulation_graph->pretty_print(lout, configuration.debug.graph_lod );
+			lout<<      "================================="<<endl<<endl;
+		}
+		else if( configuration.debug.graph_fmt == "dot" )
+		{
+			const std::string filename = "sim_graph.dot";
+			bool show_unconnected_nodes = ( configuration.debug.graph_lod >= 2 );
+			lout << "output simulation graph to "<<filename<<" ..." << std::endl;
+			bool expose_batch_slots = true;
+			bool remove_batch_ended_path = true;
+			bool invisible_batch_slots = true;
+			DotGraphOutput dotgen { expose_batch_slots, remove_batch_ended_path, invisible_batch_slots, configuration.debug.graph_rsc };
+			dotgen.dot_sim_graph(simulation_graph.get(),filename, show_unconnected_nodes, shrunk_nodes);
+		}
+		else
+		{
+			lerr << "Unrecognized graph output format "<< configuration.debug.graph_fmt << std::endl;
+			std::abort();
+		}
+	}
 
-  // print nodes' addresses
-  if( configuration.debug.graph_addr )
-  {
-    std::set<OperatorNode*> op_addresses;
-    simulation_graph->apply_graph( [&op_addresses](OperatorNode* op) { op_addresses.insert(op); });
-    for(auto op:op_addresses) { std::cout<< (void*)op << " : " << op->name() << std::endl; }
-  }
+	// setup debug log filtering
+	if( ! configuration.debug.filter.empty() )
+	{
+		//lout << "set debug filtering"<< std::endl;
+		//for(const auto& f:configuration.debug.filter) lout << "\t" << f<< std::endl;
+		auto hashes = operator_set_from_regex( simulation_graph, configuration.debug.filter, { { "ooo" , std::numeric_limits<uint64_t>::max() } } , "debug filter: add " );
+		//lout << "hashes =>"<< std::endl;
+		//for(auto h:hashes) lout << "\t" << h << std::endl;
+		ldbg_raw.set_filters( hashes );
+	}
 
-  // enable/disable additional debug messages for execution traces
-  OperatorNode::set_debug_execution( configuration.debug.graph_exec );
+	// print nodes' addresses
+	if( configuration.debug.graph_addr )
+	{
+		std::set<OperatorNode*> op_addresses;
+		simulation_graph->apply_graph( [&op_addresses](OperatorNode* op) { op_addresses.insert(op); });
+		for(auto op:op_addresses) { std::cout<< (void*)op << " : " << op->name() << std::endl; }
+	}
 
-  // activate verbose debugging of ompt tracing
-  if( configuration.debug.ompt ) { onika::omp::OpenMPToolInterace::enable_internal_dbg_message(); }
-  else { onika::omp::OpenMPToolInterace::disable_internal_dbg_message(); }
+	// enable/disable additional debug messages for execution traces
+	OperatorNode::set_debug_execution( configuration.debug.graph_exec );
 
-  // setup profiling filtering
-  if( ! configuration.profiling.filter.empty() )
-  {
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.profiling.filter, {} , "profiling enabled for " );
-    simulation_graph->apply_graph(
-      [&hashes](OperatorNode* o)
-      {
-        if( hashes.find(o->hash())==hashes.end() ) o->set_profiling(false);
-      });
-  }
+	// activate verbose debugging of ompt tracing
+	if( configuration.debug.ompt ) { onika::omp::OpenMPToolInterace::enable_internal_dbg_message(); }
+	else { onika::omp::OpenMPToolInterace::disable_internal_dbg_message(); }
 
-  // print info about non profiled components
-  if( configuration_needs_profiling )
-  {
-    std::set<std::string> noprof;
-    simulation_graph->apply_graph( [&noprof](OperatorNode* op) { if(!op->profiling()) noprof.insert(op->pathname()); } );
-    /*if( ! noprof.empty() )
-    {
-      lout << "profiling disabled components :"<<std::endl;
-      for(auto op:noprof)
-      {
-        lout << "\t" << op << std::endl;
-      }
-    }*/
-  }
+	// setup profiling filtering
+	if( ! configuration.profiling.filter.empty() )
+	{
+		auto hashes = operator_set_from_regex( simulation_graph, configuration.profiling.filter, {} , "profiling enabled for " );
+		simulation_graph->apply_graph(
+				[&hashes](OperatorNode* o)
+				{
+				if( hashes.find(o->hash())==hashes.end() ) o->set_profiling(false);
+				});
+	}
 
-  // setup GPU disable filtering
-  if( ! configuration.onika.gpu_disable_filter.empty() )
-  {
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_disable_filter, {} , "GPU disabled for " );
-    simulation_graph->apply_graph(
-      [&hashes](OperatorNode* o)
-      {
-        if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
-      });
-  }
+	// print info about non profiled components
+	if( configuration_needs_profiling )
+	{
+		std::set<std::string> noprof;
+		simulation_graph->apply_graph( [&noprof](OperatorNode* op) { if(!op->profiling()) noprof.insert(op->pathname()); } );
+		/*if( ! noprof.empty() )
+			{
+			lout << "profiling disabled components :"<<std::endl;
+			for(auto op:noprof)
+			{
+			lout << "\t" << op << std::endl;
+			}
+			}*/
+	}
 
-  // setup OpenMP threads limitations for filtered operators
-  if( ! configuration.omp_max_threads_filter.empty() )
-  {
-    for(const auto& p : configuration.omp_max_threads_filter )
-    {
-      const int nthreads = p.second;
-      auto hashes = operator_set_from_regex( simulation_graph, { p.first } );
-      simulation_graph->apply_graph(
-        [&hashes,nthreads](OperatorNode* o)
-        {
-          if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
-        });
-    }    
-  }
+	// setup GPU disable filtering
+	if( ! configuration.onika.gpu_disable_filter.empty() )
+	{
+		auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_disable_filter, {} , "GPU disabled for " );
+		simulation_graph->apply_graph(
+				[&hashes](OperatorNode* o)
+				{
+				if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
+				});
+	}
 
-  /**********************************/
-  /***** Onika sub-sytem config *****/
-  /**********************************/
-  onika::parallel::ParallelExecutionContext::s_parallel_task_core_mult = configuration.onika.parallel_task_core_mult;
-  onika::parallel::ParallelExecutionContext::s_parallel_task_core_add  = configuration.onika.parallel_task_core_add;
-  onika::parallel::ParallelExecutionContext::s_gpu_sm_mult             = configuration.onika.gpu_sm_mult;
-  onika::parallel::ParallelExecutionContext::s_gpu_sm_add              = configuration.onika.gpu_sm_add;
-  onika::parallel::ParallelExecutionContext::s_gpu_block_size          = configuration.onika.gpu_block_size;
+	// setup OpenMP threads limitations for filtered operators
+	if( ! configuration.omp_max_threads_filter.empty() )
+	{
+		for(const auto& p : configuration.omp_max_threads_filter )
+		{
+			const int nthreads = p.second;
+			auto hashes = operator_set_from_regex( simulation_graph, { p.first } );
+			simulation_graph->apply_graph(
+					[&hashes,nthreads](OperatorNode* o)
+					{
+					if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
+					});
+		}    
+	}
 
-  /**********************************/
-  /********* run simulation *********/
-  /**********************************/
-  exanb::OperatorNode::reset_profiling_reference_timestamp();
-  if( configuration_needs_profiling )
-  {
-    onika::omp::OpenMPToolInterace::enable();
-  }
-  simulation_start_breakpoint();
-  simulation_graph->run();
-  if( configuration_needs_profiling )
-  {
-    onika::omp::OpenMPToolInterace::disable();
-  }
-  /**********************************/
-  /**********************************/
+	/**********************************/
+	/***** Onika sub-sytem config *****/
+	/**********************************/
+	onika::parallel::ParallelExecutionContext::s_parallel_task_core_mult = configuration.onika.parallel_task_core_mult;
+	onika::parallel::ParallelExecutionContext::s_parallel_task_core_add  = configuration.onika.parallel_task_core_add;
+	onika::parallel::ParallelExecutionContext::s_gpu_sm_mult             = configuration.onika.gpu_sm_mult;
+	onika::parallel::ParallelExecutionContext::s_gpu_sm_add              = configuration.onika.gpu_sm_add;
+	onika::parallel::ParallelExecutionContext::s_gpu_block_size          = configuration.onika.gpu_block_size;
 
-  // produce vite trace output
-  if( configuration.profiling.trace.enable )
-  {
-    vite_end_trace( configuration.profiling.trace );
-    delete otf;
-  }
+	/**********************************/
+	/********* run simulation *********/
+	/**********************************/
+	exanb::OperatorNode::reset_profiling_reference_timestamp();
+	if( configuration_needs_profiling )
+	{
+		onika::omp::OpenMPToolInterace::enable();
+	}
+	simulation_start_breakpoint();
+	simulation_graph->run();
+	if( configuration_needs_profiling )
+	{
+		onika::omp::OpenMPToolInterace::disable();
+	}
+	/**********************************/
+	/**********************************/
 
-  //  print simulation execution summary
-  if( configuration.profiling.summary )
-  {
-    lout<<endl<<"Profiling .........................................  tot. time  ( GPU )   avginb  maxinb     count  percent"<<endl;        
-    auto statsfunc = []( const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg )
-    {
-      exanb::mpi_parallel_stats(MPI_COMM_WORLD,x,np,r,minval,maxval,avg);
-    };
-    simulation_graph->pretty_print(lout,false,true,statsfunc);
-    lout<<"=================================="<<endl<<endl;
-  }
+	// produce vite trace output
+	if( configuration.profiling.trace.enable )
+	{
+		vite_end_trace( configuration.profiling.trace );
+		delete otf;
+	}
 
-  // free all resources before exit
-  simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
-  simulation_graph = nullptr;
+	//  print simulation execution summary
+	if( configuration.profiling.summary )
+	{
+		lout<<endl<<"Profiling .........................................  tot. time  ( GPU )   avginb  maxinb     count  percent"<<endl;        
+		auto statsfunc = []( const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg )
+		{
+			exanb::mpi_parallel_stats(MPI_COMM_WORLD,x,np,r,minval,maxval,avg);
+		};
+		simulation_graph->pretty_print(lout,false,true,statsfunc);
+		lout<<"=================================="<<endl<<endl;
+	}
 
-  return 0;
+	// free all resources before exit
+	simulation_graph->apply_graph( [](OperatorNode* op){ op->free_all_resources(); } );
+	simulation_graph = nullptr;
+
+	return 0;
 }
 
