@@ -56,7 +56,7 @@ namespace exanb
     static inline constexpr bool UseCellIdx = false;
   };
   
-  // Template utilisé pour savoir si on n'itère que sur les cellules non vides
+  // this template is here to know if ComputeCellParticles iterates only on filled particles
   template<class FuncT> struct ComputeCellParticlesEmptyCells
   {
     static inline constexpr bool EmptyCells = false;
@@ -74,7 +74,7 @@ namespace exanb
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
     FieldAccTupleT m_cpfields;
-    int* cells_non_empty; //Tableau contenant les identifiants des cellules non vides
+    size_t* filled_cells; // List containing non empty cells's ids
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
@@ -85,10 +85,9 @@ namespace exanb
 
       size_t cell_a;
       
-      //Cas avec les cellules vides ou sans les cellules vides
       if( ComputeCellParticlesEmptyCells<FuncT>::EmptyCells == true )
       {
-      	cell_a = cells_non_empty[i];
+      	cell_a = filled_cells[i];
       }
       else
       {	
@@ -159,8 +158,8 @@ namespace exanb
     const FuncT& func,
     const onika::FlatTuple<FieldAccT...>& cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
-    int* cells_non_empty = nullptr,// Tableau contenant les identifiants des cellules non vides
-    int number_cells = 0 /*Nombre de cellules non vides*/ )
+    size_t* filled_cells = nullptr,
+    size_t number_filled_cells = 0 )
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
@@ -171,8 +170,8 @@ namespace exanb
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
     size_t N;
-    //Avec les cellules vides ou sans les cellules vides
-    if(number_cells == 0)
+    
+    if(number_filled_cells == 0)
     {
     	const IJK dims = grid.dimension();
     	const int gl = enable_ghosts ? 0 : grid.ghost_layers();
@@ -181,14 +180,14 @@ namespace exanb
     }
     else
     {
-    	N = number_cells;
+    	N = number_filled_cells;
     }
     	    
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    PForFuncT pfor_func = { cells , dims , gl , func , cpfields, cells_non_empty };
+    PForFuncT pfor_func = { cells , dims , gl , func , cpfields, filled_cells };
     return block_parallel_for( N, pfor_func, exec_ctx );
   }
 
@@ -201,12 +200,12 @@ namespace exanb
     const FuncT& func,
     FieldSet<field_ids...> cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
-    int* cells_non_empty = nullptr,
-    int number_cells = 0 )
+    size_t* filled_cells = nullptr,
+    size_t number_filled_cells = 0 )
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
-    return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx, cells_non_empty, number_cells);
+    return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx, filled_cells, number_filled_cells);
   }
 
 }
