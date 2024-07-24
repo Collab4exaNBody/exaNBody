@@ -54,6 +54,10 @@ namespace exanb
 		   std::vector< std::vector< std::vector< std::pair<int,int>>>>& cell_particles_nbh,//HOOKE_FORCE_GPU
 		   std::vector<std::vector <int>>& id_un,//HOOKE_FORCE_GPU
 		   std::vector< std::vector< std::vector<int>>>& id_deux,//HOOKE_FORCE_GPU
+		   
+		   onika::memory::CudaMMVector<int>& nb_particles_cells,
+		   onika::memory::CudaMMVector< onika::memory::CudaMMVector<int>>& cell_particles_neighbors,
+		   onika::memory::CudaMMVector< onika::memory::CudaMMVector<int>>& cell_particles_neighbors_size,
 		   NeighborFilterFuncT nbh_filter = {})
     {
       //using PointerTuple = onika::soatl::FieldPointerTuple< GridT::CellParticles::Alignment , GridT::CellParticles::ChunkSize , field::_rx, field::_ry, field::_rz >;
@@ -105,6 +109,12 @@ namespace exanb
       cell_particles_nbh.resize(n_cells);//HOOKE_FORCE_GPU
       id_un.resize(n_cells);//HOOKE_FORCE_GPU
       id_deux.resize(n_cells);//HOOKE_FORCE_GPU
+      cell_particles_neighbors.resize(n_cells);
+      cell_particles_neighbors_size.resize(n_cells);
+      
+      
+      nb_particles_cells.resize(n_cells);
+      
       
       chunk_neighbors.clear();
       chunk_neighbors.set_number_of_cells( n_cells );
@@ -137,11 +147,17 @@ namespace exanb
 
           //if( n_particles_a > cell_a_particle_nbh.size() )
           //{
+          
+          nb_particles_cells[cell_a] = n_particles_a;
+          
+          
+          
             cell_a_particle_nbh.resize( n_particles_a );
             
             cell_particles_nbh[cell_a].resize(n_particles_a);//HOOKE_FORCE_GPU
             id_un[cell_a].resize(n_particles_a);//HOOKE_FORCE_GPU
             id_deux[cell_a].resize(n_particles_a);//HOOKE_FORCE_GPU
+            
           //}
           for(size_t i=0;i<n_particles_a;i++)
           {
@@ -174,6 +190,12 @@ namespace exanb
             IJK loc_b { loc_bi, loc_bj, loc_bk };
             ssize_t cell_b = grid_ijk_to_index( dims, loc_b );
             size_t n_particles_b = cells[cell_b].size();
+            
+           if(n_particles_b > 0)
+           {
+           	cell_particles_neighbors[cell_a].push_back(cell_b);
+           	cell_particles_neighbors_size[cell_a].push_back(n_particles_b);
+           }
 
             ssize_t sgstart_b = sub_grid_start[cell_b];
             ssize_t sgsize_b = sub_grid_start[cell_b+1] - sgstart_b;
@@ -259,10 +281,12 @@ namespace exanb
                     double d2 = norm2( xform.transformCoord( dr ) );
                     if( ( cell_a!=cell_b || p_a!=p_b ) && nbh_filter(d2,max_dist2,cell_a,p_a,cell_b,p_b) )
                     {
-                    	std::pair<int, int> pair = std::make_pair(p_b, cell_b);
-                    	
-                    	cell_particles_nbh[cell_a][p_a].push_back(pair);//HOOKE_FORCE_GPU
-                    	id_deux[cell_a][p_a].push_back(id_b[p_b]);//HOOKE_FORCE_GPU
+                    	//if(id_a[p_a] < id_b[p_b])
+                    	//{
+                    		std::pair<int, int> pair = std::make_pair(p_b, cell_b);
+                    		cell_particles_nbh[cell_a][p_a].push_back(pair);//HOOKE_FORCE_GPU
+                    		id_deux[cell_a][p_a].push_back(id_b[p_b]);//HOOKE_FORCE_GPU
+                    	//}
                     	
                       unsigned int chunk_b = p_b >> cs_log2;
                       assert( chunk_b < std::numeric_limits<uint16_t>::max() );
@@ -300,7 +324,7 @@ namespace exanb
            *    thus, we extend the previous so that the first integer is the number of 32-bits offset tables stored ahead of neighbors stream.
            * 4-bis) we limit number of tables to MAX_STREAM_OFFSET_TABLES
            */
-          ssize_t offset_table_size = 0;
+         ssize_t offset_table_size = 0;
           unsigned int num_offset_tables = 0;
           if( build_particle_offset )
           {
@@ -406,7 +430,7 @@ namespace exanb
             if( config.dual_particle_offset )
             {
               assert( ssize_t(ccnbh.size()) >= offset_table_size );
-              assert( /* n_sym_nbh>=0 && */ n_sym_nbh<=nbh_count_nodup );
+              assert( /* n_sym_nbh>=0 && */n_sym_nbh<=nbh_count_nodup );
               assert( ssize_t( ( n_particles_a + 1 + p_a ) * 2 + 1 ) < offset_table_size );
               ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 0 ] = n_sym_nbh ;
               ccnbh[ ( n_particles_a + 1 + p_a ) * 2 + 1 ] = n_sym_nbh >> 16 ;
@@ -430,11 +454,12 @@ namespace exanb
 
           uint16_t * output_stream = chunk_nbh.allocate( cell_a , ccnbh.size() );
           std::memcpy( output_stream , ccnbh.data() , ccnbh.size() * sizeof(uint16_t) );
+         
         }
         GRID_OMP_FOR_END
       }
 
-      if( config.free_scratch_memory )
+     if( config.free_scratch_memory )
       {
         chunk_neighbors_scratch.thread.clear();
         chunk_neighbors_scratch.thread.shrink_to_fit();
@@ -442,6 +467,7 @@ namespace exanb
 
       chunk_neighbors.update_stream_pool_hint();
       ldbg << "Chunk neighbors next pre-alloc hint = "<<chunk_neighbors.m_stream_pool_hint <<", nb dyn alloc = "<<chunk_neighbors.m_nb_dyn_alloc<<std::endl;
+    
     }
 
 }

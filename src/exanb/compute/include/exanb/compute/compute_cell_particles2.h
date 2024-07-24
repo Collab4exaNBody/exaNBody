@@ -35,6 +35,9 @@ under the License.
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
+
+#include <optional>
+
 #endif
 
 
@@ -52,7 +55,8 @@ namespace exanb
   {
     static inline constexpr bool UseCellIdx = false;
   };
-
+  
+  
   template<class CellsT, class FuncT, class FieldAccTupleT , class IndexSequence> struct ComputeCellParticlesFunctor2;
 
   template<class CellsT, class FuncT, class FieldAccTupleT, size_t ... FieldIndex >
