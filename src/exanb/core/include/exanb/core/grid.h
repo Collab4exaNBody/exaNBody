@@ -575,16 +575,21 @@ namespace exanb
 
     // *** unification of per cell arrays dans flat arrays ***
     template<class fid>
-    inline auto field_accessor( onika::soatl::FieldId<fid> f )
+    inline auto
+    field_accessor( onika::soatl::FieldId<fid> f )
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_accessor(f);
-      else return f;
+      if constexpr (   HasField<fid>::value ) return f;
+      // we shall never get there, but intel compiler needs this to avoid compile warnings
+      return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_accessor(f)) >{} ;
     }
     template<class fid>
     inline auto field_const_accessor( onika::soatl::FieldId<fid> f )
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_const_accessor(f);
-      else return f;
+      if constexpr (   HasField<fid>::value ) return f;
+      // we shall never get there, but intel compiler needs this to avoid compile warnings
+      return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_const_accessor(f)) >{} ; // should never get ther
     }
     template<class... fids>
     inline auto field_accessors_from_field_set( FieldSet<fids...> fs )

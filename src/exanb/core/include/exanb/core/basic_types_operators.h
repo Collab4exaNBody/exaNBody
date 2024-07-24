@@ -152,6 +152,11 @@ namespace exanb
     return a;
   }
 
+  ONIKA_HOST_DEVICE_FUNC inline IJK operator - (const IJK& v)
+  {
+    return { - v.i , - v.j , - v.k };
+  }
+
   ONIKA_HOST_DEVICE_FUNC inline IJK vclamp(const IJK& a, const IJK& min, const IJK& max)
   {
     using onika::cuda::clamp;
