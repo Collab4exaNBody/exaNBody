@@ -236,7 +236,10 @@ namespace exanb
       if (rank==0)
         {
           std::filesystem::path dir_path = std::filesystem::path(filename).parent_path();
-          std::filesystem::create_directories( dir_path );
+          if( dir_path != "" )
+          {
+            std::filesystem::create_directories( dir_path );
+          }
         }
 
       MPI_Barrier(comm);
