@@ -43,6 +43,7 @@ under the License.
 #include <type_traits>
 #include <experimental/filesystem>
 #include <regex>
+#include <filesystem>
 
 namespace exanb
 {
@@ -232,6 +233,12 @@ namespace exanb
       // we don't want a proc try to write in a folder that doesn't exist
       MPI_Barrier(comm);
 
+      if (rank==0)
+        {
+          std::filesystem::path dir_path = std::filesystem::path(filename).parent_path();
+          std::filesystem::create_directories( dir_path );
+        }
+      
       // structure for file opening/writing in mpi
       MPI_File mpiFile;
       MPI_Status status;
