@@ -15,10 +15,13 @@ The Documentation is available at:
 
 ## Citing exaNBody in your papers 
 
+```
 Thierry Carrard, Raphaël Prat, Guillaume Latu, Killian Babilotte, Paul Lafourcade, Lhassan Amarsid, and Laurent Soulard. 2024. ExaNBody: A HPC Framework for N-Body Applications. In Euro-Par 2023: Parallel Processing Workshops: Euro-Par 2023 International Workshops, Limassol, Cyprus, August 28 – September 1, 2023, Revised Selected Papers, Part I. Springer-Verlag, Berlin, Heidelberg, 342–354. https://doi.org/10.1007/978-3-031-50684-0_27
+```
 
 Bibtex:
 
+```
 @inproceedings{carrard2023exanbody,
   title={ExaNBody: a HPC framework for N-Body applications},
   author={Carrard, Thierry and Prat, Rapha{\"e}l and Latu, Guillaume and Babilotte, Killian and Lafourcade, Paul and Amarsid, Lhassan and Soulard, Laurent},
@@ -31,3 +34,4 @@ Bibtex:
   url = {https://doi.org/10.1007/978-3-031-50684-0_27},
   doi = {10.1007/978-3-031-50684-0_27}
 }
+```
