@@ -32,7 +32,18 @@ namespace onika
     ONIKA_HOST_DEVICE_FUNC inline constexpr operator T () const { return _Value; }
     ONIKA_HOST_DEVICE_FUNC inline bool operator == ( T other ) const { return _Value == other; }
     ONIKA_HOST_DEVICE_FUNC inline bool operator != ( T other ) const { return _Value != other; }
+
+#   define INTEGRAL_CONST_BINARY_OP(op) \
+    template< class U, U v > ONIKA_HOST_DEVICE_FUNC inline constexpr auto operator op ( IntegralConst<U,v> rhs ) const { return IntegralConst< decltype( value op rhs.value ) , value op rhs.value >{}; }
+
+    INTEGRAL_CONST_BINARY_OP( * )
+    INTEGRAL_CONST_BINARY_OP( / )
+    INTEGRAL_CONST_BINARY_OP( + )
+    INTEGRAL_CONST_BINARY_OP( - )
+    
+#   undef INTEGRAL_CONST_BINARY_OP
   };
+  
   template<bool B> using BoolConst = IntegralConst<bool,B>;
   template<unsigned int I> using UIntConst = IntegralConst<unsigned int,I>;
   template<int I> using IntConst = IntegralConst<int,I>;
