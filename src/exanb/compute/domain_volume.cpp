@@ -44,7 +44,7 @@ namespace exanb
           *volume = dot( cross(a,b) , c );
         }
       *volume *= bounds_volume( domain->bounds() );
-      lout << "Domain volume = " << *volume << std::endl;
+      ldbg << "Domain volume = " << *volume << std::endl;
     }
 
     inline std::string documentation() const override final
