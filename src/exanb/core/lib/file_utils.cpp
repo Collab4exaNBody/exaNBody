@@ -94,7 +94,7 @@ namespace exanb
     bool found = resolve_file_path( dirs , resolved_path );
     if( ! found )
     {
-      lerr << "configuration file "<<filepath<<" not found"<<std::endl;
+      lerr << "configuration file '"<<filepath<<"' not found"<<std::endl;
       std::abort();
     }
     return resolved_path;
@@ -119,7 +119,7 @@ namespace exanb
     bool found = resolve_file_path( dirs , resolved_path );
     if( ! found )
     {
-      ldbg << "Warning: file "<<filepath<<"not found"<<std::endl;
+      ldbg << "Warning: file '"<<filepath<<"' not found"<<std::endl;
     }
     return resolved_path;
   }
