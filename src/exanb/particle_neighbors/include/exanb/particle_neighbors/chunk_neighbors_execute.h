@@ -68,15 +68,7 @@ namespace exanb
       bool build_particle_offset = config.build_particle_offset;
       if( gpu_enabled && !build_particle_offset ) // specialization for chunk_size=1 now suports list traversal without offset table
       {
-        if( config.chunk_size > 1 )
-        {
-          ldbg << "INFO: force build_particle_offset to true to ensure Cuda compatibility" << std::endl;
-                build_particle_offset = true;
-        }
-        else
-        {
-          lout << "INFO: use of chunk neighbors without 'build_particle_offset' flag with supported whith chunk_size=1, but discouraged for optimal performance<" << std::endl;
-        }
+        lout << "INFO: use of chunk neighbors without 'build_particle_offset' flag with supported, but is discouraged for optimal performance<" << std::endl;
       }
       if( ! build_particle_offset )
       {
@@ -311,8 +303,13 @@ namespace exanb
               uint32_t offset = ccnbh.size() - offset_table_size + num_offset_tables;
               ccnbh[p_a*2+0] = offset ;
               ccnbh[p_a*2+1] = offset >> 16 ;
-              [[maybe_unused]] const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
-              assert( offset_table[p_a] == offset );
+#             ifndef NDEBUG
+              const uint32_t* offset_table = reinterpret_cast<const uint32_t*>( ccnbh.data() );
+              if( offset_table[p_a] != offset )
+              {
+                fatal_error() << "corrupted particle offset : table["<<p_a<<"]="<<std::hex<<offset_table[p_a]<<" , expected "<<offset<<std::endl;
+	            }
+#             endif
               assert( p_a!=0 || ( ccnbh[0]==num_offset_tables && ccnbh[1]==0 ) );
             }
            

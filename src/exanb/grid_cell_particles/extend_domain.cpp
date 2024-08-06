@@ -54,6 +54,17 @@ namespace exanb
         return;
       }
 
+      if( domain->periodic_boundary_x() && domain->periodic_boundary_y() && domain->periodic_boundary_z() )
+      {
+        if( domain->expandable() )
+        {
+          lerr << "Domain is fully periodic, thus it cannot be expanded. Set expandable to false" << std::endl;
+          domain->set_expandable( false );
+        }
+        *domain_extended = false;
+        return;
+      }
+
       size_t n = otb_particles->size();
       const ParticleT * __restrict__ particles = otb_particles->data();
 
@@ -108,23 +119,23 @@ namespace exanb
       if( n > 0 )
       {
         grid_min = IJK{
-        std::min( 0l , static_cast<ssize_t>( std::floor( ( xmin - domain->bounds().bmin.x ) / cell_size ) ) ),
-        std::min( 0l , static_cast<ssize_t>( std::floor( ( ymin - domain->bounds().bmin.y ) / cell_size ) ) ),
-        std::min( 0l , static_cast<ssize_t>( std::floor( ( zmin - domain->bounds().bmin.z ) / cell_size ) ) )
-        } ;
-      
+          std::min( 0l , static_cast<ssize_t>( std::floor( ( xmin - domain->bounds().bmin.x ) / cell_size ) ) ),
+          std::min( 0l , static_cast<ssize_t>( std::floor( ( ymin - domain->bounds().bmin.y ) / cell_size ) ) ),
+          std::min( 0l , static_cast<ssize_t>( std::floor( ( zmin - domain->bounds().bmin.z ) / cell_size ) ) )
+          };
+
         grid_max = IJK{
-        std::max( dims.i , static_cast<ssize_t>( std::ceil( ( xmax - domain->bounds().bmin.x ) / cell_size ) ) ),
-        std::max( dims.j , static_cast<ssize_t>( std::ceil( ( ymax - domain->bounds().bmin.y ) / cell_size ) ) ),
-        std::max( dims.k , static_cast<ssize_t>( std::ceil( ( zmax - domain->bounds().bmin.z ) / cell_size ) ) )
-        } ;
+          std::max( dims.i , static_cast<ssize_t>( std::ceil( ( xmax - domain->bounds().bmin.x ) / cell_size ) ) ),
+          std::max( dims.j , static_cast<ssize_t>( std::ceil( ( ymax - domain->bounds().bmin.y ) / cell_size ) ) ),
+          std::max( dims.k , static_cast<ssize_t>( std::ceil( ( zmax - domain->bounds().bmin.z ) / cell_size ) ) )
+          };
       }
       else
       {
         grid_min = IJK{ 0, 0, 0 };
         grid_max = dims;
       }
-      
+
       ldbg << "grid_min (local) : " << grid_min << std::endl;
       ldbg << "grid_max (local) : " << grid_max << std::endl;
       
@@ -148,11 +159,12 @@ namespace exanb
         grid_max.k = tmp[5];
         max_n_otb  = tmp[6];
       }
-      ldbg << "max_n_otb=" << max_n_otb << std::endl;
+      ldbg << "max_n_otb      : " << max_n_otb << std::endl;
       ldbg << "grid_min (all) : " << grid_min << std::endl;
       ldbg << "grid_max (all) : " << grid_max << std::endl;
       if( max_n_otb == 0 )
       {
+        // nothing to do
         return ;
       }
       

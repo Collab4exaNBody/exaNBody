@@ -27,6 +27,10 @@ under the License.
 #include <utility>
 #include <sstream>
 
+#ifndef XNB_MPIIO_PREOPEN_FILE_PARTS
+#define XNB_MPIIO_PREOPEN_FILE_PARTS 4
+#endif
+
 namespace exanb
 {
 
@@ -35,10 +39,7 @@ namespace exanb
   public:
     static constexpr size_t DEFAULT_MAX_FILE_SIZE = 128ull * 1024ull * 1024ull * 1024ull; // maximum 128Gb per file
     static constexpr size_t MAX_IO_OPERATION_SIZE = 512ull * 1024ull * 1024ull; // maximum 512Mb per I/O operation
-    static constexpr size_t PREOPEN_FILE_PARTS = 4;
-    static constexpr size_t MAX_COMPRESSION_THREADS = 128; // if this is changed, files might not be readable anymore
-
-    //inline void set_compression( bool b ) { m_compressed = b; }
+    static constexpr size_t PREOPEN_FILE_PARTS = XNB_MPIIO_PREOPEN_FILE_PARTS;
 
     inline void open(const std::string& filename, std::string rw, size_t block_size = DEFAULT_MAX_FILE_SIZE ) { open( MPI_COMM_WORLD, filename, rw, block_size ); }
     void open(MPI_Comm comm, const std::string& filename, std::string rw, size_t block_size = DEFAULT_MAX_FILE_SIZE );

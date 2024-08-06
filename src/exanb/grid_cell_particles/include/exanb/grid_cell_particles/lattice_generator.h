@@ -591,9 +591,14 @@ namespace exanb
           GRID_OMP_FOR_END
         }
       }
-      
-      MPI_Allreduce(MPI_IN_PLACE,&local_generated_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-      lout << "output particles  = " << local_generated_count<<std::endl
+
+      unsigned long long min_output_particles = 0;      
+      unsigned long long max_output_particles = 0;      
+      unsigned long long sum_output_particles = 0;      
+      MPI_Allreduce(&local_generated_count,&min_output_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
+      MPI_Allreduce(&local_generated_count,&max_output_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
+      MPI_Allreduce(&local_generated_count,&sum_output_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
+      lout << "output particles  = " << sum_output_particles << " (min="<<min_output_particles<<",max="<<max_output_particles<<")" <<std::endl
            << "================================="<< std::endl << std::endl;
     }
 
