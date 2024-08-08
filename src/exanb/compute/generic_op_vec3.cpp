@@ -213,6 +213,7 @@ namespace exanb
   template<class GridT> using ShiftPositionOperator = GenericVec3Operator< GridT, field::_rx,field::_ry,field::_rz , InPlaceAddFunctor >;
   template<class GridT> using ShiftVelocityOperator = GenericVec3Operator< GridT, field::_vx,field::_vy,field::_vz , InPlaceAddFunctor >;
   template<class GridT> using ScalePositionOperator = GenericVec3Operator< GridT, field::_rx,field::_ry,field::_rz , InPlaceMulFunctor >;
+  template<class GridT> using ScaleVelocityOperator = GenericVec3Operator< GridT, field::_vx,field::_vy,field::_vz , InPlaceMulFunctor >;
   template<class GridT> using SetVelocityOperator   = GenericVec3Operator< GridT, field::_vx,field::_vy,field::_vz , SetFirstArgFunctor >;
   template<class GridT> using SetForceOperator      = GenericVec3Operator< GridT, field::_fx,field::_fy,field::_fz , SetFirstArgFunctor >;
   
@@ -222,6 +223,7 @@ namespace exanb
    OperatorNodeFactory::instance()->register_factory( "shift_r", make_grid_variant_operator< ShiftPositionOperator > );
    OperatorNodeFactory::instance()->register_factory( "shift_v", make_grid_variant_operator< ShiftVelocityOperator > );
    OperatorNodeFactory::instance()->register_factory( "scale_r", make_grid_variant_operator< ScalePositionOperator > );
+   OperatorNodeFactory::instance()->register_factory( "scale_v", make_grid_variant_operator< ScaleVelocityOperator > );
    OperatorNodeFactory::instance()->register_factory( "set_velocity", make_grid_variant_operator< SetVelocityOperator > );
    OperatorNodeFactory::instance()->register_factory( "set_force", make_grid_variant_operator< SetForceOperator > );
   }

@@ -36,11 +36,13 @@ namespace exanb
     static FileAppendWriteBuffer g_FileAppendWriteBuffer_instance{};
   }
 
-  void FileAppendWriteBuffer::append_to_file(const std::string& filename, const std::string& buffer )
+  void FileAppendWriteBuffer::append_to_file(const std::string& filename, const std::string& buffer, const bool forceappend)
   {
 #   pragma omp critical(FileAppendWriteBuffer_append_to_file)
     {
-      if( m_create.find(filename)==m_create.end() ) { m_create[filename]=true; }
+      const bool file_exists = std::ifstream(filename).good();
+      const bool create_file = (!file_exists) || (!forceappend);
+      if( (m_create.find(filename)==m_create.end()) && create_file ) { m_create[filename]=true; }
       m_write_buffer[filename] += buffer;
       if( m_write_buffer[filename].size() >= s_max_buffer_size )
       {
