@@ -35,6 +35,9 @@ under the License.
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
+
+#include <optional>
+
 #endif
 
 
@@ -52,6 +55,13 @@ namespace exanb
   {
     static inline constexpr bool UseCellIdx = false;
   };
+  
+  // this template is here to know if ComputeCellParticles iterates only on filled particles
+  template<class FuncT> struct ComputeCellParticlesEmptyCells
+  {
+    static inline constexpr bool EmptyCells = false;
+  };
+
 
   template<class CellsT, class FuncT, class FieldAccTupleT , class IndexSequence> struct ComputeCellParticlesFunctor;
 
@@ -64,6 +74,7 @@ namespace exanb
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
     FieldAccTupleT m_cpfields;
+    size_t* filled_cells; // List containing non empty cells's ids
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
@@ -72,13 +83,24 @@ namespace exanb
       static constexpr bool call_func_with_cell_idx = lambda_is_compatible_with_v<FuncT,void, size_t, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
       static constexpr bool call_func_with_cell_particle_idx = lambda_is_compatible_with_v<FuncT,void, size_t, unsigned int, decltype( m_cells[0][m_cpfields.get(onika::tuple_index_t<FieldIndex>{})][0] ) ... >;
 
-      size_t cell_a = i;
-      IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
-      cell_a_loc = cell_a_loc + m_ghost_layers;
-      if( m_ghost_layers != 0 )
+      size_t cell_a;
+      
+      if( ComputeCellParticlesEmptyCells<FuncT>::EmptyCells == true )
       {
-        cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+      	cell_a = filled_cells[i];
       }
+      else
+      {	
+      	cell_a = i;
+      	IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
+      	cell_a_loc = cell_a_loc + m_ghost_layers;
+      	if( m_ghost_layers != 0 )
+      	{
+        	cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+      	}
+      }			
+	
+     
       const unsigned int n = m_cells[cell_a].size();
       //if( ONIKA_CU_THREAD_IDX == 0 ) printf("GPU: cell particles functor: cell #%d @%d,%d,%d : %d particles\n",int(cell_a),int(cell_a_loc.i),int(cell_a_loc.j),int(cell_a_loc.k),int(n));
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
@@ -135,7 +157,9 @@ namespace exanb
     bool enable_ghosts,
     const FuncT& func,
     const onika::FlatTuple<FieldAccT...>& cpfields ,
-    onika::parallel::ParallelExecutionContext * exec_ctx )
+    onika::parallel::ParallelExecutionContext * exec_ctx,
+    size_t* filled_cells = nullptr,
+    size_t number_filled_cells = 0 )
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
@@ -145,16 +169,25 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
-    const IJK dims = grid.dimension();
-    const int gl = enable_ghosts ? 0 : grid.ghost_layers();
-    const IJK block_dims = dims - (2*gl);
-    const size_t N = block_dims.i * block_dims.j * block_dims.k;    
-
+    size_t N;
+    
+    if(number_filled_cells == 0)
+    {
+    	const IJK dims = grid.dimension();
+    	const int gl = enable_ghosts ? 0 : grid.ghost_layers();
+    	const IJK block_dims = dims - (2*gl);
+    	N = block_dims.i * block_dims.j * block_dims.k;
+    }
+    else
+    {
+    	N = number_filled_cells;
+    }
+    	    
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    PForFuncT pfor_func = { cells , dims , gl , func , cpfields };
+    PForFuncT pfor_func = { cells , dims , gl , func , cpfields, filled_cells };
     return block_parallel_for( N, pfor_func, exec_ctx );
   }
 
@@ -166,11 +199,13 @@ namespace exanb
     bool enable_ghosts,
     const FuncT& func,
     FieldSet<field_ids...> cpfields ,
-    onika::parallel::ParallelExecutionContext * exec_ctx )
+    onika::parallel::ParallelExecutionContext * exec_ctx,
+    size_t* filled_cells = nullptr,
+    size_t number_filled_cells = 0 )
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
-    return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx);
+    return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx, filled_cells, number_filled_cells);
   }
 
 }
