@@ -74,7 +74,7 @@ namespace exanb
   class FileAppendWriteBuffer
   {
   public:
-    void append_to_file(const std::string& filename, const std::string& buffer, const bool forceappend);
+    void append_to_file(const std::string& filename, const std::string& buffer, bool forceappend = false);
     void flush();
     void flush_singlethread();
     ~FileAppendWriteBuffer();

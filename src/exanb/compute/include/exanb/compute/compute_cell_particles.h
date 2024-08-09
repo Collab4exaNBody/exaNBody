@@ -35,9 +35,6 @@ under the License.
 
 #ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
-
-#include <optional>
-
 #endif
 
 
@@ -74,7 +71,7 @@ namespace exanb
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
     FieldAccTupleT m_cpfields;
-    size_t* filled_cells; // List containing non empty cells's ids
+    size_t* filled_cells = nullptr; // List containing non empty cells's ids
     
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
@@ -85,7 +82,7 @@ namespace exanb
 
       size_t cell_a;
       
-      if( ComputeCellParticlesEmptyCells<FuncT>::EmptyCells == true )
+      if( filled_cells != nullptr )
       {
       	cell_a = filled_cells[i];
       }
@@ -159,7 +156,7 @@ namespace exanb
     const onika::FlatTuple<FieldAccT...>& cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
     size_t* filled_cells = nullptr,
-    size_t number_filled_cells = 0 )
+    ssize_t number_filled_cells = -1 )
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
@@ -169,19 +166,14 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
-    size_t N;
-    
-    if(number_filled_cells == 0)
-    {
-    	const IJK dims = grid.dimension();
-    	const int gl = enable_ghosts ? 0 : grid.ghost_layers();
-    	const IJK block_dims = dims - (2*gl);
-    	N = block_dims.i * block_dims.j * block_dims.k;
-    }
-    else
-    {
-    	N = number_filled_cells;
-    }
+    if( number_filled_cells <= 0 ) filled_cells = nullptr;
+
+  	const IJK dims = grid.dimension();
+  	const int gl = enable_ghosts ? 0 : grid.ghost_layers();
+  	const IJK block_dims = dims - (2*gl);
+  	const size_t N = ( number_filled_cells >= 0 ) ? number_filled_cells : ( block_dims.i * block_dims.j * block_dims.k );
+
+    assert( number_filled_cells <= 0 || filled_cells != nullptr ); // filled_cells array must be valid if number_filled_cells > 0
     	    
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
@@ -201,10 +193,11 @@ namespace exanb
     FieldSet<field_ids...> cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
     size_t* filled_cells = nullptr,
-    size_t number_filled_cells = 0 )
+    ssize_t number_filled_cells = -1 )
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
+    if( number_filled_cells < 0 ) filled_cells = nullptr;
     return compute_cell_particles(grid,enable_ghosts,func,cp_fields,exec_ctx, filled_cells, number_filled_cells);
   }
 
