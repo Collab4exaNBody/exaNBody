@@ -564,6 +564,7 @@ int main(int argc,char*argv[])
       lout<<"   Or: "<<argv[0]<<" --help default-config"<<endl;
       lout<<"   Or: "<<argv[0]<<" --help command-line"<<endl;
       lout<<"   Or: "<<argv[0]<<" --help plugins"<<endl<<endl;
+      lout<<"   Or: "<<argv[0]<<" --help show-plugins"<<endl<<endl;
       lout<<"   Or: "<<argv[0]<<" --help [operator-name]"<<endl<<endl;
 #     ifndef NDEBUG
       lout<<"Debug with gdb -ex 'break simulation_start_breakpoint' -ex run --args"<<argv[0]<<endl<<endl;
@@ -583,10 +584,28 @@ int main(int argc,char*argv[])
       configuration.m_doc.print_command_line_options( lout );
       lout<<endl;
     }
+    else if( configuration.help == "show-plugins" )
+    {
+      lout<<"Operator data base:"<<endl
+          <<"================="<<endl<<endl;
+      std::ostringstream oss;
+      for(const auto& cp : *plugin_db )
+      {
+        for(const auto& op : cp.second )
+        {
+          if( op.first == "batch") continue;
+          if( op.first == "matrix_4d") continue;
+          if( op.first == "particle_region_csg") continue;
+          std::shared_ptr<OperatorNode> ope = OperatorNodeFactory::instance()->make_operator( op.first , YAML::Node(YAML::NodeType::Map ) );
+          ope->print_documentation( oss );
+        }
+      }
+      lout << oss.str() << std::endl;
+    }
     else if( configuration.help == "plugins" )
     {
       lout<<"Plugin data base:"<<endl
-          <<"================="<<endl<<endl;
+        <<"================="<<endl<<endl;
       std::set<std::string> available_plugins;
       std::map< std::string , std::set<std::string> > available_items;
       for(const auto& cp : *plugin_db )
@@ -599,7 +618,7 @@ int main(int argc,char*argv[])
       }
       lout<<"Available plugins :"<<endl;
       for(const auto& s : available_plugins) { lout<<"\t"<<s<<std::endl; }
-      
+
       for(const auto& cp : available_items)
       {
         lout<<endl<<"Available "<<cp.first<<"s :"<<endl;
@@ -631,14 +650,14 @@ int main(int argc,char*argv[])
     {
       const std::regex re(f);
       simulation_graph->apply_graph(
-        [&re,&shrunk_nodes](OperatorNode* op)
-        {
+          [&re,&shrunk_nodes](OperatorNode* op)
+          {
           if( std::regex_match(op->pathname(),re) )
           {
-            // std::cout <<"shrink graph node "<< op->pathname() << std::endl;
-            shrunk_nodes.insert(op);
+          // std::cout <<"shrink graph node "<< op->pathname() << std::endl;
+          shrunk_nodes.insert(op);
           }
-        });
+          });
     }
 
     if( configuration.debug.graph_fmt == "console" )
@@ -696,10 +715,10 @@ int main(int argc,char*argv[])
   {
     auto hashes = operator_set_from_regex( simulation_graph, configuration.profiling.filter, {} , "profiling enabled for " );
     simulation_graph->apply_graph(
-      [&hashes](OperatorNode* o)
-      {
+        [&hashes](OperatorNode* o)
+        {
         if( hashes.find(o->hash())==hashes.end() ) o->set_profiling(false);
-      });
+        });
   }
 
   // print info about non profiled components
@@ -708,13 +727,13 @@ int main(int argc,char*argv[])
     std::set<std::string> noprof;
     simulation_graph->apply_graph( [&noprof](OperatorNode* op) { if(!op->profiling()) noprof.insert(op->pathname()); } );
     /*if( ! noprof.empty() )
-    {
+      {
       lout << "profiling disabled components :"<<std::endl;
       for(auto op:noprof)
       {
-        lout << "\t" << op << std::endl;
+      lout << "\t" << op << std::endl;
       }
-    }*/
+      }*/
   }
 
   // setup GPU disable filtering
@@ -722,10 +741,10 @@ int main(int argc,char*argv[])
   {
     auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_disable_filter, {} , "GPU disabled for " );
     simulation_graph->apply_graph(
-      [&hashes](OperatorNode* o)
-      {
+        [&hashes](OperatorNode* o)
+        {
         if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
-      });
+        });
   }
 
   // setup OpenMP threads limitations for filtered operators
@@ -736,10 +755,10 @@ int main(int argc,char*argv[])
       const int nthreads = p.second;
       auto hashes = operator_set_from_regex( simulation_graph, { p.first } );
       simulation_graph->apply_graph(
-        [&hashes,nthreads](OperatorNode* o)
-        {
+          [&hashes,nthreads](OperatorNode* o)
+          {
           if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
-        });
+          });
     }    
   }
 
