@@ -55,27 +55,27 @@ namespace exanb
       size_t ghost_layers = grid->ghost_layers();
       //size_t n_cells = grid.number_of_cells();
       
-      long long n_inner_cells = 0;
-      long long n_inner_particles = 0;
-      long long n_ghost_cells = 0;
-      long long n_ghost_particles = 0;
-      long long n_empty_ghost_cells = 0;
-      long long n_gpu_addressable = 0;
-      long long n_empty_cells = 0;
+      ssize_t n_inner_cells = 0;
+      ssize_t n_inner_particles = 0;
+      ssize_t n_ghost_cells = 0;
+      ssize_t n_ghost_particles = 0;
+      ssize_t n_empty_ghost_cells = 0;
+      ssize_t n_gpu_addressable = 0;
+      ssize_t n_empty_cells = 0;
       
-      long long min_cell_particles = grid->number_of_particles();
-      long long max_cell_particles = 0;
+      ssize_t min_cell_particles = grid->number_of_particles();
+      ssize_t max_cell_particles = 0;
       
-      long long min_cell_res = 256;
-      long long max_cell_res = 0;
+      ssize_t min_cell_res = 256;
+      ssize_t max_cell_res = 0;
       
-      long long n_oc = 0; // number of particles (geometrically outside) of their owning cell's volume
-      long long n_oc_ghost = 0; // same, but conting only those in ghost cells
+      ssize_t n_oc = 0; // number of particles (geometrically outside) of their owning cell's volume
+      ssize_t n_oc_ghost = 0; // same, but conting only those in ghost cells
 
       // AMR stats
       const size_t* sub_grid_start = amr.has_value() ?  amr->sub_grid_start().data() : nullptr;
-      long long n_subcells = 0;
-      long long total_cell_res = 0;
+      ssize_t n_subcells = 0;
+      ssize_t total_cell_res = 0;
 
 #     pragma omp parallel
       {
@@ -85,7 +85,7 @@ namespace exanb
             reduction(min:min_cell_particles,min_cell_res) \
             reduction(max:max_cell_particles,max_cell_res) )
         {          
-          const long long n_part = grid->cell_number_of_particles(i);
+          const ssize_t n_part = grid->cell_number_of_particles(i);
           const bool is_ghost_cell = grid->is_ghost_cell(loc);
 
           if( grid->cell_is_gpu_addressable(i) ) ++ n_gpu_addressable;
@@ -113,7 +113,7 @@ namespace exanb
             {
               size_t sc = sub_grid_start[i+1] - sub_grid_start[i] + 1;
               n_subcells += sc;
-              long long cell_res = icbrt64( sc );
+              ssize_t cell_res = icbrt64( sc );
               min_cell_res = std::min( min_cell_res , cell_res );
               max_cell_res = std::max( max_cell_res , cell_res );
               total_cell_res += cell_res;
@@ -127,24 +127,28 @@ namespace exanb
 
      min_cell_particles            = -min_cell_particles;
      min_cell_res                  = -min_cell_res;
-     long long min_inner_particles = -n_inner_particles;
-     long long min_ghost_particles = -n_ghost_particles;
-     long long min_total_particles = -( n_inner_particles + n_ghost_particles );
-     long long max_inner_particles = n_inner_particles;
-     long long max_ghost_particles = n_ghost_particles;
-     long long max_total_particles = n_inner_particles + n_ghost_particles;
+     ssize_t min_inner_particles = -n_inner_particles;
+     ssize_t min_ghost_particles = -n_ghost_particles;
+     ssize_t min_total_particles = -( n_inner_particles + n_ghost_particles );
+     ssize_t max_inner_particles = n_inner_particles;
+     ssize_t max_ghost_particles = n_ghost_particles;
+     ssize_t max_total_particles = n_inner_particles + n_ghost_particles;
 
-     all_reduce_multi(*mpi,MPI_SUM,ssize_t{}, total_cell_res,n_subcells,n_oc,n_oc_ghost,n_ghost_cells,n_ghost_particles,n_inner_cells,n_inner_particles,n_empty_cells,n_empty_ghost_cells,n_gpu_addressable );
+     all_reduce_multi(*mpi,MPI_SUM,ssize_t{}, total_cell_res, n_subcells, n_oc, n_oc_ghost, n_ghost_cells, n_ghost_particles
+                                            , n_inner_cells, n_inner_particles, n_empty_cells, n_empty_ghost_cells, n_gpu_addressable );
 
-     all_reduce_multi(*mpi,MPI_MAX,ssize_t{}, min_cell_particles, max_cell_particles, min_cell_particles, max_cell_res
-                     ,min_inner_particles,min_ghost_particles,min_total_particles,max_inner_particles,max_ghost_particles,max_total_particles);
+     all_reduce_multi(*mpi,MPI_MAX,ssize_t{}, min_cell_particles, min_cell_res
+                                            , max_cell_particles, max_cell_res 
+                                            , min_inner_particles, min_ghost_particles, min_total_particles
+                                            , max_inner_particles, max_ghost_particles, max_total_particles);
+                     
      min_cell_particles  = -min_cell_particles;
      min_cell_res        = -min_cell_res;
      min_inner_particles = -min_inner_particles;
      min_ghost_particles = -min_ghost_particles;
      min_total_particles = -min_total_particles;
      
-     int icdiv = n_inner_cells; if(icdiv==0) icdiv=1;
+     ssize_t icdiv = n_inner_cells; if(icdiv==0) icdiv=1;
      lout << "========== grid stats ===========" << std::endl;
      double cell_size = grid->cell_size();
      dims = grid->dimension();
