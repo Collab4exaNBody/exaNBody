@@ -132,10 +132,10 @@ namespace exanb
         {
           return fname + ":R:1";
         }
-        else
-        {
+        //else
+        //{
           return fname + ":S:1";
-        }
+        //}
       }
       
       template<class T, class FieldIdT = no_field_id_t >

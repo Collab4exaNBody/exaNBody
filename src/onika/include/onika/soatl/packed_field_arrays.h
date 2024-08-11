@@ -90,7 +90,7 @@ namespace onika
           constexpr size_t CA_himask = ~ (CA - 1);
           capacity = capacity / CHUNK_SIZE;
           if constexpr ( sizeof...(SzCnts) > 0 ) return CHUNK_SIZE * ( capacity * CA * NCA + ( ... + ( SzCnts::N * ( ( capacity * SzCnts::SIZE + CA - 1 ) & CA_himask ) )) );
-          else return CHUNK_SIZE * capacity * CA * NCA;
+          return CHUNK_SIZE * capacity * CA * NCA;
         }
         template<class StreamT>
         static inline StreamT& print(StreamT & out )
