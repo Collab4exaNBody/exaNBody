@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
+#include <onika/lambda_tools.h>
 
 namespace exanb
 {
@@ -53,9 +54,7 @@ namespace exanb
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
     using exanb::chunknbh_stream_info;
-  
-    [[maybe_unused]] static constexpr bool has_locks = ! std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
-    
+      
     // particle compute context, only for functors not using compute buffer
     static constexpr bool has_particle_start = compute_pair_traits::has_particle_context_start_v<FuncT>;
     static constexpr bool has_particle_stop  = compute_pair_traits::has_particle_context_stop_v<FuncT>;
@@ -216,10 +215,13 @@ namespace exanb
       // --- particle processing end ---
       if constexpr ( use_compute_buffer )
       {
+        static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
+        static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
+        static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
         if( tab.count > 0 )
         {
-          if constexpr ( has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
-          if constexpr (!has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
+          if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
+          if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
         }
       }
       if constexpr ( has_particle_stop ) { func(tab ,cells,cell_a,p_a,ComputePairParticleContextStop{}); }

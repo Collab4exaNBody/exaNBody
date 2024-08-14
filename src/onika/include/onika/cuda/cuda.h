@@ -70,7 +70,7 @@ namespace onika
     /************** start of Cuda code definitions ***************/
 #   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
-    using gpu_device_execution_t = std::true_type;
+#   define gpu_device_execution() onika::TrueType{}
 
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort()
     {
@@ -155,7 +155,7 @@ namespace onika
 /************** start of HOST code definitions ***************/
 
     using onika_cu_memory_order_t = std::memory_order;
-    using gpu_device_execution_t = std::false_type;
+#   define gpu_device_execution() onika::FalseType{}
 
 #   define ONIKA_CU_GRID_CONSTANT       /**/
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/

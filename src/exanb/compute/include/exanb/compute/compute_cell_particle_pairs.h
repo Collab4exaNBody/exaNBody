@@ -62,7 +62,7 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
-      static constexpr bool gpu_exec = onika::cuda::gpu_device_execution_t::value ;
+      static constexpr bool gpu_exec = gpu_device_execution() ;
       static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
 
       size_t cell_a = i;
