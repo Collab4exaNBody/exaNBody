@@ -23,6 +23,7 @@ under the License.
 #include <cstdlib>
 #include <functional>
 #include <onika/cuda/cuda.h>
+#include <array>
 
 namespace onika
 {
@@ -90,6 +91,13 @@ namespace onika
     static inline constexpr oarray_t from_ijk(const U& c)
     {
       oarray_t oa; const auto & [i,j,k] = c; oa.x[0]=T(i); oa.x[1]=T(j); oa.x[2]=T(k); return oa;
+    }
+
+    inline constexpr std::array<value_type,array_size> to_std_array() const
+    {
+      std::array<value_type,array_size> a = {};
+      for(size_t i=0;i<array_size;i++) a[i] = x[i];
+      return a;
     }
 
   };

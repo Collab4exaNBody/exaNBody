@@ -21,6 +21,7 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <onika/cuda/cuda_math.h>
+#include <onika/lambda_tools.h>
 
 namespace exanb
 {
@@ -53,9 +54,7 @@ namespace exanb
 
     using exanb::chunknbh_stream_info;
     using onika::cuda::min;
-  
-    [[maybe_unused]] static constexpr bool has_locks = ! std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
-    
+      
     // particle compute context, only for functors not using compute buffer
     static constexpr bool has_particle_start = compute_pair_traits::has_particle_context_start_v<FuncT>;
     static constexpr bool has_particle_stop  = compute_pair_traits::has_particle_context_stop_v<FuncT>;
@@ -106,7 +105,7 @@ namespace exanb
     }
 
     // without compute buffer, but with delayed computation buffer to resynchronize GPU thread computation phases
-    static constexpr unsigned int DELAYED_COMPUTE_BUFFER_SIZE = ( !use_compute_buffer && onika::cuda::gpu_device_execution_t::value ) ? XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE : 1; // must be one and not 0 to avoid GCC compiler warnings about %0, even if it is in 'if constexpr' block
+    static constexpr unsigned int DELAYED_COMPUTE_BUFFER_SIZE = ( !use_compute_buffer && gpu_device_execution() ) ? XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE : 1; // must be one and not 0 to avoid GCC compiler warnings about %0, even if it is in 'if constexpr' block
     using DelayedComputeBufferT = std::conditional_t< (DELAYED_COMPUTE_BUFFER_SIZE>1) , DelayedComputeBuffer<DELAYED_COMPUTE_BUFFER_SIZE*XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE> , onika::BoolConst<false> >;
     [[maybe_unused]] ONIKA_CU_BLOCK_SHARED DelayedComputeBufferT dcb;
 #   define DNCB(i) dcb.nbh[i*XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE+ONIKA_CU_THREAD_IDX]
@@ -264,10 +263,13 @@ namespace exanb
       // --- particle processing end ---
       if constexpr ( use_compute_buffer )
       {
-        if( tab.count > 0 || requires_block_synchronous_call )
+        static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
+        static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
+        static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
+        if( tab.count > 0 || requires_block_synchronous_call ) 
         {
-          if constexpr ( has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
-          if constexpr (!has_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
+          if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
+          if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
         }
       }
 
