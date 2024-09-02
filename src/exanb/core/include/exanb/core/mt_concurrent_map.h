@@ -49,6 +49,11 @@ namespace exanb
       h = ( h ^ (h>>16) ^ (h>>32) ^ (h>>48) ) & mask16; // reduces to 0-65535
       return std::min( ( h * NbMetaBuckets ) / count16 , NbMetaBuckets - 1 );
     }
+
+    inline const MapType& meta_bucket_map( const key_type& k ) const
+    {
+      return m_meta_bucket[ meta_bucket(k) ];
+    }
     
     inline auto insert( const value_type& p )
     {
