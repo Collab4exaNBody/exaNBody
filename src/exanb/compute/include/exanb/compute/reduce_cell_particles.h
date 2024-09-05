@@ -165,7 +165,8 @@ namespace exanb
     const IJK block_dims = dims - (2*gl);
     const size_t N = n_cells > 0 ? n_cells : block_dims.i * block_dims.j * block_dims.k;
 
-    assert(cells != nullptr || n_cells <= 0 ); 
+    //assert(cells != nullptr || n_cells <= 0 );
+    assert(cell_idxs != nullptr || n_cells <= 0); 
 
     ResultT* target_reduced_value_ptr = &reduced_val;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
