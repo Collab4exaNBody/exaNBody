@@ -37,6 +37,7 @@ under the License.
 #include <chrono>
 #include <mpi.h>
 #include <omp.h>
+#include <filesystem>
 
 namespace exanb
 {
@@ -182,6 +183,20 @@ namespace exanb
     auto T0 = std::chrono::high_resolution_clock::now();
 
     // open output file
+    // First, create directory
+    lout << filename << std::endl;
+    if( p > 0 ) 
+    {
+      if( rank == 0 )
+      {
+        std::string dir = filename;
+        dir.resize(p);
+        lout << dir << std::endl;
+        std::filesystem::create_directories(dir);
+      }
+      MPI_Barrier(comm);
+    }
+    // Second, create output file
     MpiIO file;
     file.open( comm, filename , "w" , max_part_size );
 
