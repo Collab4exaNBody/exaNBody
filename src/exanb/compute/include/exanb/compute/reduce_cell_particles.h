@@ -65,7 +65,7 @@ namespace exanb
     {
       ResultT local_val = ResultT();
 
-      size_t cell_a = -1; 
+      size_t cell_a = size_t(-1); 
       IJK cell_a_loc;
 
       if( m_cell_idxs != nullptr ) 
