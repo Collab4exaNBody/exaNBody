@@ -21,6 +21,10 @@ under the License.
 
 #include <onika/parallel/block_parallel_for.h>
 
+#ifndef ONIKA_PARFOR_OMPSCHED_DEFAULT
+#define ONIKA_PARFOR_OMPSCHED_DEFAULT OMP_SCHED_GUIDED
+#endif
+
 namespace onika
 {
 
@@ -41,7 +45,7 @@ namespace onika
       void * return_data = nullptr;
       size_t return_data_size = 0;
       bool enable_gpu = true;
-      OMPScheduling omp_scheduling = OMP_SCHED_GUIDED;
+      OMPScheduling omp_scheduling = ONIKA_PARFOR_OMPSCHED_DEFAULT;
     };
 
     template<class FuncT>
