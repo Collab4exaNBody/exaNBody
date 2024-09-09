@@ -45,6 +45,7 @@ namespace exanb
                       FieldArraysT cells, size_t cell_b, size_t p_b,
                       const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
+      assert( static_cast<size_t>(tab.count) < ComputeBufferT::MaxNeighbors );
       tab.d2[tab.count] = d2;
       tab.drx[tab.count] = dr.x;
       tab.dry[tab.count] = dr.y;
@@ -128,6 +129,13 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void copy(size_t,size_t) noexcept {}
   };
 
+  template<class _ExtendedStorage>
+  struct ComputeContextNoBuffer
+  {
+    using ExtendedStorage = _ExtendedStorage;
+    ExtendedStorage ext;
+  };
+
   template<
     bool                        UserNbhData                 = false,
     bool                        UseNeighbors                = false,
@@ -147,6 +155,7 @@ namespace exanb
     static inline constexpr NbhFieldSet nbh_field_set = {};
     using CPBufNbhFields = ComputePairBuffer2NbhFields<MaxNeighbors,NbhFieldSet>;
     using NbhFieldTuple = typename CPBufNbhFields::FieldTupleT;
+    using ContextWithoutBuffer = ComputeContextNoBuffer<ExtendedStorage>;
   
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drx[MaxNeighbors];     // neighbor's relative position x to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double dry[MaxNeighbors];     // neighbor's relative position y to reference particle
@@ -188,14 +197,6 @@ namespace exanb
     }
   };
 
-  template<class _ExtendedStorage>
-  struct ComputeContextNoBuffer
-  {
-    using ExtendedStorage = _ExtendedStorage;
-    ExtendedStorage ext;
-  };
-
-
   template< class _NbhFieldSetT , size_t _MaxNeighbors = exanb::MAX_PARTICLE_NEIGHBORS , bool UserNbhData=false >
   using SimpleNbhComputeBuffer = ComputePairBuffer2< UserNbhData, false, NoExtraStorage, DefaultComputePairBufferAppendFunc, _MaxNeighbors, ComputePairBuffer2Weights, _NbhFieldSetT >;
 
@@ -230,7 +231,11 @@ namespace exanb
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
 
-  template<class ExtStorageT = NoExtraStorage >
-  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
+  template<class AnyOther> struct IsComputePairBufferFactory : public std::false_type {};
+  template<class CPBufT,class InitFuncT> struct IsComputePairBufferFactory< ComputePairBufferFactory<CPBufT,InitFuncT> > : public std::true_type {};
+  template<class T> static inline constexpr bool is_compute_buffer_factory_v = IsComputePairBufferFactory<T>::value ;
+
+//  template<class ExtStorageT = NoExtraStorage >
+//  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
 }
 
