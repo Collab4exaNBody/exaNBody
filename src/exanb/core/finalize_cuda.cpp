@@ -39,22 +39,25 @@ namespace exanb
       auto cuda_ctx = global_cuda_ctx();
       if( cuda_ctx != nullptr && *enable_cuda && cuda_ctx->has_devices() )
       {
-        ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DEVICE_SYNCHRONIZE() );
-        for(const auto &dev : cuda_ctx->m_devices)
+        if( *enable_cuda && cuda_ctx->has_devices() )
         {
-          for(const auto& f : dev.m_finalize_destructors) f();
-        }
-        for(auto s:cuda_ctx->m_threadStream)
-        {
-          if( s != 0 )
+          ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DEVICE_SYNCHRONIZE() );
+          for(const auto &dev : cuda_ctx->m_devices)
           {
-            ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_STREAM( s ) );
+            for(const auto& f : dev.m_finalize_destructors) f();
           }
+          for(auto s:cuda_ctx->m_threadStream)
+          {
+            if( s != 0 )
+            {
+              ONIKA_CU_CHECK_ERRORS( ONIKA_CU_DESTROY_STREAM( s ) );
+            }
+          }
+          cuda_ctx->m_threadStream.clear();
+          cuda_ctx->m_threadStream.shrink_to_fit();
+          cuda_ctx->m_devices.clear(); // calls destructors which frees Cuda resources
+          cuda_ctx->m_devices.shrink_to_fit();
         }
-        cuda_ctx->m_threadStream.clear();
-        cuda_ctx->m_threadStream.shrink_to_fit();
-        cuda_ctx->m_devices.clear(); // calls destructors which frees Cuda resources
-        cuda_ctx->m_devices.shrink_to_fit();
       }
       set_global_cuda_ctx( nullptr );
 #     endif
