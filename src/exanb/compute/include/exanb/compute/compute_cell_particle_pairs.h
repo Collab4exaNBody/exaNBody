@@ -62,7 +62,7 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
-      static constexpr bool gpu_exec = onika::cuda::gpu_device_execution_t::value ;
+      static constexpr bool gpu_exec = gpu_device_execution() ;
       static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
 
       size_t cell_a = i;
@@ -121,7 +121,7 @@ namespace exanb
   // ==== OpenMP parallel for style impelmentation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
 
-  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, class... FieldAccT >
+  template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class PosFieldsT, bool ForceUseCellsAccessor=false,class... FieldAccT >
   static inline
   onika::parallel::ParallelExecutionWrapper
   compute_cell_particle_pairs2(
@@ -133,13 +133,17 @@ namespace exanb
     const FuncT& func,
     const onika::FlatTuple<FieldAccT...>& cpfields,
     const PosFieldsT& posfields,
-    onika::parallel::ParallelExecutionContext * exec_ctx )
+    onika::parallel::ParallelExecutionContext * exec_ctx,
+    std::integral_constant<bool,ForceUseCellsAccessor> = {} ,
+    onika::parallel::BlockParallelForOptions bpfor_opts = {} )
   {
+    static_assert( is_compute_buffer_factory_v<ComputePairBufferFactoryT> , "Only ComputePairBufferFactory<...> template instance is accepted as cpbuf_factory parameter" );
+
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
     using FieldTupleT = onika::FlatTuple<FieldAccT...>;
     using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
-    static constexpr bool has_external_or_optional_fields = field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT>;    
+    static constexpr bool has_external_or_optional_fields = ForceUseCellsAccessor || field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT>;    
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
 
@@ -153,7 +157,6 @@ namespace exanb
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
 
-    BlockParallelForOptions bpfor_opts = {};
     if constexpr ( compute_pair_traits::cuda_compatible_v<FuncT> )
     {
       if( exec_ctx->has_gpu_context() )
@@ -173,8 +176,7 @@ namespace exanb
         }
       }
     }
-    
-    
+        
     auto cellprof = grid.cell_profiler();
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();

@@ -81,6 +81,15 @@ namespace onika
   template <class R, class F , class... Args >
   struct FunctorSupportsCallSignature<R,F,onika::FlatTuple<Args...>, std::enable_if_t< std::is_same_v<decltype(std::declval<F>()(std::declval<Args>()...)),R> > > : public std::true_type {};
   template<class F, class R, class... Args> static inline constexpr bool lambda_is_compatible_with_v = FunctorSupportsCallSignature<R,F,onika::FlatTuple<Args...> >::value;
+
+  // without return type, only checks call args
+  template <class F , class ArgsTp , class = void >
+  struct FunctorSupportsCallArgs : public std::false_type {};  
+  // this version will always be considered more specialized than base defintion
+  // so it will be used, unless function cannot be called with arguments, or return type doesn't match with requested one
+  template <class F , class... Args >
+  struct FunctorSupportsCallArgs<F,onika::FlatTuple<Args...>, std::enable_if_t<sizeof(decltype(std::declval<F>()(std::declval<Args>()...)))>=0> > : public std::true_type {};
+  template<class F,class... Args> static inline constexpr bool lambda_is_callable_with_args_v = FunctorSupportsCallArgs<F,onika::FlatTuple<Args...> >::value;
   /********************************************************************/
 
 
