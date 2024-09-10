@@ -28,6 +28,10 @@ under the License.
 #include <onika/lambda_tools.h>
 #include <onika/stream_utils.h>
 
+#ifndef ONIKA_BLKPARFOR_OMPSCHED_DEFAULT
+#define ONIKA_BLKPARFOR_OMPSCHED_DEFAULT OMP_SCHED_GUIDED
+#endif
+
 namespace onika
 {
 
@@ -51,7 +55,7 @@ namespace onika
       bool enable_gpu = true;
       bool fixed_gpu_grid_size = false;
       bool n_div_blocksize = false; // if true, divide N by block_size, rounding to upper integer
-      OMPScheduling omp_scheduling = OMP_SCHED_GUIDED;
+      OMPScheduling omp_scheduling = ONIKA_BLKPARFOR_OMPSCHED_DEFAULT;
     };
 
     template< class FuncT >
