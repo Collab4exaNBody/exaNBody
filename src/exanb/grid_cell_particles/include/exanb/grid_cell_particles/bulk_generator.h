@@ -84,6 +84,9 @@ namespace exanb
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
 
+    // this additional parameter will decide domain's dimensions
+    ADD_SLOT( IJK             , repeat        , INPUT , IJK{1,1,1} );
+
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
     ADD_SLOT( std::string      , void_mode          , INPUT , "none"); // none means no void, simple is the one void mode, porosity means randomly distributed voids
     ADD_SLOT( Vec3d            , void_center        , INPUT , Vec3d{0., 0., 0.});
@@ -97,6 +100,10 @@ namespace exanb
       const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
+      
+      // domain setup 
+//      domain.set_grid_dimension( ... )
+      
       generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, *particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
                                , *structure, *types, *noise, *size, noise_cutoff_ifset, *shift
