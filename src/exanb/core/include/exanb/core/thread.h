@@ -35,7 +35,7 @@ under the License.
 namespace exanb
 {
   // this is a hint, there is no guarantee
-  static constexpr int max_threads_hint = std::max<int>( XSTAMP_ADVISED_HW_THREADS , 16 );
+  static constexpr int max_threads_hint = std::max<int>( XSTAMP_ADVISED_HW_THREADS , 128 );
 
   //**************** spin lock implementation *********************
   static constexpr size_t ATOMIC_LOCK_ALIGNMENT=4;
