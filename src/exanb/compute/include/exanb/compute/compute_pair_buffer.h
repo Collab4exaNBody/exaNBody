@@ -237,5 +237,7 @@ namespace exanb
 
 //  template<class ExtStorageT = NoExtraStorage >
 //  static inline constexpr ComputePairBufferFactory< ComputeContextNoBuffer<ExtStorageT> > make_empty_pair_buffer() { return {}; }
+  template<class ExtStorageT = NoExtraStorage >
+  static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<false,false,ExtStorageT,NullComputePairBufferAppendFunc,0> > make_empty_pair_buffer() { return {}; }
 }
 
