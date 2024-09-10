@@ -152,6 +152,11 @@ namespace exanb
     return a;
   }
 
+  ONIKA_HOST_DEVICE_FUNC inline IJK operator - (const IJK& v)
+  {
+    return { - v.i , - v.j , - v.k };
+  }
+
   ONIKA_HOST_DEVICE_FUNC inline IJK vclamp(const IJK& a, const IJK& min, const IJK& max)
   {
     using onika::cuda::clamp;
@@ -640,9 +645,17 @@ namespace exanb
     return std::sqrt( mat.m11*mat.m11+mat.m12*mat.m12+mat.m13*mat.m13 + mat.m21*mat.m21+mat.m22*mat.m22+mat.m23*mat.m23 + mat.m31*mat.m31+mat.m32*mat.m32+mat.m33*mat.m33 );
   }
 
+  static inline bool has_nan(const Mat3d& mat)
+  {
+    return ( std::isnan(mat.m11) || std::isnan(mat.m13) || std::isnan(mat.m13)
+          || std::isnan(mat.m21) || std::isnan(mat.m22) || std::isnan(mat.m23)
+          || std::isnan(mat.m31) || std::isnan(mat.m32) || std::isnan(mat.m33) );
+  }
+
+  [[deprecated]]
   static inline void save_nan(Mat3d& mat)
   {
-    if(std::isnan(mat.m11) || std::isnan(mat.m13) || std::isnan(mat.m13) || std::isnan(mat.m21) || std::isnan(mat.m22) || std::isnan(mat.m23) || std::isnan(mat.m31) || std::isnan(mat.m32) || std::isnan(mat.m33)) mat = make_identity_matrix();
+    if( has_nan(mat) ) mat = make_identity_matrix();
   }
 
   // conversion to/from std arrays
