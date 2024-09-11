@@ -24,7 +24,7 @@ under the License.
 namespace exanb
 {
 
-  void Domain::set_xform(const Mat3d mat)
+  void Domain::set_xform(const Mat3d& mat)
   {
     m_xform = mat;
     set_bit(FLAG_XFORM_IDENTITY,is_identity(m_xform));
@@ -79,12 +79,9 @@ namespace exanb
   {
     Vec3d domain_grid_size = domain.grid_dimension() * domain.cell_size();
     Vec3d domain_size = domain.bounds_size();
-/*    if( domain.periodic_boundary_x() ) std::cout <<"X: "<< domain_grid_size.x<<" / "<<domain_size.x<<std::endl;
-    if( domain.periodic_boundary_y() ) std::cout <<"Y: "<< domain_grid_size.y<<" / "<<domain_size.y<<std::endl;
-    if( domain.periodic_boundary_z() ) std::cout <<"Z: "<< domain_grid_size.z<<" / "<<domain_size.z<<std::endl; */
-    return ( !domain.periodic_boundary_x() || fabs( 1. - domain_grid_size.x/domain_size.x ) < 1.e-15 )
-        && ( !domain.periodic_boundary_y() || fabs( 1. - domain_grid_size.y/domain_size.y ) < 1.e-15 )
-        && ( !domain.periodic_boundary_z() || fabs( 1. - domain_grid_size.z/domain_size.z ) < 1.e-15 ) ;
+    return ( fabs( 1. - domain_grid_size.x/domain_size.x ) < 1.e-15 )
+        && ( fabs( 1. - domain_grid_size.y/domain_size.y ) < 1.e-15 )
+        && ( fabs( 1. - domain_grid_size.z/domain_size.z ) < 1.e-15 );
   }
 
 
@@ -403,6 +400,10 @@ namespace YAML
     if(node["expandable"])
     {
       domain.set_expandable( node["expandable"].as<bool>() );
+    }
+    if(node["xform"])
+    {
+      domain.set_xform( node["xform"].as<Mat3d>() );
     }
     return true;
   }
