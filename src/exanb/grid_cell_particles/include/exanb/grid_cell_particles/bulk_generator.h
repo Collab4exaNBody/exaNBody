@@ -48,7 +48,7 @@ namespace exanb
   template< class GridT
           , class ParticleTypeField
           >
-  class RegionLattice : public OperatorNode
+  class BulkLattice : public OperatorNode
   {
     using StringVector = std::vector<std::string>;
 
@@ -101,8 +101,16 @@ namespace exanb
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
       
-      // domain setup 
-//      domain.set_grid_dimension( ... )
+      // domain setup
+      ssize_t max_div = 6;
+      while( max_div > 1 && ( (repeat->i/max_div)!=(repeat->i*1.0/max_div) || (repeat->j/max_div)!=(repeat->j*1.0/max_div) || (repeat->k/max_div)==(repeat->k*1.0/max_div) ) ) --max_div;
+      ldbg << "max_div = "<<max_div<<std::endl;
+      domain->set_expandable( false );
+      domain->set_periodic_boundary( true , true , true );
+      domain->set_xform( make_diagonal_matrix( *size ) );
+      domain->set_grid_dimension( (*repeat) / max_div );
+      domain->set_cell_size( max_div );
+      domain->set_bounds( { Vec3d{0.,0.,0.} , Vec3d{ repeat->i, repeat->j, repeat->k } } );
       
       generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, *particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
