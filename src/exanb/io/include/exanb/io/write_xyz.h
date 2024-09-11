@@ -43,6 +43,7 @@ under the License.
 #include <type_traits>
 #include <experimental/filesystem>
 #include <regex>
+#include <filesystem>
 
 namespace exanb
 {
@@ -131,10 +132,10 @@ namespace exanb
         {
           return fname + ":R:1";
         }
-	//else // commented out to avoid intel compiler fake warning about missing return value
-	//{
+        //else
+        //{
           return fname + ":S:1";
-	//}
+        //}
       }
       
       template<class T, class FieldIdT = no_field_id_t >
@@ -233,6 +234,17 @@ namespace exanb
       // we don't want a proc try to write in a folder that doesn't exist
       MPI_Barrier(comm);
 
+      if (rank==0)
+        {
+          std::filesystem::path dir_path = std::filesystem::path(filename).parent_path();
+          if( dir_path != "" )
+          {
+            std::filesystem::create_directories( dir_path );
+          }
+        }
+
+      MPI_Barrier(comm);
+      
       // structure for file opening/writing in mpi
       MPI_File mpiFile;
       MPI_Status status;
