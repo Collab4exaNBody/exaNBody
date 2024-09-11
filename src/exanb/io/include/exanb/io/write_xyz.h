@@ -132,10 +132,10 @@ namespace exanb
         {
           return fname + ":R:1";
         }
-        //else
-        //{
+	//else // commented out to avoid intel compiler fake warning about missing return value
+	//{
           return fname + ":S:1";
-        //}
+	//}
       }
       
       template<class T, class FieldIdT = no_field_id_t >
