@@ -271,11 +271,12 @@ namespace exanb
 
     ssize_t resident_memory_inc() const;
 
+    static onika::cuda::CudaContext* global_cuda_ctx();
+
   protected:
     inline const std::set< std::shared_ptr<OperatorSlotBase> >& managed_slots() const { return m_managed_slots; }
 
     static void set_global_cuda_ctx( std::shared_ptr<onika::cuda::CudaContext> ctx );
-    static onika::cuda::CudaContext* global_cuda_ctx();
 
     // profiling
     std::atomic<uint64_t> m_task_exec_time_accum {0};

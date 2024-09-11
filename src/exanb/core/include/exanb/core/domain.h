@@ -99,7 +99,7 @@ namespace exanb
     inline bool xform_is_identity() const { return get_bit(FLAG_XFORM_IDENTITY); }
     inline double xform_min_scale() const { return m_xform_min_scale; }
     inline double xform_max_scale() const { return m_xform_max_scale; }
-    void set_xform(const Mat3d mat);
+    void set_xform(const Mat3d& mat);
 
   private:
     inline void set_bit(uint32_t mask, bool b)
