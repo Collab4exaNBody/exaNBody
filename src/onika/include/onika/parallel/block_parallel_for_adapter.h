@@ -2,10 +2,7 @@
 
 #include <onika/parallel/block_parallel_for_functor.h>
 #include <onika/parallel/parallel_execution_stream.h>
-
-#ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
-#endif
 
 namespace onika
 {
