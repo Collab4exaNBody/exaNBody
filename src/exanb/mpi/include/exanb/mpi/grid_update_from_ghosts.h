@@ -21,6 +21,7 @@ under the License.
 
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/grid.h>
+#include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/field_sets.h>
@@ -81,10 +82,10 @@ namespace exanb
     UpdateFuncT update_func )
   {
     using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
-    using CellParticles = typename GridT::CellParticles;
-    using ParticleFullTuple = typename CellParticles::TupleValueType;
+    //using CellParticles = typename GridT::CellParticles;
+    //using ParticleFullTuple = typename CellParticles::TupleValueType;
     using ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
-    using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
+    //using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateValueFunctor = UpdateFuncT;
 
@@ -108,7 +109,7 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
-    CellParticles* cells = grid.cells();
+    //CellParticles* cells = grid.cells();
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
@@ -132,10 +133,6 @@ namespace exanb
       cell_scalar_components = 0;
     }
 
-#   ifndef NDEBUG
-    const size_t n_cells = grid.number_of_cells();
-#   endif      
-   
     // reverse order begins here, before the code is the same as in update_ghosts.h
     
     // initialize MPI requests for both sends and receives
