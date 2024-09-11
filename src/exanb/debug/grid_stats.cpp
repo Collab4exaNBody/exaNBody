@@ -125,12 +125,24 @@ namespace exanb
        GRID_OMP_FOR_END
      }
 
+     min_cell_particles            = -min_cell_particles;
+     min_cell_res                  = -min_cell_res;
+     long long min_inner_particles = -n_inner_particles;
+     long long min_ghost_particles = -n_ghost_particles;
+     long long min_total_particles = -( n_inner_particles + n_ghost_particles );
+     long long max_inner_particles = n_inner_particles;
+     long long max_ghost_particles = n_ghost_particles;
+     long long max_total_particles = n_inner_particles + n_ghost_particles;
+
      all_reduce_multi(*mpi,MPI_SUM,ssize_t{}, total_cell_res,n_subcells,n_oc,n_oc_ghost,n_ghost_cells,n_ghost_particles,n_inner_cells,n_inner_particles,n_empty_cells,n_empty_ghost_cells,n_gpu_addressable );
-     min_cell_particles = -min_cell_particles;
-     min_cell_res = -min_cell_res;
-     all_reduce_multi(*mpi,MPI_MAX,ssize_t{}, min_cell_particles, max_cell_particles, min_cell_particles, max_cell_res );
-     min_cell_particles = -min_cell_particles;
-     min_cell_res = -min_cell_res;
+
+     all_reduce_multi(*mpi,MPI_MAX,ssize_t{}, min_cell_particles, max_cell_particles, min_cell_particles, max_cell_res
+                     ,min_inner_particles,min_ghost_particles,min_total_particles,max_inner_particles,max_ghost_particles,max_total_particles);
+     min_cell_particles  = -min_cell_particles;
+     min_cell_res        = -min_cell_res;
+     min_inner_particles = -min_inner_particles;
+     min_ghost_particles = -min_ghost_particles;
+     min_total_particles = -min_total_particles;
      
      int icdiv = n_inner_cells; if(icdiv==0) icdiv=1;
      lout << "========== grid stats ===========" << std::endl;
@@ -147,13 +159,19 @@ namespace exanb
      lout << "cell size      = " << cell_size << std::endl;
      lout << "inner cells    = " << large_integer_to_string(n_inner_cells) << std::endl;
      lout << "ghost cells    = " << large_integer_to_string(n_ghost_cells) << std::endl;
-     lout << "empty cells    = " << large_integer_to_string(n_empty_cells) << " / " << large_integer_to_string(n_empty_ghost_cells) << std::endl;
+     lout << "empty cells    = " << large_integer_to_string(n_empty_cells) << " (" <<large_integer_to_string(n_empty_ghost_cells)<<" ghosts)" << std::endl;
      lout << "part. per cell = " << large_integer_to_string(min_cell_particles) <<" / "
                                  << large_integer_to_string(n_inner_particles / icdiv) << " / "
                                  << large_integer_to_string(max_cell_particles) << std::endl;
-     lout << "particles      = " << large_integer_to_string(n_inner_particles) <<std::endl;
-     lout << "ghosts part.   = " << large_integer_to_string(n_ghost_particles) <<std::endl;
-
+     lout << "inner part.    = " << large_integer_to_string(n_inner_particles) << " , min "
+                                 << large_integer_to_string(min_inner_particles) <<" , max "
+                                 << large_integer_to_string(max_inner_particles) << std::endl;
+     lout << "ghost part.    = " << large_integer_to_string(n_ghost_particles) << " , min "
+                                 << large_integer_to_string(min_ghost_particles) <<" , max "
+                                 << large_integer_to_string(max_ghost_particles) << std::endl;
+     lout << "total part.    = " << large_integer_to_string(n_inner_particles+n_ghost_particles) << " , min "
+                                 << large_integer_to_string(min_total_particles) << " , max "
+                                 << large_integer_to_string(max_total_particles) << std::endl;
      lout << "otb particles  = " << large_integer_to_string(n_oc);
      if( n_oc_ghost > 0 ) lout << " ("<<large_integer_to_string(n_oc_ghost)<<" in ghost cells)";
      lout <<std::endl;

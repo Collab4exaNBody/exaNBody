@@ -120,9 +120,12 @@ namespace exanb
         if( ndev > 0 )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_SET_DEVICE( cuda_ctx->m_devices[0].device_id ) );
+
           if( smem_bksize.has_value() )
           {
-            switch( *smem_bksize )
+	    lerr << "smem_bksize is deprecated and has no effect anymore, please remove this setting" << std::endl;
+/*
+	    switch( *smem_bksize )
             {
               case 4 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeFourByte ) ); break;
               case 8 : ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeEightByte ) ); break;
@@ -131,7 +134,9 @@ namespace exanb
                 ONIKA_CU_CHECK_ERRORS(  ONIKA_CU_SET_SHARED_MEM_CONFIG( onikaSharedMemBankSizeDefault ) );
                 break;
             }
+*/
           }
+
         
           if( device_limits.has_value() )
           {

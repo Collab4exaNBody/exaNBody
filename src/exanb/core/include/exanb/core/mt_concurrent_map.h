@@ -30,7 +30,7 @@ namespace exanb
     and safe concurent finds and accesses IF AND ONLY IF no insertion happen concurrently with finds/accesses (find/access is lock free)
     Nevertheless, one can render concurent insert() and safe_at() calls 
   */
-  template<class MapType , size_t NbMetaBuckets = ::exanb::max_threads_hint*2 > // NbMetaBuckets may not exceed 65536
+  template<class MapType , size_t _NbMetaBuckets = ::exanb::max_threads_hint*2 > // NbMetaBuckets may not exceed 65536
   struct MultiThreadedConcurrentMap
   {
     using key_type = typename MapType::key_type;
@@ -39,13 +39,20 @@ namespace exanb
     using iterator = typename MapType::iterator;
     using const_iterator = typename MapType::const_iterator;
     
+    static inline constexpr size_t NbMetaBuckets = _NbMetaBuckets;
+    
     static inline size_t meta_bucket( const key_type& k )
     {
       static constexpr uint64_t count16 = 1ull<<16;
       static constexpr uint64_t mask16 = count16 - 1;
       uint64_t h = std::hash<key_type>{}( k );
       h = ( h ^ (h>>16) ^ (h>>32) ^ (h>>48) ) & mask16; // reduces to 0-65535
-      return ( h * NbMetaBuckets ) / count16;
+      return std::min( ( h * NbMetaBuckets ) / count16 , NbMetaBuckets - 1 );
+    }
+
+    inline const MapType& meta_bucket_map( const key_type& k ) const
+    {
+      return m_meta_bucket[ meta_bucket(k) ];
     }
     
     inline auto insert( const value_type& p )
@@ -98,6 +105,13 @@ namespace exanb
     inline void clear()
     {
       for(auto& m:m_meta_bucket) m.clear();
+    }
+
+    inline size_t size() const
+    {
+      size_t sz = 0;
+      for(auto& m:m_meta_bucket) sz += m.size();
+      return sz;
     }
 
     //inline void set_safe_concurrent_insert_at(bool yn) { m_safe_concurent_insertion_get = yn; }

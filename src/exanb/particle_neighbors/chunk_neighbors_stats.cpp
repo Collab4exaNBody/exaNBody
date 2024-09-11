@@ -43,6 +43,8 @@ namespace exanb
     ADD_SLOT( GridChunkNeighbors , chunk_neighbors , INPUT , GridChunkNeighbors{} );
     ADD_SLOT( double             , nbh_dist        , INPUT , 0.0 );
     ADD_SLOT( bool               , ghost           , INPUT , false );
+    ADD_SLOT( double             , min_pair_dist   , INPUT , 0.0 );
+    ADD_SLOT( double             , max_pair_dist   , INPUT , OPTIONAL );
 
   public:
     inline void execute () override final
@@ -78,6 +80,10 @@ namespace exanb
       auto cells = grid->cells();
       using CellT = std::remove_cv_t< std::remove_reference_t< decltype(cells[0]) > >;
       ChunkParticleNeighborsIterator<CellT> chunk_nbh_it_in = { grid->cells() , chunk_neighbors->data() , dims , chunk_neighbors->m_chunk_size };
+
+      double check_min_dist = *min_pair_dist;
+      double check_max_dist = std::numeric_limits<double>::max();
+      if( max_pair_dist.has_value() ) check_max_dist = *max_pair_dist;
 
       const double nbh_d2 = (*nbh_dist) * (*nbh_dist) ;
       double nbh_min_dist = std::numeric_limits<double>::max();
@@ -136,8 +142,13 @@ namespace exanb
               const double dy = ry_b[p_b] - ry_a[p_a];
               const double dz = rz_b[p_b] - rz_a[p_a];
               const double d2 = dx*dx+dy*dy+dz*dz;
-              nbh_min_dist = std::min( nbh_min_dist , sqrt(d2) );
-              nbh_max_dist = std::max( nbh_max_dist , sqrt(d2) );
+              const double dist = sqrt(d2);
+              if( dist < check_min_dist || dist > check_max_dist )
+              {
+                fatal_error() << "Bad particle pair distance detected : d="<<dist<<std::endl;
+              }
+              nbh_min_dist = std::min( nbh_min_dist , dist );
+              nbh_max_dist = std::max( nbh_max_dist , dist );
               ++ p_a_nbh;
               if( d2 <= nbh_d2 ) { ++ p_a_nbh_d2; }
               
