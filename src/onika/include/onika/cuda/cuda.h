@@ -28,6 +28,7 @@ under the License.
 #include <thread>
 #include <onika/macro_utils.h>
 #include <onika/atomic.h>
+#include <omp.h>
 
 #ifdef ONIKA_CUDA_VERSION
 #ifdef ONIKA_HIP_VERSION
@@ -36,7 +37,6 @@ under the License.
 #include <cuda_runtime.h>
 #endif
 #endif
-
 
 #ifndef ONIKA_CU_MAX_THREADS_PER_BLOCK
 #define ONIKA_CU_MAX_THREADS_PER_BLOCK 128
@@ -70,7 +70,7 @@ namespace onika
     /************** start of Cuda code definitions ***************/
 #   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
-#   define gpu_device_execution() onika::TrueType{}
+#   define ONIKA_GPU_DEVICE_EXECUTION_TYPE onika::TrueType
 
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort()
     {
@@ -154,8 +154,7 @@ namespace onika
 #else 
 /************** start of HOST code definitions ***************/
 
-    using onika_cu_memory_order_t = std::memory_order;
-#   define gpu_device_execution() onika::FalseType{}
+#   define ONIKA_GPU_DEVICE_EXECUTION_TYPE onika::FalseType
 
 #   define ONIKA_CU_GRID_CONSTANT       /**/
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/
@@ -218,10 +217,6 @@ namespace onika { namespace cuda { namespace _details {
 
 /************** end of HOST code definitions ***************/
 #endif 
-
-
-
-
 
 
 /***************************************************************/
@@ -292,6 +287,20 @@ namespace onika { namespace cuda { namespace _details {
       ONIKA_HOST_DEVICE_FUNC inline T& get_ref() { return * reinterpret_cast<T*>(byte); }
     };
 
+  }
+}
+
+
+// user helpers to select implementations depending on Cuda or Host execution space
+#include <onika/integral_constant.h>
+namespace onika
+{
+  namespace cuda
+  {
+    [[ deprecated ]]
+    typedef ONIKA_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
+
+#   define gpu_device_execution() ONIKA_GPU_DEVICE_EXECUTION_TYPE{}
   }
 }
 
