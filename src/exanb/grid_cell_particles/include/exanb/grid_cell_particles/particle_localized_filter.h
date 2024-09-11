@@ -97,6 +97,9 @@ namespace exanb
       scalar_function_threshold = user_func_threshold;
     }
 
+    /*
+    r is point coordinates in grid's space 
+    */
     ONIKA_HOST_DEVICE_FUNC inline bool operator () ( const Vec3d& r , uint64_t id ) const
     {
       using namespace ParticleCellProjectionTools;

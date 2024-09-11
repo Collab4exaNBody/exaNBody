@@ -70,6 +70,7 @@ namespace onika
     /************** start of Cuda code definitions ***************/
 #   if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
 
+
 #   define XNB_GPU_DEVICE_EXECUTION_TYPE onika::TrueType
 
     [[ noreturn ]] __host__ __device__ inline void __onika_cu_abort()
@@ -299,8 +300,8 @@ namespace onika
   {
     [[ deprecated ]]
     typedef XNB_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
-
 #   define gpu_device_execution() XNB_GPU_DEVICE_EXECUTION_TYPE{}
+
   }
 }
 
