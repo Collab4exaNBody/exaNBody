@@ -178,6 +178,16 @@ namespace exanb
   
   using NullGridParticleLocks = ComputePairOptionalLocks<false>;
 
+  // helper functions to initialize internal spin-lock array only if implementation has it
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void init_cp_locks( exanb::ComputePairOptionalLocks<true>& cp_locks , exanb::spin_mutex_array * lock_array )
+  {
+    cp_locks.m_locks = lock_array;
+  }
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void init_cp_locks( exanb::ComputePairOptionalLocks<false>& , exanb::spin_mutex_array * ) {}
+
+
   template<class NbhIteratorT,
 	   class WeightIteratorT = ComputePairNullWeightIterator, 
 	   class TransformT = NullXForm, 
