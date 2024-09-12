@@ -298,7 +298,7 @@ namespace exanb
     static void task_start_callback( const onika::omp::OpenMPToolTaskTiming& evt );
     static void task_stop_callback( const onika::omp::OpenMPToolTaskTiming& evt );
   
-    static constexpr size_t MAX_SLOT_COUNT = 128;
+    static constexpr size_t MAX_SLOT_COUNT = 256;
   
     // operator unique id
     size_t m_hash = 0;
