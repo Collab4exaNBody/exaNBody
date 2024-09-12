@@ -25,6 +25,7 @@ under the License.
 #include <chrono>
 #include <thread>
 #include <unistd.h>
+#include <cstdlib>
 
 namespace exanb
 {  
@@ -35,12 +36,9 @@ namespace exanb
 
   // pre-enable debug output before logging is configured when compiled for Debug target
   // lower case prefix 'dbg:' helps developper see if a debug message happens before logging configuration
-# ifndef NDEBUG
-  LogStreamWrapper ldbg_raw  { 1 , []() -> std::ostream& {return std::cout;} , [](std::ostream& os) -> std::ostream& {return os << "dbg: ";}  };
-# else
-  LogStreamWrapper ldbg_raw;
-# endif
-
+  LogStreamWrapper ldbg_raw = ( std::getenv("XNB_DEBUG") != nullptr )
+                              ? LogStreamWrapper{ 1 , []() -> std::ostream& {return std::cout;} , [](std::ostream& os) -> std::ostream& {return os << "dbg: ";}  }
+                              : LogStreamWrapper{};
   
   void LogStreamWrapper::open( const std::string& file_name )
   {

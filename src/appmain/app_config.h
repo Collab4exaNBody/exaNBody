@@ -34,7 +34,7 @@ using IntVector = std::vector<long>;
 
 xsv2ConfigBegin( logging                              , "log streams configuration" );
   xsv2ConfigItem( bool        , parallel , false      , "Allows all processes (not only rank 0) to output to log streams" );
-  xsv2ConfigItem( bool        , debug    , false      , "Enable debug stream" );
+  xsv2ConfigItem( bool        , debug    , ( std::getenv("XNB_EARLY_DEBUG") != nullptr )      , "Enable debug stream" );
   xsv2ConfigItem( std::string , log_file , ""         , "write logs to file instead of standard output stream" );
   xsv2ConfigItem( std::string , err_file , ""         , "write errors to file instead standard error stream");
   xsv2ConfigItem( std::string , dbg_file , ""         , "write debug messages to file instead of standard output");

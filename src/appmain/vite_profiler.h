@@ -26,7 +26,7 @@ under the License.
 #include <onika/omp/ompt_task_timing.h>
 
 #include <onika/trace/trace_output_format.h>
-#include "xstampv2_config.h"
+#include "app_config.h"
 
 using ViteEventColor = onika::RGBColord;
 

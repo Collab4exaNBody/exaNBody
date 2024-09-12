@@ -64,7 +64,7 @@ under the License.
 #include "dot_sim_graph.h"
 #include "operator_set_from_regex.h"
 
-#include "xstampv2_config.h"
+#include "app_config.h"
 
 double xstamp_get_omp_version()
 {
