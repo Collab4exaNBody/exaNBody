@@ -293,6 +293,7 @@ macro(exaNBodyStartApplication)
     ${XSTAMP_TASK_PROFILING_DEFINITIONS}
     ${XNB_CUDA_COMPILE_DEFINITIONS}
     ${XSTAMP_AMR_ZCURVE_DEFINITIONS}
+    ${EXASTAMP_HOST_HW_DEFINITIONS}
     )
 
   # performance tuning : number of stored pointers for each cell
