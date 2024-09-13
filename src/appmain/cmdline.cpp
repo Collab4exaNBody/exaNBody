@@ -65,9 +65,9 @@ void command_line_options_to_yaml_config(int argc, char*argv[], int start_opt_ar
         }
       }
       opt = cmdline_option_to_yaml( opt.substr(2) , optval );
-#     ifndef NDEBUG
-      std::cout << "addon '"<<opt<<"'\n";
-#     endif      
+//#     ifndef NDEBUG
+//      std::cout << "addon '"<<opt<<"'\n";
+//#     endif      
       YAML::Node addon_config = YAML::Load( opt );
       input_data = exanb::merge_nodes( input_data , addon_config );
     }

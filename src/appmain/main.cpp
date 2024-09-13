@@ -109,9 +109,9 @@ int main(int argc,char*argv[])
   using std::string;
   using std::vector;
 
-# ifndef NDEBUG
-  std::cout << "to debug, use 'b simulation_start_breakpoint()' in gdb to stop program when all symbols are loaded"<<std::endl;
-# endif
+//# ifndef NDEBUG
+//  std::cout << "to debug, use 'b simulation_start_breakpoint()' in gdb to stop program when all symbols are loaded"<<std::endl;
+//# endif
 
   if( argc < 2 )
   {
