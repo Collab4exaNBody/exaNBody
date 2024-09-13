@@ -44,11 +44,30 @@ namespace onika
     template<class T> ONIKA_HOST_DEVICE_FUNC inline const T& max( const T& a, const T& b ) { return a>b ? a : b ; }
     template<class T> ONIKA_HOST_DEVICE_FUNC inline const T& min( const T& a, const T& b ) { return a<b ? a : b ; }
 
+    // numeric limits adapated as class static constexpr for warning less access in device code
     template<class T> struct numeric_limits;
-    template<> struct numeric_limits<uint16_t> { static inline constexpr uint16_t max = std::numeric_limits<uint16_t>::max(); };
-    template<> struct numeric_limits<uint32_t> { static inline constexpr uint32_t max = std::numeric_limits<uint32_t>::max(); };
-    template<> struct numeric_limits<uint64_t> { static inline constexpr uint64_t max = std::numeric_limits<uint64_t>::max(); };
-    template<> struct numeric_limits<double>   { static inline constexpr double infinity = std::numeric_limits<double>::infinity(); };
+    template<> struct numeric_limits<uint16_t>
+    {
+      static inline constexpr uint16_t max = std::numeric_limits<uint16_t>::max();
+    };
+    template<> struct numeric_limits<uint32_t>
+    {
+      static inline constexpr uint32_t max = std::numeric_limits<uint32_t>::max();
+    };
+    template<> struct numeric_limits<uint64_t>
+    {
+      static inline constexpr uint64_t max = std::numeric_limits<uint64_t>::max();
+    };
+    template<> struct numeric_limits<float>
+    {
+      static inline constexpr float infinity = std::numeric_limits<float>::infinity();
+      static inline constexpr float quiet_NaN = std::numeric_limits<float>::quiet_NaN();
+    };
+    template<> struct numeric_limits<double>
+    {
+      static inline constexpr double infinity = std::numeric_limits<double>::infinity();
+      static inline constexpr double quiet_NaN = std::numeric_limits<double>::quiet_NaN();
+    };
     
     template<class T> ONIKA_HOST_DEVICE_FUNC inline const T& clamp( const T& x, const T& lo , const T& hi)
     {

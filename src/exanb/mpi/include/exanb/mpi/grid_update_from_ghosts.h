@@ -21,6 +21,7 @@ under the License.
 
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/grid.h>
+#include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/field_sets.h>
@@ -66,6 +67,7 @@ namespace exanb
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
     GridT& grid,
+    const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
@@ -80,10 +82,10 @@ namespace exanb
     UpdateFuncT update_func )
   {
     using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
-    using CellParticles = typename GridT::CellParticles;
-    using ParticleFullTuple = typename CellParticles::TupleValueType;
+    //using CellParticles = typename GridT::CellParticles;
+    //using ParticleFullTuple = typename CellParticles::TupleValueType;
     using ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
-    using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
+    //using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateValueFunctor = UpdateFuncT;
 
@@ -107,7 +109,8 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
-    CellParticles* cells = grid.cells();
+    //CellParticles* cells = grid.cells();
+    const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -130,10 +133,6 @@ namespace exanb
       cell_scalar_components = 0;
     }
 
-#   ifndef NDEBUG
-    const size_t n_cells = grid.number_of_cells();
-#   endif      
-   
     // reverse order begins here, before the code is the same as in update_ghosts.h
     
     // initialize MPI requests for both sends and receives
@@ -147,8 +146,8 @@ namespace exanb
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
-    assert( send_pack_async.size() == nprocs );
-    assert( recv_unpack_async.size() == nprocs );
+    assert( send_pack_async.size() == size_t(nprocs) );
+    assert( recv_unpack_async.size() == size_t(nprocs) );
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs );
@@ -241,7 +240,6 @@ namespace exanb
     std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
     size_t ghost_cells_recv = 0;
 
-
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
@@ -255,6 +253,7 @@ namespace exanb
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
                                               , ghost_comm_buffers.sendbuf_size(p)
                                               , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
+                                              , ghost_boundary
                                               , UpdateValueFunctor{} 
                                               , update_fields };
       // = parallel_execution_context(p);

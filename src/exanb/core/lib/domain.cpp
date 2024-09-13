@@ -19,6 +19,7 @@ under the License.
 #include <exanb/core/domain.h>
 #include <exanb/core/log.h>
 #include <exanb/core/math_utils.h>
+#include <exanb/core/string_utils.h>
 
 namespace exanb
 {
@@ -26,10 +27,10 @@ namespace exanb
   void Domain::set_xform(const Mat3d& mat)
   {
     m_xform = mat;
-    m_xform_is_identity = is_identity( m_xform );
+    set_bit(FLAG_XFORM_IDENTITY,is_identity(m_xform));
     m_xform_min_scale = 1.0;
     m_xform_max_scale = 1.0;
-    if( m_xform_is_identity )
+    if( xform_is_identity() )
     {
       m_inv_xform = m_xform;
     }
@@ -46,10 +47,14 @@ namespace exanb
   // **** pretty printing ****
   std::ostream& operator << (std::ostream& out, const Domain& domain)
   {
+    const char * sep = ""; auto nsep = [&sep](const std::string& str) -> std::string { auto r=std::string(sep)+str; sep=","; return r; };    
     out << "bounds="<<domain.bounds()
         <<", dims="<<domain.grid_dimension()
         <<", cell_size="<<domain.cell_size()
         <<", periodic="<< std::boolalpha << domain.periodic_boundary_x()<<','<<domain.periodic_boundary_y()<<','<<domain.periodic_boundary_z()
+        <<", mirror="<<(domain.mirror_x_min()?nsep("X-"):"")<<(domain.mirror_x_max()?nsep("X+"):"")
+                     <<(domain.mirror_y_min()?nsep("Y-"):"")<<(domain.mirror_y_max()?nsep("Y+"):"")
+                     <<(domain.mirror_z_min()?nsep("Z-"):"")<<(domain.mirror_z_max()?nsep("Z+"):"")
         <<", xform="<<domain.xform()
         <<", inv="<<domain.inv_xform()
         <<", scale="<<domain.xform_min_scale()<< "/" <<domain.xform_max_scale();
@@ -74,12 +79,9 @@ namespace exanb
   {
     Vec3d domain_grid_size = domain.grid_dimension() * domain.cell_size();
     Vec3d domain_size = domain.bounds_size();
-/*    if( domain.periodic_boundary_x() ) std::cout <<"X: "<< domain_grid_size.x<<" / "<<domain_size.x<<std::endl;
-    if( domain.periodic_boundary_y() ) std::cout <<"Y: "<< domain_grid_size.y<<" / "<<domain_size.y<<std::endl;
-    if( domain.periodic_boundary_z() ) std::cout <<"Z: "<< domain_grid_size.z<<" / "<<domain_size.z<<std::endl; */
-    return ( !domain.periodic_boundary_x() || fabs( 1. - domain_grid_size.x/domain_size.x ) < 1.e-15 )
-        && ( !domain.periodic_boundary_y() || fabs( 1. - domain_grid_size.y/domain_size.y ) < 1.e-15 )
-        && ( !domain.periodic_boundary_z() || fabs( 1. - domain_grid_size.z/domain_size.z ) < 1.e-15 ) ;
+    return ( fabs( 1. - domain_grid_size.x/domain_size.x ) < 1.e-15 )
+        && ( fabs( 1. - domain_grid_size.y/domain_size.y ) < 1.e-15 )
+        && ( fabs( 1. - domain_grid_size.z/domain_size.z ) < 1.e-15 );
   }
 
 
@@ -335,4 +337,99 @@ namespace exanb
 
 
 } // end of exanb namespace
+
+// **** YAML Conversion ****
+namespace YAML
+{    
+  Node convert< exanb::Domain >::encode(const exanb::Domain& domain)
+  {
+    Node node;
+    node["bounds"] = domain.bounds();
+    node["grid_dims"] = domain.grid_dimension();
+    node["cell_size"]["value"] = domain.cell_size();
+    node["cell_size"]["unity"] = "ang";
+    std::vector<bool> p = { domain.periodic_boundary_x(), domain.periodic_boundary_y(), domain.periodic_boundary_z() };
+    node["periodic"] = p;
+    node["expandable"] = domain.expandable();
+    std::vector<bool> m = { domain.mirror_x_min(),domain.mirror_x_max(), domain.mirror_y_min(),domain.mirror_y_max(), domain.mirror_z_min(),domain.mirror_z_max() };
+    node["mirror"] = m;
+    return node;
+  }
+
+  bool convert< exanb::Domain >::decode(const Node& node, exanb::Domain& domain)
+  {
+    if( ! node.IsMap() ) { return false; }
+
+    domain = exanb::Domain();
+
+    if(node["bounds"])
+    {
+      domain.set_bounds( node["bounds"].as<AABB>() );
+    }
+    if(node["grid_dims"])
+    {
+      domain.set_grid_dimension( node["grid_dims"].as<IJK>() );
+    }
+    if(node["cell_size"])
+    {
+      domain.set_cell_size( node["cell_size"].as<Quantity>().convert() );
+    }
+    if(node["periodic"])
+    {
+      if( node["periodic"].size() != 3 ) { return false; }
+      domain.set_periodic_boundary_x( node["periodic"][0].as<bool>() );
+      domain.set_periodic_boundary_y( node["periodic"][1].as<bool>() );
+      domain.set_periodic_boundary_z( node["periodic"][2].as<bool>() );
+    }
+    if(node["mirror"])
+    {
+      if( ! node["mirror"].IsSequence() ) { return false; }
+      for(auto m : node["mirror"])
+      {
+        if( exanb::str_tolower(m.as<std::string>()) == "x-" ) { domain.set_mirror_x_min(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "x+" ) { domain.set_mirror_x_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "x" )  { domain.set_mirror_x_min(true); domain.set_mirror_x_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "y-" ) { domain.set_mirror_y_min(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "y+" ) { domain.set_mirror_y_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "y" )  { domain.set_mirror_y_min(true); domain.set_mirror_y_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "z-" ) { domain.set_mirror_z_min(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "z+" ) { domain.set_mirror_z_max(true); }
+        if( exanb::str_tolower(m.as<std::string>()) == "z" )  { domain.set_mirror_z_min(true); domain.set_mirror_z_max(true); }
+      }
+    }
+    if(node["expandable"])
+    {
+      domain.set_expandable( node["expandable"].as<bool>() );
+    }
+    if(node["xform"])
+    {
+      domain.set_xform( node["xform"].as<Mat3d>() );
+    }
+    return true;
+  }
+    
+  Node convert< exanb::ReadBoundsSelectionMode >::encode(const exanb::ReadBoundsSelectionMode& v)
+  {
+    Node node;
+    switch( v )
+    {
+      case exanb::ReadBoundsSelectionMode::FILE_BOUNDS : node = "FILE"; break;
+      case exanb::ReadBoundsSelectionMode::DOMAIN_BOUNDS : node = "DOMAIN"; break;
+      case exanb::ReadBoundsSelectionMode::COMPUTED_BOUNDS : node = "COMPUTED"; break;
+    }
+    return node;
+  }
+  
+  bool convert< exanb::ReadBoundsSelectionMode >::decode(const Node& node, exanb::ReadBoundsSelectionMode& v)
+  {
+    if( node.as<std::string>() == "FILE" ) { v = exanb::ReadBoundsSelectionMode::FILE_BOUNDS; return true; }
+    if( node.as<std::string>() == "COMPUTED" ) { v = exanb::ReadBoundsSelectionMode::COMPUTED_BOUNDS; return true; }
+    if( node.as<std::string>() == "DOMAIN" ) { v = exanb::ReadBoundsSelectionMode::DOMAIN_BOUNDS; return true; }
+    return false;
+  }
+
+
+}
+
+
 
