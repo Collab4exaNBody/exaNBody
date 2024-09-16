@@ -42,10 +42,9 @@ under the License.
 namespace exanb
 {
   
-  template<uint64_t _VER>
   struct SimDumpInitializer
   {
-    SimDumpHeader<_VER> & m_header;
+    SimDumpHeader & m_header;
 
     template<class FieldId,class T>
     inline void operator () ( FieldId , T )
@@ -112,21 +111,17 @@ namespace exanb
     //static constexpr RealDumpFields real_dump_fields = {};
     static constexpr size_t WRITE_BUFFER_SIZE = 65536; // number of particles per write
 
-    std::string basename;
-    std::string::size_type p = filename.rfind("/");
-    if( p != std::string::npos ) basename = filename.substr(p+1);
-    else basename=filename;
-    
-    lout << "============ "<< basename <<" ============" << std::endl ;
+    std::filesystem::path filepath = filename;
+    lout << "============ "<< filepath.stem() <<" ============" << std::endl ;
 
     // number of threads used for compression
-    SimDumpHeader<> header = {};
+    SimDumpHeader header = {};
     const unsigned int compression_threads = omp_get_max_threads();
     lout << "compr. level   = "<<compression_level <<std::endl
          << "compr. threads = "<< compression_threads <<std::endl;
 
     // initialize header
-    StorageTuple{}.apply_fields( SimDumpInitializer<header.VERSION>{header} );
+    StorageTuple{}.apply_fields( SimDumpInitializer{header} );
     header.m_tuple_size = sizeof(StorageTuple);
     header.m_domain = domain;
     header.m_time = phystime;
@@ -184,18 +179,22 @@ namespace exanb
 
     // open output file
     // First, create directory
-    lout << filename << std::endl;
-    if( p > 0 ) 
+//    ldbg << filename << std::endl;
+    lout << "file path      = "<<filename<<std::endl;
+    if( rank == 0 )
     {
-      if( rank == 0 )
+      if( filepath.has_parent_path() )
       {
-        std::string dir = filename;
-        dir.resize(p);
-        lout << dir << std::endl;
-        std::filesystem::create_directories(dir);
-      }
-      MPI_Barrier(comm);
+        ldbg << "Create directory "<< filepath.parent_path() << std::endl;
+        std::filesystem::create_directories( filepath.parent_path() );
+      } 
     }
+    MPI_Barrier(comm); // try to wait until other smp nodes see created directory (not guarented though)
+    if( filepath.has_parent_path() && ! std::filesystem::is_directory( std::filesystem::status( filepath.parent_path() ) ) )
+    {
+      fatal_error() << "Directory " << filepath.parent_path() << " does not exist (despite prior creation)" << std::endl;
+    }
+
     // Second, create output file
     MpiIO file;
     file.open( comm, filename , "w" , max_part_size );

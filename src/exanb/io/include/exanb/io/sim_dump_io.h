@@ -22,6 +22,7 @@ under the License.
 
 #include <exanb/core/domain.h>
 #include <exanb/core/log.h>
+#include <exanb/io/domain_legacy_v1.2.h>
 
 #include <onika/soatl/field_tuple.h>
 #include <onika/soatl/field_arrays.h>
@@ -102,21 +103,21 @@ namespace exanb
 
   // version history
   // 1.1 -> 1.2 : force domain.m_expandable to true, only if version is <= 1.1, as it was previously implicitly true, but stored as false (see extend_domain for more information)
-
+  // 1.2 -> 1.3 : Domain structure changed in commit # 3f4b5697a70e263b6fd24f807515c3f2a7c3423b which converted bool to bit mask for periodic, expandable and mirroring flags
 # define XNB_IO_MAKE_VERSION_NUMBER(major,minor) ((major)*1000+(minor))
-  template< uint64_t _VERSION = XNB_IO_MAKE_VERSION_NUMBER(1,2) > struct SimDumpHeader;
   
-  template< uint64_t _VERSION >
   struct SimDumpHeader
   {
-    static constexpr uint64_t VERSION = _VERSION;
+    static_assert( sizeof(Domain) == sizeof(Domain_legacy_v1_2) );
+
+    static constexpr uint64_t VERSION = XNB_IO_MAKE_VERSION_NUMBER(1,3);
     static constexpr unsigned int MAX_FIELDS = 128;
     static constexpr unsigned int STR_MAX_LEN = 32;
     
     static constexpr unsigned int DATA_FLAG_UNUSED0 = 0; // index in m_data_flags
     static constexpr unsigned int DATA_FLAG_UNUSED1 = 1; // index in m_data_flags
     static constexpr unsigned int DATA_FLAG_UNUSED2 = 2; // index in m_data_flags
-    static constexpr unsigned int DATA_FLAG_UNUSED3 = 3;// index in m_data_flags
+    static constexpr unsigned int DATA_FLAG_UNUSED3 = 3; // index in m_data_flags
 
     const uint64_t m_version = VERSION;
 
@@ -153,13 +154,33 @@ namespace exanb
     // called after structure has been read from file
     inline void post_process()
     {
+      if( m_version < XNB_IO_MAKE_VERSION_NUMBER(1,3) )
+      {
+        // data that has been read are actually the content of Domain_legacy_v1_2 struct
+        const Domain_legacy_v1_2 * legacy_domain_p = reinterpret_cast<const Domain_legacy_v1_2*>( & m_domain );
+        const Domain_legacy_v1_2 legacy_domain = * legacy_domain_p;
+        m_domain.set_bounds( legacy_domain.bounds() );
+        m_domain.set_grid_dimension( legacy_domain.grid_dimension() );
+        m_domain.set_cell_size( legacy_domain.cell_size() );
+        m_domain.set_xform( legacy_domain.xform() );
+        m_domain.set_mirror_x_min( false );
+        m_domain.set_mirror_x_max( false );
+        m_domain.set_mirror_y_min( false );
+        m_domain.set_mirror_y_max( false );
+        m_domain.set_mirror_z_min( false );
+        m_domain.set_mirror_z_max( false );
+        m_domain.set_periodic_boundary_x( legacy_domain.periodic_boundary_x() );
+        m_domain.set_periodic_boundary_y( legacy_domain.periodic_boundary_y() );
+        m_domain.set_periodic_boundary_z( legacy_domain.periodic_boundary_z() );
+        m_domain.set_expandable( legacy_domain.expandable() );
+      }
       if( m_version < XNB_IO_MAKE_VERSION_NUMBER(1,2) )
       {
         if( !m_domain.expandable() )
-	{
-	  m_domain.set_expandable( true );
-	  ldbg << "Warning: domain/expandable has been forced to true for backward compatibility"<<std::endl;
-	}
+        {
+          m_domain.set_expandable( true );
+          ldbg << "Warning: domain/expandable has been forced to true for backward compatibility"<<std::endl;
+        }
       }
     }
 
@@ -168,7 +189,7 @@ namespace exanb
     {
       if( m_version > VERSION )
       {
-        lerr<<"SimDumpHeader::check : bad version number "<<m_version/1000<<'.'<<m_version%1000<<" , expected "<<_VERSION/1000<<'.'<<_VERSION%1000<<" or less"<< std::endl;
+        lerr<<"SimDumpHeader::check : bad version number "<<m_version/1000<<'.'<<m_version%1000<<" , expected "<<VERSION/1000<<'.'<<VERSION%1000<<" or less"<< std::endl;
         return false;
       }
       

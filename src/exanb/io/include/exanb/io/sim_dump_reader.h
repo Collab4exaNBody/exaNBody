@@ -75,7 +75,7 @@ namespace exanb
     file.open( comm, filename , "r" );
 
     // read header from file 
-    SimDumpHeader<> header = {};
+    SimDumpHeader header = {};
     file.read( &header );
     file.increment_offset( &header );
 
@@ -116,10 +116,7 @@ namespace exanb
       Vec3d domsize = domain.xform() * bounds_size(domain.bounds());
       lout << "domain size   = "<<domsize << std::endl;
     }
-    lout << "cell size     = "<<domain.cell_size()<<std::endl;
-    lout << "grid size     = "<<domain.grid_dimension()<<std::endl;
-    lout << "periodicity   = "<< std::boolalpha << domain.periodic_boundary_x() << " , " << domain.periodic_boundary_y() << " , "  << domain.periodic_boundary_z() << std::endl;
-    lout << "expandable    = "<< std::boolalpha << domain.expandable() << std::endl;
+    lout << "domain        = "<<domain<<std::endl;
     lout << "particles     = "<< header.m_nb_particles << std::endl;
 
     phystime = header.m_time;
@@ -205,6 +202,7 @@ namespace exanb
     }
 
     unsigned long long particle_count = 0;
+    unsigned long long nb_filtered_out_particles = 0;
     size_t at_id = 0;
     size_t n_zero_in = 0;
     size_t n_zero = 0;
@@ -359,6 +357,10 @@ namespace exanb
           ++ at_id;
           ++ particle_count;          
         }
+        else
+        {
+          ++ nb_filtered_out_particles;
+        }
       }
 
       // lout.progress_bar("Loading ",(i+1)*1.0/local_chunk_count);
@@ -415,8 +417,9 @@ namespace exanb
     ldbg << "grid has "<< grid.number_of_particles() << " particles" << std::endl; 
     
     MPI_Allreduce(MPI_IN_PLACE,&particle_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,comm);
-    assert( particle_count == header.m_nb_particles );
-    ldbg << "total particles read = " << particle_count << std::endl ;
+    MPI_Allreduce(MPI_IN_PLACE,&nb_filtered_out_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,comm);
+    assert( ( particle_count + nb_filtered_out_particles ) == header.m_nb_particles );
+    ldbg << "total particles read = " << particle_count << " ( "<<nb_filtered_out_particles<<" filtered out )" << std::endl ;
     
     lout << "================================" << std::endl << std::endl;
   }
