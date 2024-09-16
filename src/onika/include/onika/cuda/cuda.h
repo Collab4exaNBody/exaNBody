@@ -298,15 +298,9 @@ namespace onika
   namespace cuda
   {
     [[ deprecated ]]
-<<<<<<< HEAD
     typedef ONIKA_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
 
 #   define gpu_device_execution() ONIKA_GPU_DEVICE_EXECUTION_TYPE{}
-=======
-    typedef XNB_GPU_DEVICE_EXECUTION_TYPE gpu_device_execution_t; // DO NOT use this one anymore, it breaks C++'s ODF
-#   define gpu_device_execution() XNB_GPU_DEVICE_EXECUTION_TYPE{}
-
->>>>>>> lattice-generator-external-domain-init
   }
 }
 
