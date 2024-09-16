@@ -50,6 +50,7 @@ namespace exanb
     onika::memory::CudaMMVector<uint32_t> m_cell_stream_size;
     size_t m_stream_pool_hint = 0; // guessed best value for m_fixed_stream_pool capacity
     size_t m_nb_dyn_alloc = 0;
+    unsigned int m_max_neighbors = 0;
     unsigned int m_chunk_size = 4;
     onika::memory::GenericHostAllocator m_alloc = {};
     
