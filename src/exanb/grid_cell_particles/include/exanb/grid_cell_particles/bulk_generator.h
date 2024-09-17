@@ -29,6 +29,8 @@ under the License.
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/log.h>
+#include <exanb/core/simple_block_rcb.h>
+
 //#include "exanb/vector_utils.h"
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/physics_constants.h>
@@ -101,16 +103,39 @@ namespace exanb
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
       
-      // domain setup
-      ssize_t max_div = 6;
-      while( max_div > 1 && ( (repeat->i/max_div)!=(repeat->i*1.0/max_div) || (repeat->j/max_div)!=(repeat->j*1.0/max_div) || (repeat->k/max_div)==(repeat->k*1.0/max_div) ) ) --max_div;
-      ldbg << "max_div = "<<max_div<<std::endl;
+      // domain setup in order to ensure the commensurability
+      // between the desired lattice and the domain size
+      
       domain->set_expandable( false );
       domain->set_periodic_boundary( true , true , true );
-      domain->set_xform( make_diagonal_matrix( *size ) );
-      domain->set_grid_dimension( (*repeat) / max_div );
-      domain->set_cell_size( max_div );
-      domain->set_bounds( { Vec3d{0.,0.,0.} , Vec3d{ repeat->i, repeat->j, repeat->k } } );
+      domain->set_xform( make_identity_matrix() );
+      IJK ncells = { std::floor(repeat->i * size->x / domain->cell_size()) , std::floor(repeat->j * size->y / domain->cell_size()) , std::floor(repeat->k * size->z / domain->cell_size()) };
+      domain->set_grid_dimension( ncells );      
+      Vec3d xformdiag = { (repeat->i * size->x) / (ncells.i * domain->cell_size()), (repeat->j * size->y) / (ncells.j * domain->cell_size()), (repeat->k * size->z) / (ncells.k * domain->cell_size()) };
+      domain->set_xform( make_diagonal_matrix( xformdiag ) );
+      domain->set_bounds( { Vec3d{0.,0.,0.} , Vec3d{ncells.i * domain->cell_size(), ncells.j * domain->cell_size(), ncells.k * domain->cell_size()} } );
+
+      // include init rcb grid here without checking domain as in basic lattice_generator
+      // because bulk_generator intializes it on its own
+      
+      // MPI Initialization
+      int rank=0, np=1;
+      MPI_Comm_rank(*mpi, &rank);
+      MPI_Comm_size(*mpi, &np);
+
+      // compute local processor's grid size and location so that cells are evenly distributed
+      GridBlock in_block = { IJK{0,0,0} , domain->grid_dimension() };
+      ldbg<<"In  block = "<< in_block << std::endl;
+      GridBlock out_block = simple_block_rcb( in_block, np, rank );
+      ldbg<<"Out block = "<< out_block << std::endl;
+
+      // initializes local processor's grid
+      grid->set_offset( out_block.start );
+      grid->set_origin( domain->bounds().bmin );
+      grid->set_cell_size( domain->cell_size() );
+      IJK local_grid_dim = out_block.end - out_block.start;
+      grid->set_dimension( local_grid_dim );
+      grid->rebuild_particle_offsets();      
       
       generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, *particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
