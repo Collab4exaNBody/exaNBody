@@ -97,7 +97,12 @@ namespace exanb
       const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
-      generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, *particle_type_map, particle_regions.get_pointer(), region.get_pointer()
+      
+      ParticleTypeMap mock_particle_type_map;
+      mock_particle_type_map.clear();
+      if( particle_type_map.has_value() ) mock_particle_type_map = *particle_type_map;
+      
+      generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
                                , *structure, *types, *noise, *size, noise_cutoff_ifset, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
