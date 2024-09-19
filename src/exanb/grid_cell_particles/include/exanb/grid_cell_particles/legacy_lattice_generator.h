@@ -29,6 +29,8 @@ under the License.
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/log.h>
+#include <exanb/core/simple_block_rcb.h>
+
 //#include "exanb/vector_utils.h"
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/physics_constants.h>
@@ -48,7 +50,7 @@ namespace exanb
   template< class GridT
           , class ParticleTypeField
           >
-  class RegionLattice : public OperatorNode
+  class RegionLegacyLattice : public OperatorNode
   {
     using StringVector = std::vector<std::string>;
 
@@ -58,6 +60,7 @@ namespace exanb
     ADD_SLOT( MPI_Comm        , mpi          , INPUT , MPI_COMM_WORLD  );
     ADD_SLOT( ReadBoundsSelectionMode, bounds_mode   , INPUT , ReadBoundsSelectionMode::FILE_BOUNDS );
     ADD_SLOT( Domain          , domain       , INPUT_OUTPUT );
+    ADD_SLOT( bool            , init_rcb_grid , INPUT , false );
     ADD_SLOT( GridT           , grid         , INPUT_OUTPUT );
 
     // get a type id from a type name
@@ -94,6 +97,39 @@ namespace exanb
   public:
     inline void execute () override final
     {
+
+      if (*init_rcb_grid)
+        {
+          // MPI Initialization
+          int rank=0, np=1;
+          MPI_Comm_rank(*mpi, &rank);
+          MPI_Comm_size(*mpi, &np);
+          
+          if( ! check_domain( *domain ) )
+            {
+              std::cout << "domain = " << *domain << std::endl;
+              fatal_error() << "Invalid domain configuration" << std::endl;
+            }
+          if( grid->number_of_cells() > 0 )
+            {
+              fatal_error() << "Grid is not empty" << std::endl;        
+            }
+          
+          // compute local processor's grid size and location so that cells are evenly distributed
+          GridBlock in_block = { IJK{0,0,0} , domain->grid_dimension() };
+          ldbg<<"In  block = "<< in_block << std::endl;
+          GridBlock out_block = simple_block_rcb( in_block, np, rank );
+          ldbg<<"Out block = "<< out_block << std::endl;
+          
+          // initializes local processor's grid
+          grid->set_offset( out_block.start );
+          grid->set_origin( domain->bounds().bmin );
+          grid->set_cell_size( domain->cell_size() );
+          IJK local_grid_dim = out_block.end - out_block.start;
+          grid->set_dimension( local_grid_dim );
+          grid->rebuild_particle_offsets();
+        }
+        
       const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;

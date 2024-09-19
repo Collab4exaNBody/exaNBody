@@ -44,12 +44,17 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
 # ifndef NDEBUG
-  // FIXME: not sure about this. shouldn't ghost_layers be part of equation ?
-  static inline bool self_connected_block( const Domain& domain, const GridBlock& b)
+  static inline bool self_connected_block( const Domain& domain, const GridBlock& b, ssize_t gl)
   {
-    return ( domain.periodic_boundary_x() && b.start.i==0 && b.end.i==domain.grid_dimension().i )
-        || ( domain.periodic_boundary_y() && b.start.j==0 && b.end.j==domain.grid_dimension().j )
-        || ( domain.periodic_boundary_z() && b.start.k==0 && b.end.k==domain.grid_dimension().k );
+    return ( domain.periodic_boundary_x() && ( b.start.i + domain.grid_dimension().i - b.end.i ) < gl )
+        || ( domain.periodic_boundary_y() && ( b.start.j + domain.grid_dimension().j - b.end.j ) < gl )
+        || ( domain.periodic_boundary_z() && ( b.start.k + domain.grid_dimension().k - b.end.k ) < gl )
+        || ( domain.mirror_x_min() && b.start.i*2 < gl )
+        || ( domain.mirror_y_min() && b.start.j*2 < gl )
+        || ( domain.mirror_z_min() && b.start.k*2 < gl )
+        || ( domain.mirror_x_max() && ( ( domain.grid_dimension().i - b.end.i ) * 2 ) < gl )
+        || ( domain.mirror_y_max() && ( ( domain.grid_dimension().j - b.end.j ) * 2 ) < gl )
+        || ( domain.mirror_z_max() && ( ( domain.grid_dimension().k - b.end.k ) * 2 ) < gl );
   }
 # endif
 
@@ -112,23 +117,31 @@ namespace exanb
       size_t ghost_layers = grid.ghost_layers();
       GridBlock my_block = enlarge_block( grid.block() , -ghost_layers );
       IJK domain_grid_dims = domain.grid_dimension();
-      Vec3d domain_size = bounds_size( domain.bounds() );
+      //Vec3d domain_size = bounds_size( domain.bounds() );
 
       ldbg <<"UpdateGhostsCommScheme: --- begin ghost_comm_scheme ---" << std::endl;
       ldbg <<"UpdateGhostsCommScheme: domain grid="<<domain_grid_dims<<" grid.block()="<<grid.block()<<" my_block="<<my_block << " ghost_layers=" << ghost_layers << std::endl;
 
       // for periodic conditions we shift simulation box once to the right or to the left
       // FIXME: this could be more than 1 and less than -1, in case the nieghborhood distance is greater than the domain itself
+      assert( ! ( domain.periodic_boundary_x() && ( domain.mirror_x_min() || domain.mirror_x_max() ) ) ); // a direction cannot use periodicity and mirroring at the same time
       int periodic_i_start = -1;
       int periodic_i_end = 1;
+      if( ! domain.periodic_boundary_x() && ! domain.mirror_x_min() ) { periodic_i_start = 0; }
+      if( ! domain.periodic_boundary_x() && ! domain.mirror_x_max() ) { periodic_i_end   = 0; }
+
+      assert( ! ( domain.periodic_boundary_y() && ( domain.mirror_y_min() || domain.mirror_y_max() ) ) ); // a direction cannot use periodicity and mirroring at the same time
       int periodic_j_start = -1;
       int periodic_j_end = 1;
+      if( ! domain.periodic_boundary_y() && ! domain.mirror_y_min() ) { periodic_j_start = 0; }
+      if( ! domain.periodic_boundary_y() && ! domain.mirror_y_max() ) { periodic_j_end   = 0; }
+
+      assert( ! ( domain.periodic_boundary_z() && ( domain.mirror_z_min() || domain.mirror_z_max() ) ) ); // a direction cannot use periodicity and mirroring at the same time
       int periodic_k_start = -1;
       int periodic_k_end = 1;
-      if( ! domain.periodic_boundary_x() ) { periodic_i_start = periodic_i_end = 0;  }
-      if( ! domain.periodic_boundary_y() ) { periodic_j_start = periodic_j_end = 0;  }
-      if( ! domain.periodic_boundary_z() ) { periodic_k_start = periodic_k_end = 0;  }
-
+      if( ! domain.periodic_boundary_z() && ! domain.mirror_z_min() ) { periodic_k_start = 0; }
+      if( ! domain.periodic_boundary_z() && ! domain.mirror_z_max() ) { periodic_k_end   = 0; }
+      
       // gather all blocks
       std::vector<GridBlock> all_blocks(nprocs);
       MPI_Allgather( (char*) &my_block, sizeof(GridBlock), MPI_CHAR, (char*) all_blocks.data(), sizeof(GridBlock), MPI_CHAR, comm);
@@ -148,23 +161,19 @@ namespace exanb
 #       pragma omp for schedule(static) //nowait
         for(int p=0;p<nprocs;p++)
         {
+          size_t partner_intersecting_cells[3][3][3];
           size_t nb_intersecting_cells = 0;
           for(int k=periodic_k_start;k<=periodic_k_end;k++)
           for(int j=periodic_j_start;j<=periodic_j_end;j++)
           for(int i=periodic_i_start;i<=periodic_i_end;i++)
           {
-            IJK shift { i,j,k };
+            partner_intersecting_cells[1+k][1+j][1+i] = 0;
             if( i!=0 || j!=0 || k!=0 || p!=rank )
             {
-              Vec3d r_shift = domain_size * shift;
-              IJK block_shift = shift * domain_grid_dims;
-              size_t partner_intersecting_cells = partner_count_intersecting_cells( all_blocks[p], block_shift, r_shift, grid );
-              /*if(partner_intersecting_cells>0)
-              {
-                ldbg<<"rank="<<rank<<" p="<<p<<" block_shift="<<block_shift<<" r_shift="<<r_shift<<" inter cells="<<partner_intersecting_cells<<"\n";
-              }*/
-              nb_intersecting_cells += partner_intersecting_cells;
+              const IJK shift = { i,j,k };
+              partner_intersecting_cells[1+k][1+j][1+i] = partner_count_intersecting_cells( all_blocks[p], grid, domain, shift );
             }
+            nb_intersecting_cells += partner_intersecting_cells[1+k][1+j][1+i];
           }
 
           // ldbg << "P"<<p<<" : nb_intersecting_cells="<< nb_intersecting_cells <<std::endl;
@@ -176,21 +185,18 @@ namespace exanb
           for(int j=periodic_j_start;j<=periodic_j_end;j++)
           for(int i=periodic_i_start;i<=periodic_i_end;i++)
           {
-            IJK shift { i,j,k };
             if( i!=0 || j!=0 || k!=0 || p!=rank )
             {
-              Vec3d r_shift = domain_size * shift;
-              IJK block_shift = shift * domain_grid_dims;
-              cur_send_item += partner_comm_scheme( all_blocks[p], block_shift, r_shift, grid, comm_scheme.m_partner[p], send_buffer[p], cur_send_item );
+              const IJK shift = { i,j,k };
+              partner_comm_scheme( all_blocks[p], grid, domain, shift, comm_scheme.m_partner[p], send_buffer[p], cur_send_item, partner_intersecting_cells[1+k][1+j][1+i] );
+              cur_send_item += partner_intersecting_cells[1+k][1+j][1+i];
             }
           }
           
           if( comm_scheme.m_partner[p].m_sends.size() != nb_intersecting_cells || send_buffer[p].size() != nb_intersecting_cells || cur_send_item != nb_intersecting_cells )
           {
-            lerr << "Internal error: bad intersecting cell count"<<std::endl;
-            std::abort();
+            fatal_error() << "Inconsistent intersecting cell count in counting step and packing step"<<std::endl;
           }
-          
         }
         
         // from here, other threads (and first threads that finished for loop) execute generated tasks
@@ -245,9 +251,9 @@ namespace exanb
 
       // build receive counts from send counts
       std::vector<size_t> recv_count(nprocs,0);
-      assert( send_count[rank] == 0 || self_connected_block(domain,my_block) );
+      assert( send_count[rank] == 0 || self_connected_block(domain,my_block,ghost_layers) );
       MPI_Alltoall( send_count.data(), 1, mpi_datatype<size_t>(), recv_count.data(), 1, mpi_datatype<size_t>(), comm );
-      assert( recv_count[rank] == 0 || self_connected_block(domain,my_block) );
+      assert( recv_count[rank] == 0 || self_connected_block(domain,my_block,ghost_layers) );
 
       // initialize MPI requests for both sends and receives
       size_t total_requests = 2 * nprocs;
@@ -331,115 +337,132 @@ namespace exanb
     // ----------------------------------------------------        
     inline size_t partner_count_intersecting_cells(
       const GridBlock& partner_block,
-      const IJK& block_shift,
-      const Vec3d& r_shift,
-      const GridT& grid )
+      const GridT& grid,
+      const Domain& domain,
+      const IJK& dom_shift )
     {
-      ssize_t ghost_layers = grid.ghost_layers();
-      GridBlock my_block = enlarge_block( grid.block() , -ghost_layers );
-      GridBlock shifted_my_block = my_block + block_shift;
-      GridBlock partner_block_with_ghosts = enlarge_block( partner_block , ghost_layers );
-//      IJK partner_block_with_ghosts_dims = dimension( partner_block_with_ghosts );
-      GridBlock intersect_block_ghosts = intersection( partner_block_with_ghosts , shifted_my_block );
-      ssize_t n_intersecting_cells = 0;
-      if( ! is_empty(intersect_block_ghosts) )
+      // build portion of local sub domain intersecting one of the ghost replica of computation domain
+      assert( dom_shift.i>=-1 && dom_shift.i<=1 && dom_shift.j>=-1 && dom_shift.j<=1 && dom_shift.k>=-1 && dom_shift.k<=1 );
+      size_t n_intersecting_cells = 0;
+
+      const auto partner_block_with_ghosts = enlarge_block( partner_block , grid.ghost_layers() );      
+      GRID_FOR_BEGIN( grid.dimension()-2*grid.ghost_layers() , _ , loc )
       {
-        IJK intersect_block_ghosts_dims = dimension(intersect_block_ghosts);
-        n_intersecting_cells = grid_cell_count( intersect_block_ghosts_dims );
-        assert( n_intersecting_cells>=0 );
-      }      
+        const auto my_cell_loc = loc + grid.ghost_layers();
+        const IJK domain_cell_loc = my_cell_loc + grid.offset();
+        IJK shifted_cell_loc = ( dom_shift * domain.grid_dimension() ) + domain_cell_loc;
+        if( dom_shift.i == -1 && domain.mirror_x_min() ) shifted_cell_loc.i =                               - domain_cell_loc.i - 1;
+        if( dom_shift.i ==  1 && domain.mirror_x_max() ) shifted_cell_loc.i = 2 * domain.grid_dimension().i - domain_cell_loc.i - 1;
+        if( dom_shift.j == -1 && domain.mirror_y_min() ) shifted_cell_loc.j =                               - domain_cell_loc.j - 1;
+        if( dom_shift.j ==  1 && domain.mirror_y_max() ) shifted_cell_loc.j = 2 * domain.grid_dimension().j - domain_cell_loc.j - 1;
+        if( dom_shift.k == -1 && domain.mirror_z_min() ) shifted_cell_loc.k =                               - domain_cell_loc.k - 1;
+        if( dom_shift.k ==  1 && domain.mirror_z_max() ) shifted_cell_loc.k = 2 * domain.grid_dimension().k - domain_cell_loc.k - 1;
+                
+        if( inside_block( partner_block_with_ghosts , shifted_cell_loc ) )
+        {
+          // partner cell must be identified as a ghost cell according to its own grid (thus must not be an inner cell)
+          assert( ! inside_block(partner_block,shifted_cell_loc) );
+          // a ghost cell in a partner's ghost area must correspond to an inner cell of mine
+          assert( ! grid.is_ghost_cell(my_cell_loc) );
+          // account for intersected cell
+          ++ n_intersecting_cells;
+        }
+      }
+      GRID_FOR_END
+
       return n_intersecting_cells;
     }
 
     // ----------------------------------------------------        
-    inline size_t partner_comm_scheme(
+    inline void partner_comm_scheme(
       const GridBlock& partner_block,
-      const IJK& block_shift,
-      const Vec3d& r_shift,
       const GridT& grid,
+      const Domain& domain,
+      const IJK& dom_shift,
       GhostPartnerCommunicationScheme& comm_scheme,
       std::vector<uint64_t>& send_buffer,
-      size_t cur_send_item
-      )
+      size_t cur_send_item,
+      size_t expected_partner_nb_cells )
     {
-      ssize_t ghost_layers = grid.ghost_layers();
-      GridBlock my_block = enlarge_block( grid.block() , -ghost_layers );
-      GridBlock shifted_my_block = my_block + block_shift;
-      GridBlock partner_block_with_ghosts = enlarge_block( partner_block , ghost_layers );
-      GridBlock intersect_block_ghosts = intersection( partner_block_with_ghosts , shifted_my_block );
-      size_t n_intersecting_cells = 0;
- 
-      if( ! is_empty(intersect_block_ghosts) )
+      // build portion of local sub domain intersecting one of the ghost replica of computation domain
+      assert( dom_shift.i>=-1 && dom_shift.i<=1 && dom_shift.j>=-1 && dom_shift.j<=1 && dom_shift.k>=-1 && dom_shift.k<=1 );
+
+      auto * pcomm_scheme = & comm_scheme;
+      auto * psend_buffer = & send_buffer;
+      const auto * pgrid = & grid;
+      const auto * pdomain = & domain;
+#     pragma omp task default(none) firstprivate(partner_block,dom_shift,cur_send_item,expected_partner_nb_cells /*shared*/,pcomm_scheme,psend_buffer,pgrid,pdomain) 
       {
-        IJK intersect_block_ghosts_dims = dimension(intersect_block_ghosts);
-        n_intersecting_cells = grid_cell_count( intersect_block_ghosts_dims );
+        auto & comm_scheme = *pcomm_scheme;
+        auto & send_buffer = *psend_buffer;
+        const auto & grid = *pgrid;
+        const auto & domain = *pdomain;
+        
+        const GhostBoundaryModifier boundary = { domain.origin() , domain.extent() };
+        
+        const AABB partner_inner_bounds = block_to_bounds( partner_block , grid.origin() , grid.cell_size() );
+        const AABB partner_outter_bounds = enlarge( partner_inner_bounds , grid.max_neighbor_distance() );
 
-        // Note: it seems that it is a bad idea to use shared clause with references when using Intel compiler 20.0.0 (19.xxx based)
-//#       pragma omp task default(none) firstprivate(r_shift,partner_block,block_shift,cur_send_item) shared(comm_scheme,send_buffer,grid) // if(0)
-        auto * pcomm_scheme = & comm_scheme;
-        auto * psend_buffer = & send_buffer;
-        const auto * pgrid = & grid;
-#       pragma omp task default(none) firstprivate(r_shift,partner_block,block_shift,cur_send_item /*shared*/,pcomm_scheme,psend_buffer,pgrid) 
+        uint32_t cell_boundary_flags = 0;
+        if( dom_shift.i == -1 && domain.periodic_boundary_x() ) cell_boundary_flags |= GhostBoundaryModifier:: SHIFT_X ;
+        if( dom_shift.i ==  1 && domain.periodic_boundary_x() ) cell_boundary_flags |= GhostBoundaryModifier:: SHIFT_X | GhostBoundaryModifier::SIDE_X;
+        if( dom_shift.i == -1 && domain.mirror_x_min()        ) cell_boundary_flags |= GhostBoundaryModifier::MIRROR_X ;
+        if( dom_shift.i ==  1 && domain.mirror_x_max()        ) cell_boundary_flags |= GhostBoundaryModifier::MIRROR_X | GhostBoundaryModifier::SIDE_X;
+
+        if( dom_shift.j == -1 && domain.periodic_boundary_y() ) cell_boundary_flags |= GhostBoundaryModifier:: SHIFT_Y ;
+        if( dom_shift.j ==  1 && domain.periodic_boundary_y() ) cell_boundary_flags |= GhostBoundaryModifier:: SHIFT_Y | GhostBoundaryModifier::SIDE_Y;
+        if( dom_shift.j == -1 && domain.mirror_y_min()        ) cell_boundary_flags |= GhostBoundaryModifier::MIRROR_Y ;
+        if( dom_shift.j ==  1 && domain.mirror_y_max()        ) cell_boundary_flags |= GhostBoundaryModifier::MIRROR_Y | GhostBoundaryModifier::SIDE_Y;
+
+        if( dom_shift.k == -1 && domain.periodic_boundary_z() ) cell_boundary_flags |= GhostBoundaryModifier:: SHIFT_Z ;
+        if( dom_shift.k ==  1 && domain.periodic_boundary_z() ) cell_boundary_flags |= GhostBoundaryModifier:: SHIFT_Z | GhostBoundaryModifier::SIDE_Z;
+        if( dom_shift.k == -1 && domain.mirror_z_min()        ) cell_boundary_flags |= GhostBoundaryModifier::MIRROR_Z ;
+        if( dom_shift.k ==  1 && domain.mirror_z_max()        ) cell_boundary_flags |= GhostBoundaryModifier::MIRROR_Z | GhostBoundaryModifier::SIDE_Z;
+        
+        const auto partner_block_with_ghosts = enlarge_block( partner_block , grid.ghost_layers() );      
+        const auto* cells = grid.cells();
+        
+        size_t n_intersecting_cells = 0;
+
+        GRID_FOR_BEGIN( grid.dimension()-2*grid.ghost_layers() , _ , loc )
         {
-          auto & comm_scheme = *pcomm_scheme;
-          auto & send_buffer = *psend_buffer;
-          const auto & grid = *pgrid;
-          
-          const auto* cells = grid.cells();
-          IJK my_dims = grid.dimension();
-          ssize_t ghost_layers = grid.ghost_layers();
+          const auto my_cell_loc = loc + grid.ghost_layers();
+          assert( grid.contains(my_cell_loc) );
+          const IJK domain_cell_loc = my_cell_loc + grid.offset();
+          IJK shifted_cell_loc = ( dom_shift * domain.grid_dimension() ) + domain_cell_loc;
+          if( dom_shift.i == -1 && domain.mirror_x_min() ) shifted_cell_loc.i =                               - domain_cell_loc.i - 1;
+          if( dom_shift.i ==  1 && domain.mirror_x_max() ) shifted_cell_loc.i = 2 * domain.grid_dimension().i - domain_cell_loc.i - 1;
+          if( dom_shift.j == -1 && domain.mirror_y_min() ) shifted_cell_loc.j =                               - domain_cell_loc.j - 1;
+          if( dom_shift.j ==  1 && domain.mirror_y_max() ) shifted_cell_loc.j = 2 * domain.grid_dimension().j - domain_cell_loc.j - 1;
+          if( dom_shift.k == -1 && domain.mirror_z_min() ) shifted_cell_loc.k =                               - domain_cell_loc.k - 1;
+          if( dom_shift.k ==  1 && domain.mirror_z_max() ) shifted_cell_loc.k = 2 * domain.grid_dimension().k - domain_cell_loc.k - 1;
 
-          Vec3d origin = grid.origin();
-          double cell_size = grid.cell_size();
-          IJK grid_offset = grid.offset();
-          double max_nbh_dist = grid.max_neighbor_distance();
-
-          GridBlock my_block = enlarge_block( grid.block() , -ghost_layers );
-          GridBlock shifted_my_block = my_block + block_shift;
-          GridBlock partner_block_with_ghosts = enlarge_block( partner_block , ghost_layers );
-          GridBlock intersect_block_ghosts = intersection( partner_block_with_ghosts , shifted_my_block );
-          IJK partner_block_with_ghosts_dims = dimension( partner_block_with_ghosts );
-
-          AABB partner_inner_bounds = block_to_bounds( partner_block , origin, cell_size );
-          AABB partner_outter_bounds = enlarge( partner_inner_bounds , max_nbh_dist );
-
-          IJK intersect_block_ghosts_dims = dimension(intersect_block_ghosts);
-
-#         ifndef NDEBUG
-          AABB partner_inner_bounds_minus_threshold = enlarge( partner_inner_bounds , - grid.epsilon_cell_size() );
-#         endif
-
-          GRID_FOR_BEGIN(intersect_block_ghosts_dims,_,loc)
+          if( inside_block( partner_block_with_ghosts , shifted_cell_loc ) )
           {
-            IJK partner_grid_loc = loc + intersect_block_ghosts.start - partner_block_with_ghosts.start;
-            ssize_t partner_cell_i = grid_ijk_to_index( partner_block_with_ghosts_dims , partner_grid_loc );
-            // only ghost cells can overlap with non ghost cells from another domain
-            assert( inside_grid_shell( partner_block_with_ghosts_dims,0, ghost_layers, partner_grid_loc ) );
+            // partner cell must be identified as a ghost cell according to its own grid (thus not an inner cell)
+            assert( ! inside_block(partner_block,shifted_cell_loc) );
+            // a ghost cell in a partner's ghost area must correspond to an inner cell of mine
+            assert( ! grid.is_ghost_cell(my_cell_loc) );
+            // account for intersected cell
 
-            IJK grid_loc = loc + intersect_block_ghosts.start - grid_offset - block_shift;
-            ssize_t cell_i = grid_ijk_to_index( my_dims, grid_loc );
-            assert( grid.contains(grid_loc) );
-            size_t n_particles = cells[cell_i].size();
+            const ssize_t my_cell_i = grid_ijk_to_index( grid.dimension() , my_cell_loc );
+            const ssize_t partner_cell_i = grid_ijk_to_index( dimension(partner_block_with_ghosts) , shifted_cell_loc - partner_block_with_ghosts.start );
+            const size_t n_particles = cells[my_cell_i].size();
+            const auto* __restrict__ rx = cells[my_cell_i][field::rx];
+            const auto* __restrict__ ry = cells[my_cell_i][field::ry];
+            const auto* __restrict__ rz = cells[my_cell_i][field::rz];
 
-            const auto* __restrict__ rx = cells[cell_i][field::rx];
-            const auto* __restrict__ ry = cells[cell_i][field::ry];
-            const auto* __restrict__ rz = cells[cell_i][field::rz];
-
-            // we use std::move instead of removing element after adding it
-            GhostCellSendScheme send_scheme; // = comm_scheme.m_sends.back();
-            send_scheme.m_cell_i = cell_i;
+            GhostCellSendScheme send_scheme; 
+            send_scheme.m_cell_i = my_cell_i;
             send_scheme.m_partner_cell_i = partner_cell_i;
-            send_scheme.m_x_shift = r_shift.x;
-            send_scheme.m_y_shift = r_shift.y;
-            send_scheme.m_z_shift = r_shift.z;
+            send_scheme.m_flags = cell_boundary_flags;
 
             for(size_t p_i=0;p_i<n_particles;p_i++)
             {
-              Vec3d r{ rx[p_i], ry[p_i], rz[p_i] };
-              r = r + r_shift;
-              if( is_inside( partner_outter_bounds , r ) )
+              const Vec3d r{ rx[p_i], ry[p_i], rz[p_i] };
+              const Vec3d ghost_r = boundary.apply_r_modifier(r,cell_boundary_flags);
+              if( is_inside( partner_outter_bounds, ghost_r ) )
               {
-                assert( ! is_inside_exclude_upper( partner_inner_bounds_minus_threshold , r ) );
                 send_scheme.m_particle_i.push_back( p_i );
               }
             }
@@ -449,14 +472,18 @@ namespace exanb
             comm_scheme.m_sends[ cur_send_item ] = std::move(send_scheme);
             send_buffer[ cur_send_item ] = encode_cell_particle( partner_cell_i , n_particles_to_send );
             // ldbg_stream() << "send_buffer["<<cur_send_item<<"] = "<<partner_cell_i<<","<<n_particles_to_send /*send_buffer[ cur_send_item ]*/ <<std::endl;
+            ++ n_intersecting_cells;
             ++ cur_send_item;
           }
-          GRID_FOR_END
-        } // end of omp task
+        }
+        GRID_FOR_END
         
-      } // ! is_empty( intersect_block_ghosts )
+        if( n_intersecting_cells != expected_partner_nb_cells )
+        {
+          fatal_error() << "expected "<<expected_partner_nb_cells<<" intersecing cells with ghost partner, but found "<<n_intersecting_cells<<" in pack task"<<std::endl;
+        }
+      } // end of omp task
       
-      return n_intersecting_cells;
     }
     // ------------------------
 
