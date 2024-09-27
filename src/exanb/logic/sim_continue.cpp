@@ -92,6 +92,7 @@ namespace exanb
 //#warning USING ccc_user
         ccc_tremain(&tremain);
 #       endif
+        ldbg << "remaining time = "<<tremain<<std::endl;
         stop_request = std::ifstream( *stop_file ).good();
       }
 
