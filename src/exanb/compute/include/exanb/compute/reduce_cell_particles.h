@@ -58,19 +58,32 @@ namespace exanb
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
     ResultT* m_reduced_val = nullptr;
+    const size_t* m_cell_idxs = nullptr; // List of non empty cells
     FieldAccTupleT m_cpfields;
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
       ResultT local_val = ResultT();
 
-      size_t cell_a = i;
-      IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
-      cell_a_loc = cell_a_loc + m_ghost_layers;
-      if( m_ghost_layers != 0 )
+      size_t cell_a = size_t(-1); 
+      IJK cell_a_loc;
+
+      if( m_cell_idxs != nullptr ) 
       {
-        cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+        cell_a = m_cell_idxs[i];
       }
+      else 
+      {
+        cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i );
+        cell_a_loc = cell_a_loc + m_ghost_layers;
+        if( m_ghost_layers != 0 )
+        {
+          cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+        }
+      }
+
+      assert( cell_a != size_t(-1) && "cell_a is not correctly uninitialized");
+
       const unsigned int n = m_cells[cell_a].size();
 
       ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , p , 0 , n )
@@ -133,7 +146,9 @@ namespace exanb
     ResultT& reduced_val , // initial value is used as a start value for reduction
     const onika::FlatTuple<FieldAccT...>& cp_fields ,
     onika::parallel::ParallelExecutionContext * exec_ctx ,
-    onika::parallel::ParallelExecutionCallback user_cb = {} )
+    onika::parallel::ParallelExecutionCallback user_cb ,
+    const size_t* cell_idxs = nullptr ,
+    size_t n_cells = 0 )
   {
     using onika::parallel::block_parallel_for;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -143,10 +158,15 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ReduceCellParticlesFunctor<CellsAccessorT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
 
+    if( n_cells == 0 ) cell_idxs = nullptr;
+
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
     const IJK block_dims = dims - (2*gl);
-    const size_t N = block_dims.i * block_dims.j * block_dims.k;
+    const size_t N = n_cells > 0 ? n_cells : block_dims.i * block_dims.j * block_dims.k;
+
+    //assert(cells != nullptr || n_cells <= 0 );
+    assert(cell_idxs != nullptr || n_cells <= 0); 
 
     ResultT* target_reduced_value_ptr = &reduced_val;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
@@ -162,7 +182,7 @@ namespace exanb
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , cp_fields };
+    PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , cell_idxs , cp_fields };
     return block_parallel_for( N, pfor_func , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) } );
   }
 
@@ -176,12 +196,13 @@ namespace exanb
     ResultT& reduced_val , // initial value is used as a start value for reduction
     FieldSet<field_ids...> ,
     onika::parallel::ParallelExecutionContext * exec_ctx , 
-    onika::parallel::ParallelExecutionCallback user_cb = {} )
+    onika::parallel::ParallelExecutionCallback user_cb = {},
+    const size_t* cell_idxs = nullptr ,
+    size_t n_cells = 0 )
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
-    return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb );
+    return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb, cell_idxs, n_cells );
   }
-
 }
 

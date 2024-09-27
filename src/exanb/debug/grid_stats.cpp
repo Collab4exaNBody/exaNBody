@@ -127,21 +127,17 @@ namespace exanb
 
      min_cell_particles            = -min_cell_particles;
      min_cell_res                  = -min_cell_res;
-     ssize_t min_inner_particles = -n_inner_particles;
-     ssize_t min_ghost_particles = -n_ghost_particles;
-     ssize_t min_total_particles = -( n_inner_particles + n_ghost_particles );
-     ssize_t max_inner_particles = n_inner_particles;
-     ssize_t max_ghost_particles = n_ghost_particles;
-     ssize_t max_total_particles = n_inner_particles + n_ghost_particles;
+     long long min_inner_particles = -n_inner_particles;
+     long long min_ghost_particles = -n_ghost_particles;
+     long long min_total_particles = -( n_inner_particles + n_ghost_particles );
+     long long max_inner_particles = n_inner_particles;
+     long long max_ghost_particles = n_ghost_particles;
+     long long max_total_particles = n_inner_particles + n_ghost_particles;
 
-     all_reduce_multi(*mpi,MPI_SUM,ssize_t{}, total_cell_res, n_subcells, n_oc, n_oc_ghost, n_ghost_cells, n_ghost_particles
-                                            , n_inner_cells, n_inner_particles, n_empty_cells, n_empty_ghost_cells, n_gpu_addressable );
+     all_reduce_multi(*mpi,MPI_SUM,ssize_t{}, total_cell_res,n_subcells,n_oc,n_oc_ghost,n_ghost_cells,n_ghost_particles,n_inner_cells,n_inner_particles,n_empty_cells,n_empty_ghost_cells,n_gpu_addressable );
 
-     all_reduce_multi(*mpi,MPI_MAX,ssize_t{}, min_cell_particles, min_cell_res
-                                            , max_cell_particles, max_cell_res 
-                                            , min_inner_particles, min_ghost_particles, min_total_particles
-                                            , max_inner_particles, max_ghost_particles, max_total_particles);
-                     
+     all_reduce_multi(*mpi,MPI_MAX,ssize_t{}, min_cell_particles, max_cell_particles, min_cell_particles, max_cell_res
+                     ,min_inner_particles,min_ghost_particles,min_total_particles,max_inner_particles,max_ghost_particles,max_total_particles);
      min_cell_particles  = -min_cell_particles;
      min_cell_res        = -min_cell_res;
      min_inner_particles = -min_inner_particles;

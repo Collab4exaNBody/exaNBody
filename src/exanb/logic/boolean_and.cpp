@@ -19,28 +19,32 @@ under the License.
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
-#include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/grid.h>
-#include <exanb/core/domain.h>
-#include <exanb/core/geometry.h>
-#include <exanb/core/basic_types_stream.h>
-#include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/log.h>
-#include <exanb/core/thread.h>
-#include <exanb/grid_cell_particles/replicate_domain.h>
 
-#include <vector>
-#include <iostream>
-#include <mpi.h>
+#include <memory>
 
 namespace exanb
 {
-  template<class GridT> using ReplicateDomainDefaultIdShift = ReplicateDomain<GridT>;
 
-   // === register factories ===
+  class BooleanAndNode : public OperatorNode
+  {
+  public:
+  
+    ADD_SLOT( bool , in1 , INPUT , REQUIRED );
+    ADD_SLOT( bool , in2 , INPUT , REQUIRED );
+    ADD_SLOT( bool , result , OUTPUT );
+    
+    void execute() override final
+    {
+      *result = (*in1 && *in2);
+    }
+
+  };
+
+   // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-    OperatorNodeFactory::instance()->register_factory( "replicate_domain", make_grid_variant_operator< ReplicateDomainDefaultIdShift > );
+    OperatorNodeFactory::instance()->register_factory( "boolean_and", make_compatible_operator< BooleanAndNode > );
   }
 
 }
