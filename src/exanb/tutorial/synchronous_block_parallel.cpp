@@ -19,6 +19,8 @@ namespace tutorial
     
     inline void execute() override final
     {
+      using onika::parallel::block_parallel_for;
+      
       if( my_array->rows() == 0 || my_array->columns() == 0 )
       {
         my_array->resize( 1024 , 1024 );
@@ -29,10 +31,10 @@ namespace tutorial
                                                     };
                              
       // Launching the parallel operation, which can execute on GPU if the execution context allows
-      onika::parallel::block_parallel_for( my_array->rows()             // number of iterations, parallelize at the first level over rows
-                                         , value_add_func               // the function to call in parallel
-                                         , parallel_execution_context() // returns the parallel execution context associated with this component
-                                         );
+      block_parallel_for( my_array->rows()             // number of iterations, parallelize at the first level over rows
+                        , value_add_func               // the function to call in parallel
+                        , parallel_execution_context() // returns the parallel execution context associated with this component
+                        );
     }
   };
 
