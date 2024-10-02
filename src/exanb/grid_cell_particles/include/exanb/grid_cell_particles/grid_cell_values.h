@@ -152,5 +152,19 @@ namespace exanb
   
   using GridCellValues = GridCellValuesT<>;
 
+  // utility methods to navigate in refined grid values
+  static inline void gcv_subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
+  {
+    nbh_cell_loc = cell_loc;
+    nbh_subcell_loc = subcell_loc + ninc;
+    if(nbh_subcell_loc.i<0) { -- nbh_cell_loc.i; } else if(nbh_subcell_loc.i>=subdiv) { ++ nbh_cell_loc.i; }
+    if(nbh_subcell_loc.j<0) { -- nbh_cell_loc.j; } else if(nbh_subcell_loc.j>=subdiv) { ++ nbh_cell_loc.j; }
+    if(nbh_subcell_loc.k<0) { -- nbh_cell_loc.k; } else if(nbh_subcell_loc.k>=subdiv) { ++ nbh_cell_loc.k; }
+    nbh_subcell_loc.i = ( nbh_subcell_loc.i + subdiv ) % subdiv;
+    nbh_subcell_loc.j = ( nbh_subcell_loc.j + subdiv ) % subdiv;
+    nbh_subcell_loc.k = ( nbh_subcell_loc.k + subdiv ) % subdiv;      
+  }
+
+
 }
 
