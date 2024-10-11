@@ -152,7 +152,7 @@ namespace exanb
 
 
       // propagate minimum CC label id from nearby cells
-      size_t label_update_count;   
+      unsigned long long label_update_count;   
       do
       {
         label_update_count = 0;
@@ -197,6 +197,8 @@ namespace exanb
             }
           }
         }
+        
+        MPI_Allreduce(MPI_IN_PLACE,&label_update_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
         
       } while( label_update_count > 0 );
 
