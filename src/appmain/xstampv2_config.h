@@ -89,7 +89,8 @@ xsv2ConfigBegin( onika                                                          
   xsv2ConfigItem( int          , gpu_sm_mult             , ONIKA_CU_MIN_BLOCKS_PER_SM     , "GPU number of blocks per SM" );
   xsv2ConfigItem( int          , gpu_sm_add              , 0                              , "GPU number of blocks added to grid size" );
   xsv2ConfigItem( int          , gpu_block_size          , ONIKA_CU_MAX_THREADS_PER_BLOCK , "GPU kernel block size" );
-  xsv2ConfigItem( StringVector , gpu_disable_filter      , {}                             , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
+  xsv2ConfigItem( StringVector , gpu_disable_filter      , {}                             , "list of regular expressions matching paths of operators whose access to the GPU is disabled" );
+  xsv2ConfigItem( StringVector , gpu_enable_filter       , {}                             , "list of regular expressions matching paths of operators with GPU enabled, regardless of gpu_disable_filter settings" );
 xsv2ConfigEnd();
 
 xsv2ConfigBegin( configuration                                , "exaStampV2 configuration");  
