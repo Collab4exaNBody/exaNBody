@@ -743,7 +743,16 @@ int main(int argc,char*argv[])
     simulation_graph->apply_graph(
         [&hashes](OperatorNode* o)
         {
-        if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
+          if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(false);
+        });
+  }
+  if( ! configuration.onika.gpu_enable_filter.empty() )
+  {
+    auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_enable_filter, {} , "GPU enabled for " );
+    simulation_graph->apply_graph(
+        [&hashes](OperatorNode* o)
+        {
+          if( hashes.find(o->hash())!=hashes.end() ) o->set_gpu_enabled(true);
         });
   }
 
@@ -757,7 +766,7 @@ int main(int argc,char*argv[])
       simulation_graph->apply_graph(
           [&hashes,nthreads](OperatorNode* o)
           {
-          if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
+            if( hashes.find(o->hash())!=hashes.end() ) { ldbg<<"Limit maximum number of threads to "<<nthreads<<" for operator "<<o->pathname()<<std::endl; o->set_omp_max_threads(nthreads); }
           });
     }    
   }
