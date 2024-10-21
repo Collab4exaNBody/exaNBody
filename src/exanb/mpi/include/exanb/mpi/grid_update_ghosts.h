@@ -428,5 +428,30 @@ namespace exanb
     ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
   }
 
+  // version with a Grid reference instead of a pointer, for backward compatibility
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, bool CreateParticles , class FieldAccTupleT>
+  static inline void grid_update_ghosts(
+    LDBGT& ldbg,
+    MPI_Comm comm,
+    GhostCommunicationScheme& comm_scheme,
+    GridT& grid,
+    const Domain& domain,
+    GridCellValues* grid_cell_values,
+    UpdateGhostsScratchT& ghost_comm_buffers,
+    const PECFuncT& parallel_execution_context,
+    const PESFuncT& parallel_execution_stream,
+    const FieldAccTupleT& update_fields,
+    long comm_tag ,
+    bool gpu_buffer_pack ,
+    bool async_buffer_pack ,
+    bool staging_buffer ,
+    bool serialize_pack_send ,
+    bool wait_all ,
+    std::integral_constant<bool,CreateParticles> create_particles)
+  {
+    grid_update_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_stream,
+                       update_fields,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,create_particles);
+  }
+
 }
 

@@ -4,6 +4,8 @@
 #include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/grid_algorithm.h>
+#include <exanb/core/grid.h>
+#include <exanb/mpi/grid_update_ghosts.h>
 
 #include <mpi.h>
 #include <onika/silent_use.h>
@@ -26,12 +28,17 @@ namespace exanb
 
   class ConnectedComponentLabel : public OperatorNode
   {
+    using UpdateGhostsScratch = typename UpdateGhostsUtils::UpdateGhostsScratch;
+
     ADD_SLOT( MPI_Comm       , mpi                 , INPUT , MPI_COMM_WORLD , DocString{"MPI communicator"} );
     ADD_SLOT( Domain         , domain              , INPUT , REQUIRED );
     ADD_SLOT( std::string    , grid_cell_field     , INPUT , "density" , DocString{"grid cell value field to act as coonnected component mask"} );
     ADD_SLOT( double         , grid_cell_threshold , INPUT , 1. , DocString{"Treshold to determine wheter a cell is selected or not as part of a connected component"} );
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT_OUTPUT );
     ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
+
+    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , REQUIRED );
+    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
     
   public:
 
@@ -69,8 +76,8 @@ namespace exanb
       const ssize_t gl = grid_cell_values->ghost_layers();
       
       // number of subdivisions, in each directions, applied on cells
-      const ssize_t subdiv = grid_cell_values->field( *grid_cell_field ).m_subdiv;
             
+      const ssize_t subdiv = grid_cell_values->field( *grid_cell_field ).m_subdiv;
       // side size of a sub-cell
       const double subcell_size = cell_size / subdiv;
       
@@ -150,12 +157,22 @@ namespace exanb
         }
       }
 
+      auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
+      auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); };
+      Grid< FieldSet<> > * null_grid_ptr = nullptr;
+      onika::FlatTuple<> update_fields = {};
 
       // propagate minimum CC label id from nearby cells
       unsigned long long label_update_count;   
       do
       {
+        grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
+                            *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                            0, false, false, false,
+                            true, false , std::integral_constant<bool,false>{} );
+
         label_update_count = 0;
+
 #       pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
         for( ssize_t k=0 ; k < grid_dims.k ; k++)
         for( ssize_t j=0 ; j < grid_dims.j ; j++)
@@ -197,7 +214,7 @@ namespace exanb
             }
           }
         }
-        
+
         MPI_Allreduce(MPI_IN_PLACE,&label_update_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
         
       } while( label_update_count > 0 );
