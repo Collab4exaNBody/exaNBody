@@ -163,17 +163,113 @@ namespace exanb
       onika::FlatTuple<> update_fields = {};
 
       // propagate minimum CC label id from nearby cells
-      unsigned long long label_update_count;   
-      do
+      auto propagate_minimum_label = [&]()
       {
-        grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                            *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
-                            0, false, false, false,
-                            true, false , std::integral_constant<bool,false>{} );
+        unsigned long long label_update_count = 0;   
+        do
+        {
+          grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
+                              *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                              0, false, false, false,
+                              true, false , std::integral_constant<bool,false>{} );
 
-        label_update_count = 0;
+          label_update_count = 0;
 
-#       pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
+  #       pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
+          for( ssize_t k=0 ; k < grid_dims.k ; k++)
+          for( ssize_t j=0 ; j < grid_dims.j ; j++)
+          for( ssize_t i=0 ; i < grid_dims.i ; i++)
+          {        
+            const IJK cell_loc = {i,j,k};
+            for( ssize_t sk=0 ; sk<subdiv ; sk++)
+            for( ssize_t sj=0 ; sj<subdiv ; sj++)
+            for( ssize_t si=0 ; si<subdiv ; si++)
+            {
+              const IJK subcell_loc = {si,sj,sk};
+              ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+              ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+              ssize_t value_index = cell_index * stride + subcell_index;
+              assert( value_index >= 0 );
+              if( cc_label_ptr[ value_index ] >= 0.0 )
+              {
+                for( ssize_t nk=-1 ; nk<=1 ; nk++)
+                for( ssize_t nj=-1 ; nj<=1 ; nj++)
+                for( ssize_t ni=-1 ; ni<=1 ; ni++) if(ni!=0 || nj!=0 || nk!=0)
+                {
+                  IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
+                  gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, IJK{ni,nj,nk}, nbh_cell_loc, nbh_subcell_loc );
+                  if( nbh_cell_loc.i>=0 && nbh_cell_loc.i<grid_dims.i
+                   && nbh_cell_loc.j>=0 && nbh_cell_loc.j<grid_dims.j
+                   && nbh_cell_loc.k>=0 && nbh_cell_loc.k<grid_dims.k )
+                  {
+                    ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
+                    ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
+                    ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
+                    assert( nbh_value_index >= 0 );
+                    if( cc_label_ptr[ nbh_value_index ] >= 0.0 && cc_label_ptr[ nbh_value_index ] < cc_label_ptr[ value_index ] )
+                    {
+                      cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
+                      ++ label_update_count;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          MPI_Allreduce(MPI_IN_PLACE,&label_update_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
+          
+          ldbg << "total label updates = "<<label_update_count<<std::endl;
+        } while( label_update_count > 0 );
+      };
+
+      // identify unique labels owned by this MPI process
+      unsigned long long local_id_start=0, local_id_end=0;
+      std::map<double,unsigned long long> local_labels;
+      
+      auto compact_label_ids = [&](bool first_pass) -> bool
+      {
+        bool labels_updated = false;
+        local_labels.clear();
+        for( ssize_t k=0 ; k < grid_dims.k ; k++)
+        for( ssize_t j=0 ; j < grid_dims.j ; j++)
+        for( ssize_t i=0 ; i < grid_dims.i ; i++)
+        {        
+          // local MPI sub domain cell location
+          const IJK cell_loc = {i,j,k};
+
+          // position of the cell in the simulation grid, which size is 'domain_dims'
+          const IJK domain_cell_loc = cell_loc + grid_offset;
+
+          for( ssize_t sk=0 ; sk<subdiv ; sk++)
+          for( ssize_t sj=0 ; sj<subdiv ; sj++)
+          for( ssize_t si=0 ; si<subdiv ; si++)
+          {
+            const IJK subcell_loc = {si,sj,sk};
+            const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+            const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+            const ssize_t value_index = cell_index * stride + subcell_index;
+            assert( value_index >= 0 );
+            const double label = cc_label_ptr[ value_index ];
+            if( label >= 0.0 )
+            {
+              if( first_pass || ( label >= local_id_start && label < local_id_end ) )
+              {
+                if( local_labels.find(label) == local_labels.end() ) local_labels.insert( { label , local_labels.size() } );
+              }
+            }
+          }
+        }
+        
+        unsigned long long total_label_count = local_labels.size();
+        MPI_Exscan( &total_label_count , &local_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+        local_id_end = local_id_start + total_label_count;
+        MPI_Allreduce( MPI_IN_PLACE , &total_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+        for( auto & cc : local_labels ) { cc.second += local_id_start; }
+
+        ldbg << "local_labels.size()="<<local_labels.size()<<" , total_label_count="<< total_label_count
+             <<", local_id_start="<<local_id_start <<", local_id_end="<<local_id_end <<std::endl;
+
         for( ssize_t k=0 ; k < grid_dims.k ; k++)
         for( ssize_t j=0 ; j < grid_dims.j ; j++)
         for( ssize_t i=0 ; i < grid_dims.i ; i++)
@@ -184,41 +280,28 @@ namespace exanb
           for( ssize_t si=0 ; si<subdiv ; si++)
           {
             const IJK subcell_loc = {si,sj,sk};
-            ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
-            ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
-            ssize_t value_index = cell_index * stride + subcell_index;
+            const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+            const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+            const ssize_t value_index = cell_index * stride + subcell_index;
             assert( value_index >= 0 );
-            if( cc_label_ptr[ value_index ] >= 0.0 )
+            const double label = cc_label_ptr[ value_index ];
+            if( label >= 0.0 )
             {
-              for( ssize_t nk=-1 ; nk<=1 ; nk++)
-              for( ssize_t nj=-1 ; nj<=1 ; nj++)
-              for( ssize_t ni=-1 ; ni<=1 ; ni++) if(ni!=0 || nj!=0 || nk!=0)
-              {
-                IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
-                gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, IJK{ni,nj,nk}, nbh_cell_loc, nbh_subcell_loc );
-                if( nbh_cell_loc.i>=0 && nbh_cell_loc.i<grid_dims.i
-                 && nbh_cell_loc.j>=0 && nbh_cell_loc.j<grid_dims.j
-                 && nbh_cell_loc.k>=0 && nbh_cell_loc.k<grid_dims.k )
-                {
-                  ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
-                  ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
-                  ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
-                  assert( nbh_value_index >= 0 );
-                  if( cc_label_ptr[ nbh_value_index ] >= 0.0 && cc_label_ptr[ nbh_value_index ] < cc_label_ptr[ value_index ] )
-                  {
-                    cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
-                    ++ label_update_count;
-                  }
-                }
-              }
+              const double new_label = static_cast<double>( local_labels[label] );
+              if( new_label != label ) labels_updated = true;
+              cc_label_ptr[ value_index ] = new_label;
             }
           }
         }
-
-        MPI_Allreduce(MPI_IN_PLACE,&label_update_count,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
-        
-      } while( label_update_count > 0 );
-
+        return labels_updated;
+      };
+      
+      ldbg << "*** PASS 1 ***" << std::endl;
+      propagate_minimum_label();
+      compact_label_ids( true );
+      ldbg << "*** PASS 2 ***" << std::endl;
+      propagate_minimum_label();
+      compact_label_ids( false );
     }
 
     // -----------------------------------------------
