@@ -45,6 +45,11 @@ namespace exanb
     return Vec3d{x[0],x[1],x[2]};
   }
 
+  ONIKA_HOST_DEVICE_FUNC inline Vec3d make_vec3d( const IJK& loc )
+  {
+    return Vec3d{ static_cast<double>(loc.i) , static_cast<double>(loc.j) , static_cast<double>(loc.k) };
+  }
+
   ONIKA_HOST_DEVICE_FUNC inline Mat3d make_mat3d( const Vec3d& a, const Vec3d& b, const Vec3d& c)
   {
     return Mat3d{a.x,b.x,c.x, a.y,b.y,c.y, a.z,b.z,c.z};
