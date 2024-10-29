@@ -45,7 +45,7 @@ namespace exanb
     ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
     ADD_SLOT( long                    , cc_count_threshold  , INPUT , 1 ); // CC that have less or equal cells than this value, are ignored
 
-    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , REQUIRED );
+    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
     
   public:
@@ -123,6 +123,33 @@ namespace exanb
 
       const double threshold = *grid_cell_threshold ;
 
+      // as a preamble, build a ghost cell owner map
+      int rank=0, nprocs=1;
+      MPI_Comm_rank( *mpi , &rank );
+      MPI_Comm_size( *mpi , &nprocs );
+      std::unordered_map<ssize_t,int> cell_owner_rank;
+      for(int p=0;p<nprocs;p++)
+      {
+        if( p != rank )
+        {
+          const size_t n_cells_to_receive = ghost_comm_scheme->m_partner[p].m_receives.size();
+          const auto * __restrict__ recvs = ghost_comm_scheme->m_partner[p].m_receives.data();
+          for(size_t i=0;i<n_cells_to_receive;i++)
+          {
+            const auto recv_info = ghost_cell_receive_info( recvs[i] );
+            cell_owner_rank[ recv_info.m_cell_i ] = p;
+          }
+        }
+      }
+      
+      auto cell_owner = [&]( const IJK& loc ) -> int
+      {
+        ssize_t cell_idx = grid_ijk_to_index( grid_dims , loc );
+        auto it = cell_owner_rank.find( cell_idx );
+        if( it != cell_owner_rank.end() ) return it->second;
+        else return rank;
+      };
+
       // create a unique label id for each cell satisfying selction criteria
 #     pragma omp parallel for collapse(3) schedule(static)
       for( ssize_t k=0 ; k < grid_dims.k ; k++)
@@ -174,12 +201,25 @@ namespace exanb
       onika::FlatTuple<> update_fields = {};
 
       unsigned long long total_label_count = 0;
+      unsigned long long max_local_labels = 0;
+      std::unordered_map<ssize_t,ssize_t> label_id_transition;
 
-      // propagate minimum CC label id from nearby cells
-      auto propagate_minimum_label = [&]()
-      {
+      // identify unique labels owned by this MPI process
+      unsigned long long local_id_start=0, local_id_end=0;
+      std::unordered_map<double,unsigned long long> local_labels;
+
+      /****************************************************
+       * >>> propagate_minimum_label( pass_number ) <<<
+       * Propagates minimum CC label id from nearby cells.
+       * When done, all MPI processes assigned the same
+       * globaly known unique label ids to connected cells.
+       ****************************************************/
+      auto propagate_minimum_label = [&](int pass_number)
+      {      
         unsigned long long label_update_passes = 0;   
         total_label_count = 0;
+        label_id_transition.clear();
+
         do
         {
           grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
@@ -230,6 +270,17 @@ namespace exanb
                       assert( nbh_value_index >= 0 );
                       if( cc_label_ptr[ nbh_value_index ] >= 0.0 && cc_label_ptr[ nbh_value_index ] < cc_label_ptr[ value_index ] )
                       {
+                        if( pass_number > 1 )
+                        {
+                          assert( max_local_labels > 0 );
+                          ssize_t prev_label_id = static_cast<ssize_t>( cc_label_ptr[value_index] );
+                          ssize_t new_label_id = static_cast<ssize_t>( cc_label_ptr[nbh_value_index] );
+                          int prev_owner_rank = prev_label_id / max_local_labels;
+                          int new_owner_rank = new_label_id / max_local_labels;
+                          assert( new_owner_rank < prev_owner_rank );
+#                         pragma omp critical(label_id_map_update)
+                          label_id_transition[ prev_owner_rank ] = new_owner_rank;
+                        }
                         cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
                         ++ label_update_count;
                       }
@@ -248,11 +299,18 @@ namespace exanb
         } while( label_update_passes > 0 );
       };
 
-      // identify unique labels owned by this MPI process
-      unsigned long long local_id_start=0, local_id_end=0;
-      std::unordered_map<double,unsigned long long> local_labels;
-      
-      auto compact_label_ids = [&](bool first_pass) -> bool
+      /********************************************
+       * >>> compact_label_ids( pass_number ) <<<
+       * Reduces the range of label ids used.
+       * Number of label ids used on each MPI process is equal to the number
+       * of CC traversing process's sub-domain.
+       * At the end of this function, label ids diverge accross MPI processes
+       * as renumbering is done locally on each process.
+       * Nevertheless, local renumbering takes into account number of local ids
+       * on other processes such that local ids used by MPI processes are globally
+       * not intersecting.
+       ********************************************/
+      auto compact_label_ids = [&](int pass_number) -> bool
       {
         bool labels_updated = false;
         local_labels.clear();
@@ -278,7 +336,7 @@ namespace exanb
             const double label = cc_label_ptr[ value_index ];
             if( label >= 0.0 )
             {
-              if( first_pass || ( label >= local_id_start && label < local_id_end ) )
+              if( ( pass_number == 1 ) || ( label >= local_id_start && label < local_id_end ) )
               {
                 if( local_labels.find(label) == local_labels.end() ) local_labels.insert( { label , local_labels.size() } );
               }
@@ -286,10 +344,21 @@ namespace exanb
           }
         }
         
-        total_label_count = local_labels.size();
-        MPI_Exscan( &total_label_count , &local_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+        // number of locally known CC labels
+        total_label_count = local_labels.size();        
+        max_local_labels = total_label_count;
+        MPI_Allreduce( MPI_IN_PLACE , &max_local_labels , 1 , MPI_UNSIGNED_LONG_LONG , MPI_MAX , *mpi );
+        
+        // CC label id rane assigned to this MPI process
+        local_id_start = rank * max_local_labels ;
         local_id_end = local_id_start + total_label_count;
+        //MPI_Exscan( &total_label_count , &local_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+        //local_id_end = local_id_start + total_label_count;
+
+        // sum of all locally known labels (greater than number of unique labels)
         MPI_Allreduce( MPI_IN_PLACE , &total_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+        
+        // update local label ids in local id map
         for( auto & cc : local_labels ) { cc.second += local_id_start; }
 
         ldbg << "local_labels.size()="<<local_labels.size()<<" , total_label_count="<< total_label_count
@@ -312,26 +381,99 @@ namespace exanb
             const double label = cc_label_ptr[ value_index ];
             if( label >= 0.0 )
             {
-              const double new_label = static_cast<double>( local_labels[label] );
-              if( new_label != label ) labels_updated = true;
-              cc_label_ptr[ value_index ] = new_label;
+              auto it = local_labels.find( label );
+              if( it != local_labels.end() )
+              {
+                const double new_label = static_cast<double>( it->second );
+                if( new_label != label )
+                {
+                  labels_updated = true;
+                  cc_label_ptr[ value_index ] = new_label;
+                }
+              }
             }
           }
         }
         return labels_updated;
       };
       
-      ldbg << "*** PASS 1 ***" << std::endl;
-      propagate_minimum_label();
-      compact_label_ids( true );
-      ldbg << "*** PASS 2 ***" << std::endl;
-      propagate_minimum_label();
-      compact_label_ids( false );
       
+      /**************************************************************************************************
+       * 1st pass :
+       * ==========
+       * 1.a) connect cells and build globally unique label ids for entire CC
+       * accross MPI processes
+       * 1.b) reduces the range of label ids,
+       * label ids diverges again across MPI processes at the end.
+       * Local renumbering guarantees label ids are different across MPI processes.
+       *
+       * 2nd pass :
+       * ==========
+       * 2.a) reconciliate reduced local ids by assigning local id of CC's
+       * owner MPI rank to the entire CC across MPI processes.
+       * during label propagation, temporary local ids from non owner processes are overriden
+       * by label id of owner process. At the same time, a transition map is built to keep track
+       * of how label ids have been transformed to their owner rank's local label id cunter part.
+       * 2.b) during the 2nd pass, we count the number of locally owned CCs present in the sub-domain.
+       * local_labels id map contains only entries for ids owned by local MPI process
+       * during this 2nd pass.
+       **************************************************************************************************/
+      ldbg << "*** PASS 1 ***" << std::endl;
+      propagate_minimum_label( 1 );
+      compact_label_ids( 1 );
+      ldbg << "*** PASS 2 ***" << std::endl;
+      propagate_minimum_label( 2 );
+
       local_labels.clear(); // not needed anymore
 
-      ldbg << "final CC label count = "<< total_label_count<< std::endl;
-      cc_table->assign( total_label_count , ConnectedComponentInfo{} );
+      /**********************************************************************************************
+       * transform destination label ids to their final value (following the chain of transitions)
+       * => transitive closure of label id transition graph
+       **********************************************************************************************/
+      std::unordered_map< int , std::unordered_set<ssize_t> > proc_recv_labels;
+      std::unordered_map< int , std::unordered_set<ssize_t> > proc_send_labels;
+      for(auto& p : label_id_transition)
+      {
+        ssize_t dst_label_id = p.second;
+        auto it = label_id_transition.find( dst_label_id );
+        while( it != label_id_transition.end() ) { dst_label_id = it.second; it = label_id_transition.find(dst_label_id); }
+        p.second = dst_label_id;
+        if( p.first>=local_id_start && p.first<local_id_end )
+        {
+          assert( ! ( p.second>=local_id_start && p.second<local_id_end ) );
+          // receive label information from external owner
+          ... FIXME ... isn't it the opposite ? we send information of labels we don't own to their respective owner
+          int partner = p.second / max_local_labels;
+          proc_recv_labels[partner].insert( p.second );
+        }
+        else if( p.second>=local_id_start && p.second<local_id_end )
+        {
+          assert( ! ( p.first>=local_id_start && p.first<local_id_end ) );
+          // send owned label information to external process
+          int partner = p.first / max_local_labels;
+          proc_send_labels[partner].insert( p.first );
+        }
+      }
+
+      // reduce local id ranges, based on replacement map
+      ssize_t local_cc_table_size = local_id_end - local_id_start;
+      std::unordered_map<ssize_t,ssize_t> label_idx_map;
+      for(ssize_t i=local_id_start;i<local_id_end;i++)
+      {
+        ldbg << "label L"<<i<<"/P"<<rank;
+        ssize_t label_id = i;
+        auto it = label_id_transition.find(label_id);
+        if( it != label_id_transition.end() )
+        {
+          label_id = it.second;
+          ldbg << " -> L"<<label_id<<"/P"<<(label_id/max_local_labels);
+        }
+        ldbg << std::endl;
+        label_idx_map[label_id] = i - local_id_start;
+      }
+
+      ldbg << "total_label_count="<< total_label_count<< " , local_cc_table_size="<<local_cc_table_size<<" , local_id_start="<<local_id_start <<std::endl;
+      cc_table->assign( local_cc_table_size , ConnectedComponentInfo{} );
 
       // add local contributions to cc info table, avoiding ghost layers
       for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
@@ -353,14 +495,55 @@ namespace exanb
           if( label >= 0.0 )
           {
             ssize_t label_idx = static_cast<ssize_t>( label );
+            assert( label_idx_map.find(label_idx) != label_idx_map.end() );
+            label_idx = label_idx_map[label_idx];
             assert( label_idx >= 0 && label_idx < cc_table->size() );
+            assert( cc_table->at(label_idx).m_label == -1.0 || cc_table->at(label_idx).m_label == label );
+            cc_table->at(label_idx).m_label = label;
             cc_table->at(label_idx).m_cell_count += 1.;
             cc_table->at(label_idx).m_center += make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc );
           }
         }
       }
 
-      MPI_Allreduce( MPI_IN_PLACE , cc_table->data() , cc_table->size() * sizeof(ConnectedComponentInfo) / sizeof(double) , MPI_DOUBLE , MPI_SUM , *mpi );
+      // MPI_Allreduce( MPI_IN_PLACE , cc_table->data() , cc_table->size() * sizeof(ConnectedComponentInfo) / sizeof(double) , MPI_DOUBLE , MPI_SUM , *mpi );
+      std::unordered_map< int , std::vector<ConnectedComponentInfo> > proc_recv_cc_info;
+      std::vector<MPI_Request> recv_requests( proc_recv_labels.size() , MPI_REQUEST_NULL );
+      size_t recv_count = 0;
+      for(const auto & recv : proc_recv_labels)
+      {
+        proc_recv_cc_info[ recv.first ].assign( recv.second.size() , ConnectedComponentInfo{} );
+        MPI_Irecv( proc_recv_cc_info[recv.first].data() , sizeof(ConnectedComponentInfo) * proc_recv_cc_info[recv.first].size() , MPI_UNSIGNED_BYTE , recv.first , 0 , *mpi , & recv_requests[recv_count] );
+        ++ recv_count;
+      }
+      assert( recv_count == proc_recv_labels.size() );
+      
+      std::unordered_map< int , std::vector<ConnectedComponentInfo> > proc_send_cc_info;
+      std::vector<MPI_Request> send_requests( proc_send_labels.size() , MPI_REQUEST_NULL );
+      size_t send_count = 0;
+      for(const auto & send : proc_send_labels)
+      {
+        for(const auto & send_label : send.second)
+        {
+          ... FIXME ...
+          auto it = label_idx_map.find( ... );
+          proc_send_cc_info[ send.first ].push_back( ... );
+        }
+        MPI_Isend( proc_send_cc_info[send.first].data() , sizeof(ConnectedComponentInfo) * proc_send_cc_info[send.first].size() , MPI_UNSIGNED_BYTE , send.first , 0 , *mpi , & send_requests[send_count] );
+        ++ send_count;
+      }
+      assert( send_count == proc_send_labels.size() );
+
+      // wait for messages exchange to terminate
+      MPI_Waitall( recv_count , recv_requests.data() , MPI_STATUSES_IGNORE );
+      MPI_Waitall( send_count , send_requests.data() , MPI_STATUSES_IGNORE );
+      
+      // merge informations of cc_info from foreign MPI processes
+      for(size_t i=0;i<recv_count;i++)
+      {
+          ... FIXME ...
+      }
+      
 
       // finally filter out some labels depending on some aggregated properties
       std::vector<double> filtered_out_labels( total_label_count , -1.0 );

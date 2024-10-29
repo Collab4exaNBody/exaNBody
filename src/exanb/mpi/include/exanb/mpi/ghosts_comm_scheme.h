@@ -134,7 +134,7 @@ namespace exanb
 
   struct GhostCellReceiveSchemeDetail
   {
-    size_t m_cell_i; // receiver's cell index where to insert particles
+    size_t m_cell_i;      // receiver's cell index where to insert particles
     size_t m_n_particles; // number of particles updated from original cell
   };
 
@@ -151,8 +151,8 @@ namespace exanb
 
   struct GhostSendCellInfo
   {
-    uint32_t m_dst;            // destination process
-    uint32_t m_send_cell_i;   // send cell index (index in GhostPartnerCommunicationScheme::m_sends)
+    uint32_t m_dst;              // destination process
+    uint32_t m_send_cell_i;      // send cell index (index in GhostPartnerCommunicationScheme::m_sends)
     size_t m_send_buffer_offset; // where to place particles in corresponding send buffer
   };
 
@@ -182,8 +182,8 @@ namespace exanb
 
   struct GhostPartnerCommunicationScheme
   {
-    onika::memory::CudaMMVector< GhostCellSendScheme > m_sends;
-    onika::memory::CudaMMVector< GhostCellReceiveScheme > m_receives;
+    onika::memory::CudaMMVector< GhostCellSendScheme > m_sends;       // size is number of MPI processes
+    onika::memory::CudaMMVector< GhostCellReceiveScheme > m_receives; // size is number of MPI processes
     onika::memory::CudaMMVector< uint64_t > m_receive_offset;
   };
 

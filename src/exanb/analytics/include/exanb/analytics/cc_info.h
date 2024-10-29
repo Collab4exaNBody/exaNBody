@@ -26,7 +26,7 @@ namespace exanb
 {
   struct ConnectedComponentInfo
   {
-    double m_label = 0.;
+    double m_label = -1.0;
     double m_cell_count = 0.;
     Vec3d m_center = {0.,0.,0.};
     Mat3d m_gyration = { 0.,0.,0., 0.,0.,0., 0.,0.,0. };
