@@ -42,14 +42,21 @@ namespace exanb
   }
 
   template<typename... Args>
-  inline std::string format_string(const std::string& format, const Args & ... args)
+  inline void format_string_inplace(std::string& s, const std::string& format, const Args & ... args)
   {
     int len = std::snprintf( nullptr, 0, format.c_str(), convert_format_arg(args)... );
     assert(len>=0);
-    std::string s(len+1,' ');
+    s.assign(len+1,' ');
     ONIKA_DEBUG_ONLY( int len2 = ) std::snprintf( & s[0], len+1, format.c_str(), convert_format_arg(args)... );
     assert(len2==len);
     s.resize(len);
+  }
+
+  template<typename... Args>
+  inline std::string format_string(const std::string& format, const Args & ... args)
+  {
+    std::string s;
+    format_string_inplace(s,format,args...);
     return s;
   }
   

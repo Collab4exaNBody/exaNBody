@@ -112,11 +112,11 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
-    const int ghost_layers = (gridp!=nullptr) ? gridp->ghost_layers() : ( (grid_cell_values!=nullptr) ? grid_cell_values->ghost_layers() : 0 );
+    const size_t ghost_layers = (gridp!=nullptr) ? gridp->ghost_layers() : ( (grid_cell_values!=nullptr) ? grid_cell_values->ghost_layers() : 0 );
     const IJK grid_dims = (gridp!=nullptr) ? gridp->dimension() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_dims() : IJK{0,0,0} );
     const IJK grid_domain_offset = (gridp!=nullptr) ? gridp->offset() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_offset() : IJK{0,0,0} );
     double cell_size = domain.cell_size();
-    const Vec3d start_grid_position = domain.origin() + ( grid_domain_offset * cell_size );
+    const Vec3d grid_start_position = domain.origin() + ( grid_domain_offset * cell_size );
     const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
 
     if( gridp!=nullptr )
@@ -125,7 +125,7 @@ namespace exanb
       assert( ghost_layers == gridp->ghost_layers() );
       assert( grid_dims == gridp->dimension() );
       assert( grid_domain_offset == gridp->offset() );
-      assert( start_grid_position == gridp->cell_position({0,0,0}) );
+      assert( grid_start_position == gridp->cell_position({0,0,0}) );
     }
     if( grid_cell_values!=nullptr )
     {
@@ -135,7 +135,7 @@ namespace exanb
       assert( grid_domain_offset == grid_cell_values->grid_offset() );
     }
     ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
-        <<", grid_domain_offset="<<grid_domain_offset<<", start_grid_position="<<start_grid_position
+        <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
         <<", cell_size="<<cell_size<< std::endl;
 
     CellParticles * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;

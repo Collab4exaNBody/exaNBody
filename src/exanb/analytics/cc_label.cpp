@@ -423,59 +423,56 @@ namespace exanb
       compact_label_ids( 1 );
       ldbg << "*** PASS 2 ***" << std::endl;
       propagate_minimum_label( 2 );
-
       local_labels.clear(); // not needed anymore
 
       /**********************************************************************************************
-       * transform destination label ids to their final value (following the chain of transitions)
+       * performs 3 different tasks using a single traversal of label_id_transition values :
+       * 1) transform destination label ids to their final value (following the chain of transitions)
        * => transitive closure of label id transition graph
+       * 2) build local cc_table label to index map
+       * 3) store what CC info entries has to be sent to foreign MPI processes
        **********************************************************************************************/
-      std::unordered_map< int , std::unordered_set<ssize_t> > proc_recv_labels;
-      std::unordered_map< int , std::unordered_set<ssize_t> > proc_send_labels;
+      ssize_t local_cc_table_size = local_id_end - local_id_start;
+      ldbg << "total_label_count="<< total_label_count<< " , local_cc_table_size="<<local_cc_table_size<<" , local_id_start="<<local_id_start <<std::endl;
+      cc_table->assign( local_cc_table_size , ConnectedComponentInfo{} );
+      std::unordered_map<ssize_t,ssize_t> label_idx_map;
+      std::unordered_map< int , std::unordered_set<size_t> > proc_recv_labels;
+      std::unordered_map< int , std::unordered_set<size_t> > proc_send_labels;
       for(auto& p : label_id_transition)
       {
+        // 1) transitive closure
         ssize_t dst_label_id = p.second;
         auto it = label_id_transition.find( dst_label_id );
-        while( it != label_id_transition.end() ) { dst_label_id = it.second; it = label_id_transition.find(dst_label_id); }
-        p.second = dst_label_id;
+        while( it != label_id_transition.end() ) { dst_label_id = it->second; it = label_id_transition.find(dst_label_id); }
+        p.second = dst_label_id; // transform label transition destination to final label value
+        
+        // 2) cc table label index map
+        if( label_idx_map.find(p.second)==label_idx_map.end() ) label_idx_map.insert( { p.second , label_idx_map.size() } );
+        const size_t dst_label_idx = label_idx_map[p.second];
+        
+        // 3) send/receive labels in cc_table for each MPI partner
         if( p.first>=local_id_start && p.first<local_id_end )
         {
           assert( ! ( p.second>=local_id_start && p.second<local_id_end ) );
-          // receive label information from external owner
-          ... FIXME ... isn't it the opposite ? we send information of labels we don't own to their respective owner
-          int partner = p.second / max_local_labels;
-          proc_recv_labels[partner].insert( p.second );
+          // a label generated locally, is actually owned by a distant MPI process
+          // thus, this process will send the owner local contributions to CC info
+          // such that the CC owner (and only it) will gather complete CC information
+          const int partner = p.second / max_local_labels;
+          proc_send_labels[partner].insert( dst_label_idx );
         }
         else if( p.second>=local_id_start && p.second<local_id_end )
         {
           assert( ! ( p.first>=local_id_start && p.first<local_id_end ) );
-          // send owned label information to external process
-          int partner = p.first / max_local_labels;
-          proc_send_labels[partner].insert( p.first );
+          // receive contribution from foreign MPI processes to complete locally owned CC information
+          const int partner = p.first / max_local_labels;
+          proc_recv_labels[partner].insert( dst_label_idx );
         }
       }
 
-      // reduce local id ranges, based on replacement map
-      ssize_t local_cc_table_size = local_id_end - local_id_start;
-      std::unordered_map<ssize_t,ssize_t> label_idx_map;
-      for(ssize_t i=local_id_start;i<local_id_end;i++)
-      {
-        ldbg << "label L"<<i<<"/P"<<rank;
-        ssize_t label_id = i;
-        auto it = label_id_transition.find(label_id);
-        if( it != label_id_transition.end() )
-        {
-          label_id = it.second;
-          ldbg << " -> L"<<label_id<<"/P"<<(label_id/max_local_labels);
-        }
-        ldbg << std::endl;
-        label_idx_map[label_id] = i - local_id_start;
-      }
 
-      ldbg << "total_label_count="<< total_label_count<< " , local_cc_table_size="<<local_cc_table_size<<" , local_id_start="<<local_id_start <<std::endl;
-      cc_table->assign( local_cc_table_size , ConnectedComponentInfo{} );
-
-      // add local contributions to cc info table, avoiding ghost layers
+      /*******************************************************************
+       * add local contributions to cc info table, avoiding ghost layers
+       *******************************************************************/
       for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
       for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
       for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
@@ -498,22 +495,29 @@ namespace exanb
             assert( label_idx_map.find(label_idx) != label_idx_map.end() );
             label_idx = label_idx_map[label_idx];
             assert( label_idx >= 0 && label_idx < cc_table->size() );
-            assert( cc_table->at(label_idx).m_label == -1.0 || cc_table->at(label_idx).m_label == label );
+            assert( cc_table->at(label_idx).m_label == -1.0 || cc_table->at(label_idx).m_label == label );            
             cc_table->at(label_idx).m_label = label;
-            cc_table->at(label_idx).m_cell_count += 1.;
+            assert( cc_table->at(label_idx).m_local_idx == -1 || cc_table->at(label_idx).m_local_idx == label_idx );
+            cc_table->at(label_idx).m_local_idx = label_idx;
+            cc_table->at(label_idx).m_cell_count += 1;
             cc_table->at(label_idx).m_center += make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc );
           }
         }
       }
 
-      // MPI_Allreduce( MPI_IN_PLACE , cc_table->data() , cc_table->size() * sizeof(ConnectedComponentInfo) / sizeof(double) , MPI_DOUBLE , MPI_SUM , *mpi );
+
+      /********************************************************************************************
+       * Exchange contributions with foreign MPI processes, such that each CC label owner receives
+       * necessary local contributions to complete owned CC informations
+       ********************************************************************************************/
       std::unordered_map< int , std::vector<ConnectedComponentInfo> > proc_recv_cc_info;
       std::vector<MPI_Request> recv_requests( proc_recv_labels.size() , MPI_REQUEST_NULL );
       size_t recv_count = 0;
       for(const auto & recv : proc_recv_labels)
       {
-        proc_recv_cc_info[ recv.first ].assign( recv.second.size() , ConnectedComponentInfo{} );
-        MPI_Irecv( proc_recv_cc_info[recv.first].data() , sizeof(ConnectedComponentInfo) * proc_recv_cc_info[recv.first].size() , MPI_UNSIGNED_BYTE , recv.first , 0 , *mpi , & recv_requests[recv_count] );
+        const size_t cc_recv_count = recv.second.size();
+        proc_recv_cc_info[ recv.first ].assign( cc_recv_count , ConnectedComponentInfo{} );
+        MPI_Irecv( proc_recv_cc_info[recv.first].data() , sizeof(ConnectedComponentInfo) * cc_recv_count , MPI_CHAR , recv.first , 0 , *mpi , & recv_requests[recv_count] );
         ++ recv_count;
       }
       assert( recv_count == proc_recv_labels.size() );
@@ -523,13 +527,13 @@ namespace exanb
       size_t send_count = 0;
       for(const auto & send : proc_send_labels)
       {
-        for(const auto & send_label : send.second)
+        const size_t cc_send_count = send.second.size();
+        for(const auto & send_label_idx : send.second)
         {
-          ... FIXME ...
-          auto it = label_idx_map.find( ... );
-          proc_send_cc_info[ send.first ].push_back( ... );
+          proc_send_cc_info[ send.first ].push_back( cc_table->at(send_label_idx) );
         }
-        MPI_Isend( proc_send_cc_info[send.first].data() , sizeof(ConnectedComponentInfo) * proc_send_cc_info[send.first].size() , MPI_UNSIGNED_BYTE , send.first , 0 , *mpi , & send_requests[send_count] );
+        assert( proc_send_cc_info[ send.first ].size() == cc_send_count );
+        MPI_Isend( proc_send_cc_info[send.first].data() , sizeof(ConnectedComponentInfo) * cc_send_count , MPI_CHAR , send.first , 0 , *mpi , & send_requests[send_count] );
         ++ send_count;
       }
       assert( send_count == proc_send_labels.size() );
@@ -539,57 +543,54 @@ namespace exanb
       MPI_Waitall( send_count , send_requests.data() , MPI_STATUSES_IGNORE );
       
       // merge informations of cc_info from foreign MPI processes
-      for(size_t i=0;i<recv_count;i++)
+      for(const auto & recv_mesg : proc_recv_cc_info )
       {
-          ... FIXME ...
-      }
-      
-
-      // finally filter out some labels depending on some aggregated properties
-      std::vector<double> filtered_out_labels( total_label_count , -1.0 );
-      size_t j = 0;
-      for(size_t i=0;i<total_label_count;i++)
-      {
-        if( cc_table->at(i).m_cell_count >= (*cc_count_threshold) )
+        ldbg << "merge CC info from P"<<recv_mesg.first<<std::endl;
+        for(const auto & cc_info : recv_mesg.second)
         {
-          cc_table->at(j) = cc_table->at(i);
-          cc_table->at(j).m_label = static_cast<double>(j);
-          if( cc_table->at(j).m_cell_count > 0.0 ) cc_table->at(j).m_center /= cc_table->at(j).m_cell_count;
-          else cc_table->at(j).m_center = Vec3d{0.,0.,0.};
-          filtered_out_labels[i] = cc_table->at(j).m_label;
-          ++ j;
+          ldbg << "\tmerge CC #"<<cc_info.m_label<<std::endl;
+          assert( cc_info.m_local_idx != -1 ); // it has been filled in
+          assert( label_idx_map.find(static_cast<ssize_t>(cc_info.m_label)) != label_idx_map.end() );
+          ssize_t cc_table_idx = label_idx_map[ static_cast<ssize_t>(cc_info.m_label) ];
+          assert( cc_table_idx >= 0 && cc_table_idx < cc_table->size() );
+          assert( cc_table->at(cc_table_idx).m_label == cc_info.m_label );
+          cc_table->at(cc_table_idx).m_cell_count += cc_info.m_cell_count;
+          cc_table->at(cc_table_idx).m_center += cc_info.m_center;
         }
       }
-      cc_table->resize(j);     
-      total_label_count = cc_table->size();
-
-      // renumber labels to match filtered out labels count
-      for( ssize_t k=0 ; k<grid_dims.k ; k++)
-      for( ssize_t j=0 ; j<grid_dims.j ; j++)
-      for( ssize_t i=0 ; i<grid_dims.i ; i++)
-      {        
-        const IJK cell_loc = {i,j,k};
-        const IJK domain_cell_loc = cell_loc + grid_offset ;
-        for( ssize_t sk=0 ; sk<subdiv ; sk++)
-        for( ssize_t sj=0 ; sj<subdiv ; sj++)
-        for( ssize_t si=0 ; si<subdiv ; si++)
+      
+      /*************************************************************************
+       * finalize CC information statistics and filter out some of the CCs
+       * dependending on optional filtering parameters
+       *************************************************************************/
+      const ssize_t cc_table_size = cc_table->size();
+      unsigned long long owned_label_count = 0;
+      for(ssize_t i=0;i<cc_table_size;i++)
+      {
+        if( cc_table->at(i).m_local_idx >= 0 )
         {
-          const IJK subcell_loc = {si,sj,sk};
-          const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
-          const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
-          const ssize_t value_index = cell_index * stride + subcell_index;
-          assert( value_index >= 0 );
-          const double label = cc_label_ptr[ value_index ];
-          if( label >= 0.0 )
+          assert( cc_table->at(i).m_local_idx == i );
+          if( cc_table->at(i).m_cell_count >= (*cc_count_threshold) )
           {
-            ssize_t label_idx = static_cast<ssize_t>( label );
-            assert( label_idx >= 0 && label_idx < filtered_out_labels.size() );
-            cc_label_ptr[ value_index ] = filtered_out_labels[ label_idx ];
+            if( cc_table->at(i).m_cell_count > 0 ) cc_table->at(i).m_center /= cc_table->at(i).m_cell_count;
+            else cc_table->at(i).m_center = Vec3d{0.,0.,0.};
+            cc_table->at(i).m_local_idx = owned_label_count;
+            cc_table->at(i).m_global_idx = -1;
+            cc_table->at(owned_label_count) = cc_table->at(i);
+            ++ owned_label_count;
           }
         }
       }
+      cc_table->resize(owned_label_count);
+      unsigned long long global_label_idx_start = owned_label_count;
+      unsigned long long global_label_count = owned_label_count;
+      MPI_Exscan( &owned_label_count , &global_label_idx_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+      MPI_Allreduce( MPI_IN_PLACE , &global_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi ); 
+      for(auto & cc : *cc_table) { cc.m_global_idx = cc.m_local_idx + global_label_idx_start; }
+      cc_table->m_global_label_count = global_label_count;
+      cc_table->m_local_label_start = global_label_idx_start;
 
-      ldbg << "filtered CC label count = "<< total_label_count<< std::endl;
+      ldbg << "cc_label : owned_label_count="<< owned_label_count<<", global_label_count="<<global_label_count<<", global_label_idx_start="<<global_label_idx_start << std::endl;
     }
 
     // -----------------------------------------------

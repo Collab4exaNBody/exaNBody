@@ -26,12 +26,30 @@ namespace exanb
 {
   struct ConnectedComponentInfo
   {
+    ssize_t m_local_idx = -1;
+    ssize_t m_global_idx = -1;
+    ssize_t m_cell_count = 0;
     double m_label = -1.0;
-    double m_cell_count = 0.;
     Vec3d m_center = {0.,0.,0.};
     Mat3d m_gyration = { 0.,0.,0., 0.,0.,0., 0.,0.,0. };
   };
 
-  using ConnectedComponentTable = std::vector< ConnectedComponentInfo >;
+  struct ConnectedComponentTable
+  {
+    std::vector< ConnectedComponentInfo > m_table;
+    size_t m_global_label_count = 0;
+    size_t m_local_label_start = 0;
+
+    inline auto begin() { return m_table.begin(); }
+    inline auto begin() const { return m_table.begin(); }
+    inline auto end() { return m_table.end(); }
+    inline auto end() const { return m_table.end(); }
+    inline ConnectedComponentInfo & at(size_t i) { return m_table.at(i); }
+    inline const ConnectedComponentInfo & at(size_t i) const { return m_table.at(i); }
+    inline size_t size() const { return m_table.size(); }
+    inline void resize(size_t n, const ConnectedComponentInfo & def = ConnectedComponentInfo{} ) { return m_table.resize(n,def); }
+    inline void assign(size_t n, const ConnectedComponentInfo & def ) { return m_table.assign(n,def); }
+  };
+
 }
 
