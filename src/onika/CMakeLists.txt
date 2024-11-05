@@ -176,8 +176,8 @@ endif()
 # setup include dirs
 set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# setup thirdparty libraries used y onika
-set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} tinyexpr)
+# setup thirdparty and additional libraries used by onika
+set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${YAML_CPP_LIBRARIES} tinyexpr ${OpenMP_CXX_LIBRARIES} dl)
 
 # compile main lib
 file(GLOB onika_SRCS src/*.cpp) #src/*.cu
@@ -187,7 +187,7 @@ target_compile_definitions(onika PUBLIC ${ONIKA_DEFINITIONS})
 target_compile_options(onika PRIVATE -Wall ${OpenMP_CXX_FLAGS}) # $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}>)
 #target_compile_features(onika PRIVATE cuda_std_17)
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
-target_link_libraries(onika ${ONIKA_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
+target_link_libraries(onika ${ONIKA_LIBRARIES})
 #set_target_properties(onika PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_SEPARABLE_COMPILATION ON)
 
 # compile tools
