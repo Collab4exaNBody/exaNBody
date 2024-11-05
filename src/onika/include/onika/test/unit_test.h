@@ -23,10 +23,10 @@ under the License.
 #include <iostream>
 #include <functional>
 
-#include <exanb/core/cpp_utils.h>
-#include <exanb/core/plugin.h>
+#include <onika/cpp_utils.h>
+#include <onika/plugin.h>
 
-namespace exanb
+namespace onika
 {
 
   struct UnitTestsReport
@@ -51,12 +51,12 @@ namespace exanb
 #define XSTAMP_TEST_ASSERT(c) if(!(c)) { std::cerr<<"Assertion '"<< #c <<"' failed"<<std::endl<<std::flush; throw std::exception(); } //
 
 #define XSTAMP_UNIT_TEST(name) \
-extern "C" { extern void __exanb_unit_test_##name(); } \
-CONSTRUCTOR_ATTRIB inline void __exanb_unit_test_register_##name()\
+extern "C" { extern void __onika_unit_test_##name(); } \
+CONSTRUCTOR_ATTRIB inline void __onika_unit_test_register_##name()\
 { \
-  std::function<void()> test_func = __exanb_unit_test_##name; \
-  ::exanb::UnitTest::register_unit_test( #name , test_func ); \
-  ::exanb::plugin_db_register( "unit_test" , #name ); \
+  std::function<void()> test_func = __onika_unit_test_##name; \
+  ::onika::UnitTest::register_unit_test( #name , test_func ); \
+  ::onika::plugin_db_register( "unit_test" , #name ); \
 } \
-inline void __exanb_unit_test_##name()
+inline void __onika_unit_test_##name()
 

@@ -16,9 +16,9 @@
 # under the License.
 #
 # Important variables :
-# EXASTAMP_TEST_DATA_DIR : directory to check
-# EXASTAMP_TEST_DATA_MD5_FILE : md5 signature file
-# EXASTAMP_CHECK_DATA_DIR_MD5 : enable verification
+# ONIKA_TEST_DATA_DIR : directory to check
+# ONIKA_TEST_DATA_MD5_FILE : md5 signature file
+# ONIKA_CHECK_DATA_DIR_MD5 : enable verification
 
 function(CheckDirectoryMD5 dirpath md5file resultvar)
   set(${resultvar} ON PARENT_SCOPE)

@@ -18,7 +18,7 @@ under the License.
 */
 #include <exanb/core/operator.h>
 #include <exanb/core/log.h>
-#include <exanb/core/print_utils.h>
+#include <onika/print_utils.h>
 
 #include <onika/omp/ompt_task_timing.h>
 

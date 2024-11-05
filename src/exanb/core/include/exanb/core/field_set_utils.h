@@ -18,7 +18,7 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 #include "exanb/field_sets_macro.h"
 
 namespace exanb

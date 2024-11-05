@@ -18,10 +18,10 @@ under the License.
 */
 #pragma once
 
-namespace exanb
+namespace onika
 {
   
-  namespace legacy_constant
+  namespace physics
   {
     static constexpr double atomicMass = 1.66053904020e-27;  ///< Dalton atomic mass unit in kg
     static constexpr double elementaryCharge = 1.6021892e-19;  ///< Elementary charge in Coulomb

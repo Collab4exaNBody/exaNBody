@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/operator.h>
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 #include <exanb/core/string_utils.h>
 #include <exanb/core/thread.h>
 

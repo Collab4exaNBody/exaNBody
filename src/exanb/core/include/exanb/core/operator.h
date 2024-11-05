@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_slot_base.h>
 #include <exanb/core/operator_slot_direction.h>
 #include <exanb/core/log.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 #include <exanb/core/span.h>
 
 #include <yaml-cpp/yaml.h>

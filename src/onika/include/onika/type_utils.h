@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <string>
@@ -25,7 +26,7 @@ under the License.
 #include <cassert>
 #include <typeinfo>
 
-namespace exanb
+namespace onika
 {
   std::string demangle_type_string(std::string s);
 
@@ -35,7 +36,7 @@ namespace exanb
       return demangle_type_string( typeid(T).name() );
   }
 
-  std::string remove_exanb_namespaces(std::string s);
+  std::string remove_known_namespaces(std::string s);
   std::string strip_type_spaces(std::string s);
   std::string remove_shared_ptr(std::string s);
   std::string simplify_std_vector(std::string s);
@@ -118,6 +119,6 @@ namespace exanb
   template<class T> struct remove_pointer<T* __restrict__ const> { typedef T type; };
   template<class T> struct remove_pointer<T* __restrict__ volatile> { typedef T type; };
   template<class T> struct remove_pointer<T* __restrict__ const volatile> { typedef T type; };
-  template<class T> using remove_pointer_t = typename ::exanb::remove_pointer<T>::type ;
+  template<class T> using remove_pointer_t = typename ::onika::remove_pointer<T>::type ;
 }
 

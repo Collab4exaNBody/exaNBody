@@ -18,7 +18,7 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 #include <onika/macro_utils.h>
 #include <map>
 #include <vector>

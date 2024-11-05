@@ -20,11 +20,11 @@ under the License.
 
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot_base.h>
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/basic_types_stream.h>
-#include <exanb/core/print_utils.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/print_utils.h>
+#include <onika/yaml/yaml_utils.h>
 
 #include <onika/memory/memory_usage.h>
 #include <onika/dac/dac.h>

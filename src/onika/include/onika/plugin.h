@@ -24,8 +24,9 @@ under the License.
 #include <map>
 #include <cstdlib>
 
-namespace exanb
+namespace onika
 {
+
   void generate_plugin_db( const std::string& filename );
   void plugin_db_register( const std::string& itemCategory, const std::string& itemName );
 

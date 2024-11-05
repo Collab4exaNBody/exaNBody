@@ -16,14 +16,16 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/print_utils.h>
+
+#include <onika/print_utils.h>
 #include <iomanip>
 #include <fstream>
 #include <unordered_map>
 #include <mutex>
 
-namespace exanb
+namespace onika
 {  
+
   std::ostream& default_stream_format(std::ostream& out)
   {
     out << std::scientific << std::setprecision(10) << std::boolalpha;

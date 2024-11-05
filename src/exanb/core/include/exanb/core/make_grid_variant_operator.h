@@ -25,7 +25,7 @@ under the License.
 #include <yaml-cpp/yaml.h>
 #include <memory>
 
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 #include <exanb/core/log.h>
 
 namespace exanb

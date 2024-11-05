@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <iostream>
@@ -24,9 +25,9 @@ under the License.
 #include <cassert>
 #include <unordered_map>
 
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 
-namespace exanb
+namespace onika
 {  
   // utility to print a value to a stream if << operator is available or an alternate message otherwise+
   namespace stream_utils_details
@@ -102,7 +103,7 @@ namespace exanb
 namespace std
 {
   template<class T>
-  inline std::ostream& operator << (std::ostream& out , const exanb::FormattedObjectStreamer<T>& st )
+  inline std::ostream& operator << (std::ostream& out , const onika::FormattedObjectStreamer<T>& st )
   {
     return st.m_streamer.to_stream(out);
   }

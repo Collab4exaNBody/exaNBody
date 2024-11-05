@@ -16,14 +16,15 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/string_utils.h>
+
+#include <onika/string_utils.h>
 
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <sstream>
 
-namespace exanb
+namespace onika
 {
 
   std::vector<std::string> split_string(const std::string& s, char delim)
@@ -123,7 +124,7 @@ namespace exanb
     double N = n;
     size_t p=0;
     while( N > 1024 && p<(nunits-1) ) { N/=1024; p++; }
-    return exanb::format_string( fmt , N , S[p] );
+    return format_string( fmt , N , S[p] );
   }
 
 }

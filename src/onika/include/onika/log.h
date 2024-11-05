@@ -16,18 +16,36 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
-#include <string>
-#include <vector>
+#include <iostream>
+#include <sstream>
+#include <cstdlib>
 
-namespace exanb
+namespace onika
 {
-  std::string dirname(const std::string& file_name);
-  bool is_relative_path(const std::string& path);
-  std::string concat_dir_path( const std::string& dirpath, const std::string& filepath  );
-  bool resolve_file_path(const std::vector<std::string>& dir_prefixes, std::string& filepath);
-  std::string config_file_path(const std::string& base_dir, const std::string& filepath);
-  std::string data_file_path( const std::string& filepath );
-  void set_install_config_dir(const std::string& cdir);
+  static inline constexpr auto & lerr = std::cerr;
+  static inline constexpr auto & lout = std::cout;
+  static inline constexpr auto & ldbg = std::cout;
+
+  struct FatalErrorLogStream
+  {
+    std::ostringstream m_oss;
+    inline FatalErrorLogStream() {}    
+    template<class T> inline FatalErrorLogStream& operator << (const T& x)
+    {
+      m_oss << x;
+      return *this;
+    }
+    inline FatalErrorLogStream& operator << ( std::ostream& (*manip)(std::ostream&) )
+    {
+       m_oss << manip ;
+       return *this;
+    }
+    inline ~FatalErrorLogStream() { std::cerr << m_oss.str(); std::abort(); }
+  };
+  
+  inline FatalErrorLogStream fatal_error() { return FatalErrorLogStream(); }
 }
+

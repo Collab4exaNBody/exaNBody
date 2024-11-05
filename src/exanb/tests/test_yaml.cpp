@@ -20,7 +20,7 @@ under the License.
 
 #include <exanb/core/basic_types.h>
 #include <exanb/core/basic_types_yaml.h>
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 
 #include <exaStamp/particle_species/particle_specie.h>
 #include <exaStamp/particle_species/particle_specie_yaml.h>

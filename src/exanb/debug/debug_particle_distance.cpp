@@ -26,7 +26,7 @@ under the License.
 #include <exanb/fields.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/print_utils.h>
+#include <onika/print_utils.h>
 #include <exanb/core/print_particle.h>
 
 #include <onika/soatl/field_tuple.h>

@@ -27,7 +27,7 @@ under the License.
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/core/grid_particle_field_accessor.h>
-#include <exanb/core/yaml_enum.h>
+#include <onika/yaml/yaml_enum.h>
 
 
 namespace exanb

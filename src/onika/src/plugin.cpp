@@ -16,25 +16,26 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <cassert>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <dlfcn.h>
 
-#include <exanb/core/plugin.h>
-#include <exanb/core/log.h>
-#include <exanb/core/operator_factory.h>
-#include <exanb/core/string_utils.h>
+#include <onika/plugin.h>
+#include <onika/log.h>
+#include <onika/string_utils.h>
 
 #ifndef PLUGIN_DYNLIB_FORMAT
 #define PLUGIN_DYNLIB_FORMAT "%s/lib%s.so"
 #endif
 
-namespace exanb
+namespace onika
 {
   static std::string g_plugin_to_dynlib_format = PLUGIN_DYNLIB_FORMAT ;
-  static std::string g_plugin_default_dir = USTAMP_PLUGIN_DIR;
+  static std::string g_plugin_default_dir = ONIKA_DEFAULT_PLUGIN_DIR;
   static std::set<std::string> g_loaded_dynlibs;
   static std::string g_loading_plugin;
   static std::string g_plugin_db_filename;
@@ -127,7 +128,7 @@ namespace exanb
       //if(verbose) { lout<<endl; }
       //else { lout<<"                                                                                           "<< exanb::cret <<std::flush; }
 
-      if( ! exanb::load_plugin_priv( fp ) )
+      if( ! load_plugin_priv( fp ) )
       {
         lerr<<"Warning, could not load plugin "<<p<<endl;
       }

@@ -16,33 +16,21 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/operator.h>
-#include <exanb/core/log.h>
-#include <onika/print_utils.h>
 
-#include <onika/omp/ompt_task_timing.h>
+#pragma once
 
-#include <iostream>
 #include <string>
+#include <vector>
 
-#include "debug_profiler.h"
-
-using namespace exanb;
-
-namespace exanb
+namespace onika
 {
-  namespace main
-  {
-
-    const char * g_profiler_current_tag = nullptr;
-
-    void profiler_record_tag( const onika::omp::OpenMPToolTaskTiming& e )
-    {
-#     ifndef ONIKA_HAVE_OPENMP_TOOLS
-      g_profiler_current_tag = e.tag;
-#     endif
-    }
-    
-  }
+  std::string dirname(const std::string& file_name);
+  bool is_relative_path(const std::string& path);
+  std::string concat_dir_path( const std::string& dirpath, const std::string& filepath  );
+  bool resolve_file_path(const std::vector<std::string>& dir_prefixes, std::string& filepath);
+  std::string config_file_path(const std::string& base_dir, const std::string& filepath);
+  std::string data_file_path( const std::string& filepath );
+  void set_install_config_dir(const std::string& cdir);
+  void set_data_file_dirs(const std::string& cdir);
+  void set_dir_separator(char sep);
 }
-

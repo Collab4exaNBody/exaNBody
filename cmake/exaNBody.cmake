@@ -155,15 +155,8 @@ macro(exaNBodyStartApplication)
   # external sources required
   # https://github.com/kthohr/gcem.git
   # 
-
-  # embedded third party tools
-  set(EXASTAMP_THIRDPARTY_DIR ${XNB_ROOT_DIR}/thirdparty)
-  set(NAIVEMATRIX_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR})
-  set(BASEN_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/base-n/include)
-  set(TINYEXPR_INCLUDE_DIRS ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr)
-  add_library(tinyexpr STATIC ${EXASTAMP_THIRDPARTY_DIR}/tinyexpr/tinyexpr.c)
-  target_compile_options(tinyexpr PRIVATE -fPIC)
-  target_include_directories(tinyexpr PRIVATE ${TINYEXPR_INCLUDE_DIRS})
+  # use some embedded hir party tools
+  add_subdirectory(${XNB_ROOT_DIR}/thirdparty ${CMAKE_CURRENT_BINARY_DIR}/thirdparty)
 
   # ===================================
   # ============ Cuda =================
@@ -260,9 +253,8 @@ macro(exaNBodyStartApplication)
 
   # global settings
   set(USTAMP_PLUGIN_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-  set(XNB_DEFAULT_CONFIG_FILE "config_${XNB_APP_NAME}.msp")
-  set(XNB_LOCAL_CONFIG_FILE "${XNB_APP_NAME}_build.msp")
-  set(XNB_CONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/config")
+  set(XNB_DEFAULT_CONFIG_FILE "main-config.msp")
+  set(XNB_LOCAL_CONFIG_FILE ".build-config.msp")
 
   # set default maximum number of particle neighbors
   set(XSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT "512" CACHE STRING "Maximum number of particle neighbors") 
@@ -283,8 +275,6 @@ macro(exaNBodyStartApplication)
     -DUSTAMP_PLUGIN_DIR="${USTAMP_PLUGIN_DIR}"
     -DXNB_DEFAULT_CONFIG_FILE="${XNB_DEFAULT_CONFIG_FILE}"
     -DXNB_LOCAL_CONFIG_FILE="${XNB_LOCAL_CONFIG_FILE}"
-    -DXNB_CONFIG_DIR="${XNB_CONFIG_DIR}"
-    -DXSTAMP_DEFAULT_DATA_DIRS=".:${EXASTAMP_TEST_DATA_DIR}:${CMAKE_INSTALL_PREFIX}/share/data"
     -DXSTAMP_ADVISED_HW_THREADS=${HOST_HW_THREADS}
     -DXSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT=${XSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT}
     ${XSTAMP_OMP_FLAGS}

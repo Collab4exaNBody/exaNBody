@@ -25,7 +25,6 @@ under the License.
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/log.h>
 #include <exanb/core/check_particles_inside_cell.h>
-#include <exanb/core/physics_constants.h>
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/thread.h>
 #include <exanb/core/particle_type_id.h>
@@ -183,7 +182,7 @@ namespace exanb
         {0.25000000,    0.58333333,    0.75000000} ,
         {0.75000000,    0.08333333,    0.75000000} };
 
-    	lattice_size.y = 2. * lattice_size.y * sin(120. * exanb::legacy_constant::pi / 180.);
+    	lattice_size.y = 2. * lattice_size.y * sin(120. * M_PI / 180.);
   	  ldbg << "hcp cell = " << lattice_size << std::endl;
     } else if (structure == "DIAMOND" ) {
       n_particles_cell = 8;

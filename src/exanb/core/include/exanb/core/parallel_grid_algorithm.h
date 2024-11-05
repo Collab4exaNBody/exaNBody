@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <exanb/core/grid_algorithm.h>
-#include <exanb/core/cpp_utils.h>
+#include <onika/cpp_utils.h>
 #include <omp.h>
 
 

@@ -25,7 +25,7 @@ under the License.
 #include <exanb/core/basic_types.h>
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/quantity_yaml.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 #include <iomanip>
 
 namespace exanb

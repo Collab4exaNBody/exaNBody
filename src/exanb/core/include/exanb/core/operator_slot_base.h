@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <exanb/core/log.h>
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 #include <exanb/core/operator_slot_direction.h>
 #include <exanb/core/operator_slot_resource.h>
 

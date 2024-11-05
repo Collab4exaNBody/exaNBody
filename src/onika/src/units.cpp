@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/units.h>
+#include <onika/physics/units.h>
 
 #include <cstring>
 #include <string>
@@ -29,10 +29,10 @@ under the License.
 
 #include "tinyexpr.h"
 
-namespace exanb
+namespace onika
 {
 
-  namespace units
+  namespace physics
   {
 
     Quantity make_quantity( double value , const std::string& units_and_powers )
@@ -169,7 +169,7 @@ namespace exanb
       return out;
     }
 
-    std::ostream& operator << (std::ostream& out, const exanb::units::Quantity& q)
+    std::ostream& operator << (std::ostream& out, const Quantity& q)
     {
       out << q.m_value << '.';
       return units_power_to_stream(out,q);
@@ -182,21 +182,21 @@ namespace exanb
 
 /********************** UNIT TESTS **********************************/
 
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 #include <vector>
 #include <cmath>
 
 XSTAMP_UNIT_TEST(exanb_units_conversion)
 {
-  using namespace exanb::legacy_constant;
+  using namespace onika::physics;
 
   // regression test data base extracted from previous version.
   struct UnitConversionCheck
   {
-    double value=0.0;
-    const char* unit_str=nullptr; 
-    double conv=0.0; 
-    exanb::units::Quantity q={};
+    double value = 0.0;
+    const char* unit_str = nullptr; 
+    double conv = 0.0; 
+    Quantity q = {};
   };
   double x=0.0;
   std::vector<UnitConversionCheck> unit_conversion_check = {
@@ -283,7 +283,7 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
   };
   for(const auto & test : unit_conversion_check)
   {
-    const exanb::Quantity qa = exanb::units::make_quantity( test.value , test.unit_str );
+    const Quantity qa = make_quantity( test.value , test.unit_str );
     const double a = qa.convert();
     const double b = test.q.convert();
     XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 );
@@ -292,9 +292,9 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
 
 # define TEST_EXPR( v , u , expr ) \
 { \
-  const exanb::Quantity qa = exanb::units::make_quantity(v,u); \
+  const Quantity qa = make_quantity(v,u); \
   const double a = qa.convert(); \
-  const exanb::Quantity qb = EXANB_QUANTITY( expr ); \
+  const Quantity qb = EXANB_QUANTITY( expr ); \
   const double b = qb.convert(); \
   XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 ); \
 }

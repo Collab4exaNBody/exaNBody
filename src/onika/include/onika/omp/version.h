@@ -16,33 +16,39 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/operator.h>
-#include <exanb/core/log.h>
-#include <onika/print_utils.h>
 
-#include <onika/omp/ompt_task_timing.h>
+#pragma once
 
-#include <iostream>
-#include <string>
+#include <utility>
+#include <sstream>
 
-#include "debug_profiler.h"
+#include <omp.h>
 
-using namespace exanb;
-
-namespace exanb
+namespace onika
 {
-  namespace main
+
+  namespace omp
   {
-
-    const char * g_profiler_current_tag = nullptr;
-
-    void profiler_record_tag( const onika::omp::OpenMPToolTaskTiming& e )
+  
+    inline double get_version()
     {
-#     ifndef ONIKA_HAVE_OPENMP_TOOLS
-      g_profiler_current_tag = e.tag;
-#     endif
+      double version = 1.0;
+      std::pair<unsigned long,double> version_dates [] = { {200505,2.5},{200805,3.0},{201107,3.1},{201307,4.0},{201511,4.5},{201811,5.0},{202011,5.1} };
+      for(int i=0;i<7;i++)
+      {
+        if( version_dates[i].first < _OPENMP ) version = version_dates[i].second;
+      }
+      return version;
     }
     
-  }
-}
+    inline std::string get_version_string()
+    {
+      double v = get_version();
+      std::ostringstream oss;
+      oss<< static_cast<int>(std::floor(v)) << '.' << ( static_cast<int>(std::floor(v*10))%10 );
+      return oss.str();
+    }
 
+  }
+
+}

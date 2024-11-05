@@ -22,11 +22,11 @@ under the License.
 #include <cmath>
 #include <string>
 
-#include <exanb/core/physics_constants.h>
+#include <onika/physics/constants.h>
 #include <onika/cuda/cuda.h>
 
 #define EXANB_UNITS_V2 1
-//#define EXANB_UNITS_DEPRECATED [[deprecated]]
+#define EXANB_UNITS_DEPRECATED [[deprecated]]
 
 #ifdef EXANB_UNITS_DEPRECATED
 #define EXANB_LEGACY_UNITS_DEPRECATED 1
@@ -34,10 +34,19 @@ under the License.
 #define EXANB_UNITS_DEPRECATED /**/
 #endif
 
-namespace exanb
+#define ONIKA_SI_UNIT_SYSTEM meter,kilogram,second,coulomb,kelvin,mol,candela,radian
+
+#ifndef ONIKA_INTERNAL_UNIT_SYSTEM
+#define ONIKA_INTERNAL_UNIT_SYSTEM ONIKA_SI_UNIT_SYSTEM
+#endif
+
+// exaSPH
+// meter,gram,second,elementary_charge,kelvin,particle,candela,radian
+
+namespace onika
 {
 
-  namespace units
+  namespace physics
   {
 
     /*
@@ -75,7 +84,7 @@ namespace exanb
     };
     
     // shortcuts to particular values
-    static inline constexpr auto elementaryChargeCoulomb = legacy_constant::elementaryCharge;
+    static inline constexpr auto elementaryChargeCoulomb = elementaryCharge;
     static inline constexpr auto undefined_value = std::numeric_limits<double>::quiet_NaN();
     
     /*
@@ -204,62 +213,13 @@ namespace exanb
     /*
      * International System units
      */
-    static inline constexpr UnitSystem SI =
-    { { meter
-      , kilogram
-      , second
-      , coulomb
-      , kelvin
-      , mol
-      , candela
-      , radian } };
-
-  }
-
-  /************ backward compatibility layer ***********/  
-  struct EXANB_UNITS_DEPRECATED EnumUnities
-  {
-    units::UnitDefinition m_unit;
-    inline constexpr EnumUnities(const units::UnitDefinition& u) : m_unit(u) {}
-    inline constexpr operator units::UnitDefinition() const { return m_unit; }
-    static inline constexpr units::UnitDefinition meter = units::meter;
-    static inline constexpr units::UnitDefinition angstrom = units::angstrom;
-    static inline constexpr units::UnitDefinition atomic_mass_unit = units::atomic_mass_unit;
-    static inline constexpr units::UnitDefinition gram = units::gram;
-    static inline constexpr units::UnitDefinition picosecond = units::picosecond;
-    static inline constexpr units::UnitDefinition second = units::second;
-    static inline constexpr units::UnitDefinition elementary_charge = units::elementary_charge;
-    static inline constexpr units::UnitDefinition kelvin = units::kelvin;
-    static inline constexpr units::UnitDefinition particle = units::particle;
-    static inline constexpr units::UnitDefinition mol = units::mol;
-    static inline constexpr units::UnitDefinition candela = units::candela;
-    static inline constexpr units::UnitDefinition radian = units::radian;
-  };
-  /************ END OF backward compatibility *********************/
-
-}
-
-#include "exanb/internal_units.h"
-
-namespace exanb
-{
-
-  namespace units
-  {
+    static inline constexpr UnitSystem SI = { { ONIKA_SI_UNIT_SYSTEM } };
   
     /*
      * Internal unit system, as defined by application through its exanb/internal_units.h header file
      */
-    static inline constexpr UnitSystem internal_unit_system =
-    { { INTERNAL_UNIT_LENGTH,
-        INTERNAL_UNIT_MASS,
-        INTERNAL_UNIT_TIME,
-        INTERNAL_UNIT_ELECTRIC_CURRENT,
-        INTERNAL_UNIT_TEMPERATURE,
-        INTERNAL_UNIT_AMOUNT_OF_SUBSTANCE,
-        INTERNAL_UNIT_LUMINOUS_INTENSITY,
-        INTERNAL_UNIT_ANGLE} };
-      
+    static inline constexpr UnitSystem internal_unit_system = { { ONIKA_INTERNAL_UNIT_SYSTEM } };
+
     /*
      * A Quantity is a value expressed with a certain set of units (at most one unit per unit class) and associated powers
      * Quantity has an implicit conversion operator to double, wich converts expressed value to application's internal unit system
@@ -296,8 +256,8 @@ namespace exanb
       }
       ONIKA_HOST_DEVICE_FUNC inline double convert() const
       {
-        constexpr UnitSystem IUS = ::exanb::units::internal_unit_system;
-        return convert( IUS );
+        //constexpr UnitSystem IUS = ::onika::physics::internal_unit_system;
+        return convert( internal_unit_system );
       }
       
       ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }
@@ -443,25 +403,13 @@ namespace exanb
 
     // pretty printing
     std::ostream& units_power_to_stream (std::ostream& out, const Quantity& q);
-    std::ostream& operator << (std::ostream& out, const exanb::units::Quantity& q);
+    std::ostream& operator << (std::ostream& out, const Quantity& q);
 
     // utulity functions to builds quantities from strings (i.e. YAML)
     Quantity make_quantity( double value , const std::string& units_and_powers );
     Quantity quantity_from_string(const std::string& s, bool& conversion_done);
     Quantity quantity_from_string(const std::string& s);
   }
-
-  /************ backward compatibility layer ***********/  
-  struct EXANB_UNITS_DEPRECATED UnityConverterHelper
-  {
-    static inline double convert( double value, const std::string& units_and_powers )
-    {
-      return units::make_quantity(value,units_and_powers).convert();
-    }
-  };
-  using units::Quantity;
-  using units::make_quantity;
-  /************ END OF backward compatibility *********************/  
 
 }
 
@@ -472,9 +420,9 @@ namespace exanb
 
 namespace YAML
 {
-  template<> struct convert< exanb::units::Quantity >
+  template<> struct convert< onika::physics::Quantity >
   {
-    static inline Node encode(const exanb::units::Quantity& q)
+    static inline Node encode(const onika::physics::Quantity& q)
     {
       std::ostringstream oss;
       oss << q;
@@ -483,17 +431,17 @@ namespace YAML
       return node;
     }
 
-    static inline bool decode(const Node& node, exanb::units::Quantity& q)
+    static inline bool decode(const Node& node, onika::physics::Quantity& q)
     {
       if( node.IsScalar() ) // value and unit in the same string
       {
         bool conv_ok = false;
-        q = exanb::units::quantity_from_string( node.as<std::string>() , conv_ok );
+        q = onika::physics::quantity_from_string( node.as<std::string>() , conv_ok );
         return conv_ok;
       }
       else if( node.IsMap() )
       {
-        q = exanb::units::make_quantity( node["value"].as<double>() , node["unity"].as<std::string>() );
+        q = onika::physics::make_quantity( node["value"].as<double>() , node["unity"].as<std::string>() );
         return true;
       }
       else
@@ -507,8 +455,8 @@ namespace YAML
 }
 
 // allow use of quantities without parsing strings
-#define EXANB_QUANTITY( __expr ) [&]() -> ::exanb::units::Quantity { \
-  using namespace ::exanb::units; \
+#define EXANB_QUANTITY( __expr ) [&]() -> ::onika::physics::Quantity { \
+  using namespace ::onika::physics; \
   [[maybe_unused]] constexpr auto m = meter; \
   [[maybe_unused]] constexpr auto mm = millimeter; \
   [[maybe_unused]] constexpr auto um = micron; \
@@ -526,10 +474,10 @@ namespace YAML
   [[maybe_unused]] constexpr auto C = coulomb; \
   [[maybe_unused]] constexpr auto ec = elementary_charge; \
   [[maybe_unused]] constexpr auto K = kelvin; \
-  [[maybe_unused]] constexpr auto mol = ::exanb::units::mol; \
+  [[maybe_unused]] constexpr auto mol = ::onika::physics::mol; \
   [[maybe_unused]] constexpr auto cd = candela; \
   [[maybe_unused]] constexpr auto rad = radian; \
-  [[maybe_unused]] constexpr auto degree = ::exanb::units::degree;       \
+  [[maybe_unused]] constexpr auto degree = ::onika::physics::degree;       \
   [[maybe_unused]] constexpr auto J = joule; \
   [[maybe_unused]] constexpr auto eV = electron_volt; \
   [[maybe_unused]] constexpr auto cal = calorie; \

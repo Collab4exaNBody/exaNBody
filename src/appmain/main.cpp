@@ -23,16 +23,17 @@ under the License.
 //#include "exanb/potential/pair_potential_factory.h"
 
 #include <exanb/core/string_utils.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 #include <exanb/core/file_utils.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/thread.h>
 #include <exanb/core/unit_test.h>
-#include <exanb/core/cpp_utils.h>
+#include <onika/cpp_utils.h>
 
 //#include "exanb/debug/debug_particle_id.h"
 
+#include <onika/omp/version.h>
 #include <onika/omp/ompt_interface.h>
 #include <onika/parallel/parallel_execution_context.h>
 
@@ -66,27 +67,6 @@ under the License.
 
 #include "xstampv2_config.h"
 
-double xstamp_get_omp_version()
-{
-# ifndef XSTAMP_OMP_VERSION
-  double version = 1.0;
-  std::pair<unsigned long,double> version_dates [] = { {200505,2.5},{200805,3.0},{201107,3.1},{201307,4.0},{201511,4.5},{201811,5.0},{202011,5.1} };
-  for(int i=0;i<7;i++)
-  {
-    if( version_dates[i].first < _OPENMP ) version = version_dates[i].second;
-  }
-  return version;
-# else
-  return XSTAMP_OMP_VERSION;
-# endif
-}
-std::string xstamp_get_omp_version_string()
-{
-  double v = xstamp_get_omp_version();
-  std::ostringstream oss;
-  oss<< static_cast<int>(std::floor(v)) << '.' << ( static_cast<int>(std::floor(v*10))%10 );
-  return oss.str();
-}
 
 std::string xstamp_grid_variants_as_string()
 {
@@ -371,7 +351,7 @@ int main(int argc,char*argv[])
        <<endl
        << "MPI     : "<< format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
        << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
-       << "OpenMP  : "<< format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< xstamp_get_omp_version_string() 
+       << "OpenMP  : "<< format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< onika::omp::get_version_string() 
                       << ( ( configuration.omp_max_nesting > 1 ) ? format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;

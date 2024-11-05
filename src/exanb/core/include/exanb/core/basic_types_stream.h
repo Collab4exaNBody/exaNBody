@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <exanb/core/basic_types.h>
-#include <exanb/core/print_utils.h>
+#include <onika/print_utils.h>
 #include <exanb/core/value_streamer.h>
 #include <iostream>
 #include <array>

@@ -16,7 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/type_utils.h>
+
+#include <onika/type_utils.h>
 
 #include <string>
 #include <regex>
@@ -26,7 +27,7 @@ under the License.
 #include <cxxabi.h>
 #endif
 
-namespace exanb
+namespace onika
 {
   std::string demangle_type_string(std::string s)
   {
@@ -42,7 +43,7 @@ namespace exanb
     return s;
   }
 
-  std::string remove_exanb_namespaces(std::string s)
+  std::string remove_known_namespaces(std::string s)
   {
     s = std::regex_replace(s, std::regex("exanb::"), "");
     s = std::regex_replace(s, std::regex("field::_"), "");
@@ -98,7 +99,7 @@ namespace exanb
     s = remove_shared_ptr(s);
     s = strip_type_spaces(s);
     s = simplify_std_vector(s);
-    s = remove_exanb_namespaces(s);
+    s = remove_known_namespaces(s);
     return s;
   }
   

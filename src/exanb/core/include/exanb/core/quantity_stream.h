@@ -18,9 +18,9 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/units.h>
+#include <onika/physics/units.h>
 
 #ifdef EXANB_LEGACY_UNITS_DEPRECATED
-#warning include file exanb/core/quantity_stream.h is deprecated, please include exanb/core/units.h instead
+#warning include file exanb/core/quantity_stream.h is deprecated, please include onika/physics/units.h instead
 #endif
 

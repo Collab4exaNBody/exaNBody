@@ -2,7 +2,7 @@
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/log.h>
-#include <exanb/core/cpp_utils.h>
+#include <onika/cpp_utils.h>
 
 #include <vector>
 

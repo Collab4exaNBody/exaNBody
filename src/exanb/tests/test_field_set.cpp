@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/field_sets.h>
-#include <exanb/core/type_utils.h>
+#include <onika/type_utils.h>
 #include "test_field_set.h"
 
 #include <onika/variadic_template_utils.h>

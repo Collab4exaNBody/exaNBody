@@ -20,7 +20,7 @@ under the License.
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/log.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 #include <memory>
 
 #include <signal.h>

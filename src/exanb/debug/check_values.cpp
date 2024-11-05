@@ -29,7 +29,7 @@ under the License.
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/file_utils.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/quantity.h>
 #include <exanb/core/unityConverterHelper.h>

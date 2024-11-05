@@ -18,7 +18,7 @@ under the License.
 */
 #include "cmdline.h"
 #include <yaml-cpp/yaml.h>
-#include <exanb/core/yaml_utils.h>
+#include <onika/yaml/yaml_utils.h>
 
 
 std::string cmdline_option_to_yaml_int( std::string s , std::string value )

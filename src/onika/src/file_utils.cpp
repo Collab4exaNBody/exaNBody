@@ -16,34 +16,50 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <string>
 #include <fstream>
 #include <iostream>
 
-#include <exanb/core/file_utils.h>
-#include <exanb/core/log.h>
+#include <onika/file_utils.h>
+#include <onika/log.h>
 
-namespace exanb
+#ifndef ONIKA_DEFAULT_CONFIG_DIR
+#define ONIKA_DEFAULT_CONFIG_DIR "."
+#endif
+
+namespace onika
 {
 
-  static constexpr char USTAMP_DIR_SEP_CHAR = '/';
-  static std::string g_install_config_dir = XNB_CONFIG_DIR;
+  static char g_dir_separator = '/';
+  static std::string g_install_config_dir = ONIKA_DEFAULT_CONFIG_DIR;
+  static std::string g_data_file_dirs = ONIKA_DEFAULT_DATA_DIRS;
+
+  void set_dir_separator(char sep)
+  {
+    g_dir_separator = sep;
+  }
 
   void set_install_config_dir(const std::string& cdir)
   {
     g_install_config_dir = cdir;
   }
 
+  void set_data_file_dirs(const std::string& cdir)
+  {
+    g_data_file_dirs = cdir;
+  }
+
   bool is_relative_path(const std::string& filepath)
   {
     if( filepath.empty() ) { return false; }
-    if( filepath[0] == USTAMP_DIR_SEP_CHAR ) { return false; }
+    if( filepath[0] == g_dir_separator ) { return false; }
     return true;
   }
 
   std::string dirname(const std::string& file_name)
   {
-    std::string::size_type ls = file_name.find_last_of( USTAMP_DIR_SEP_CHAR );
+    std::string::size_type ls = file_name.find_last_of( g_dir_separator );
     std::string dname = ".";
     if( ls != std::string::npos )
     {
@@ -55,8 +71,8 @@ namespace exanb
   std::string concat_dir_path( const std::string& dirpath, const std::string& filepath)
   {
     if( dirpath.empty() ) { return filepath; }
-    else if( dirpath.back() == USTAMP_DIR_SEP_CHAR ) { return dirpath + filepath; }
-    else { return dirpath + USTAMP_DIR_SEP_CHAR + filepath; }
+    else if( dirpath.back() == g_dir_separator ) { return dirpath + filepath; }
+    else { return dirpath + g_dir_separator + filepath; }
   }
 
   bool resolve_file_path(const std::vector<std::string>& dir_prefixes, std::string& filepath)
@@ -94,21 +110,20 @@ namespace exanb
     bool found = resolve_file_path( dirs , resolved_path );
     if( ! found )
     {
-      lerr << "configuration file "<<filepath<<" not found"<<std::endl;
-      std::abort();
+      fatal_error() << "configuration file '"<<filepath<<"' not found"<<std::endl;
     }
     return resolved_path;
   }
 
   std::string data_file_path( const std::string& filepath )
   {
-    static const std::string data_dirs = XSTAMP_DEFAULT_DATA_DIRS;
     std::vector<std::string> dirs;
-    std::string tmp = data_dirs;
+    std::string tmp = g_data_file_dirs;
     std::string::size_type pos = tmp.find(':');
     while(pos != std::string::npos)
     {
-      dirs.push_back( tmp.substr(0,pos) );
+      std::string d = tmp.substr(0,pos);
+      if( ! d.empty() ) dirs.push_back( d );
       tmp = tmp.substr(pos+1);
       pos = tmp.find(':');
     }

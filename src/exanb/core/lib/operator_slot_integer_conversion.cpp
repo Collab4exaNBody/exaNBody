@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/operator_slot_base.h>
-#include <exanb/core/cpp_utils.h>
+#include <onika/cpp_utils.h>
 #include <exanb/core/log.h>
 #include <cstdint>
 #include <cstring>
