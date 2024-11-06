@@ -22,7 +22,7 @@ under the License.
 
 #include <exanb/core/basic_types_def.h>
 #include <exanb/core/basic_types_accessors.h>
-#include <exanb/core/quantity_yaml.h>
+#include <onika/physics/units.h>
 
 namespace YAML
 {

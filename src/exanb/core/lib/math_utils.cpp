@@ -19,7 +19,7 @@ under the License.
 #include <exanb/core/math_utils.h>
 #include <exanb/core/basic_types_operators.h>
 #include <exanb/core/log.h>
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 
 #include <cmath>
 #include <cstdlib>
@@ -275,7 +275,7 @@ int dsyevj3(double A[3][3], double Q[3][3], double w[3])
 
 // ************** Unit tests ******************
 
-XSTAMP_UNIT_TEST(matrix_scale_min_max)
+ONIKA_UNIT_TEST(matrix_scale_min_max)
 {
     
     {
@@ -283,7 +283,7 @@ XSTAMP_UNIT_TEST(matrix_scale_min_max)
       Mat3d m = { 1,0,0, 0,1,0, 0,0,1 };
       double smin, smax;
       matrix_scale_min_max(m,smin,smax);
-      XSTAMP_TEST_ASSERT( smin==1.0 && smax==1.0 );
+      ONIKA_TEST_ASSERT( smin==1.0 && smax==1.0 );
     }
 
     {    
@@ -291,7 +291,7 @@ XSTAMP_UNIT_TEST(matrix_scale_min_max)
       Mat3d m = { 0.5,0,0, 0,1,0, 0,0,2.0 };
       double smin, smax;
       matrix_scale_min_max(m,smin,smax);
-      XSTAMP_TEST_ASSERT( smin==0.5 && smax==2.0 );
+      ONIKA_TEST_ASSERT( smin==0.5 && smax==2.0 );
     }
 }
 

@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/basic_types_operators.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 
 #include <exanb/core/spline.h>
 

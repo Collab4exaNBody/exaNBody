@@ -59,9 +59,9 @@ namespace exanb
 // ===================== unit tests ====================
 
 #include <random>
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 
-XSTAMP_UNIT_TEST(encode_i64_as_double)
+ONIKA_UNIT_TEST(encode_i64_as_double)
 {
   using namespace exanb; 
 
@@ -77,12 +77,12 @@ XSTAMP_UNIT_TEST(encode_i64_as_double)
     {
       double da = encode_i64_as_double( a );
       double db = encode_i64_as_double( b );
-      XSTAMP_TEST_ASSERT( ( a==b && da==db )
+      ONIKA_TEST_ASSERT( ( a==b && da==db )
                        || ( a<b && da<db )
                        || ( a>b && da>db ) );
       int64_t dda = decode_i64_as_double( da );
       int64_t ddb = decode_i64_as_double( db );
-      XSTAMP_TEST_ASSERT( dda==a && ddb==b );
+      ONIKA_TEST_ASSERT( dda==a && ddb==b );
     }
   }
 }

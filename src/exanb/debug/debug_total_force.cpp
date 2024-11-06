@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/log.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/value_streamer.h>
 
 #include <exanb/particle_neighbors/grid_particle_neighbors.h>

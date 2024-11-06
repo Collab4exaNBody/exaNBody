@@ -19,7 +19,7 @@ under the License.
 #include <exanb/core/domain.h>
 #include <exanb/core/log.h>
 #include <exanb/core/math_utils.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 
 namespace exanb
 {

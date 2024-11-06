@@ -22,13 +22,13 @@ under the License.
 #include <exanb/core/operator_factory.h>
 //#include "exanb/potential/pair_potential_factory.h"
 
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <onika/yaml/yaml_utils.h>
 #include <exanb/core/file_utils.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/thread.h>
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 #include <onika/cpp_utils.h>
 
 //#include "exanb/debug/debug_particle_id.h"

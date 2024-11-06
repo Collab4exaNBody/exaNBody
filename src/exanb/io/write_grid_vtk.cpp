@@ -27,7 +27,7 @@ under the License.
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 
 #include <mpi.h>
 #include <cstdio>

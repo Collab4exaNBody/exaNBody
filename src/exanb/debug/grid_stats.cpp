@@ -24,7 +24,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/log.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/amr/amr_grid.h>
 #include <exanb/amr/amr_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>

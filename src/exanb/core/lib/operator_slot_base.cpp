@@ -20,7 +20,7 @@ under the License.
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_factory.h>
 #include <onika/type_utils.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/plugin.h>
 
 #include <cassert>

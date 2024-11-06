@@ -23,7 +23,7 @@ under the License.
 #include <exanb/core/domain.h>
 
 #include <string>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 
 using namespace std;
 

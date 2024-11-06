@@ -48,9 +48,9 @@ namespace onika
   
 }
 
-#define XSTAMP_TEST_ASSERT(c) if(!(c)) { std::cerr<<"Assertion '"<< #c <<"' failed"<<std::endl<<std::flush; throw std::exception(); } //
+#define ONIKA_TEST_ASSERT(c) if(!(c)) { std::cerr<<"Assertion '"<< #c <<"' failed"<<std::endl<<std::flush; throw std::exception(); } //
 
-#define XSTAMP_UNIT_TEST(name) \
+#define ONIKA_UNIT_TEST(name) \
 extern "C" { extern void __onika_unit_test_##name(); } \
 CONSTRUCTOR_ATTRIB inline void __onika_unit_test_register_##name()\
 { \

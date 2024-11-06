@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/operator_memory_stats.h>
 
 #include <string>

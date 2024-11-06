@@ -20,9 +20,9 @@ under the License.
 #include <exanb/core/operator_slot_base.h>
 #include <exanb/core/operator_slot.h>
 #include <onika/type_utils.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/quantity.h>
-#include <exanb/core/quantity_yaml.h>
+#include <onika/physics/units.h>
 #include <exanb/core/quantity_stream.h>
 
 #include <exanb/core/log.h>

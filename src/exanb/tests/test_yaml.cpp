@@ -24,7 +24,7 @@ under the License.
 
 #include <exaStamp/particle_species/particle_specie.h>
 #include <exaStamp/particle_species/particle_specie_yaml.h>
-#include <exanb/core/quantity_yaml.h>
+#include <onika/physics/units.h>
 #include <exanb/core/quantity_stream.h>
 
 #include <iostream>

@@ -24,7 +24,7 @@ under the License.
 #include <yaml-cpp/yaml.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/basic_types_yaml.h>
-#include <exanb/core/quantity_yaml.h>
+#include <onika/physics/units.h>
 #include <onika/yaml/yaml_utils.h>
 #include <iomanip>
 
@@ -427,10 +427,10 @@ namespace YAML
 
 
 // =========== Unit tests ====================
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 #include <random>
 
-XSTAMP_UNIT_TEST(matrix_4d)
+ONIKA_UNIT_TEST(matrix_4d)
 {
   using namespace exanb;
 
@@ -473,7 +473,7 @@ XSTAMP_UNIT_TEST(matrix_4d)
     {
       std::cerr <<"P=("<<p << ") , (P+T)*S=("<<(p+T)*S << ") , TP1=("<<tp1 << ") , E1="<<err1<<" , ((P+T)*S)+T2=("<<((p+T)*S)+T2 <<") , TP2=("<<tp2<<") , E2="<<err2<<std::endl;
     }
-    XSTAMP_TEST_ASSERT( err1 < 1.e-10 && err2 < 1.e-10 );
+    ONIKA_TEST_ASSERT( err1 < 1.e-10 && err2 < 1.e-10 );
     const auto itp1 = make_vec3d( M1_inv * make_vec4d(tp1) );
     const auto itp2 = make_vec3d( M2_inv * make_vec4d(tp2) );
     const double ierr1 = norm( p - itp1 );
@@ -482,7 +482,7 @@ XSTAMP_UNIT_TEST(matrix_4d)
     {
       std::cerr << "M1_inv*TP1="<<itp1<<" , M2_inv*TP2="<<itp2<<std::endl;
     }
-    XSTAMP_TEST_ASSERT( ierr1 < 1.e-10 && ierr2 < 1.e-10 );
+    ONIKA_TEST_ASSERT( ierr1 < 1.e-10 && ierr2 < 1.e-10 );
   }
 }
 

@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/log.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/simple_block_rcb.h>
 #include <exanb/core/parallel_random.h>

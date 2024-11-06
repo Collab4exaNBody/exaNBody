@@ -16,8 +16,9 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <exanb/core/spline.h>
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 #include <iostream>
 #include <cmath>
 
@@ -130,7 +131,7 @@ namespace exanb
 
 // ================== unit tests ============================
 
-XSTAMP_UNIT_TEST(cubic_spline_test)
+ONIKA_UNIT_TEST(cubic_spline_test)
 {
   using namespace exanb;
   
@@ -154,7 +155,7 @@ XSTAMP_UNIT_TEST(cubic_spline_test)
   {
     const double Xi = i*8.0 - 1.5;
     const double Yi = s.eval( Xi );
-    XSTAMP_TEST_ASSERT( std::fabs(Yi-R[i]) < maxerr );
+    ONIKA_TEST_ASSERT( std::fabs(Yi-R[i]) < maxerr );
   }  
 
 }

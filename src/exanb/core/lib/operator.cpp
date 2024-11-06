@@ -18,7 +18,7 @@ under the License.
 */
 #include <exanb/core/operator.h>
 #include <onika/type_utils.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/thread.h>
 
 #include <onika/omp/ompt_interface.h>

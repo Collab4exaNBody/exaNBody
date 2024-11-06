@@ -24,7 +24,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/quaternion_operators.h>

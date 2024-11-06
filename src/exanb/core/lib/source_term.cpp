@@ -1,6 +1,6 @@
 #include <exanb/core/log.h>
 #include <exanb/core/basic_types_operators.h>
-#include <exanb/core/quantity_yaml.h>
+#include <onika/physics/units.h>
 #include <exanb/core/basic_types_yaml.h>
 
 #include <exanb/core/source_term.h>

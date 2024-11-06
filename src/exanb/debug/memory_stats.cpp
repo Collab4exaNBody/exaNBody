@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/log.h>
 #include <exanb/core/operator_memory_stats.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 
 #include <mpi.h>
 #include <vector>

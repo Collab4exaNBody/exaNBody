@@ -186,7 +186,7 @@ namespace onika
 #include <vector>
 #include <cmath>
 
-XSTAMP_UNIT_TEST(exanb_units_conversion)
+ONIKA_UNIT_TEST(exanb_units_conversion)
 {
   using namespace onika::physics;
 
@@ -286,7 +286,7 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
     const Quantity qa = make_quantity( test.value , test.unit_str );
     const double a = qa.convert();
     const double b = test.q.convert();
-    XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 );
+    ONIKA_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 );
   }
 
 
@@ -296,7 +296,7 @@ XSTAMP_UNIT_TEST(exanb_units_conversion)
   const double a = qa.convert(); \
   const Quantity qb = EXANB_QUANTITY( expr ); \
   const double b = qb.convert(); \
-  XSTAMP_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 ); \
+  ONIKA_TEST_ASSERT( a==b || ( std::fabs(a-b) / std::max( std::fabs(a) , std::fabs(b) ) ) < 1.e-6 ); \
 }
 
   TEST_EXPR( boltzmann, "J/K" , boltzmann * J / K );

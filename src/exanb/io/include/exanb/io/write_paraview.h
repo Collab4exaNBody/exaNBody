@@ -22,7 +22,7 @@ under the License.
 #include <exanb/core/log.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/quantity.h>
-#include <exanb/core/string_utils.h>
+#include <onika/string_utils.h>
 
 #include <exanb/compute/field_combiners.h>
 #include <exanb/core/grid_particle_field_accessor.h>

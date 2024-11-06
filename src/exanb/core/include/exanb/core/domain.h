@@ -26,7 +26,7 @@ under the License.
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/basic_types_operators.h>
 #include <exanb/core/basic_types_yaml.h>
-#include <exanb/core/quantity_yaml.h>
+#include <onika/physics/units.h>
 #include <exanb/core/geometry.h>
 #include <iomanip>
 

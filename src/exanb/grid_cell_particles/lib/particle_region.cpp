@@ -455,10 +455,10 @@ namespace exanb
 
 
 // =========== Unit tests ====================
-#include <exanb/core/unit_test.h>
+#include <onika/test/unit_test.h>
 #include <random>
 
-XSTAMP_UNIT_TEST(particle_regions)
+ONIKA_UNIT_TEST(particle_regions)
 {
   using namespace exanb;
 
@@ -517,12 +517,12 @@ R2:
     double f2 = quadric_eval( R2.m_quadric , P );
     const bool inside = (l<=1.0) && is_inside(R1.m_bounds,p3);
     //std::cout << "P="<<P<<", L="<<l<<", in="<<inside<<", R1(M^-1.P)="<<f1<<", R2(P)="<<f2<<std::endl;
-    XSTAMP_TEST_ASSERT( std::fabs(f2-f1) <= 1.e-10 );
-    XSTAMP_TEST_ASSERT( inside == R2.contains(p3,123) );
+    ONIKA_TEST_ASSERT( std::fabs(f2-f1) <= 1.e-10 );
+    ONIKA_TEST_ASSERT( inside == R2.contains(p3,123) );
   }
 }
 
-XSTAMP_UNIT_TEST(particle_region_csg)
+ONIKA_UNIT_TEST(particle_region_csg)
 {
   using namespace exanb;
   
@@ -587,7 +587,7 @@ XSTAMP_UNIT_TEST(particle_region_csg)
     bool ZONE3 = regions[2].contains( p , id );
     bool expected = ZONE2 && ( ZONE3 || ! ZONE1 );
     bool result = prcsg_sc.contains( p , id );
-    XSTAMP_TEST_ASSERT( result == expected );
+    ONIKA_TEST_ASSERT( result == expected );
   }
 }
 
