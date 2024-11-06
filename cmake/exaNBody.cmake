@@ -17,6 +17,11 @@
 #
 
 macro(exaNBodyStartApplication)
+
+  if(NOT onika_FOUND)
+    message(FATAL_ERROR "onika package not found") 
+  endif()
+      
   # =============================
   # === Application branding  ===
   # =============================
@@ -202,17 +207,11 @@ macro(exaNBodyStartApplication)
   # compile time definitions
   set(USTAMP_COMPILE_DEFINITIONS
     -DUSTAMP_VERSION="${EXASTAMP_VERSION}"
-    -DUSTAMP_PLUGIN_DIR="${USTAMP_PLUGIN_DIR}"
-    -DXNB_DEFAULT_CONFIG_FILE="${XNB_DEFAULT_CONFIG_FILE}"
-    -DXNB_LOCAL_CONFIG_FILE="${XNB_LOCAL_CONFIG_FILE}"
     -DXSTAMP_ADVISED_HW_THREADS=${HOST_HW_THREADS}
     -DXSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT=${XSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT}
-    ${XSTAMP_OMP_FLAGS}
     ${XNB_APP_DEFINITIONS}
-    ${KMP_ALIGNED_ALLOCATOR_DEFINITIONS}
-    ${XSTAMP_TASK_PROFILING_DEFINITIONS}
-    ${ONIKA_CUDA_COMPILE_DEFINITIONS}
     ${XSTAMP_AMR_ZCURVE_DEFINITIONS}
+    ${ONIKA_COMPILE_DEFINITIONS}
     )
 
   # performance tuning : number of stored pointers for each cell
@@ -220,21 +219,15 @@ macro(exaNBodyStartApplication)
   set(USTAMP_COMPILE_DEFINITIONS ${USTAMP_COMPILE_DEFINITIONS} -DXSTAMP_FIELD_ARRAYS_STORE_COUNT=${XSTAMP_FIELD_ARRAYS_STORE_COUNT})
 
   set(USTAMP_INCLUDE_DIRS
+    ${ONIKA_INCLUDE_DIRS}
     ${XNB_APP_INCLUDE_DIRS}
     ${PROJECT_BINARY_DIR}/include
-    ${YAML_CPP_INCLUDE_DIR}
     ${MPI_CXX_INCLUDE_PATH}
-    ${TINYEXPR_INCLUDE_DIRS}
     ${NAIVEMATRIX_INCLUDE_DIRS}
     )
 
-  set(USTAMP_CXX_FLAGS -Wall ${OpenMP_CXX_FLAGS})
-  set(USTAMP_CORE_LIBRARIES
-      exanbCore
-      onika
-      ${MPI_CXX_LIBRARIES}
-      ${XNB_APP_LIBRARIES}
-      )
+  set(USTAMP_CXX_FLAGS ${ONIKA_COMPILE_OPTIONS})
+  set(USTAMP_CORE_LIBRARIES exanbCore ${ONIKA_LIBRARIES} ${MPI_CXX_LIBRARIES} ${XNB_APP_LIBRARIES})
 
   # Regression tests configuration 
   option(XNB_TEST_SEQ "Enable Sequential tests" OFF)
