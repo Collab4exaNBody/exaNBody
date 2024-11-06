@@ -53,14 +53,14 @@ namespace exanb
     }
   };
 
-  inline FormattedObjectStreamer<Mat3dStreamer> format_mat3d(const Mat3d& m, char mb='{', char me='}', char cb='(', char ce='}', char cs=',', char vs=',')
+  inline onika::FormattedObjectStreamer<Mat3dStreamer> format_mat3d(const Mat3d& m, char mb='{', char me='}', char cb='(', char ce='}', char cs=',', char vs=',')
   {
-    return FormattedObjectStreamer<Mat3dStreamer>{ {m,mb,me,cb,ce,cs,vs} };
+    return onika::FormattedObjectStreamer<Mat3dStreamer>{ {m,mb,me,cb,ce,cs,vs} };
   }
 
   inline std::ostream& operator << (std::ostream& out, const Mat3d& m)
   {
-    return out << FormattedObjectStreamer<Mat3dStreamer>{ {m} };
+    return out << onika::FormattedObjectStreamer<Mat3dStreamer>{ {m} };
   }
 
   inline std::ostream& operator << (std::ostream& out, const IJK& v)

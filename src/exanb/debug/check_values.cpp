@@ -31,7 +31,7 @@ under the License.
 #include <exanb/core/file_utils.h>
 #include <onika/yaml/yaml_utils.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/quantity.h>
+#include <onika/physics/units.h>
 #include <exanb/core/unityConverterHelper.h>
 
 #include <onika/soatl/field_tuple.h>

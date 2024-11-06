@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/log.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/quantity.h>
+#include <onika/physics/units.h>
 #include <onika/string_utils.h>
 
 #include <exanb/compute/field_combiners.h>

@@ -107,6 +107,7 @@ namespace exanb
                          std::string dbg_file_name,
                          int rank, int mpi_size)
   {
+    using onika::format_string;
     if( !out_file_name.empty() && mpi_size>1 )
     {
       out_file_name = format_string("%s.%03d",out_file_name,rank );

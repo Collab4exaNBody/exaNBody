@@ -22,6 +22,6 @@ under the License.
 #include <onika/physics/units.h>
 
 #ifdef EXANB_LEGACY_UNITS_DEPRECATED
-#warning include file exanb/core/quantity.h is deprecated, please include onika/physics/units.h instead
+#warning include file onika/physics/units.h is deprecated, please include onika/physics/units.h instead
 #endif
 
