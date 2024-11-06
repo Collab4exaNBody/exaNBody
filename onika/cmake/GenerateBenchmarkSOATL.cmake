@@ -44,7 +44,7 @@ macro(GenerateBenchmark A C DPS SIMD OMPTOGGLE)
   target_link_libraries(soatlbenchmark_${SUFFIX} onika ${OpenMP_CXX_LIBRARIES})
 
   # add perf tests
-  xstamp_add_test(soatlbenchmark_${SUFFIX}_hfa ${CMAKE_CURRENT_BINARY_DIR}/soatlbenchmark_${SUFFIX} 10000000)
+  onika_add_test(soatlbenchmark_${SUFFIX}_hfa ${CMAKE_CURRENT_BINARY_DIR}/soatlbenchmark_${SUFFIX} 10000000)
 
   # assembly analysis
   if(SOATL_OBJDUMP)

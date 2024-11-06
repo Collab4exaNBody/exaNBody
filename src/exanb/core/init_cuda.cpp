@@ -24,7 +24,7 @@ under the License.
 #include <exanb/core/string_utils.h>
 #include <exanb/core/value_streamer.h>
 
-#ifdef XNB_CUDA_VERSION
+#ifdef ONIKA_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
 #endif
@@ -62,7 +62,7 @@ namespace exanb
 
       lout << "=========== "<<ONIKA_CU_NAME_STR<<" ================"<<std::endl;
 
-#     ifdef XNB_CUDA_VERSION
+#     ifdef ONIKA_CUDA_VERSION
 
       std::shared_ptr<onika::cuda::CudaContext> cuda_ctx = nullptr;
 

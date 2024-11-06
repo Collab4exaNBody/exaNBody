@@ -27,7 +27,7 @@ file(GLOB USTAMP_MAIN_SRCS *.cpp)
 
 add_executable(${XNB_APP_NAME} ${USTAMP_MAIN_SRCS})
 target_compile_options(${XNB_APP_NAME} PUBLIC ${USTAMP_CXX_FLAGS}) # $<$<COMPILE_LANGUAGE:CUDA>:${ONIKA_CUDA_COMPILE_FLAGS}>)
-target_compile_definitions(${XNB_APP_NAME} PUBLIC ${USTAMP_COMPILE_DEFINITIONS} ${XNB_CUDA_COMPILE_DEFINITIONS})
+target_compile_definitions(${XNB_APP_NAME} PUBLIC ${USTAMP_COMPILE_DEFINITIONS} ${ONIKA_CUDA_COMPILE_DEFINITIONS})
 #target_compile_features(${XNB_APP_NAME} PUBLIC cuda_std_17)
 target_include_directories(${XNB_APP_NAME} PUBLIC ${USTAMP_INCLUDE_DIRS})
 target_link_libraries(${XNB_APP_NAME} exanbMPI ${USTAMP_CORE_LIBRARIES})

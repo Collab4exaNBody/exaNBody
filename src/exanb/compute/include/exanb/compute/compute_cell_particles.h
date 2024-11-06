@@ -33,7 +33,7 @@ under the License.
 #include <onika/flat_tuple.h>
 #include <utility>
 
-#ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
+#ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
 #endif
 

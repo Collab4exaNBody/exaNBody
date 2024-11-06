@@ -16,11 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/unit_test.h>
-#include <exanb/core/log.h>
+#include <onika/test/unit_test.h>
+#include <onika/log.h>
 #include <iostream>
 
-namespace exanb
+namespace onika
 {
   UnitTest* UnitTest::s_unit_tests_list = nullptr;
 

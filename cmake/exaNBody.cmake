@@ -87,9 +87,6 @@ macro(exaNBodyStartApplication)
   # =======================================
   if(XSTAMP_THIRD_PARTY_TOOLS_ROOT)
     message(STATUS "Third party tools in ${XSTAMP_THIRD_PARTY_TOOLS_ROOT}")
-    if(NOT yaml-cpp_DIR)
-      set(yaml-cpp_DIR ${XSTAMP_THIRD_PARTY_TOOLS_ROOT}/yaml-cpp/share/cmake/yaml-cpp)
-    endif()
     if(NOT ZOLTAN_DIR)
       set(ZOLTAN_DIR ${XSTAMP_THIRD_PARTY_TOOLS_ROOT}/zoltan-3.83)
     endif()
@@ -102,32 +99,6 @@ macro(exaNBodyStartApplication)
     set(MPI_CXX_FOUND ON)
   else()
     find_package(MPI REQUIRED)
-  endif()
-  message(STATUS "YAML ${yaml-cpp_DIR}")
-  if(YAML_CPP_INCLUDE_DIR AND YAML_CPP_LIBRARIES)
-    message(STATUS "YAML manually configured :")
-    message(STATUS "\tYAML_CPP_INCLUDE_DIR=${YAML_CPP_INCLUDE_DIR}")
-    message(STATUS "\tYAML_CPP_LIBRARIES=${YAML_CPP_LIBRARIES}")
-  else()
-    find_package(yaml-cpp REQUIRED)
-  endif()
-
-  find_package(OpenMP REQUIRED)
-
-  if(OpenMP_CXX_VERSION)
-    set(XSTAMP_OMP_FLAGS -DXSTAMP_OMP_VERSION=${OpenMP_CXX_VERSION})
-  else()
-    message(STATUS "OpenMP version not found, setting it to 3.0")
-    set(XSTAMP_OMP_FLAGS -DXSTAMP_OMP_VERSION=3.0)
-  endif()
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-    set(XSTAMP_OMP_NUM_THREADS_WORKAROUND_DEFAULT ON)
-  else()
-    set(XSTAMP_OMP_NUM_THREADS_WORKAROUND_DEFAULT OFF)
-  endif()
-  option(XSTAMP_OMP_NUM_THREADS_WORKAROUND "Enable OpenMP num_threads bug workaround" ${XSTAMP_OMP_NUM_THREADS_WORKAROUND_DEFAULT})
-  if(XSTAMP_OMP_NUM_THREADS_WORKAROUND)
-    set(XSTAMP_OMP_FLAGS ${XSTAMP_OMP_FLAGS} -DXSTAMP_OMP_NUM_THREADS_WORKAROUND=1)
   endif()
 
   option(EXASTAMP_USE_ZOLTAN "Use Zoltan partitioner for load balancing" OFF)
@@ -152,49 +123,8 @@ macro(exaNBodyStartApplication)
     endif()
   endif()
 
-  # external sources required
-  # https://github.com/kthohr/gcem.git
-  # 
-  # use some embedded hir party tools
+  # use some embedded third party tools
   add_subdirectory(${XNB_ROOT_DIR}/thirdparty ${CMAKE_CURRENT_BINARY_DIR}/thirdparty)
-
-  # ===================================
-  # ============ Cuda =================
-  # ===================================
-  option(XNB_BUILD_CUDA "Enable GPU Acceleration" OFF)
-  option(XNB_ENABLE_HIP "Use HIP instead of Cuda" OFF)
-  if(XNB_ENABLE_HIP)
-    set(ONIKA_FORCE_CUDA_OPTION ON)
-    set(ONIKA_USE_CUDA OFF)
-    set(ONIKA_FORCE_HIP_OPTION ON)
-    set(ONIKA_USE_HIP ${XNB_BUILD_CUDA})
-    if(XNB_BUILD_CUDA)
-      if(NOT ROCM_INSTALL_ROOT)
-        set(ROCM_INSTALL_ROOT "/opt/rocm")
-      endif()
-      list(APPEND CMAKE_MODULE_PATH "${ROCM_INSTALL_ROOT}/share/rocm/cmake")
-      find_package(ROCM REQUIRED)
-      enable_language(HIP)
-      file(REAL_PATH "${ROCM_INSTALL_ROOT}" XNB_ROCM_ROOT)
-      string(REGEX MATCH "[0-9].[0-9].[0-9]" XNB_ROCM_VERSION "${XNB_ROCM_ROOT}")
-      if(XNB_ROCM_VERSION)
-        set(XNB_HIP_VERSION "${XNB_ROCM_VERSION}")
-      else()
-        set(XNB_HIP_VERSION "${CMAKE_HIP_COMPILER_VERSION}")
-      endif()
-      set(XNB_CUDA_COMPILE_DEFINITIONS -DXNB_CUDA_VERSION=${CMAKE_HIP_COMPILER_VERSION} -DXNB_HIP_VERSION=${XNB_HIP_VERSION})
-    endif()
-  else()
-    set(ONIKA_FORCE_HIP_OPTION ON)
-    set(ONIKA_USE_HIP OFF)
-    set(ONIKA_FORCE_CUDA_OPTION ON)
-    set(ONIKA_USE_CUDA ${XNB_BUILD_CUDA})
-    if(XNB_BUILD_CUDA)
-      find_package(CUDA REQUIRED)
-      enable_language(CUDA)
-      set(XNB_CUDA_COMPILE_DEFINITIONS -DXNB_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
-    endif()
-  endif()
 
   # ======================================================
   # ============ compilation environment =================
@@ -281,7 +211,7 @@ macro(exaNBodyStartApplication)
     ${XNB_APP_DEFINITIONS}
     ${KMP_ALIGNED_ALLOCATOR_DEFINITIONS}
     ${XSTAMP_TASK_PROFILING_DEFINITIONS}
-    ${XNB_CUDA_COMPILE_DEFINITIONS}
+    ${ONIKA_CUDA_COMPILE_DEFINITIONS}
     ${XSTAMP_AMR_ZCURVE_DEFINITIONS}
     )
 
@@ -301,11 +231,10 @@ macro(exaNBodyStartApplication)
   set(USTAMP_CXX_FLAGS -Wall ${OpenMP_CXX_FLAGS})
   set(USTAMP_CORE_LIBRARIES
       exanbCore
-      ${YAML_CPP_LIBRARIES}
-      ${OpenMP_CXX_LIBRARIES}
+      onika
       ${MPI_CXX_LIBRARIES}
       ${XNB_APP_LIBRARIES}
-      tinyexpr)
+      )
 
   # Regression tests configuration 
   option(XNB_TEST_SEQ "Enable Sequential tests" OFF)

@@ -117,7 +117,7 @@ namespace onika
         assert( pec->m_parallel_space.m_start == 0 && pec->m_parallel_space.m_idx == nullptr );
         const size_t N = pec->m_parallel_space.m_end;
 
-#       ifdef XSTAMP_OMP_NUM_THREADS_WORKAROUND
+#       ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
         omp_set_num_threads( omp_get_max_threads() );
 #       endif
 

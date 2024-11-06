@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/log.h>
 
-#ifdef XNB_CUDA_VERSION
+#ifdef ONIKA_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
 #include <onika/cuda/cuda_error.h>
 #endif
@@ -35,7 +35,7 @@ namespace exanb
  
     inline void execute () override final
     {
-#     ifdef XNB_CUDA_VERSION
+#     ifdef ONIKA_CUDA_VERSION
       auto cuda_ctx = global_cuda_ctx();
       if( cuda_ctx != nullptr && *enable_cuda && cuda_ctx->has_devices() )
       {
