@@ -264,7 +264,8 @@ endif()
 set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/tinyexpr)
 
 # setup thirdparty and additional libraries used by onika
-set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${YAML_CPP_LIBRARIES} tinyexpr ${OpenMP_CXX_LIBRARIES} dl)
+set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${YAML_CPP_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
+set(ONIKA_PRIVATE_LIBRARIES tinyexpr)
 
 # compile options 
 set(ONIKA_COMPILE_OPTIONS -Wall ${OpenMP_CXX_FLAGS})
@@ -277,7 +278,7 @@ target_compile_definitions(onika PUBLIC ${ONIKA_DEFINITIONS})
 target_compile_options(onika PUBLIC ${ONIKA_COMPILE_OPTIONS})
 target_compile_features(onika PUBLIC ${ONIKA_COMPILE_FEATURES})
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
-target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES})
+target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES} PRIVATE ${ONIKA_PRIVATE_LIBRARIES})
 
 # compile tools
 add_executable(trace_convert src/tools/trace_convert.cpp)
@@ -297,12 +298,6 @@ set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_BUILD_CUDA ${ONIKA_BUILD_CU
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_ENABLE_HIP ${ONIKA_ENABLE_HIP})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_DIR ${CMAKE_INSTALL_PREFIX})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_FOUND TRUE)\n")
-
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}\n")
-
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake "${ONIKA_CONFIG_DATA}")
 
 # install files
