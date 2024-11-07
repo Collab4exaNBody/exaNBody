@@ -129,7 +129,7 @@ macro(exaNBodyStartApplication)
   endif()
 
   # use some embedded third party tools
-  add_subdirectory(${XNB_ROOT_DIR}/thirdparty ${CMAKE_CURRENT_BINARY_DIR}/thirdparty)
+  set(XNB_THIRDPARTY_INCLUDE_DIRS ${XNB_ROOT_DIR}/thirdparty)
 
   # ======================================================
   # ============ compilation environment =================
@@ -223,7 +223,7 @@ macro(exaNBodyStartApplication)
     ${XNB_APP_INCLUDE_DIRS}
     ${PROJECT_BINARY_DIR}/include
     ${MPI_CXX_INCLUDE_PATH}
-    ${NAIVEMATRIX_INCLUDE_DIRS}
+    ${XNB_THIRDPARTY_INCLUDE_DIRS}
     )
 
   set(USTAMP_CXX_FLAGS ${ONIKA_COMPILE_OPTIONS})

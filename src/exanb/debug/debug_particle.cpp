@@ -76,7 +76,7 @@ namespace exanb
             if( ( ids.empty() || std::binary_search( ids.begin(), ids.end(), part_ids[j] ) ) && ( (*ghost) || !is_ghost_cell ) )
             {
               std::ostringstream oss;
-              oss<< default_stream_format;
+              oss<< onika::default_stream_format;
               oss<<"---- PARTICLE "<<part_ids[j]<<" ";
               if(is_ghost_cell) { oss<<"GHOST"; }
               oss<<"----"<<std::endl<<"cell = " << loc <<std::endl;

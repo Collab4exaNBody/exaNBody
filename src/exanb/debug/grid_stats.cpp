@@ -157,26 +157,26 @@ namespace exanb
      lout << "dimension      = " << dims.i <<'x'<< dims.j<<'x'<< dims.k << std::endl;
      lout << "ghost layers   = " << ghost_layers << std::endl;
      lout << "cell size      = " << cell_size << std::endl;
-     lout << "inner cells    = " << large_integer_to_string(n_inner_cells) << std::endl;
-     lout << "ghost cells    = " << large_integer_to_string(n_ghost_cells) << std::endl;
-     lout << "empty cells    = " << large_integer_to_string(n_empty_cells) << " (" <<large_integer_to_string(n_empty_ghost_cells)<<" ghosts)" << std::endl;
-     lout << "part. per cell = " << large_integer_to_string(min_cell_particles) <<" / "
-                                 << large_integer_to_string(n_inner_particles / icdiv) << " / "
-                                 << large_integer_to_string(max_cell_particles) << std::endl;
-     lout << "inner part.    = " << large_integer_to_string(n_inner_particles) << " , min "
-                                 << large_integer_to_string(min_inner_particles) <<" , max "
-                                 << large_integer_to_string(max_inner_particles) << std::endl;
-     lout << "ghost part.    = " << large_integer_to_string(n_ghost_particles) << " , min "
-                                 << large_integer_to_string(min_ghost_particles) <<" , max "
-                                 << large_integer_to_string(max_ghost_particles) << std::endl;
-     lout << "total part.    = " << large_integer_to_string(n_inner_particles+n_ghost_particles) << " , min "
-                                 << large_integer_to_string(min_total_particles) << " , max "
-                                 << large_integer_to_string(max_total_particles) << std::endl;
-     lout << "otb particles  = " << large_integer_to_string(n_oc);
-     if( n_oc_ghost > 0 ) lout << " ("<<large_integer_to_string(n_oc_ghost)<<" in ghost cells)";
+     lout << "inner cells    = " << onika::large_integer_to_string(n_inner_cells) << std::endl;
+     lout << "ghost cells    = " << onika::large_integer_to_string(n_ghost_cells) << std::endl;
+     lout << "empty cells    = " << onika::large_integer_to_string(n_empty_cells) << " (" <<onika::large_integer_to_string(n_empty_ghost_cells)<<" ghosts)" << std::endl;
+     lout << "part. per cell = " << onika::large_integer_to_string(min_cell_particles) <<" / "
+                                 << onika::large_integer_to_string(n_inner_particles / icdiv) << " / "
+                                 << onika::large_integer_to_string(max_cell_particles) << std::endl;
+     lout << "inner part.    = " << onika::large_integer_to_string(n_inner_particles) << " , min "
+                                 << onika::large_integer_to_string(min_inner_particles) <<" , max "
+                                 << onika::large_integer_to_string(max_inner_particles) << std::endl;
+     lout << "ghost part.    = " << onika::large_integer_to_string(n_ghost_particles) << " , min "
+                                 << onika::large_integer_to_string(min_ghost_particles) <<" , max "
+                                 << onika::large_integer_to_string(max_ghost_particles) << std::endl;
+     lout << "total part.    = " << onika::large_integer_to_string(n_inner_particles+n_ghost_particles) << " , min "
+                                 << onika::large_integer_to_string(min_total_particles) << " , max "
+                                 << onika::large_integer_to_string(max_total_particles) << std::endl;
+     lout << "otb particles  = " << onika::large_integer_to_string(n_oc);
+     if( n_oc_ghost > 0 ) lout << " ("<<onika::large_integer_to_string(n_oc_ghost)<<" in ghost cells)";
      lout <<std::endl;
      
-     lout << "GPU addr cells = " << large_integer_to_string(n_gpu_addressable) <<std::endl;
+     lout << "GPU addr cells = " << onika::large_integer_to_string(n_gpu_addressable) <<std::endl;
      lout << "AMR info avail = " << std::boolalpha << (sub_grid_start != nullptr) << std::endl;
      if( (n_inner_cells-n_empty_cells) > 0 )
      {

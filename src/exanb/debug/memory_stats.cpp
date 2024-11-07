@@ -75,7 +75,7 @@ namespace exanb
         lout<< "                                   average          min          max"<<std::endl;
         for(unsigned int i=0;i<memcounters.nb_counters();i++)
         {      
-          lout<< onika::format_string("%28s :%12s %12s %12s" , memcounters.labels[i] , large_integer_to_string(memcounters.stats[i]) , large_integer_to_string(stats_min[i]) , large_integer_to_string(stats_max[i]) ) << std::endl;
+          lout<< onika::format_string("%28s :%12s %12s %12s" , memcounters.labels[i] , onika::large_integer_to_string(memcounters.stats[i]) , onika::large_integer_to_string(stats_min[i]) , onika::large_integer_to_string(stats_max[i]) ) << std::endl;
         }
         lout<< "===================================================================="<<std::endl<<std::endl;
       }
@@ -108,7 +108,7 @@ namespace exanb
         lout<< "=============== Resident memory leak ===================="<<std::endl;
         for(unsigned int i=0;i<10 && i<resident_mem_inc.size();i++)
         {
-          lout << onika::format_string("%35s : %12s",resident_mem_inc[i].first,large_integer_to_string(resident_mem_inc[i].second)) << std::endl;
+          lout << onika::format_string("%35s : %12s",resident_mem_inc[i].first,onika::large_integer_to_string(resident_mem_inc[i].second)) << std::endl;
         }
         lout<< "========================================================="<<std::endl<<std::endl;
       }

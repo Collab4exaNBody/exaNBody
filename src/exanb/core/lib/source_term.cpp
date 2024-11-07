@@ -99,20 +99,20 @@ namespace exanb
     if( type == "sphere" )
     {
       return std::make_shared<SphericalTemporalSourceTerm>( params["center"].as<Vec3d>()
-                                                          , params["amplitude"].as<Quantity>().convert()
-                                                          , params["radius_mean"].as<Quantity>().convert()
-                                                          , params["radius_dev"].as<Quantity>().convert()
-                                                          , params["time_mean"].as<Quantity>().convert()
-                                                          , params["time_dev"].as<Quantity>().convert()
+                                                          , params["amplitude"].as<onika::physics::Quantity>().convert()
+                                                          , params["radius_mean"].as<onika::physics::Quantity>().convert()
+                                                          , params["radius_dev"].as<onika::physics::Quantity>().convert()
+                                                          , params["time_mean"].as<onika::physics::Quantity>().convert()
+                                                          , params["time_dev"].as<onika::physics::Quantity>().convert()
                                                           );
     }
     else if( type == "wavefront" )
     {
-      return std::make_shared<WaveFrontSourceTerm>( params["plane"].as<Plane3d>(), params["wave"].as<Plane3d>(), params["amplitude"].as<Quantity>().convert() );
+      return std::make_shared<WaveFrontSourceTerm>( params["plane"].as<Plane3d>(), params["wave"].as<Plane3d>(), params["amplitude"].as<onika::physics::Quantity>().convert() );
     }
     else if( type == "constant" )
     {
-      return std::make_shared<ConstantSourceTerm>( params.as<Quantity>().convert() );
+      return std::make_shared<ConstantSourceTerm>( params.as<onika::physics::Quantity>().convert() );
     }    
     else
     {

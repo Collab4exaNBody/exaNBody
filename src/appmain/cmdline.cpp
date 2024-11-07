@@ -16,10 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include "cmdline.h"
 #include <yaml-cpp/yaml.h>
 #include <onika/yaml/yaml_utils.h>
-
+#include <iostream>
 
 std::string cmdline_option_to_yaml_int( std::string s , std::string value )
 {
@@ -69,7 +70,7 @@ void command_line_options_to_yaml_config(int argc, char*argv[], int start_opt_ar
       std::cout << "addon '"<<opt<<"'\n";
 #     endif      
       YAML::Node addon_config = YAML::Load( opt );
-      input_data = exanb::merge_nodes( input_data , addon_config );
+      input_data = onika::yaml::merge_nodes( input_data , addon_config );
     }
     /*else
     {

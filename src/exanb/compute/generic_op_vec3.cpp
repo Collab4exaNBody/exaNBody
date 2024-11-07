@@ -201,7 +201,7 @@ namespace exanb
       }
       else if( node.IsScalar() )
       {
-        double x = node.as<Quantity>().convert();
+        double x = node.as<onika::physics::Quantity>().convert();
         tmp["value"] = std::vector<double> { x , x , x };
       }
       else { tmp = node; }

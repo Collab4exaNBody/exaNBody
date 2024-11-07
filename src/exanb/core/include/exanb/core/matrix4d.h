@@ -404,9 +404,9 @@ namespace YAML
         }
         else if( node.IsMap() )
         {
-          if( node["xrot"] ) M = exanb::x_rotation_mat4d( node["xrot"].as<Quantity>().convert() );
-          else if( node["yrot"] ) M = exanb::y_rotation_mat4d( node["yrot"].as<Quantity>().convert() );
-          else if( node["zrot"] ) M = exanb::z_rotation_mat4d( node["zrot"].as<Quantity>().convert() );
+          if( node["xrot"] ) M = exanb::x_rotation_mat4d( node["xrot"].as<onika::physics::Quantity>().convert() );
+          else if( node["yrot"] ) M = exanb::y_rotation_mat4d( node["yrot"].as<onika::physics::Quantity>().convert() );
+          else if( node["zrot"] ) M = exanb::z_rotation_mat4d( node["zrot"].as<onika::physics::Quantity>().convert() );
           else if( node["scale"] ) M = exanb::scaling_mat4d( node["scale"].as<Vec3d>() );
           else if( node["translate"] ) M = exanb::translation_mat4d( node["translate"].as<Vec3d>() );
           else if( node["plane"] ) M = exanb::plane_quadric( node["plane"].as<Plane3d>() );

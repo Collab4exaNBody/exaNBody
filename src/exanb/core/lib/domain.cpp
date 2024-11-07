@@ -372,7 +372,7 @@ namespace YAML
     }
     if(node["cell_size"])
     {
-      domain.set_cell_size( node["cell_size"].as<Quantity>().convert() );
+      domain.set_cell_size( node["cell_size"].as<onika::physics::Quantity>().convert() );
     }
     if(node["periodic"])
     {

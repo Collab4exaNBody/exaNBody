@@ -25,7 +25,7 @@ under the License.
 
 #include <onika/string_utils.h>
 #include <onika/yaml/yaml_utils.h>
-#include <exanb/core/file_utils.h>
+#include <onika/file_utils.h>
 #include <exanb/core/log.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/thread.h>
@@ -49,7 +49,8 @@ under the License.
 #include <thread>
 #include <cfenv>
 #include <cmath>
-
+#include <filesystem>
+		
 #include <mpi.h>
 #include <exanb/mpi/mpi_parallel_stats.h>
 
@@ -114,16 +115,16 @@ int main(int argc,char*argv[])
   // load user file and all subsequent include includes.
   // when no includes is specified, USTAMP_DEFAULT_CONFIG_FILE is loaded as if it has been included.
   // to prevent any file from being included, write "includes: []" in your input file
-  vector<string> files_to_load = resolve_config_file_includes( argv[0] , main_input_files );
+  vector<string> files_to_load = onika::yaml::resolve_config_file_includes( argv[0] , main_input_files );
   assert( ! files_to_load.empty() );
   
   // merge YAML nodes from inner most included files up to user provided file
   YAML::Node input_data(YAML::NodeType::Map);
   for(auto f:files_to_load)
   {
-    string pf = config_file_path(dirname(argv[0]),f);
+    string pf = onika::config_file_path( std::filesystem::path(argv[0]).remove_filename().string() , f );
     ldbg << "load config file "<< pf << std::endl; lout << std::flush;
-    input_data = merge_nodes( YAML::Clone(input_data) , yaml_load_file_abort_on_except(pf) );
+    input_data = onika::yaml::merge_nodes( YAML::Clone(input_data) , onika::yaml::yaml_load_file_abort_on_except(pf) );
   }
   
   // additional arguments are interpreted as YAML strings that are parsed, and merged on top of files read previously
@@ -136,7 +137,7 @@ int main(int argc,char*argv[])
   if( input_data["configuration"] )
   {
     config_node = input_data["configuration"];
-    input_data = remove_map_key( input_data, "configuration" );
+    input_data = onika::yaml::remove_map_key( input_data, "configuration" );
   }
 
   // convert YAML configuration node to data structure
@@ -145,9 +146,9 @@ int main(int argc,char*argv[])
   // allow special block configuration block "set" to overload base input data
   if( configuration.set.IsMap() && configuration.set.size()>0 )
   {
-    input_data = merge_nodes( input_data , configuration.set );
+    input_data = onika::yaml::merge_nodes( input_data , configuration.set );
     configuration.set = YAML::Node();
-    config_node = remove_map_key( config_node, "set" );
+    config_node = onika::yaml::remove_map_key( config_node, "set" );
   }
   
   // simulation definition
@@ -155,7 +156,7 @@ int main(int argc,char*argv[])
   if( input_data["simulation"] )
   {
     simulation_node = input_data["simulation"];
-    input_data = remove_map_key( input_data, "simulation" );
+    input_data = onika::yaml::remove_map_key( input_data, "simulation" );
   }
   
   // random number generator state
@@ -163,7 +164,7 @@ int main(int argc,char*argv[])
   if( input_data["random_generator_state"] )
   {
     rng_node = input_data["random_generator_state"];
-    input_data = remove_map_key( input_data, "random_generator_state" );
+    input_data = onika::yaml::remove_map_key( input_data, "random_generator_state" );
   }
   // ===================================
   
@@ -350,9 +351,9 @@ int main(int argc,char*argv[])
        <<" (debug)"
 # endif
        <<endl
-       << "MPI     : "<< onika::format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
-       << "CPU     : "<< onika::format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
-       << "OpenMP  : "<< onika::format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< onika::omp::get_version_string() 
+       << "MPI     : "<< onika::format_string("%-4d",nb_procs)<<" process"<<onika::plurial_suffix(nb_procs,"es")<<endl
+       << "CPU     : "<< onika::format_string("%-4d",cpucount)<<" core"<<onika::plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
+       << "OpenMP  : "<< onika::format_string("%-4d",num_threads) <<" thread"<<onika::plurial_suffix(num_threads) <<" (v"<< onika::omp::get_version_string() 
                       << ( ( configuration.omp_max_nesting > 1 ) ? onika::format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
@@ -426,26 +427,26 @@ int main(int argc,char*argv[])
   if( configuration.debug.files ) { lout << "plugins search path is "<<configuration.plugin_dir << std::endl << std::endl; }
   
   // enable/disable verbosity for plugins load
-  exanb::set_quiet_plugin_register( ! configuration.debug.plugins );
+  onika::set_quiet_plugin_register( ! configuration.debug.plugins );
 
   // configure plugin DB generation if requested
-  const PluginDBMap* plugin_db = nullptr;
+  const onika::PluginDBMap* plugin_db = nullptr;
   if( configuration.generate_plugins_db )
   {
     lout << "Writing plugins DB to " << configuration.plugin_db << std::endl;
-    exanb::generate_plugin_db( configuration.plugin_db );
+    onika::generate_plugin_db( configuration.plugin_db );
   }
   else
   {
     ldbg << "Reading plugins DB from " << configuration.plugin_db << std::endl;
-    plugin_db = & exanb::read_plugin_db( configuration.plugin_db );
+    plugin_db = & onika::read_plugin_db( configuration.plugin_db );
   }
 
   // load plugins and register builtin factories
   if( configuration.debug.plugins ) { lout << "============= plugins ===========" << endl << "+ <builtin>" << endl; }
   OperatorSlotBase::enable_registration();
   OperatorNodeFactory::instance()->enable_registration();
-  exanb::set_default_plugin_search_dir( configuration.plugin_dir );
+  onika::set_default_plugin_search_dir( configuration.plugin_dir );
   if( ! configuration.plugins.empty() ) 
   {
     onika::load_plugins( configuration.plugins , configuration.debug.plugins );
@@ -464,7 +465,7 @@ int main(int argc,char*argv[])
   // unit tests execution mode
   if( configuration.run_unit_tests )
   {
-    auto [ n_passed , n_failed ] = UnitTest::run_unit_tests();
+    auto [ n_passed , n_failed ] = onika::UnitTest::run_unit_tests();
     lout << "Executed "<<(n_passed+n_failed)<<" unit tests : "<< n_passed << " passed, "<< n_failed <<" failed" << std::endl;
     return n_failed;
   }

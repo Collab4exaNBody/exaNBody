@@ -38,7 +38,7 @@ namespace exanb
     static inline std::string convert_value_to_string( const T& x )
     {
       std::ostringstream oss;
-      oss<< default_stream_format;
+      oss<< onika::default_stream_format;
       onika::print_if_possible( oss , print_convert(x) , "???" );
       return oss.str();
     }

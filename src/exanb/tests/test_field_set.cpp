@@ -46,7 +46,7 @@ template< template<typename> typename C , typename field_set > struct Instantiat
 
 template<typename T> std::string pretty_type()
 {
-  return exanb::strip_type_spaces( exanb::remove_exanb_namespaces( exanb::type_as_string<T>() ) );
+  return exanb::strip_type_spaces( exanb::remove_exanb_namespaces( onika::type_as_string<T>() ) );
 }
 
 template<typename fs,typename subtract_fs> struct RemoveFromFieldsTester {};

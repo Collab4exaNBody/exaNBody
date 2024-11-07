@@ -50,6 +50,11 @@ namespace onika
     g_plugin_default_dir = default_dir;
   }
 
+  const std::string& default_plugin_search_dir()
+  {
+    return g_plugin_default_dir;
+  }
+
   void generate_plugin_db( const std::string& filename )
   {
     g_plugin_db_filename = filename;

@@ -113,7 +113,22 @@ namespace onika
       }
       return end;
     }
- 
+
+    struct PrintfBaseStdOutStream
+    {
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( const char* s ) const { printf("%s",s); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( uint64_t i ) const { printf("%llu",static_cast<unsigned long long>(i)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( int64_t i ) const { printf("%lld",static_cast<long long>(i)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( uint32_t i ) const { printf("%llu",static_cast<unsigned long long>(i)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( int32_t i ) const { printf("%lld",static_cast<long long>(i)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( uint16_t i ) const { printf("%llu",static_cast<unsigned long long>(i)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( int16_t i ) const { printf("%lld",static_cast<long long>(i)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( double d ) const { printf("% .9e",d); return {}; }
+      ONIKA_HOST_DEVICE_FUNC inline PrintfBaseStdOutStream operator << ( float d ) const { printf("% .9e",double(d)); return {}; }
+      ONIKA_HOST_DEVICE_FUNC static inline void flush() {}
+    };
+
+    static inline constexpr PrintfBaseStdOutStream cout = {};
   }
 
 }

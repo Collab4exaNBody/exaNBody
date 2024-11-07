@@ -69,16 +69,16 @@ namespace exanb
       if( *verbose )
       {
         lout << "========= Performance ===========" << std::endl;
-        lout << "Particles        = "<<large_integer_to_string(n_particles)<<std::endl;
-        lout << "Cells            = "<<large_integer_to_string(n_domain_cells)<<std::endl;
+        lout << "Particles        = "<<onika::large_integer_to_string(n_particles)<<std::endl;
+        lout << "Cells            = "<<onika::large_integer_to_string(n_domain_cells)<<std::endl;
 //        lout << "Ghost layers     = "<< grid->ghost_layers() <<std::endl;        
-        lout << "MPI Processes    = "<<large_integer_to_string(np)<<std::endl;
-        lout << "OMP threads      = "<<large_integer_to_string(nt)<<std::endl;
-        lout << "MPI x OMP        = "<<large_integer_to_string(np*nt)<<std::endl;
-        lout << "Cells / MPI Proc = "<<large_integer_to_string(n_domain_cells/np)<<std::endl;        
-        lout << "Cells / Thread   = "<<large_integer_to_string(n_domain_cells/(np*nt))<<std::endl;        
-        lout << "Part. / MPI Proc = "<<large_integer_to_string(n_particles/np)<<std::endl;        
-        lout << "Part. / Thread   = "<<large_integer_to_string(n_particles/(np*nt))<<std::endl;        
+        lout << "MPI Processes    = "<<onika::large_integer_to_string(np)<<std::endl;
+        lout << "OMP threads      = "<<onika::large_integer_to_string(nt)<<std::endl;
+        lout << "MPI x OMP        = "<<onika::large_integer_to_string(np*nt)<<std::endl;
+        lout << "Cells / MPI Proc = "<<onika::large_integer_to_string(n_domain_cells/np)<<std::endl;        
+        lout << "Cells / Thread   = "<<onika::large_integer_to_string(n_domain_cells/(np*nt))<<std::endl;        
+        lout << "Part. / MPI Proc = "<<onika::large_integer_to_string(n_particles/np)<<std::endl;        
+        lout << "Part. / Thread   = "<<onika::large_integer_to_string(n_particles/(np*nt))<<std::endl;        
       }
       
       if( (n_domain_cells / (np*nt)) > max_small_cells_per_thread && domain->cell_size() <= (*ghost_dist) )

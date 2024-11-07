@@ -85,7 +85,7 @@ namespace exanb
             bool bval;
             long lval;
             double dval;
-            Quantity qval;
+            onika::physics::Quantity qval;
             std::string sval;
             if( try_convert(it->second,bval) )      { make_operator_slot<bool  >( op.get() , key , OUTPUT )->set_resource_default_value( bval ); }
             else if( try_convert(it->second,lval) ) { make_operator_slot<long  >( op.get() , key , OUTPUT )->set_resource_default_value( lval ); }
@@ -103,7 +103,7 @@ namespace exanb
             std::vector<bool> bval;
             std::vector<long> lval;
             std::vector<double> dval;
-            std::vector<Quantity> qval;
+            std::vector<onika::physics::Quantity> qval;
             std::vector<std::string> sval;
             if( try_convert(it->second,bval) )      { make_operator_slot< std::vector<bool>  >( op.get() , key , OUTPUT )->set_resource_default_value( bval ); }
             else if( try_convert(it->second,lval) ) { make_operator_slot< std::vector<long>  >( op.get() , key , OUTPUT )->set_resource_default_value( lval ); }

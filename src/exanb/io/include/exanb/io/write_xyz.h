@@ -177,7 +177,7 @@ namespace exanb
         }
         else // commented out to avoid intel compiler fake warning about missing return value
         {
-          if( ParaViewTypeId<field_type>::ncomp != 1 ) { fatal_error() << "number of components not 1 as expected for field "<<f.short_name()<<" with type "<<type_as_string<T>()<<std::endl; }
+          if( ParaViewTypeId<field_type>::ncomp != 1 ) { fatal_error() << "number of components not 1 as expected for field "<<f.short_name()<<" with type "<<onika::type_as_string<T>()<<std::endl; }
           if( conv != 1.0 ) { fatal_error() << "Conversion factor not allowed for type "<<typeid(T).name()<<std::endl; }
           return onika::format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
         }

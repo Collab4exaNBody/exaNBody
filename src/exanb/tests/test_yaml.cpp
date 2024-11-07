@@ -86,7 +86,7 @@ int main()
   std::cout << "conversion defined for ParticleSpecies : " << std::boolalpha << exanb::is_yaml_convertible<exanb::ParticleSpecies>() << std::endl;
 
   node = YAML::Load( "testq: [ 10 kg , 11 g/s , 8 nm/s^2 ]");
-  for( auto& q : node["testq"].as< std::vector<exanb::Quantity> >() )
+  for( auto& q : node["testq"].as< std::vector<onika::physics::Quantity> >() )
   {
 	  std::cout << q << " , ";
   }

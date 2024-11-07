@@ -165,8 +165,8 @@ namespace exanb
     }
     
     // default format
-    lout << default_stream_format;
-    ldbg_raw << default_stream_format;
+    lout << onika::default_stream_format;
+    ldbg_raw << onika::default_stream_format;
   }
 
   // create a log filter for debug messages out of operator scope

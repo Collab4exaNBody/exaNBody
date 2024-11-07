@@ -23,7 +23,7 @@ under the License.
 //#include "exanb/container_utils.h"
 #include <onika/string_utils.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/unityConverterHelper.h>
+#include <onika/physics/units.h>
 #include <string>
 #include <math.h>
 
@@ -54,10 +54,10 @@ namespace exanb
     inline void execute ()  override final
     {
 
-      double dt_sec = UnityConverterHelper::convert(*dt, "1/s");
+      double dt_sec = EXANB_QUANTITY( (*dt) / s ); //UnityConverterHelper::convert(*dt, "1/s");
       double prectime = dt_sec * (*timestep - 1);      
       double curtime = dt_sec * (*timestep);
-      double starttime = UnityConverterHelper::convert(*time_start, "1/s");
+      double starttime = EXANB_QUANTITY( (*time_start) / s ); //UnityConverterHelper::convert(*time_start, "1/s");
       Mat3d Id33 = make_identity_matrix();
       std::string mode = *(this->mode);
       Mat3d xform = domain->xform();

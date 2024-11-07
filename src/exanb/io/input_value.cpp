@@ -42,7 +42,7 @@ namespace exanb
       std::getline( std::cin , qstr );
       if( ! qstr.empty() )
       {
-        *value = exanb::units::quantity_from_string( qstr ).convert();
+        *value = onika::physics::quantity_from_string( qstr ).convert();
       }
       ldbg << "value = '"<< *value << "'" << std::endl;
     }

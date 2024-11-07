@@ -200,6 +200,7 @@ namespace onika
     // number of available unit definitions 
     static inline constexpr int number_of_units = sizeof(all_units) / sizeof(UnitDefinition);
     
+    
     /*
      * return a unit definition given a unit's short name
      */
@@ -256,8 +257,8 @@ namespace onika
       }
       ONIKA_HOST_DEVICE_FUNC inline double convert() const
       {
-        //constexpr UnitSystem IUS = ::onika::physics::internal_unit_system;
-        return convert( internal_unit_system );
+        static constexpr auto IUS = internal_unit_system;
+        return convert( IUS );
       }
       
       ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }

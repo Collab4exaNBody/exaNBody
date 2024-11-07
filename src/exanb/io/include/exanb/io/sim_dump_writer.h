@@ -500,10 +500,10 @@ namespace exanb
     
     assert( total_compressed_bytes == global_write_offset );
     
-    lout << "particles      = " << large_integer_to_string(particles_written) << std::endl
+    lout << "particles      = " << onika::large_integer_to_string(particles_written) << std::endl
          << "file parts     = " << file.number_of_file_parts() <<std::endl
-         << "total size     = " << large_integer_to_string(global_write_offset) <<std::endl
-         << "uncompressed   = " << large_integer_to_string(total_uncompressed_bytes) << std::endl
+         << "total size     = " << onika::large_integer_to_string(global_write_offset) <<std::endl
+         << "uncompressed   = " << onika::large_integer_to_string(total_uncompressed_bytes) << std::endl
          << "compr. ratio   = " << 100-((total_compressed_bytes*100)/total_uncompressed_bytes) <<"%" << std::endl
          << "throughput     = " << static_cast<long>( (total_uncompressed_bytes/(1024*1024)) / write_time_s ) << " Mb/s" << std::endl
          << "===============================================" << std::endl << std::endl;

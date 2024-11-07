@@ -46,10 +46,10 @@ namespace YAML
       {
         return false;
       }
-      q.w = node[0].as<Quantity>().convert();
-      q.x = node[1].as<Quantity>().convert();
-      q.y = node[2].as<Quantity>().convert();
-      q.z = node[3].as<Quantity>().convert();
+      q.w = node[0].as<onika::physics::Quantity>().convert();
+      q.x = node[1].as<onika::physics::Quantity>().convert();
+      q.y = node[2].as<onika::physics::Quantity>().convert();
+      q.z = node[3].as<onika::physics::Quantity>().convert();
       return true;
     }
   };

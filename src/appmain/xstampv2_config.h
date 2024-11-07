@@ -21,6 +21,7 @@ under the License.
 #include "yaml_config_struct.h"
 
 #include <onika/cuda/cuda.h>
+#include <onika/plugin.h>
 #include <vector>
 #include <cstdint>
 #include <string>
@@ -108,7 +109,7 @@ xsv2ConfigBegin( configuration                                , "exaStampV2 conf
   xsv2ConfigItem( bool          , omp_nested          , false , "enables OpenMP nesting");
   xsv2ConfigItem( StringIntMap  , omp_max_threads_filter      , {}                             , "list of regular expressions matching paths of operators with forbidden access to the GPU" );
 
-  xsv2ConfigItem( std::string   , plugin_dir          , USTAMP_PLUGIN_DIR , "plugin directory");  
+  xsv2ConfigItem( std::string   , plugin_dir          , onika::default_plugin_search_dir() , "plugin directory");  
   xsv2ConfigItem( std::string   , plugin_db           , ""    , "plugin dictionary file");
   xsv2ConfigItem( StringVector  , plugins             , {}    , "list of plugins forced to load");
   xsv2ConfigItem( bool          , generate_plugins_db , false , "generate plugin data base and exit");

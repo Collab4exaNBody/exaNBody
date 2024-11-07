@@ -66,9 +66,9 @@ namespace YAML
     static inline bool decode(const Node& node, Vec3d& v)
     {
       if(!node.IsSequence() || node.size() != 3) { return false; }
-      v.x = node[0].as<Quantity>().convert();
-      v.y = node[1].as<Quantity>().convert();
-      v.z = node[2].as<Quantity>().convert();
+      v.x = node[0].as<onika::physics::Quantity>().convert();
+      v.y = node[1].as<onika::physics::Quantity>().convert();
+      v.z = node[2].as<onika::physics::Quantity>().convert();
       return true;
     }
   };
@@ -87,10 +87,10 @@ namespace YAML
     static inline bool decode(const Node& node, Plane3d& p)
     {
       if(!node.IsSequence() || node.size() != 4) { return false; }
-      p.N.x = node[0].as<Quantity>().convert();
-      p.N.y = node[1].as<Quantity>().convert();
-      p.N.z = node[2].as<Quantity>().convert();
-      p.D   = node[3].as<Quantity>().convert();
+      p.N.x = node[0].as<onika::physics::Quantity>().convert();
+      p.N.y = node[1].as<onika::physics::Quantity>().convert();
+      p.N.z = node[2].as<onika::physics::Quantity>().convert();
+      p.D   = node[3].as<onika::physics::Quantity>().convert();
       return true;
     }
   };

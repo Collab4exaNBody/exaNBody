@@ -35,6 +35,7 @@ namespace onika
   const std::string& suggest_plugin_for( const std::string& itemCategory, const std::string& itemName );
 
   void set_default_plugin_search_dir(const std::string& default_dir);
+  const std::string& default_plugin_search_dir();
 
   void set_quiet_plugin_register(bool b);
   bool quiet_plugin_register();

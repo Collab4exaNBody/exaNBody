@@ -28,12 +28,10 @@ under the License.
 #include <exanb/core/basic_types_operators.h>
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/file_utils.h>
+#include <onika/file_utils.h>
 #include <onika/yaml/yaml_utils.h>
 #include <exanb/core/domain.h>
 #include <onika/physics/units.h>
-#include <exanb/core/unityConverterHelper.h>
-
 #include <onika/soatl/field_tuple.h>
 
 #include <exanb/core/yaml_check_particles.h>
@@ -94,7 +92,7 @@ namespace exanb
       std::set<uint64_t> selected_ids;
       std::vector<ParticleReferenceValue> reference_values;
       
-      std::string file_name = data_file_path( *file );
+      std::string file_name = onika::data_file_path( *file );
       
       bool create = false;
       {
@@ -112,7 +110,7 @@ namespace exanb
       {
         lout << "\n\n**********************\n**********************\n";
         lout << "** Reference file "<<file_name<<"\n";
-        YAML::Node raw_data = yaml_load_file_abort_on_except(file_name);
+        YAML::Node raw_data = onika::yaml::yaml_load_file_abort_on_except(file_name);
         double length_scale = 1.0;
 
         
@@ -124,7 +122,7 @@ namespace exanb
           data["values"] = raw_data;
           data["length_unit"] = "1.0 nm"; 
         }
-        if( data["length_unit"] ) { length_scale = data["length_unit"].as<Quantity>().convert(); }
+        if( data["length_unit"] ) { length_scale = data["length_unit"].as<onika::physics::Quantity>().convert(); }
         reference_values = data["values"].as< std::vector<ParticleReferenceValue> >();
 
         lout << "** length scale = "    << length_scale            << "\n";
@@ -374,7 +372,7 @@ namespace exanb
           const double v_scale = 1.0;
 
           fout << "date: '" << date_str << "'" << std::endl;
-          fout << "length_unit: 1.0 "<< exanb::units::internal_unit_system.length().short_name() << std::endl;
+          fout << "length_unit: 1.0 "<< onika::physics::internal_unit_system.length().short_name() << std::endl;
           fout << "values:" << std::endl;
 
           for(auto p:reference_values)

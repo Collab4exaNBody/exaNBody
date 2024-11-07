@@ -140,8 +140,6 @@ namespace exanb
   extern LogStreamWrapper lerr;
   extern LogStreamWrapper ldbg_raw;
     
-  std::ostream& default_stream_format(std::ostream& out);
-
   // helper that replaces ldbg with a filtered version of the log stream
   struct LogStreamFilterHelper
   {
