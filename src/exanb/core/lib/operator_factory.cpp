@@ -25,7 +25,7 @@ under the License.
 #include <onika/physics/units.h>
 
 #include <exanb/core/log.h>
-#include <exanb/core/plugin.h>
+#include <onika/plugin.h>
 
 #include <cassert>
 #include <iostream>
@@ -56,10 +56,10 @@ namespace exanb
       return 0;
     }
   
-    if( ! exanb::quiet_plugin_register() && m_creators.find(name) == m_creators.end() )
+    if( ! onika::quiet_plugin_register() && m_creators.find(name) == m_creators.end() )
     {
       lout<<"  operator    "<< name << std::endl;
-      plugin_db_register( "operator" , name );
+      onika::plugin_db_register( "operator" , name );
     }
 
     if( m_creators.find(name) != m_creators.end() )
@@ -98,7 +98,7 @@ namespace exanb
     string target_name;
     vector<string> target_args;
     
-    function_name_and_args( target_proto , target_name, target_args );
+    onika::function_name_and_args( target_proto , target_name, target_args );
     size_t nargs = target_args.size();
 
     for (auto p : m_operator_defaults)
@@ -108,7 +108,7 @@ namespace exanb
         std::string proto = p.first.as<std::string>();
         string name;
         vector<string> args;
-        function_name_and_args( proto , name, args );
+        onika::function_name_and_args( proto , name, args );
         if( name == target_name )
         {
           // ldbg << "found matching default for macro "<<name<<std::endl;
@@ -140,7 +140,7 @@ namespace exanb
 
     string name;
     vector<string> args;
-    function_name_and_args( proto , name, args );
+    onika::function_name_and_args( proto , name, args );
     // ldbg << proto << " -> "<<name<<" ("; for(auto x:args){ldbg<<" "<<x;} ldbg << " )" << std::endl;
 
     ssize_t stack_size = m_locals_stack.size();
@@ -235,11 +235,11 @@ namespace exanb
     // tells if an operator, when not found in any factory, is allowed to be considered as an implicit batch operator
     if( it_range.first == m_creators.end() )
     {
-      std::string suggested_plugin = suggest_plugin_for( "operator" , name );
+      std::string suggested_plugin = onika::suggest_plugin_for( "operator" , name );
       if( ! suggested_plugin.empty() )
       {
         ldbg << "auto loading "<< suggested_plugin<<" to find operator "<<name<< std::endl;
-        load_plugins( { suggested_plugin } );
+        onika::load_plugins( { suggested_plugin } );
         it_range = m_creators.equal_range( name );
         if( it_range.first == m_creators.end() )
         {
@@ -261,11 +261,11 @@ namespace exanb
         it_range = m_creators.equal_range( "batch" );
         if( it_range.first == m_creators.end() ) // we have to find plugin containing the batch operator factory
         {
-          std::string suggested_plugin = suggest_plugin_for( "operator" , "batch" );
+          std::string suggested_plugin = onika::suggest_plugin_for( "operator" , "batch" );
           if( ! suggested_plugin.empty() )
           {
             ldbg << "auto loading "<< suggested_plugin<<" to find operator 'batch'" << std::endl;
-            load_plugins( { suggested_plugin } );
+            onika::load_plugins( { suggested_plugin } );
             it_range = m_creators.equal_range( "batch" );
           }
         }
@@ -297,7 +297,7 @@ namespace exanb
       try
       {
         //std::cout<<"\nattempt to build operator '"<<name<<"' from node :\n";
-        //dump_node_to_stream( std::cout , node );
+        //onika::yaml::dump_node_to_stream( std::cout , node );
         //std::cout<<std::endl;
         YAML::Node ncopy = YAML::Clone( node );
         op = it->second ( ncopy , flavor );
@@ -308,7 +308,7 @@ namespace exanb
         ++ n_attempts;
         err_mesg << "Attempt "<< n_attempts <<" failed for the following reason :" << std::endl;
         err_mesg << "===========================================" << std::endl;
-        err_mesg << str_indent( e.what() , 2 , ' ' , "| " );
+        err_mesg << onika::str_indent( e.what() , 2 , ' ' , "| " );
       }
     }
     

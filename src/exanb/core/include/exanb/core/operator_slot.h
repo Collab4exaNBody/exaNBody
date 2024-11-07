@@ -41,7 +41,7 @@ namespace exanb
 {
 
   // forward declaration of helper function
-  template<typename T, bool IsInputOnly=false, bool HasYAMLConversion = is_yaml_convertible_v<T> > class OperatorSlot;
+  template<typename T, bool IsInputOnly=false, bool HasYAMLConversion = onika::yaml::is_yaml_convertible_v<T> > class OperatorSlot;
   template<typename T>
   inline std::shared_ptr< OperatorSlot<T> > make_operator_slot( OperatorNode* opnode, const std::string& k, SlotDirection d );
 
@@ -354,7 +354,7 @@ namespace exanb
 
       if( OperatorSlotBase::m_type != typeid(T).name() && ! has_conversion() )
       {
-        lerr << "Type violation: cannot get " << pretty_short_type<T>() << " from " << pretty_short_type(OperatorSlotBase::m_type) << std::endl;
+        lerr << "Type violation: cannot get " << onika::pretty_short_type<T>() << " from " << onika::pretty_short_type(OperatorSlotBase::m_type) << std::endl;
         std::abort();
       }
       
@@ -379,7 +379,7 @@ namespace exanb
           }
           else
           {
-            lerr << "Internal error: no conversion from "<<pretty_short_type(m_type)<<" to "<<pretty_short_type(typeid(T).name())<<std::endl;
+            lerr << "Internal error: no conversion from "<<onika::pretty_short_type(m_type)<<" to "<<onika::pretty_short_type(typeid(T).name())<<std::endl;
             std::abort();
           }
         }
@@ -481,7 +481,7 @@ namespace exanb
           std::ostringstream errstr;
           try
           {
-            decode_success = YAMLConvertWrapper<T>::decode(node,*allocated_value);
+            decode_success = onika::yaml::YAMLConvertWrapper<T>::decode(node,*allocated_value);
           }
           catch(const YAML::Exception& e)
           {
@@ -491,10 +491,10 @@ namespace exanb
           }
           if( ! decode_success )
           {
-            errstr << "could not convert key "<< sname <<" to type "<< pretty_short_type<T>() << " in node "<< oname << std::endl
+            errstr << "could not convert key "<< sname <<" to type "<< onika::pretty_short_type<T>() << " in node "<< oname << std::endl
                    << "Owner node @ " <<owner <<std::endl
                    << "YAML data is :" <<std::endl;
-            dump_node_to_stream( errstr , node );
+            onika::yaml::dump_node_to_stream( errstr , node );
             delete allocated_value;
             fatal_error() << errstr.str() << std::endl << std::flush;
           }
@@ -512,9 +512,9 @@ namespace exanb
       std::ostringstream errstr;
       //initialize_value( [this,node](T& value)
       //  {
-          errstr << "no YAML conversion (known at compile time) for key "<< OperatorSlotBase::name() <<" to type "<<pretty_short_type<T>() << " in node "<< this->owner()->name() <<std::endl
+          errstr << "no YAML conversion (known at compile time) for key "<< OperatorSlotBase::name() <<" to type "<<onika::pretty_short_type<T>() << " in node "<< this->owner()->name() <<std::endl
                  << "YAML data is :" <<std::endl;
-          dump_node_to_stream( errstr , node );
+          onika::yaml::dump_node_to_stream( errstr , node );
           fatal_error() << errstr.str() << std::endl << std::flush;
       //  } );
     }

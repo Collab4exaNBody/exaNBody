@@ -675,7 +675,7 @@ namespace exanb
   LogStreamWrapper& OperatorNode::pretty_print(LogStreamWrapper& out, int level_of_detail, int indent, ProfilePrintParameters& ppp , ParallelValueStatsFunc pstat )
   {
     static const std::string padding = "................................................................................";
-    out<< format_string("%*s",indent,"") << name() ;
+    out<< onika::format_string("%*s",indent,"") << name() ;
     
     if( ppp.m_print_profiling )
     {
@@ -764,12 +764,12 @@ namespace exanb
         std::string gpu_total_exec_time_str = "           ";
         if( gpu_total_exec_count > 0 && gpu_total_exec_time > 0.0 )
         {
-          gpu_total_exec_time_str = format_string(" (%.2e)",gpu_total_exec_time);
+          gpu_total_exec_time_str = onika::format_string(" (%.2e)",gpu_total_exec_time);
         }
-        out << format_string(" %*.*s % .3e%s%6.3f  %6.3f %9ld  %5.2f%%",padlen,padlen,padding,total_exec_time,gpu_total_exec_time_str,avg_inbalance,max_inbalance,total_exec_count,pt);
+        out << onika::format_string(" %*.*s % .3e%s%6.3f  %6.3f %9ld  %5.2f%%",padlen,padlen,padding,total_exec_time,gpu_total_exec_time_str,avg_inbalance,max_inbalance,total_exec_count,pt);
         if( ppp.m_inner_loop_time > 0.0 )
         {
-          out << format_string(" / %5.2f%%", 100.*total_exec_time/ppp.m_inner_loop_time );
+          out << onika::format_string(" / %5.2f%%", 100.*total_exec_time/ppp.m_inner_loop_time );
         }
       }
       else if( gpu_total_exec_count > 0 && gpu_total_exec_time > 0.0 )
@@ -783,10 +783,10 @@ namespace exanb
       indent += 2;
       for(const auto& p : named_slots() )
       {
-        out << format_string("%*s %s ",indent+p.first.length(),p.first,slot_dir_str(p.second->direction()));
+        out << onika::format_string("%*s %s ",indent+p.first.length(),p.first,slot_dir_str(p.second->direction()));
         if( level_of_detail >= 2 )
         {
-          std::string t = pretty_short_type( p.second->value_type() );
+          std::string t = onika::pretty_short_type( p.second->value_type() );
           // replace type name with readable value if possible
           out << t << " = " << p.second->value_as_string() ;
         }
@@ -800,11 +800,11 @@ namespace exanb
           }
           if( input_slot != nullptr )
           {
-            out << format_string("%*s",indent+2,"") << "from "<<input_slot->pathname() << std::endl;
+            out << onika::format_string("%*s",indent+2,"") << "from "<<input_slot->pathname() << std::endl;
           }
           for(auto& op:p.second->outputs())
           {
-            out << format_string("%*s",indent+2,"") << "to "<<op->pathname() << std::endl;
+            out << onika::format_string("%*s",indent+2,"") << "to "<<op->pathname() << std::endl;
           }
         }
       }
@@ -936,7 +936,7 @@ namespace exanb
     {
       out << "  " << p.first << std::endl
           << "    flow " << slot_dir_str(p.second->direction()) << std::endl
-          << "    type " << pretty_short_type( p.second->value_type() ) << std::endl
+          << "    type " << onika::pretty_short_type( p.second->value_type() ) << std::endl
           << "    desc " << p.second->documentation() << std::endl;
     }
     return out;

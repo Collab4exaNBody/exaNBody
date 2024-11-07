@@ -180,11 +180,11 @@ namespace exanb
      lout << "AMR info avail = " << std::boolalpha << (sub_grid_start != nullptr) << std::endl;
      if( (n_inner_cells-n_empty_cells) > 0 )
      {
-	     lout << "AMR res        = " << format_string("%lld / %.2g / %lld",min_cell_res,total_cell_res*1.0/(n_inner_cells-n_empty_cells),max_cell_res) <<std::endl;
+	     lout << "AMR res        = " << onika::format_string("%lld / %.2g / %lld",min_cell_res,total_cell_res*1.0/(n_inner_cells-n_empty_cells),max_cell_res) <<std::endl;
 	   }
 	   if( n_subcells > 0 )
 	   {
-       lout << "AMR density    = " << format_string("%.2g",n_inner_particles*1.0/n_subcells) <<std::endl;
+       lout << "AMR density    = " << onika::format_string("%.2g",n_inner_particles*1.0/n_subcells) <<std::endl;
      }
      if( grid_cell_values.has_value() )
      {

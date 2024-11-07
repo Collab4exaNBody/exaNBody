@@ -82,6 +82,7 @@ namespace exanb
 
   ScalarSourceTermInstance make_source_term( const YAML::Node& node )
   {
+    using onika::physics::Quantity;
     if( node.IsScalar() )
     {
       std::string type = node.as< std::string >();

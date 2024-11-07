@@ -35,7 +35,7 @@ namespace exanb
         const auto & plot = plots->m_plots[ name ];
         size_t n = plot.size();
 
-        lout << "==================== "<<format_string("%-12s",plots->m_captions[ name ]) <<" ===============" << std::endl;
+        lout << "==================== "<<onika::format_string("%-12s",plots->m_captions[ name ]) <<" ===============" << std::endl;
 
         if( n > 0 )
         {
@@ -48,7 +48,7 @@ namespace exanb
           }
 
           lout << "           ";
-          for(int i=0;i<=(nm+1);i++) { lout << format_string("%.1e   ", y_min + ( i * (y_max-y_min) ) / static_cast<double>(nm) ); }
+          for(int i=0;i<=(nm+1);i++) { lout << onika::format_string("%.1e   ", y_min + ( i * (y_max-y_min) ) / static_cast<double>(nm) ); }
           lout << std::endl << "            ";
           for(int i=0;i<=nm;i++) { lout << "|_________"; }
           lout << '|' << std::endl;
@@ -64,8 +64,8 @@ namespace exanb
               count = 10*(nm+1) - 1;
               overflow = true;
             }
-    //        lout << format_string("% .3e : %.1e : ",histogram->m_min_val + ( i * (histogram->m_max_val - histogram->m_min_val) ) / n, raw_count ) ;
-            lout << format_string("% .4e ", plot[i].first ) ;
+    //        lout << onika::format_string("% .3e : %.1e : ",histogram->m_min_val + ( i * (histogram->m_max_val - histogram->m_min_val) ) / n, raw_count ) ;
+            lout << onika::format_string("% .4e ", plot[i].first ) ;
             if( count == 0 )
             {
               if( plot[i].second > y_min ) lout << '.';

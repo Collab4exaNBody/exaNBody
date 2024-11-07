@@ -59,7 +59,7 @@ namespace exanb
         if( ! ( it->second.IsScalar() || it->second.IsSequence() ) )
         {
           lerr << "In global, value for '"<<key<<"' is not a scalar nor a sequence in following map :\n";
-          dump_node_to_stream( lerr , node );
+          onika::yaml::dump_node_to_stream( lerr , node );
           std::abort();
         }
         

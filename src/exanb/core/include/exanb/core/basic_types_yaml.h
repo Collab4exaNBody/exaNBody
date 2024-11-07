@@ -31,7 +31,7 @@ namespace YAML
   using exanb::Plane3d;
   using exanb::Mat3d;
   using exanb::AABB;
-  using exanb::units::Quantity;
+  using onika::physics::Quantity;
     
   template<> struct convert< IJK >
   {

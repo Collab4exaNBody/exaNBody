@@ -16,12 +16,13 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <exanb/core/operator_slot_base.h>
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_factory.h>
 #include <onika/type_utils.h>
 #include <onika/string_utils.h>
-#include <exanb/core/plugin.h>
+#include <onika/plugin.h>
 
 #include <cassert>
 #include <memory>
@@ -53,9 +54,9 @@ namespace exanb
       {
         lerr << "incompatible slot types: " << std::endl
              << "  from " << from->pathname() << std::endl
-             << "       with type "<< pretty_short_type(from->m_type) << std::endl
+             << "       with type "<< onika::pretty_short_type(from->m_type) << std::endl
              << "  to " << to->pathname() << std::endl
-             << "       with type " << pretty_short_type(to->m_type) <<std::endl;
+             << "       with type " << onika::pretty_short_type(to->m_type) <<std::endl;
         std::abort();
       }
       else
@@ -256,7 +257,7 @@ namespace exanb
       void* dp = nullptr;
       if( addr_converter != nullptr ) { dp = addr_converter(p); }
       else { dp = p; }
-      ldbg<<"converting "<<pretty_short_type(s)<<" @"<<p<<" to "<<pretty_short_type(d)<<" @"<<dp<<std::endl;
+      ldbg<<"converting "<<onika::pretty_short_type(s)<<" @"<<p<<" to "<<onika::pretty_short_type(d)<<" @"<<dp<<std::endl;
       return dp;
     };
 #   endif
@@ -268,7 +269,7 @@ namespace exanb
     else
     {
       // ldbg << "register conversion from "<<remove_exanb_namespaces(strip_type_spaces(demangle_type_string(s)))<<" to "<<remove_exanb_namespaces(strip_type_spaces(demangle_type_string(d)))<<std::endl;
-      if( ! exanb::quiet_plugin_register() ) { lout << "  conversion  "<<pretty_short_type(s)<<" -> "<<pretty_short_type(d)<<std::endl; }
+      if( ! onika::quiet_plugin_register() ) { lout << "  conversion  "<<onika::pretty_short_type(s)<<" -> "<<onika::pretty_short_type(d)<<std::endl; }
       s_type_conversion[ s ] [ d ] = f;
     }
   }

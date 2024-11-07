@@ -200,7 +200,7 @@ namespace exanb
 
         for(int i=0;i<np; ++i)
         {
-          const std::string filename_vtp = format_string("%s%09d.vtp",subdir,i);
+          const std::string filename_vtp = onika::format_string("%s%09d.vtp",subdir,i);
           file_pvtp << vtk_space_offset_four << "<Piece Source=\""<< filename_vtp <<"\"/>" << std::endl;
         }
 
@@ -222,7 +222,7 @@ namespace exanb
       ldbg << "Grid: cells="<<grid.number_of_cells() <<", ghost_layers()="<<grid.ghost_layers()<<", ghost partilces="<<grid.number_of_ghost_particles()
            << ", particles to write = "<<nb_particles << std::endl;
 
-      const std::string filename_vtp = format_string("%s/%09d.vtp",filename,rank);
+      const std::string filename_vtp = onika::format_string("%s/%09d.vtp",filename,rank);
       ldbg << "write " << filename_vtp << std::endl;
 
       std::ofstream file_vtp(filename_vtp);
@@ -319,7 +319,7 @@ namespace exanb
       // TO DO : box will be dependant of the time
       if(write_box && rank==0)
       {
-        std::string box_name = format_string("%s/box.vtp",filename);
+        std::string box_name = onika::format_string("%s/box.vtp",filename);
         ldbg << "write box to "<<box_name << std::endl;
 
         std::ifstream f(box_name);

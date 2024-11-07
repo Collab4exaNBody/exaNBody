@@ -58,7 +58,7 @@ namespace exanb
 #     ifndef NDEBUG
       static constexpr size_t scalar_len = 18;
       static const char* real_format = "% .10e\n";  
-      const std::string test_str = format_string(real_format,123456.0);
+      const std::string test_str = onika::format_string(real_format,123456.0);
       const size_t scalar_len_test = test_str.length();
       assert( scalar_len == scalar_len_test );
       assert( test_str[scalar_len-1] == '\n' );

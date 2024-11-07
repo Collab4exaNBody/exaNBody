@@ -486,7 +486,7 @@ namespace exanb
         {
           if( rank == p )
           {
-            std::cout << format_string("P%05d : ",p) << out_block << " : shape = "<< dimension(out_block) <<std::endl;
+            std::cout << onika::format_string("P%05d : ",p) << out_block << " : shape = "<< dimension(out_block) <<std::endl;
           }
           MPI_Barrier(comm);
         }
@@ -507,7 +507,7 @@ namespace exanb
       ldbg << "[" ;
       for(double x : values)
       {
-        ldbg << format_string(" %.1e",x);
+        ldbg << onika::format_string(" %.1e",x);
       }
       ldbg << " ]" << std::endl;
     }

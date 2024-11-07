@@ -87,15 +87,15 @@ namespace exanb
         for(auto m : *mirror)
         {
           lout << " "<<m;
-          if( exanb::str_tolower(m) == "x-" ) { domain->set_mirror_x_min(true); }
-          if( exanb::str_tolower(m) == "x+" ) { domain->set_mirror_x_max(true); }
-          if( exanb::str_tolower(m) == "x" )  { domain->set_mirror_x_min(true); domain->set_mirror_x_max(true); }
-          if( exanb::str_tolower(m) == "y-" ) { domain->set_mirror_y_min(true); }
-          if( exanb::str_tolower(m) == "y+" ) { domain->set_mirror_y_max(true); }
-          if( exanb::str_tolower(m) == "y" )  { domain->set_mirror_y_min(true); domain->set_mirror_y_max(true); }
-          if( exanb::str_tolower(m) == "z-" ) { domain->set_mirror_z_min(true); }
-          if( exanb::str_tolower(m) == "z+" ) { domain->set_mirror_z_max(true); }
-          if( exanb::str_tolower(m) == "z" )  { domain->set_mirror_z_min(true); domain->set_mirror_z_max(true); }
+          if( onika::str_tolower(m) == "x-" ) { domain->set_mirror_x_min(true); }
+          if( onika::str_tolower(m) == "x+" ) { domain->set_mirror_x_max(true); }
+          if( onika::str_tolower(m) == "x" )  { domain->set_mirror_x_min(true); domain->set_mirror_x_max(true); }
+          if( onika::str_tolower(m) == "y-" ) { domain->set_mirror_y_min(true); }
+          if( onika::str_tolower(m) == "y+" ) { domain->set_mirror_y_max(true); }
+          if( onika::str_tolower(m) == "y" )  { domain->set_mirror_y_min(true); domain->set_mirror_y_max(true); }
+          if( onika::str_tolower(m) == "z-" ) { domain->set_mirror_z_min(true); }
+          if( onika::str_tolower(m) == "z+" ) { domain->set_mirror_z_max(true); }
+          if( onika::str_tolower(m) == "z" )  { domain->set_mirror_z_min(true); domain->set_mirror_z_max(true); }
         }
         lout << " ]"<<std::endl;
       }

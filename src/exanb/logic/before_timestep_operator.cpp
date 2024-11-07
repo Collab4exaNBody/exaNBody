@@ -69,7 +69,7 @@ namespace exanb
         {
           lerr << "before_timestep must have the form before_timestep: value or before_timestep: { end_at: value }" << std::endl;
           lerr << "--- YAML node content ---" << std::endl;
-	  dump_node_to_stream( lerr , node );
+	  onika::yaml::dump_node_to_stream( lerr , node );
           lerr << "-------------------------" << std::endl;
           std::abort();
         }

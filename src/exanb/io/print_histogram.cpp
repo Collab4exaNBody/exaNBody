@@ -82,13 +82,13 @@ namespace exanb
 
       lout << std::endl
            << "==================== Histogram ===============" << std::endl
-           << "=== "<< format_string("%-39s",*message) << "===" << std::endl
-           << "=== "<< format_string("count : %.2e / %.2e / %.2e",median_count,total_count-median_count,total_count) << " ===" << std::endl
-           << "=== "<< format_string("total : %.3e %24s",total_value,"===") << std::endl
+           << "=== "<< onika::format_string("%-39s",*message) << "===" << std::endl
+           << "=== "<< onika::format_string("count : %.2e / %.2e / %.2e",median_count,total_count-median_count,total_count) << " ===" << std::endl
+           << "=== "<< onika::format_string("total : %.3e %24s",total_value,"===") << std::endl
            << "==============================================" << std::endl
            << "           ";
 
-      for(int i=0;i<=(nm+1);i++) { lout << format_string("%.1e   ", min_count + ( i * (max_count-min_count) ) / sfactor / static_cast<double>(nm) ); }
+      for(int i=0;i<=(nm+1);i++) { lout << onika::format_string("%.1e   ", min_count + ( i * (max_count-min_count) ) / sfactor / static_cast<double>(nm) ); }
       lout << std::endl << "            ";
       for(int i=0;i<=nm;i++) { lout << "|_________"; }
       lout << '|' << std::endl;
@@ -104,8 +104,8 @@ namespace exanb
           count = 10*(nm+1) - 1;
           overflow = true;
         }
-//        lout << format_string("% .3e : %.1e : ",histogram->m_min_val + ( i * (histogram->m_max_val - histogram->m_min_val) ) / n, raw_count ) ;
-        lout << format_string("%c% .3e ", ( (i==median_bin) ? '*' : ' ' ) , histogram->m_min_val + ( i * (histogram->m_max_val - histogram->m_min_val) ) / n ) ;
+//        lout << onika::format_string("% .3e : %.1e : ",histogram->m_min_val + ( i * (histogram->m_max_val - histogram->m_min_val) ) / n, raw_count ) ;
+        lout << onika::format_string("%c% .3e ", ( (i==median_bin) ? '*' : ' ' ) , histogram->m_min_val + ( i * (histogram->m_max_val - histogram->m_min_val) ) / n ) ;
         if( count == 0 )
         {
           if( data[i] != min_count ) { lout << '.'; }

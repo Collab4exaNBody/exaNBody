@@ -84,8 +84,8 @@ namespace exanb
       if( (n_domain_cells / (np*nt)) > max_small_cells_per_thread && domain->cell_size() <= (*ghost_dist) )
       {
         double adv_cell_size = std::ceil( (*ghost_dist) * 10.5 ) / 10.0;
-        lout << "Alert       : too many ("<<(n_domain_cells/(np*nt))<<") small sized ("<<format_string("%.2f ang",domain->cell_size())<<") cells per thread" << std::endl;
-        lout << "Tip         : consider increasing cell_size to "<< format_string("[ %.1f ang ; %.1f ang ]",adv_cell_size,adv_cell_size*8) << std::endl;
+        lout << "Alert       : too many ("<<(n_domain_cells/(np*nt))<<") small sized ("<<onika::format_string("%.2f ang",domain->cell_size())<<") cells per thread" << std::endl;
+        lout << "Tip         : consider increasing cell_size to "<< onika::format_string("[ %.1f ang ; %.1f ang ]",adv_cell_size,adv_cell_size*8) << std::endl;
       }
       
       if( (n_domain_cells / (np*nt)) > max_cells_per_thread )

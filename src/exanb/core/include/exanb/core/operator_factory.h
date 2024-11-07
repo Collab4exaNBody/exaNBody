@@ -133,7 +133,7 @@ namespace exanb
       {
         if( OperatorNodeFactory::debug_verbose_level() >= 2 )
         {
-          ldbg << "select operator "<< pretty_short_type<OperatorType>() << std::endl;
+          ldbg << "select operator "<< onika::pretty_short_type<OperatorType>() << std::endl;
         }
         return op;
       }
@@ -141,7 +141,7 @@ namespace exanb
       {
         if( OperatorNodeFactory::debug_verbose_level() >= 3 )
         {
-          ldbg << "reject operator "<< pretty_short_type<OperatorType>() << std::endl;   
+          ldbg << "reject operator "<< onika::pretty_short_type<OperatorType>() << std::endl;   
         }
         incompatibilities.push_back( incompatibility );
         return nullptr;
@@ -162,12 +162,12 @@ namespace exanb
       oss << "Couldn't find a compatible operator. flavor was :" << std::endl;
       for(auto& p : flavor)
       {
-        oss<< '\t' << p.first << " -> " << pretty_short_type(p.second) << std::endl;
+        oss<< '\t' << p.first << " -> " << onika::pretty_short_type(p.second) << std::endl;
       }
       oss << "Available factories failed for the following reasons :" << std::endl;      
       for(const OperatorNodeIncompatibility& i : incompatibilities)
       {
-        oss<< "\tslot " << i.slot_name << " with type " << pretty_short_type(i.slot_type) << " incompatible with flavor type " << pretty_short_type(i.flavor_type) << std::endl;
+        oss<< "\tslot " << i.slot_name << " with type " << onika::pretty_short_type(i.slot_type) << " incompatible with flavor type " << onika::pretty_short_type(i.flavor_type) << std::endl;
       }
       throw OperatorCreationException( oss.str() );
     }

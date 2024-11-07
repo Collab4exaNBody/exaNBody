@@ -27,7 +27,7 @@ under the License.
 namespace YAML
 {
   using exanb::Quaternion;
-  using exanb::units::Quantity;
+  using onika::physics::Quantity;
 
   template <> struct convert<Quaternion>
   {

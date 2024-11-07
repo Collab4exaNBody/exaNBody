@@ -16,8 +16,9 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <exanb/core/parallel_random.h>
-#include <exanb/core/plugin.h>
+#include <onika/plugin.h>
 
 #include <exanb/core/operator_factory.h>
 //#include "exanb/potential/pair_potential_factory.h"
@@ -349,10 +350,10 @@ int main(int argc,char*argv[])
        <<" (debug)"
 # endif
        <<endl
-       << "MPI     : "<< format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
-       << "CPU     : "<< format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
-       << "OpenMP  : "<< format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< onika::omp::get_version_string() 
-                      << ( ( configuration.omp_max_nesting > 1 ) ? format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
+       << "MPI     : "<< onika::format_string("%-4d",nb_procs)<<" process"<<plurial_suffix(nb_procs,"es")<<endl
+       << "CPU     : "<< onika::format_string("%-4d",cpucount)<<" core"<<plurial_suffix(cpucount)<<" (max "<<cpu_hw_threads<<") :"<<core_config<<std::endl
+       << "OpenMP  : "<< onika::format_string("%-4d",num_threads) <<" thread"<<plurial_suffix(num_threads) <<" (v"<< onika::omp::get_version_string() 
+                      << ( ( configuration.omp_max_nesting > 1 ) ? onika::format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
        << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
 # ifdef ONIKA_CUDA_VERSION
@@ -384,7 +385,7 @@ int main(int argc,char*argv[])
     std::string file_name = oss.str();
     lout << "dump random state to file " <<file_name<< endl;    
     std::ofstream fout( file_name );
-    dump_node_to_stream( fout, rng_node );
+    onika::yaml::dump_node_to_stream( fout, rng_node );
     fout << std::endl;
   }
   // ==========================================================
@@ -402,13 +403,13 @@ int main(int argc,char*argv[])
   if( configuration.debug.yaml )
   {
     lout << "======== configuration ========" << endl;
-    dump_node_to_stream( lout, config_node );
+    onika::yaml::dump_node_to_stream( lout, config_node );
     lout << std::endl << "==============================" << endl << endl;
     lout << "===== default definitions =====" << endl;
-    dump_node_to_stream( lout, input_data );
+    onika::yaml::dump_node_to_stream( lout, input_data );
     lout << std::endl << "==============================" << endl << endl;
     lout << "========= simulation ==========" << endl;
-    dump_node_to_stream( lout, simulation_node );
+    onika::yaml::dump_node_to_stream( lout, simulation_node );
     lout << std::endl << "==============================" << endl << endl;
   }
   if( configuration.debug.config )
@@ -447,7 +448,7 @@ int main(int argc,char*argv[])
   exanb::set_default_plugin_search_dir( configuration.plugin_dir );
   if( ! configuration.plugins.empty() ) 
   {
-    exanb::load_plugins( configuration.plugins , configuration.debug.plugins );
+    onika::load_plugins( configuration.plugins , configuration.debug.plugins );
   }
   if( configuration.debug.plugins ) { lout << "=================================" << endl << endl; }
 

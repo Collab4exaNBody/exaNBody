@@ -89,7 +89,7 @@ namespace exanb
 #     ifndef NDEBUG
       std::cout << std::setprecision(3) << "P "<<rank<<" / "<<nprocs<<" : sum(F)="<<force_sum<<" , sum(Fnorm)="<<force_norm_sum <<std::endl<<std::flush;
 #     endif
-      lout << format_string("sum of forces = % .3e , % .3e , % .3e (% .3e) , sum of norms = % .3e",all_force_sum.x , all_force_sum.y,all_force_sum.z,norm(all_force_sum),all_force_norm_sum) << std::endl;
+      lout << onika::format_string("sum of forces = % .3e , % .3e , % .3e (% .3e) , sum of norms = % .3e",all_force_sum.x , all_force_sum.y,all_force_sum.z,norm(all_force_sum),all_force_norm_sum) << std::endl;
     }
   };
 

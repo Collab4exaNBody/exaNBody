@@ -116,7 +116,7 @@ namespace exanb
       xformlocal = F * inverse(Fprec);
       domain->set_xform( xformlocal * domain->xform() );
   
-      string interpolated_xform = format_string("\t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n", F.m11, F.m12, F.m13, F.m21, F.m22, F.m23, F.m31, F.m32, F.m33);
+      string interpolated_xform = onika::format_string("\t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n", F.m11, F.m12, F.m13, F.m21, F.m22, F.m23, F.m31, F.m32, F.m33);
       ldbg << "\n\tInterpolated XForm at time T = " << curtime << std::endl;
       ldbg << interpolated_xform << std::endl;
     }

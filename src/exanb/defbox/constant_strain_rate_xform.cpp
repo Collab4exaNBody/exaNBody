@@ -144,7 +144,7 @@ namespace exanb
 
       domain->set_xform( xformlocal * domain->xform());
 
-      string interpolated_xform = format_string("\t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n", (xform).m11, (xform).m12, (xform).m13, (xform).m21, (xform).m22, (xform).m23, (xform).m31, (xform).m32, (xform).m33);
+      string interpolated_xform = onika::format_string("\t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n", (xform).m11, (xform).m12, (xform).m13, (xform).m21, (xform).m22, (xform).m23, (xform).m31, (xform).m32, (xform).m33);
       ldbg << "\n\tConstant strain-rate xform at time t = " << curtime << " s"<< std::endl;
       ldbg << interpolated_xform << std::endl;
     }

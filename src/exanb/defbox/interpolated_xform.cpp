@@ -75,7 +75,7 @@ namespace exanb
       
       domain->set_xform( mat );
 
-      std::string interpolated_xform = format_string("\t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n", 
+      std::string interpolated_xform = onika::format_string("\t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n \t | %-5.4e \t %-5.4e \t %-5.4e | \n", 
                                                 mat.m11, mat.m12, mat.m13, mat.m21, mat.m22, mat.m23, mat.m31, mat.m32, mat.m33);
                                                 
       ldbg << "\n\tInterpolated XForm at time T = " << *physical_time << std::endl;

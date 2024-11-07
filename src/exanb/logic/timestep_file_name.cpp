@@ -36,7 +36,7 @@ namespace exanb
   public:
     inline void execute() override final
     {
-      *filename = format_string( *format , *timestep );
+      *filename = onika::format_string( *format , *timestep );
       ldbg << "timestep file = " << *filename <<std::endl;
     }
 

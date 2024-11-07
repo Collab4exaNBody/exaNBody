@@ -219,7 +219,7 @@ namespace exanb
         if( ndev > 0 )
         {
           onika::memory::GenericHostAllocator::set_cuda_enabled( true );
-          lout <<"Mem  : "<< memory_bytes_string(totalGlobalMem/ndev) <<" (shared="<<memory_bytes_string(sharedMemPerBlock,"%g%s")<<" L2="<<memory_bytes_string(l2_cache,"%g%s")<<")" <<std::endl;
+          lout <<"Mem  : "<< onika::memory_bytes_string(totalGlobalMem/ndev) <<" (shared="<<onika::memory_bytes_string(sharedMemPerBlock,"%g%s")<<" L2="<<onika::memory_bytes_string(l2_cache,"%g%s")<<")" <<std::endl;
         }
         else
         {

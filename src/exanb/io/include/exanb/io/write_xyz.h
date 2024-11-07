@@ -153,33 +153,33 @@ namespace exanb
         else if constexpr ( std::is_same_v<field_type,Vec3d> )
         {
           const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
-          return format_string_buffer( buf, bufsize, format_for_value(v) , v.x , v.y , v.z );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v.x , v.y , v.z );
         }
         else if constexpr ( std::is_same_v<field_type,Mat3d> )
         {
           const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
-          return format_string_buffer( buf, bufsize, format_for_value(v) , v.m11 , v.m12 , v.m13 , v.m21 , v.m22 , v.m23 , v.m31 , v.m32 , v.m33 );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v.m11 , v.m12 , v.m13 , v.m21 , v.m22 , v.m23 , v.m31 , v.m32 , v.m33 );
         }
         else if constexpr ( std::is_same_v<field_type,Quaternion> )
         {
           const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
-          return format_string_buffer( buf, bufsize, format_for_value(v) , v.w , v.x , v.y , v.z );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v.w , v.x , v.y , v.z );
         }
         else if constexpr ( is_array_of_integral_v<field_type,4> )
         {
           T v; for(size_t i=0;i<4;i++) v[i] = ( conv != 1.0 ) ? static_cast<decltype(in_v[i])>( in_v[i] * conv ) : in_v[i] ;
-          return format_string_buffer( buf, bufsize, format_for_value(v) , v[0] , v[1] , v[2] , v[3] );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v[0] , v[1] , v[2] , v[3] );
         }
         else if constexpr ( std::is_arithmetic_v<field_type> )
         {
           const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
-          return format_string_buffer( buf, bufsize, format_for_value(v) , v );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v );
         }
         else // commented out to avoid intel compiler fake warning about missing return value
         {
           if( ParaViewTypeId<field_type>::ncomp != 1 ) { fatal_error() << "number of components not 1 as expected for field "<<f.short_name()<<" with type "<<type_as_string<T>()<<std::endl; }
           if( conv != 1.0 ) { fatal_error() << "Conversion factor not allowed for type "<<typeid(T).name()<<std::endl; }
-          return format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
         }
 	return 0; // should never get there
       }
@@ -279,7 +279,7 @@ namespace exanb
       Mat3d lot = transpose(xform * lattice);
 
       std::ostringstream oss;
-      oss << format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
+      oss << onika::format_string("%ld\nLattice=\"%10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e %10.12e\"",total_particle_number, lot.m11, lot.m12, lot.m13, lot.m21, lot.m22, lot.m23, lot.m31, lot.m32, lot.m33);
       // ( ... , (
       //   field_selector(particle_fields.short_name()) ? ( oss << ' ' << formatter.field_name_mapping(particle_fields) ) : oss
       // ) ;

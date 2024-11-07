@@ -51,7 +51,7 @@ namespace exanb
       if( gdist > 0.0 && domain->cell_size() == 0.0 )
       {
         double f = *auto_cell_size_factor;
-        ldbg << "automatic cell_size = "<<gdist<<" * "<<f<<" = "<< format_string("%.1f",gdist*f) <<" ang"<< std::endl;
+        ldbg << "automatic cell_size = "<<gdist<<" * "<<f<<" = "<< onika::format_string("%.1f",gdist*f) <<" ang"<< std::endl;
         domain->set_cell_size( gdist * f );
       }
       ldbg<<"domain init: "<< *domain << std::endl;

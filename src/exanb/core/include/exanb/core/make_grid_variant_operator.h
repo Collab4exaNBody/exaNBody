@@ -84,7 +84,7 @@ namespace exanb
       static inline void print_field_sets(StreamT& out , const std::string& prefix="- ", const std::string& mid="", const std::string& sufix="\n" )
       {
         std::string m="";
-        ( ... , (  out << prefix << m << pretty_short_type< GridFromFieldSet<FS> > () << sufix , m=mid ) );
+        ( ... , (  out << prefix << m << onika::pretty_short_type< GridFromFieldSet<FS> > () << sufix , m=mid ) );
       }
     };
 

@@ -255,7 +255,7 @@ namespace YAML
       if( ! named_region.IsMap() )
       {
         exanb::lerr << "Region defintion should be definaed as a map of map 'name: { ... }' " << std::endl;
-        exanb::lerr<<"Yaml='"; exanb::dump_node_to_stream( exanb::lerr , named_region ); exanb::lerr <<"'"<<std::endl;
+        exanb::lerr<<"Yaml='"; onika::yaml::dump_node_to_stream( exanb::lerr , named_region ); exanb::lerr <<"'"<<std::endl;
         return false;
       }
       
@@ -264,7 +264,7 @@ namespace YAML
       if( ! node.IsMap() )
       {
         exanb::lerr << "Region must be defined with a map" << std::endl;
-        exanb::lerr<<"Yaml='"; exanb::dump_node_to_stream( exanb::lerr , node ); exanb::lerr <<"'"<<std::endl;
+        exanb::lerr<<"Yaml='"; onika::yaml::dump_node_to_stream( exanb::lerr , node ); exanb::lerr <<"'"<<std::endl;
         return false;
       }
 
@@ -277,7 +277,7 @@ namespace YAML
         if( ! node["id_range"].IsSequence() )
         {
           exanb::lerr << "id_range must be a sequence" << std::endl;
-          exanb::lerr<<"Yaml='"; exanb::dump_node_to_stream( exanb::lerr , node ); exanb::lerr <<"'"<<std::endl;
+          exanb::lerr<<"Yaml='"; onika::yaml::dump_node_to_stream( exanb::lerr , node ); exanb::lerr <<"'"<<std::endl;
           return false;
         }
         const auto idrange = node["id_range"].as<std::vector<uint64_t> >();

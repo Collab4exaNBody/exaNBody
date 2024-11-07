@@ -62,7 +62,7 @@ namespace exanb
         if( info[ptr].m_typename.empty() )
         {
           info[ptr].m_ptr = ptr;
-          info[ptr].m_typename = exanb::pretty_short_type( slot->value_type() );
+          info[ptr].m_typename = onika::pretty_short_type( slot->value_type() );
           info[ptr].m_name = slot->name();
           info[ptr].m_musage = slot->memory_bytes();
           info[ptr].m_musage_min = 0;
@@ -165,7 +165,7 @@ namespace exanb
     }
 
     // header    
-    lout << format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"," Slot name","Mem. tot","Mem. min","Mem. avg","Mem. max","data type") << std::endl;
+    lout << onika::format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"," Slot name","Mem. tot","Mem. min","Mem. avg","Mem. max","data type") << std::endl;
 
 /*
     std::vector<OperatorSlotBaseInfo> mem_info_vec;
@@ -199,17 +199,17 @@ namespace exanb
       const auto& p = kv.second;
       assert( ! p.m_name.empty() );
       std::string name;
-      if( p.m_repeat_same_name>1 ) name = format_string("%s x%d",p.m_name,p.m_repeat_same_name);
+      if( p.m_repeat_same_name>1 ) name = onika::format_string("%s x%d",p.m_name,p.m_repeat_same_name);
       else name = p.m_name;
       
       if( p.m_musage >= musage_threshold )
       {
-        lout << format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"
+        lout << onika::format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"
                               , name
-                              , memory_bytes_string( p.m_musage ) 
-                              , memory_bytes_string( p.m_musage_min ) 
-                              , memory_bytes_string( p.m_musage_avg ) 
-                              , memory_bytes_string( p.m_musage_max )
+                              , onika::memory_bytes_string( p.m_musage ) 
+                              , onika::memory_bytes_string( p.m_musage_min ) 
+                              , onika::memory_bytes_string( p.m_musage_avg ) 
+                              , onika::memory_bytes_string( p.m_musage_max )
                               , p.m_typename ) << std::endl;
       }
 
@@ -218,18 +218,18 @@ namespace exanb
       {
         for(const auto& pn : p.m_pathnames)
         {
-          lout << format_string( "%-30s" , pn ) << std::endl;
+          lout << onika::format_string( "%-30s" , pn ) << std::endl;
         }
       }
       */
     }
     
-    lout << format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"
+    lout << onika::format_string( "%-40s %-10s %-10s %-10s %-10s %-80s"
                           , "total"
-                          , memory_bytes_string( mem_info[nullptr].m_musage ) 
-                          , memory_bytes_string( mem_info[nullptr].m_musage_min ) 
-                          , memory_bytes_string( mem_info[nullptr].m_musage_avg ) 
-                          , memory_bytes_string( mem_info[nullptr].m_musage_max )
+                          , onika::memory_bytes_string( mem_info[nullptr].m_musage ) 
+                          , onika::memory_bytes_string( mem_info[nullptr].m_musage_min ) 
+                          , onika::memory_bytes_string( mem_info[nullptr].m_musage_avg ) 
+                          , onika::memory_bytes_string( mem_info[nullptr].m_musage_max )
                           , " - " ) << std::endl;
     
   }

@@ -246,8 +246,8 @@ namespace exanb
           if( f[ batch_k ] != value_type )
           {
             lerr << "Warning, conflicting type for batch slot '"<<batch_k<<"'"<<std::endl
-                 << "  reject type "<<pretty_short_type(value_type)<<std::endl
-                 << "  keep type "<<pretty_short_type(f[batch_k])<<std::endl;
+                 << "  reject type "<<onika::pretty_short_type(value_type)<<std::endl
+                 << "  keep type "<<onika::pretty_short_type(f[batch_k])<<std::endl;
           }
         }
       }
@@ -578,7 +578,7 @@ namespace exanb
           batch_node["body"] = unrolled_body;
           batch_node.remove( "rebind" );
           // ldbg << "unrolled batch :" << std::endl;
-          // dump_node_to_stream( ldbg , batch_node );
+          // onika::yaml::dump_node_to_stream( ldbg , batch_node );
         }
       }
       
@@ -673,7 +673,7 @@ namespace exanb
         {
           lerr<<"operator has the form compute_op: <parameters map>, but its map size is "<<op.size()<<std::endl;
           lerr<<"node content was :"<<std::endl;
-          dump_node_to_stream( lerr , op );
+          onika::yaml::dump_node_to_stream( lerr , op );
           lerr<<std::endl;
           std::abort();
         }
@@ -712,7 +712,7 @@ namespace exanb
         {
           if( p.first.find("__") != 0 )
           {
-            ::exanb::ldbg << '\t' << p.first << " -> " << pretty_short_type(p.second) << std::endl;
+            ::exanb::ldbg << '\t' << p.first << " -> " << onika::pretty_short_type(p.second) << std::endl;
           }
         }
       }
@@ -725,7 +725,7 @@ namespace exanb
       catch( const OperatorCreationException& e )
       {
         lerr<<"Unable to add operator '"<<opname<<"' to batch"<<std::endl;
-        lerr<< str_indent( e.what() , 2 , ' ' , "| " );
+        lerr<< onika::str_indent( e.what() , 2 , ' ' , "| " );
         std::abort();
       }
       if( new_op == nullptr )

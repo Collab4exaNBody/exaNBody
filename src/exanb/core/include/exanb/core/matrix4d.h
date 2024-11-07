@@ -369,7 +369,7 @@ namespace YAML
     static inline bool decode(const Node& node, exanb::Mat4d & M)
     {
       //std::cout<<"Mat4d Yaml='";
-      //exanb::dump_node_to_stream( std::cout , node );
+      //onika::yaml::dump_node_to_stream( std::cout , node );
       //std::cout<<"'"<<std::endl;
       
       if( node.IsSequence() )
@@ -413,7 +413,7 @@ namespace YAML
         else
         {
           std::cerr<<"Mat4d conversion error: Node is neither map or scalar. node content :"<<std::endl;
-          exanb::dump_node_to_stream( std::cerr , node );
+          onika::yaml::dump_node_to_stream( std::cerr , node );
           std::cerr<<std::endl;
           return false;
         }

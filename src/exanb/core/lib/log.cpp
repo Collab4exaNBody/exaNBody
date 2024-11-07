@@ -110,15 +110,15 @@ namespace exanb
     using onika::format_string;
     if( !out_file_name.empty() && mpi_size>1 )
     {
-      out_file_name = format_string("%s.%03d",out_file_name,rank );
+      out_file_name = onika::format_string("%s.%03d",out_file_name,rank );
     }
     if( !err_file_name.empty() && mpi_size>1 )
     {
-      err_file_name = format_string("%s.%03d",err_file_name,rank );
+      err_file_name = onika::format_string("%s.%03d",err_file_name,rank );
     }
     if( !dbg_file_name.empty() && mpi_size>1 )
     {
-      dbg_file_name = format_string("%s.%03d",dbg_file_name,rank );
+      dbg_file_name = onika::format_string("%s.%03d",dbg_file_name,rank );
     }
 
     // ============== configure logging =============
@@ -128,8 +128,8 @@ namespace exanb
       if( ! err_file_name.empty() ) { lerr.open(err_file_name); }
       if(parallel_log) 
       {
-        lout.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<exanb::format_string("P%03d: ",rank); } ;
-        lerr.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<exanb::format_string("P%03d: ERR: ",rank); } ;
+        lout.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<onika::format_string("P%03d: ",rank); } ;
+        lerr.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<onika::format_string("P%03d: ERR: ",rank); } ;
       }
       else
       {
@@ -151,7 +151,7 @@ namespace exanb
       }
       if( parallel_log )
       {
-        ldbg_raw.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<exanb::format_string("P%03d: DBG: ",rank); } ;
+        ldbg_raw.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<onika::format_string("P%03d: DBG: ",rank); } ;
       }
       else
       {
