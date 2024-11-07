@@ -23,7 +23,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/basic_types_stream.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/thread.h>

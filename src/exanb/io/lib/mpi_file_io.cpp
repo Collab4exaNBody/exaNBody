@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/io/mpi_file_io.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include <iostream>
 #include <sstream>
@@ -25,6 +25,7 @@ under the License.
 #include <vector>
 #include <fstream>
 #include <cstring>
+#include <limits>
 
 #include <zlib.h>//lib for compression
 

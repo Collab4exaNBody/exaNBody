@@ -18,7 +18,7 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/geometry.h>
 

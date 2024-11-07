@@ -16,9 +16,6 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/log.h>
-#include <onika/string_utils.h>
-#include <onika/print_utils.h>
 
 #include <fstream>
 #include <iostream>
@@ -26,7 +23,11 @@ under the License.
 #include <thread>
 #include <unistd.h>
 
-namespace exanb
+#include <onika/log.h>
+#include <onika/string_utils.h>
+#include <onika/print_utils.h>
+
+namespace onika
 {  
   LogStreamWrapper lout  { 1 , []() -> std::ostream& {return std::cout;} };
   LogStreamWrapper lerr  { 2 , []() -> std::ostream& {return std::cerr;} };
@@ -170,7 +171,7 @@ namespace exanb
   }
 
   // create a log filter for debug messages out of operator scope
-  LogStreamFilterHelper ldbg { ::exanb::ldbg_raw , std::numeric_limits<uint64_t>::max() };
+  LogStreamFilterHelper ldbg { ::onika::ldbg_raw , std::numeric_limits<uint64_t>::max() };
 
   FatalErrorLogStream::~FatalErrorLogStream()
   {
@@ -179,8 +180,8 @@ namespace exanb
       << "*****************************************" << std::endl
       << "************* FATAL ERROR ***************" << std::endl
       << "*****************************************" << std::endl
-      << "*** " << m_oss.str() << std::flush
-      << "*****************************************" << std::endl;
+      << "*** " << m_oss.str() 
+      << "*****************************************" << std::endl << std::flush;
     std::this_thread::sleep_for(500ms);
     std::abort();
   }

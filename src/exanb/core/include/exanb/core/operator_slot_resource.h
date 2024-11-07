@@ -23,7 +23,7 @@ under the License.
 #include <iostream>
 #include <ios>
 
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 namespace exanb
 {

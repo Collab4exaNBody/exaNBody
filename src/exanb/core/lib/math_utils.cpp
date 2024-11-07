@@ -18,10 +18,11 @@ under the License.
 */
 #include <exanb/core/math_utils.h>
 #include <exanb/core/basic_types_operators.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <onika/test/unit_test.h>
 
 #include <cmath>
+#include <cassert>
 #include <cstdlib>
 #include <algorithm>
 

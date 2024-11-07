@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/grid_cell_particles/particle_region.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 namespace exanb
 {

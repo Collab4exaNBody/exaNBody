@@ -26,7 +26,7 @@ under the License.
 #include <onika/string_utils.h>
 #include <onika/yaml/yaml_utils.h>
 #include <onika/file_utils.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/thread.h>
 #include <onika/test/unit_test.h>
@@ -293,7 +293,7 @@ int main(int argc,char*argv[])
 
 
   // =========== configure logging system ===========
-  configure_logging(
+  onika::configure_logging(
     configuration.logging.debug,
     configuration.logging.parallel,
     configuration.logging.log_file,

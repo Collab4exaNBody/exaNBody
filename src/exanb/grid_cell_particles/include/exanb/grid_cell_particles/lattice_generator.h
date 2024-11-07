@@ -28,7 +28,7 @@ under the License.
 
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/basic_types_stream.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 //#include "exanb/vector_utils.h"
 #include <exanb/core/check_particles_inside_cell.h>
 #include <onika/physics/constants.h>

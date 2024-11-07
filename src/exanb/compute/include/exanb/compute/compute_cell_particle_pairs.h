@@ -26,7 +26,7 @@ under the License.
 #endif
 
 #include <exanb/compute/compute_pair_traits.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 

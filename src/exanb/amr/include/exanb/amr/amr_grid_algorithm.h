@@ -22,7 +22,7 @@ under the License.
 #include <exanb/core/grid.h>
 #include <exanb/core/math_utils.h>
 #include <exanb/core/algorithm.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/operator.h>
 
 #ifndef NDEBUG

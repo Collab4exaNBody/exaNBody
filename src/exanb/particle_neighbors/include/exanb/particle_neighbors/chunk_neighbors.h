@@ -27,7 +27,7 @@ under the License.
 
 #include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
 #include <exanb/core/basic_types_def.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include <algorithm>
 #include <utility>

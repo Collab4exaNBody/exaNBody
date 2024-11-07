@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/domain.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/math_utils.h>
 #include <onika/string_utils.h>
 

@@ -25,7 +25,7 @@ under the License.
 #include <exanb/core/geometry.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/thread.h>
 #include <exanb/grid_cell_particles/replicate_domain.h>
 

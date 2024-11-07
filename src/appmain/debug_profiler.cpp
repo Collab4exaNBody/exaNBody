@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/operator.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <onika/print_utils.h>
 
 #include <onika/omp/ompt_task_timing.h>

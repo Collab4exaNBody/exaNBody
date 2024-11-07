@@ -19,7 +19,7 @@ under the License.
 
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot_base.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include "dot_sim_graph.h"
 

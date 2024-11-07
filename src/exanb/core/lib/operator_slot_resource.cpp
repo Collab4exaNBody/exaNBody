@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/operator_slot_resource.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <cassert>
 
 namespace exanb

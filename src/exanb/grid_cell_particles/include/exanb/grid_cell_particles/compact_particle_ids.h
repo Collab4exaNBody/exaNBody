@@ -21,7 +21,7 @@ under the License.
 
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/basic_types_stream.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/particle_type_id.h>
 
 #include <mpi.h>

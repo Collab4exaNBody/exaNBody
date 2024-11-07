@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <exanb/core/operator.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <onika/type_utils.h>
 #include <onika/cpp_utils.h>
 

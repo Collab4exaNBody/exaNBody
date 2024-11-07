@@ -21,7 +21,7 @@ under the License.
 #include <iostream>
 #include <fstream>
 
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include <exanb/io/vtk_writer.h>
 

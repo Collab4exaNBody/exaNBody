@@ -20,7 +20,7 @@ under the License.
 
 #include <yaml-cpp/yaml.h>
 #include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <cstdlib>
 
 namespace exanb

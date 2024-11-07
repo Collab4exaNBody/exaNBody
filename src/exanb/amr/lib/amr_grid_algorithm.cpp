@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/math_utils.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/geometry.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/operator.h>
 
 #include <vector>

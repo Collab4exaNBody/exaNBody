@@ -23,7 +23,7 @@ under the License.
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include <onika/cuda/cuda_context.h>
 

@@ -23,7 +23,7 @@ under the License.
 
 #include <zlib.h>//lib for compression
 
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include "base-n/basen.h"//Base64 compression
 
 #include <exanb/io/vtk_writer.h>

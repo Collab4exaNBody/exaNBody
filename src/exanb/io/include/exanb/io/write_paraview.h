@@ -19,7 +19,7 @@ under the License.
 #include <exanb/core/basic_types_yaml.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/basic_types_stream.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/domain.h>
 #include <onika/physics/units.h>
 #include <onika/string_utils.h>

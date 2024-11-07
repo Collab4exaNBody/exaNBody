@@ -28,7 +28,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/field_sets.h>
 #include <exanb/core/particle_id_codec.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include <onika/soatl/field_id.h>
 #include <onika/soatl/field_pointer_tuple.h>

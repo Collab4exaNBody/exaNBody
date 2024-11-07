@@ -21,7 +21,7 @@ under the License.
 #include <exanb/fields.h>
 
 #include <exanb/core/domain.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/io/domain_legacy_v1.2.h>
 
 #include <onika/soatl/field_tuple.h>

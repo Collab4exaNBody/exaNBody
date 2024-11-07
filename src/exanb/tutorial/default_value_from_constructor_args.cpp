@@ -1,7 +1,7 @@
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/operator_slot.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <onika/cpp_utils.h>
 
 #include <vector>

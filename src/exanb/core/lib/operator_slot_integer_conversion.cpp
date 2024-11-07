@@ -18,7 +18,7 @@ under the License.
 */
 #include <exanb/core/operator_slot_base.h>
 #include <onika/cpp_utils.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <cstdint>
 #include <cstring>
 

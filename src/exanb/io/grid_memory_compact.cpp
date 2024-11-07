@@ -20,7 +20,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 #include <onika/memory/allocator.h>
 #include <exanb/core/memory_yaml.h>

@@ -28,7 +28,7 @@ under the License.
 #include <yaml-cpp/yaml.h>
 #include <exanb/core/basic_types_yaml.h>
 #include <onika/yaml/yaml_enum.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/geometry.h>
 
 #include <limits>

@@ -60,7 +60,7 @@ under the License.
 #include <cstdlib>
 #include <cmath>
 #include <stdexcept>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 namespace exanb
 {

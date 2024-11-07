@@ -24,7 +24,7 @@ under the License.
 #include <onika/physics/units.h>
 #include <onika/physics/units.h>
 
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <onika/plugin.h>
 
 #include <cassert>

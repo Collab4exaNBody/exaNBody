@@ -26,7 +26,7 @@ under the License.
 #include <memory>
 
 #include <onika/type_utils.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
 
 namespace exanb
 {

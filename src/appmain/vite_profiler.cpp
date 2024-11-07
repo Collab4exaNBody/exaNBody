@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/log.h>
+#include <onika/log.h>
 #include <exanb/core/thread.h>
 
 #include <onika/omp/ompt_task_timing.h>
