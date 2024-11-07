@@ -39,7 +39,7 @@ namespace exanb
     {
       std::ostringstream oss;
       oss<< default_stream_format;
-      print_if_possible( oss , print_convert(x) , "???" );
+      onika::print_if_possible( oss , print_convert(x) , "???" );
       return oss.str();
     }
 

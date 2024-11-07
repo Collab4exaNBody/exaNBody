@@ -67,11 +67,6 @@ namespace onika
     static_assert( ! is_complete_v< A<double> > , "is_complete_v template failed (negative case)" );
   }
 
-  // And operator for constexpr booleans
-  template<bool... preds> struct AndT : std::true_type {};
-  template<bool... preds> struct AndT<false,preds...> : std::false_type {};
-  template<bool... preds> struct AndT<true,preds...> : std::integral_constant<bool, AndT<preds...>::value > {};
-    
   template<typename T, bool = std::is_default_constructible<T>::value > struct DefaultNewOrNull { static inline T* alloc() { return new T(); } };
   template<typename T> struct DefaultNewOrNull<T,false> { static inline T* alloc() { return nullptr; } };
   

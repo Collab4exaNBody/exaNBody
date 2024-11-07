@@ -24,9 +24,11 @@ under the License.
 #include <yaml-cpp/yaml.h>
 #include <exanb/core/basic_types.h>
 #include <exanb/core/basic_types_yaml.h>
+#include <exanb/core/basic_types_stream.h>
 #include <onika/physics/units.h>
 #include <onika/yaml/yaml_utils.h>
 #include <iomanip>
+#include <iostream>
 
 namespace exanb
 {

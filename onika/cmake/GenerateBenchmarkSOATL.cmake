@@ -40,7 +40,7 @@ macro(GenerateBenchmark A C DPS SIMD OMPTOGGLE)
   add_executable(soatlbenchmark_${SUFFIX} src/tests/benchmark.cpp)
   target_include_directories(soatlbenchmark_${SUFFIX} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${ONIKA_GEN_INC_DIRS})
   target_compile_options(soatlbenchmark_${SUFFIX} PUBLIC ${OpenMP_CXX_FLAGS})
-  target_compile_definitions(soatlbenchmark_${SUFFIX} PUBLIC ${ONIKA_DEFINITIONS} -DTEST_USE_SIMD=${VEC} -DTEST_ALIGNMENT=${A} -DTEST_CHUNK_SIZE=${C} -DTEST_DOUBLE_PRECISION=${DP} -DTEST_ENABLE_OPENMP=${OMPVAL})
+  target_compile_definitions(soatlbenchmark_${SUFFIX} PUBLIC ${ONIKA_COMPILE_DEFINITIONS} -DTEST_USE_SIMD=${VEC} -DTEST_ALIGNMENT=${A} -DTEST_CHUNK_SIZE=${C} -DTEST_DOUBLE_PRECISION=${DP} -DTEST_ENABLE_OPENMP=${OMPVAL})
   target_link_libraries(soatlbenchmark_${SUFFIX} onika ${OpenMP_CXX_LIBRARIES})
 
   # add perf tests

@@ -70,7 +70,7 @@ namespace exanb
 
   template<typename field_set, typename... required_fields>
   struct FieldSetContainFieldSet<field_set,FieldSet<required_fields...> >
-  : std::integral_constant<bool, AndT< FieldSetContainField<field_set,required_fields>::value ... >::value > {};
+  : public std::integral_constant<bool, ( ... && (FieldSetContainField<field_set,required_fields>::value) ) > {};
 
 
   // =======================================

@@ -277,14 +277,14 @@ namespace exanb
     {
       std::ostringstream oss;
       if( m_data_pointer_cache == nullptr ) return "<null>";
-      print_if_possible( oss , *m_data_pointer_cache , "<?>");
+      onika::print_if_possible( oss , *m_data_pointer_cache , "<?>");
       return oss.str();
     }
 
     inline bool value_as_bool() override final
     {
       if( m_data_pointer_cache == nullptr ) return false;
-      return convert_to_bool( *m_data_pointer_cache , false );
+      return onika::convert_to_bool( *m_data_pointer_cache , false );
     }
 
     inline void set_required(bool r) override final { m_value_required = r; }

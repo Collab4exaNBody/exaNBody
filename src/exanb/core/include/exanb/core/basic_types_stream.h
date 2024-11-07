@@ -28,12 +28,7 @@ under the License.
 namespace exanb
 {
   // pretty printing
-  inline std::ostream& operator << (std::ostream& out, const Vec3d& v)
-  {
-    out<<v.x<<','<<v.y<<','<<v.z;
-    return out;
-  }
-  
+ 
   struct Mat3dStreamer
   {
     const Mat3d& m_mat_ref;
@@ -57,44 +52,6 @@ namespace exanb
   {
     return onika::FormattedObjectStreamer<Mat3dStreamer>{ {m,mb,me,cb,ce,cs,vs} };
   }
-
-  inline std::ostream& operator << (std::ostream& out, const Mat3d& m)
-  {
-    return out << onika::FormattedObjectStreamer<Mat3dStreamer>{ {m} };
-  }
-
-  inline std::ostream& operator << (std::ostream& out, const IJK& v)
-  {
-    out<<v.i<<','<<v.j<<','<<v.k;
-    return out;
-  }
-
-  inline std::ostream& operator << (std::ostream& out, const GridBlock& v)
-  {
-    out<<'('<<v.start<<")-("<<v.end<<')';
-    return out;
-  }
-
-  inline std::ostream& operator << (std::ostream& out, const AABB& b)
-  {
-    out<<"("<<b.bmin<<")-("<<b.bmax<<")";
-    return out;
-  }
-
-  //Guillaume : add for the line log.m_out << x and field::cmol
-  template <typename T, std::size_t n>
-  inline std::ostream& operator<<(std::ostream& os, const std::array<T,n>& v)
-  {
-    os << "[";
-    for (std::size_t i = 0; i < v.size(); ++i) {
-      os << v[i];
-      if (i != v.size() - 1)
-        os << ", ";
-    }
-    os << "]\n";
-    return os;
-  }
-
 
   template<class T> struct ValueStreamerHelper<T,Vec3d>
   {
@@ -146,5 +103,37 @@ namespace exanb
     }
   };
 
+}
+
+namespace std
+{
+  inline std::ostream& operator << (std::ostream& out, const exanb::Vec3d& v)
+  {
+    out<<v.x<<','<<v.y<<','<<v.z;
+    return out;
+  }
+
+  inline std::ostream& operator << (std::ostream& out, const exanb::Mat3d& m)
+  {
+    return out << onika::FormattedObjectStreamer<exanb::Mat3dStreamer>{ {m} };
+  }
+
+  inline std::ostream& operator << (std::ostream& out, const exanb::IJK& v)
+  {
+    out<<v.i<<','<<v.j<<','<<v.k;
+    return out;
+  }
+
+  inline std::ostream& operator << (std::ostream& out, const exanb::GridBlock& v)
+  {
+    out<<'('<<v.start<<")-("<<v.end<<')';
+    return out;
+  }
+
+  inline std::ostream& operator << (std::ostream& out, const exanb::AABB& b)
+  {
+    out<<"("<<b.bmin<<")-("<<b.bmax<<")";
+    return out;
+  }
 }
 
