@@ -45,6 +45,7 @@ namespace onika
 
   std::string remove_known_namespaces(std::string s)
   {
+    s = std::regex_replace(s, std::regex("onika::"), "");
     s = std::regex_replace(s, std::regex("exanb::"), "");
     s = std::regex_replace(s, std::regex("field::_"), "");
     s = std::regex_replace(s, std::regex("field::"), "");

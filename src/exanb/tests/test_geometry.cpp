@@ -21,7 +21,7 @@ under the License.
 #define NDEBUG 1
 #endif
 
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 #include <exanb/core/geometry.h>
 #include <onika/debug.h>
 

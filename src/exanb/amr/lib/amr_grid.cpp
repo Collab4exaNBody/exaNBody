@@ -18,10 +18,10 @@ under the License.
 */
 
 #include <exanb/amr/amr_grid.h>
-#include <exanb/core/math_utils.h>
+#include <onika/math/math_utils.h>
 
 #ifndef NDEBUG
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #endif
 
 #include <algorithm>

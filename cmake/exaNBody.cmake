@@ -73,11 +73,11 @@ macro(exaNBodyStartApplication)
   endif()
 
   # get host maximum number of threads
-  if(NOT HOST_HW_THREADS)
-    set(HOST_HW_THREADS 1 CACHE STRING "Host number of logical threads")
+  if(NOT ONIKA_HOST_HW_THREADS)
+    set(ONIKA_HOST_HW_THREADS 1 CACHE STRING "Host number of logical threads")
   endif()
-  if(NOT HOST_HW_CORES)
-    set(HOST_HW_CORES 1 CACHE STRING "Host number of physical cores")
+  if(NOT ONIKA_HOST_HW_CORES)
+    set(ONIKA_HOST_HW_CORES 1 CACHE STRING "Host number of physical cores")
   endif()
 
   if(NOT HOST_HW_PARTITION)
@@ -85,7 +85,7 @@ macro(exaNBodyStartApplication)
   endif()
 
   # CPU cores detection
-  message(STATUS "Host hardware : partition ${HOST_HW_PARTITION} has ${HOST_HW_CORES} core(s) and ${HOST_HW_THREADS} thread(s)")
+  message(STATUS "Host hardware : partition ${HOST_HW_PARTITION} has ${ONIKA_HOST_HW_CORES} core(s) and ${ONIKA_HOST_HW_THREADS} thread(s)")
 
   # =======================================
   # === Third party tools and libraries ===
@@ -95,15 +95,6 @@ macro(exaNBodyStartApplication)
     if(NOT ZOLTAN_DIR)
       set(ZOLTAN_DIR ${XSTAMP_THIRD_PARTY_TOOLS_ROOT}/zoltan-3.83)
     endif()
-  endif()
-
-  if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES)
-    message(STATUS "skip find_package(MPI REQUIRED)")
-    message(STATUS "MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}")
-    message(STATUS "MPI_CXX_LIBRARIES    = ${MPI_CXX_LIBRARIES}")
-    set(MPI_CXX_FOUND ON)
-  else()
-    find_package(MPI REQUIRED)
   endif()
 
   option(EXASTAMP_USE_ZOLTAN "Use Zoltan partitioner for load balancing" OFF)
@@ -134,18 +125,18 @@ macro(exaNBodyStartApplication)
   # ======================================================
   # ============ compilation environment =================
   # ======================================================
-  set(XSTAMP_COMPILE_PROCESSES ${HOST_HW_THREADS})
-  if(${HOST_HW_THREADS} EQUAL ${HOST_HW_CORES})
-    math(EXPR XSTAMP_COMPILE_PROCESSES "2*${HOST_HW_CORES}")
+  set(XSTAMP_COMPILE_PROCESSES ${ONIKA_HOST_HW_THREADS})
+  if(${ONIKA_HOST_HW_THREADS} EQUAL ${ONIKA_HOST_HW_CORES})
+    math(EXPR XSTAMP_COMPILE_PROCESSES "2*${ONIKA_HOST_HW_CORES}")
   endif()
   set(XSTAMP_COMPILE_PROJECT_COMMAND "make -j${XSTAMP_COMPILE_PROCESSES}")
-  MakeRunCommandNoOMP(XSTAMP_COMPILE_PROJECT_COMMAND 1 ${HOST_HW_CORES} XSTAMP_COMPILE_PROJECT_COMMAND)
+  MakeRunCommandNoOMP(XSTAMP_COMPILE_PROJECT_COMMAND 1 ${ONIKA_HOST_HW_CORES} XSTAMP_COMPILE_PROJECT_COMMAND)
   set(XSTAMP_UPDATE_PLUGINS_COMMAND "make UpdatePluginDataBase")
   #  MakeRunCommandNoOMP(XSTAMP_UPDATE_PLUGINS_COMMAND 1 1 XSTAMP_UPDATE_PLUGINS_COMMAND)
   string(REPLACE ";" " " XSTAMP_COMPILE_PROJECT_COMMAND "source ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh && ${XSTAMP_COMPILE_PROJECT_COMMAND} && ${XSTAMP_UPDATE_PLUGINS_COMMAND}")
 
   set(XSTAMP_INSTALL_PROJECT_COMMAND make install)
-  MakeRunCommand(XSTAMP_INSTALL_PROJECT_COMMAND 1 ${HOST_HW_CORES} XSTAMP_INSTALL_PROJECT_COMMAND)
+  MakeRunCommand(XSTAMP_INSTALL_PROJECT_COMMAND 1 ${ONIKA_HOST_HW_CORES} XSTAMP_INSTALL_PROJECT_COMMAND)
   string(REPLACE ";" " " XSTAMP_INSTALL_PROJECT_COMMAND "source ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh && ${XSTAMP_INSTALL_PROJECT_COMMAND}")
 
   set(XSTAMP_TEST_PROJECT_COMMAND make CTEST_OUTPUT_ON_FAILURE=1 test)
@@ -204,15 +195,21 @@ macro(exaNBodyStartApplication)
   file(GENERATE OUTPUT ${USTAMP_APPS_DIR}/${XNB_LOCAL_CONFIG_FILE}
        CONTENT "configuration: { plugin_dir: '${CMAKE_LIBRARY_OUTPUT_DIRECTORY}' , config_dir: '${CMAKE_CURRENT_SOURCE_DIR}/data/config' }\n")
 
+  # sets default internal unit system
+  if(XNB_APP_INTERNAL_UNIT_SYSTEM)
+    list(APPEND XNB_APP_DEFINITIONS XNB_APP_INTERNAL_UNIT_SYSTEM=${XNB_APP_INTERNAL_UNIT_SYSTEM})
+  endif()
+
   # compile time definitions
   set(XNB_COMPILE_DEFINITIONS
     USTAMP_VERSION="${EXASTAMP_VERSION}"
-    XSTAMP_ADVISED_HW_THREADS=${HOST_HW_THREADS}
+    ONIKA_ADVISED_HW_THREADS=${ONIKA_HOST_HW_THREADS}
     XSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT=${XSTAMP_MAX_PARTICLE_NEIGHBORS_DEFAULT}
     ${XNB_APP_DEFINITIONS}
     ${XSTAMP_AMR_ZCURVE_DEFINITIONS}
     ${ONIKA_COMPILE_DEFINITIONS}
     ONIKA_LOG_EXPORT_NAMESPACE=exanb
+    ONIKA_MATH_EXPORT_NAMESPACE=exanb
     )
 
   # performance tuning : number of stored pointers for each cell

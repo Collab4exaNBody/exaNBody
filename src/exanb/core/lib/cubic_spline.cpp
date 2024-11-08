@@ -60,7 +60,7 @@ namespace exanb
 
       // setting up the matrix and right hand side of the equation system
       // for the parameters b[]
-      MatrixBandSolver A( n , 1 , 1 );
+      onika::math::MatrixBandSolver A( n , 1 , 1 );
       std::vector<double> rhs( n , 0.0 );
       for(int i=1; i<n-1; i++)
       {

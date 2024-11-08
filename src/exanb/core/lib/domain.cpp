@@ -18,7 +18,7 @@ under the License.
 */
 #include <exanb/core/domain.h>
 #include <onika/log.h>
-#include <exanb/core/math_utils.h>
+#include <onika/math/math_utils.h>
 #include <onika/string_utils.h>
 
 namespace exanb

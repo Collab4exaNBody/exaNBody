@@ -28,7 +28,7 @@ under the License.
 #include <onika/file_utils.h>
 #include <onika/log.h>
 #include <exanb/core/grid.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 #include <onika/test/unit_test.h>
 #include <onika/cpp_utils.h>
 

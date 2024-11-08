@@ -217,15 +217,20 @@ namespace onika
     static inline constexpr UnitSystem SI = { { ONIKA_SI_UNIT_SYSTEM } };
   
     /*
-     * Internal unit system, as defined by application through its exanb/internal_units.h header file
+     * Internal unit system, as defined by application via ONIKA_INTERNAL_UNIT_SYSTEM predefined macro
      */
-    static inline constexpr UnitSystem internal_unit_system = { { ONIKA_INTERNAL_UNIT_SYSTEM } };
+    extern ONIKA_CU_GLOBAL_VARIABLE UnitSystem g_internal_unit_system;
+    void set_internal_unit_system( const UnitSystem & ius );
+    ONIKA_HOST_DEVICE_FUNC static inline const UnitSystem& internal_unit_system()
+    {
+      return g_internal_unit_system;
+    }
 
     /*
      * A Quantity is a value expressed with a certain set of units (at most one unit per unit class) and associated powers
      * Quantity has an implicit conversion operator to double, wich converts expressed value to application's internal unit system
      * Exemple :
-     * using namespace exanb::units;
+     * using namespace onika::physics;
      * Quantity q = EXANB_QUANTITY( 3.2 * (g^3) / s ); // EXANB_QUANTITY macro allows to use short name unit definitons in online expressions
      * Quantity r = 3.2 * (gram^3) / second; // same as above
      * double a = q;
@@ -257,8 +262,7 @@ namespace onika
       }
       ONIKA_HOST_DEVICE_FUNC inline double convert() const
       {
-        static constexpr auto IUS = internal_unit_system;
-        return convert( IUS );
+        return convert( internal_unit_system() );
       }
       
       ONIKA_HOST_DEVICE_FUNC inline operator double() const { return convert(); }

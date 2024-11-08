@@ -18,9 +18,9 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_operators.h>
-#include <exanb/core/thread.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_operators.h>
+#include <onika/thread.h>
 
 #include <exanb/core/compact_grid_pair_weights.h>
 #include <exanb/core/xform.h>

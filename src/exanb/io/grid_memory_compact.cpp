@@ -23,7 +23,6 @@ under the License.
 #include <onika/log.h>
 
 #include <onika/memory/allocator.h>
-#include <exanb/core/memory_yaml.h>
 
 #include <omp.h>
 

@@ -23,7 +23,7 @@ under the License.
 #include <exanb/core/domain.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/basic_types_operators.h>
+#include <onika/math/basic_types_operators.h>
 
 #include <memory>
 

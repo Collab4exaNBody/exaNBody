@@ -130,8 +130,6 @@ namespace onika
       const std::string& pname = p;
 #     endif
       lout<<"+ "<<pname<<endl;
-      //if(verbose) { lout<<endl; }
-      //else { lout<<"                                                                                           "<< exanb::cret <<std::flush; }
 
       if( ! load_plugin_priv( fp ) )
       {

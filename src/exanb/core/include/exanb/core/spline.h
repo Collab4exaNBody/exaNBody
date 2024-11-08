@@ -21,7 +21,7 @@ under the License.
 #include <cassert>
 #include <vector>
 #include <algorithm>
-#include <exanb/core/matrix_band_solver.h>
+#include <onika/math/matrix_band_solver.h>
 
 namespace exanb
 {

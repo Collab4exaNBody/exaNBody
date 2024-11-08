@@ -17,9 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/defbox/deformation.h>
-#include <exanb/core/math_utils.h>
-#include <exanb/core/basic_types_operators.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/math_utils.h>
+#include <onika/math/basic_types_operators.h>
+#include <onika/math/basic_types_stream.h>
 
 #include <iostream>
 #include <random>

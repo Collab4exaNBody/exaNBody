@@ -22,10 +22,10 @@ under the License.
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_stream.h>
-#include <exanb/core/basic_types_operators.h>
-#include <exanb/core/basic_types_yaml.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_stream.h>
+#include <onika/math/basic_types_operators.h>
+#include <onika/math/basic_types_yaml.h>
 #include <onika/physics/units.h>
 #include <exanb/core/geometry.h>
 #include <iomanip>

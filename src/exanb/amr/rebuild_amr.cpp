@@ -24,7 +24,7 @@ under the License.
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/grid.h>
 #include <exanb/amr/amr_grid.h>
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 #include <exanb/amr/amr_grid_algorithm.h>
 
 #include <memory>

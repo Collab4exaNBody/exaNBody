@@ -18,8 +18,8 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_operators.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_operators.h>
 #include <cmath>
 #include <algorithm>
 #include <cassert>
@@ -30,7 +30,6 @@ under the License.
 
 namespace exanb
 {
-
   ONIKA_HOST_DEVICE_FUNC inline double distance2(Vec3d a, Vec3d b)
   {
     b.x -= a.x;

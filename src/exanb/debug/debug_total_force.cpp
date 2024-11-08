@@ -22,7 +22,7 @@ under the License.
 #include <onika/log.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <onika/string_utils.h>
-#include <exanb/core/value_streamer.h>
+#include <onika/value_streamer.h>
 
 #include <exanb/particle_neighbors/grid_particle_neighbors.h>
 
@@ -82,9 +82,9 @@ namespace exanb
       double all_force_norm_sum = 0.;      
       {
         double tmp[4];
-        ValueStreamer<double>(tmp) << force_sum.x << force_sum.y << force_sum.z << force_norm_sum;
+        onika::ValueStreamer<double>(tmp) << force_sum.x << force_sum.y << force_sum.z << force_norm_sum;
         MPI_Allreduce(MPI_IN_PLACE,tmp,4,MPI_DOUBLE,MPI_SUM,*mpi);
-        ValueStreamer<double>(tmp) >> all_force_sum.x >> all_force_sum.y >> all_force_sum.z >> all_force_norm_sum;
+        onika::ValueStreamer<double>(tmp) >> all_force_sum.x >> all_force_sum.y >> all_force_sum.z >> all_force_norm_sum;
       }
 #     ifndef NDEBUG
       std::cout << std::setprecision(3) << "P "<<rank<<" / "<<nprocs<<" : sum(F)="<<force_sum<<" , sum(Fnorm)="<<force_norm_sum <<std::endl<<std::flush;

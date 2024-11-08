@@ -151,7 +151,7 @@ endmacro()
 
 macro(xstamp_generate_plugin_database)
   set(XstampV2PluginDBGenCommandBase ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true --logging-debug true --nogpu true)
-  MakeRunCommand(XstampV2PluginDBGenCommandBase 1 ${HOST_HW_CORES} XstampV2PluginDBGenCommand)
+  MakeRunCommand(XstampV2PluginDBGenCommandBase 1 ${ONIKA_HOST_HW_CORES} XstampV2PluginDBGenCommand)
   #message(STATUS "gen db command = ${XstampV2PluginDBGenCommand}")
   #set(XstampV2PluginDBGenCommand ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true )
   add_custom_target(UpdatePluginDataBase ${XstampV2PluginDBGenCommand} BYPRODUCTS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/plugins_db.msp)
@@ -162,6 +162,6 @@ endmacro()
 
 macro(xstamp_add_unit_tests)
   set(XStampV2UnitsTestsCommand ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --run_unit_tests true)
-  AddTestWithDebugTarget(XStampV2UnitsTests XStampV2UnitsTestsCommand 1 ${HOST_HW_CORES})
+  AddTestWithDebugTarget(XStampV2UnitsTests XStampV2UnitsTestsCommand 1 ${ONIKA_HOST_HW_CORES})
 endmacro()
 

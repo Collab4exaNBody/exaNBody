@@ -26,7 +26,7 @@ under the License.
 #include <onika/integral_constant.h>
 
 #include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
-#include <exanb/core/basic_types_def.h>
+#include <onika/math/basic_types_def.h>
 #include <onika/log.h>
 
 #include <algorithm>

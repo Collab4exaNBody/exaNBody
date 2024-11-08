@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <onika/log.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 
 #include <onika/omp/ompt_task_timing.h>
 

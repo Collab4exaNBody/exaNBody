@@ -18,8 +18,8 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/basic_types_operators.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_operators.h>
+#include <onika/math/basic_types_stream.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 
 #include <cstdlib>

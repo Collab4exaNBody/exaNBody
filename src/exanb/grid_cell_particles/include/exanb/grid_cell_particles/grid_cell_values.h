@@ -21,7 +21,7 @@ under the License.
 #include <vector>
 #include <unordered_map>
 #include <cassert>
-#include <exanb/core/basic_types_def.h>
+#include <onika/math/basic_types_def.h>
 #include <exanb/core/grid_algorithm.h>
 #include <onika/memory/allocator.h>
 

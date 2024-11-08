@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #include <onika/log.h>
 #include <exanb/core/print_particle.h>
 

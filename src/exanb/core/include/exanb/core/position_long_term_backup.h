@@ -20,7 +20,7 @@ under the License.
 
 #include <vector>
 #include <cstdint>
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 
 namespace exanb
 {

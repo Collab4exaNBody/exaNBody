@@ -18,15 +18,15 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/basic_types_def.h>
-#include <exanb/core/matrix4d.h>
+#include <onika/math/basic_types_def.h>
+#include <onika/math/matrix4d.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_math.h>
 #include <onika/cuda/ro_shallow_copy.h>
 #include <onika/memory/allocator.h>
 
 #include <yaml-cpp/yaml.h>
-#include <exanb/core/basic_types_yaml.h>
+#include <onika/math/basic_types_yaml.h>
 #include <onika/yaml/yaml_enum.h>
 #include <onika/log.h>
 #include <exanb/core/geometry.h>

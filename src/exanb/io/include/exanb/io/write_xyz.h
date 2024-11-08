@@ -25,10 +25,10 @@ under the License.
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
 #include <onika/string_utils.h>
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_yaml.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_yaml.h>
 #include <exanb/core/quaternion_operators.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #include <onika/oarray.h>
 
 #include <exanb/io/vtk_writer.h>

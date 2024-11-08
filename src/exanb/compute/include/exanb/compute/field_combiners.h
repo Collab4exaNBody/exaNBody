@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <onika/cuda/cuda.h>
-#include <exanb/core/basic_types_def.h>
+#include <onika/math/basic_types_def.h>
 #include <exanb/compute/math_functors.h>
 #include <onika/soatl/field_combiner.h>
 

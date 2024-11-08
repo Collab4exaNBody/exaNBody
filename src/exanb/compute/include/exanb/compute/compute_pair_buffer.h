@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
-#include <exanb/core/basic_types_def.h>
+#include <onika/math/basic_types_def.h>
 #include <exanb/core/field_set_proto.h>
 
 #include <onika/memory/allocator.h>

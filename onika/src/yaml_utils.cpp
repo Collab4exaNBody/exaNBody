@@ -205,7 +205,7 @@ namespace onika
       using std::string;
       using std::vector;
 
-      // the local file exanb.msp is usually loaded after config_exanb.msp, but we need to read it first in case
+      // the local file .build-config.msp is usually loaded after main-config.msp, but we need to read it first in case
       // it defines an alternative config directory via the "config_dir key"
       string app_dir = dirname(app_path);
       string local_default_include_file = app_dir + "/.build-config.msp" ;
@@ -222,14 +222,14 @@ namespace onika
         has_local_config_file = true;
       }
 
-      // find path to the main base config file 'config_exanb.msp'
+      // find path to the main base config file 'main-config.msp'
       string default_include_file = config_file_path(".","main-config.msp");
       // ldbg << "default_include_file = "<<default_include_file<<std::endl;
           
       vector<string> files;
       prefix_config_file_includes( files , app_dir, default_include_file );
       
-      // if a file named exanb.msp is found in current working directory, it is included right after default include file
+      // if a file named .build-config.msp is found in current working directory, it is included right after default include file
       if( has_local_config_file )
       {
         // std::cout << "using local config file "<<local_default_include_file << std::endl;

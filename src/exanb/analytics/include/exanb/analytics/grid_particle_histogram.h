@@ -2,7 +2,7 @@
 
 #include <onika/plot1d.h>
 #include <exanb/core/grid.h>
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 #include <exanb/compute/compute_cell_particles.h>
 #include <exanb/compute/reduce_cell_particles.h>
 

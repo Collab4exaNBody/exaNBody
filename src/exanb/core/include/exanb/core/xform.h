@@ -21,7 +21,7 @@ under the License.
 #include <type_traits>
 #include <cstdint>
 #include <cmath>
-#include <exanb/core/basic_types_operators.h>
+#include <onika/math/basic_types_operators.h>
 
 namespace exanb
 {

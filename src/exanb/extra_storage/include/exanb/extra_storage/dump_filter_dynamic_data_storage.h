@@ -25,8 +25,8 @@ under the License.
 #include <onika/soatl/field_tuple.h>
 #include <exanb/io/sim_dump_io.h>
 #include <iostream>
-#include <exanb/core/basic_types_operators.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_operators.h>
+#include <onika/math/basic_types_stream.h>
 #include <exanb/core/quaternion_operators.h>
 #include <exanb/core/quaternion_stream.h>
 #include <exanb/extra_storage/dynamic_data_storage.hpp>

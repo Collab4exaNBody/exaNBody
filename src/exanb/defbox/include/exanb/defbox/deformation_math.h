@@ -19,13 +19,13 @@ under the License.
 #pragma once
 
 #include <exanb/defbox/deformation.h>
-#include <exanb/core/basic_types_operators.h>
+#include <onika/math/basic_types_operators.h>
 
 #include <cmath>
 #include <cassert>
 
 #include <iostream>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 
 namespace exanb
 {

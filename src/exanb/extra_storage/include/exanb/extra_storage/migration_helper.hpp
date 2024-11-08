@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #pragma once
-#include <exanb/core/basic_types.h> 
+#include <onika/math/basic_types.h> 
 #include <exanb/extra_storage/dynamic_data_storage.hpp>
 #include <exanb/extra_storage/migration_buffer.hpp>
 

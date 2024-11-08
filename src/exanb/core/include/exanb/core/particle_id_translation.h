@@ -19,8 +19,8 @@ under the License.
 #pragma once
 
 #include <exanb/core/particle_id_constants.h>
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_operators.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_operators.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/grid_algorithm.h>
 #include <exanb/core/particle_id_codec.h>

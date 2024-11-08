@@ -21,7 +21,7 @@ under the License.
 
 #include <exanb/core/domain.h>
 #include <exanb/core/check_particles_inside_cell.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/log.h>
 

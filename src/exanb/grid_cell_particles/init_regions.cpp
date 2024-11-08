@@ -20,8 +20,8 @@ under the License.
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
 #include <onika/log.h>
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_stream.h>
 #include <exanb/grid_cell_particles/particle_region.h>
 
 namespace exanb

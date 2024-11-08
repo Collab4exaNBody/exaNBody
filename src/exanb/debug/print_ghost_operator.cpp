@@ -23,7 +23,7 @@ under the License.
 #include <onika/log.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/fields.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/print_particle.h>
 

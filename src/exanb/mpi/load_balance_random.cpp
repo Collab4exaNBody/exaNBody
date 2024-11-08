@@ -22,7 +22,7 @@ under the License.
 #include <onika/log.h>
 #include <exanb/core/domain.h>
 #include <onika/string_utils.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #include <exanb/core/simple_block_rcb.h>
 #include <exanb/core/parallel_random.h>
 #include <exanb/core/grid_algorithm.h>

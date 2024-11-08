@@ -27,15 +27,11 @@ cmake_minimum_required (VERSION 3.18)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-  set(CMAKE_CUDA_ARCHITECTURES 86)
-endif()
 
 # for export to onika-config file
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CXX_STANDARD_REQUIRED ${CMAKE_CXX_STANDARD_REQUIRED})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_EXTENSIONS})\n")
-set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})\n")
 
 # ==========================
 # === project definition ===
@@ -108,6 +104,33 @@ set(ONIKA_BLKPARFOR_OMPSCHED_DEFAULT OMP_SCHED_GUIDED CACHE STRING "Set Onika's 
 list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_BLKPARFOR_OMPSCHED_DEFAULT=${ONIKA_BLKPARFOR_OMPSCHED_DEFAULT} ONIKA_PARFOR_OMPSCHED_DEFAULT=${ONIKA_PARFOR_OMPSCHED_DEFAULT})
 
 
+# ====================================
+# === local SMP node configuration ===
+# ====================================
+find_program(LSCPU_EXECUTABLE lscpu)
+if(LSCPU_EXECUTABLE)
+  execute_process(COMMAND ${LSCPU_EXECUTABLE} --parse=CPU,CORE OUTPUT_VARIABLE LSCPU_DATA)
+  string(REGEX REPLACE "#[^\n]*\n" "" LSCPU_DATA "{${LSCPU_DATA}}")
+  string(REPLACE "," ";" LSCPU_DATA "${LSCPU_DATA}")
+  string(REPLACE "\n" ";" LSCPU_DATA "${LSCPU_DATA}")
+  string(REPLACE ";}" "" LSCPU_DATA "${LSCPU_DATA}")
+  string(REPLACE "{" "" LSCPU_DATA "${LSCPU_DATA}")
+  list(GET LSCPU_DATA -2 ONIKA_HOST_HW_THREADS)
+  list(GET LSCPU_DATA -1 ONIKA_HOST_HW_CORES)
+  math(EXPR ONIKA_HOST_HW_THREADS "1+${ONIKA_HOST_HW_THREADS}")
+  math(EXPR ONIKA_HOST_HW_CORES "1+${ONIKA_HOST_HW_CORES}")
+  set(ONIKA_ADVISED_HW_THREADS ${ONIKA_HOST_HW_THREADS})
+  message(STATUS "lscpu : threads=${ONIKA_HOST_HW_THREADS} cores=${ONIKA_HOST_HW_CORES}")
+else()
+  set(ONIKA_HOST_HW_CORES 4)
+  set(ONIKA_HOST_HW_THREADS 8)
+  set(ONIKA_ADVISED_HW_THREADS 128)
+endif()
+list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_ADVISED_HW_THREADS=${ONIKA_ADVISED_HW_THREADS})
+# for export to onika-config file)
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_HOST_HW_CORES ${ONIKA_HOST_HW_CORES})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_HOST_HW_THREADS ${ONIKA_HOST_HW_THREADS})\n")
+
 # ===================================
 # ============ Cuda =================
 # ===================================
@@ -134,6 +157,7 @@ if(ONIKA_ENABLE_HIP)
 
     # for export to onika-config file
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}list(APPEND CMAKE_MODULE_PATH \"${ROCM_INSTALL_ROOT}/share/rocm/cmake\")\n")
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_HIP_ARCHITECTURES ${CMAKE_HIP_ARCHITECTURES})\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(ROCM REQUIRED)\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}enable_language(HIP)\n")
   endif()
@@ -141,6 +165,7 @@ else()
   set(ONIKA_USE_HIP OFF)
   set(ONIKA_USE_CUDA ${ONIKA_BUILD_CUDA})
   if(ONIKA_BUILD_CUDA)
+    set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "Cuda target architecture(s)")
     find_package(CUDA REQUIRED)
     enable_language(CUDA)
     set(ONIKA_CUDA_COMPILE_DEFINITIONS ONIKA_CUDA_VERSION=${CMAKE_CUDA_COMPILER_VERSION})
@@ -148,6 +173,7 @@ else()
     # for export to onika-config file
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CUDA_SDK_ROOT_DIR ${CUDA_SDK_ROOT_DIR})\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CUDA_COMPILER ${CMAKE_CUDA_COMPILER})\n")
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CUDA_ARCHITECTURES ${CMAKE_CUDA_ARCHITECTURES})\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(CUDA REQUIRED)\n")
     set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}enable_language(CUDA)\n")
   endif()
@@ -225,6 +251,34 @@ endif()
 
 
 
+# ============================
+# === MPI configuration ===
+# ============================
+if(MPI_CXX_INCLUDE_PATH AND MPI_CXX_LIBRARIES)
+  message(STATUS "Found MPI_CXX_INCLUDE_PATH and MPI_CXX_LIBRARIES variables, skip find_package(MPI REQUIRED)")
+  message(STATUS "MPI_CXX_INCLUDE_PATH = ${MPI_CXX_INCLUDE_PATH}")
+  message(STATUS "MPI_CXX_LIBRARIES    = ${MPI_CXX_LIBRARIES}")
+  set(MPI_CXX_FOUND ON)
+  # for export to onika-config file)
+  if(MPIEXEC_EXECUTABLE)
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_EXECUTABLE ${MPIEXEC_EXECUTABLE})\n")
+  endif()
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPI_CXX_INCLUDE_PATH ${MPI_CXX_INCLUDE_PATH})\n")
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES})\n")
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPI_CXX_FOUND ON)\n")
+else()
+  find_package(MPI REQUIRED)
+  message(STATUS "MPIEXEC_EXECUTABLE = ${MPIEXEC_EXECUTABLE}")
+  # for export to onika-config file)
+  if(MPIEXEC_EXECUTABLE)
+    set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(MPIEXEC_EXECUTABLE ${MPIEXEC_EXECUTABLE})\n")
+  endif()
+  set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}find_package(OpenMP REQUIRED)\n")
+endif()
+set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${MPI_CXX_INCLUDE_PATH})
+
+
+
 # ===================================
 # ====== Global parameters ==========
 # ===================================
@@ -264,15 +318,15 @@ endif()
 set(ONIKA_INCLUDE_DIRS ${ONIKA_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/tinyexpr)
 
 # setup thirdparty and additional libraries used by onika
-set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${YAML_CPP_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
+set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES} ${YAML_CPP_LIBRARIES} ${MPI_CXX_LIBRARIES} ${OpenMP_CXX_LIBRARIES} dl)
 set(ONIKA_PRIVATE_LIBRARIES tinyexpr)
 
 # compile options 
 set(ONIKA_COMPILE_OPTIONS -Wall ${OpenMP_CXX_FLAGS})
 
 # compile main lib
-file(GLOB onika_SRCS src/*.cpp) #src/*.cu
-add_library(onika SHARED ${onika_SRCS} ${ONIKA_GEN_SRCS})
+file(GLOB onika_SRCS src/*.cpp src/*.cu)
+add_library(onika SHARED ${onika_SRCS})
 target_include_directories(onika PUBLIC ${ONIKA_INCLUDE_DIRS})
 target_compile_definitions(onika PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
 target_compile_options(onika PUBLIC ${ONIKA_COMPILE_OPTIONS})

@@ -91,6 +91,7 @@ namespace onika
 #   define ONIKA_DEVICE_CONSTANT_MEMORY __constant__
 #   define ONIKA_CU_THREAD_LOCAL        __local__
 #   define ONIKA_CU_BLOCK_SHARED        __shared__
+#   define ONIKA_CU_GLOBAL_VARIABLE     __managed__
 
 #   define ONIKA_CU_BLOCK_SIMD_FOR(T,i,s,e)           for(T i=s+threadIdx.x ; i<e ; i+=blockDim.x )
 #   define ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED(T,i,s,e) for(T _onika_tmp_j=s , i=s+threadIdx.x ; _onika_tmp_j<e ; _onika_tmp_j+=blockDim.x, i+=blockDim.x )
@@ -160,6 +161,7 @@ namespace onika
 #   define ONIKA_DEVICE_CONSTANT_MEMORY /**/
 #   define ONIKA_CU_BLOCK_SHARED        /**/
 #   define ONIKA_CU_THREAD_LOCAL        /**/
+#   define ONIKA_CU_GLOBAL_VARIABLE     /**/
 
 #   define ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED ONIKA_CU_BLOCK_SIMD_FOR
 #   define ONIKA_CU_BLOCK_SIMD_FOR(T,i,s,e) _Pragma("omp simd") for(T i=s ; i<e ; ++i)

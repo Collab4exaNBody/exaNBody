@@ -23,6 +23,7 @@ under the License.
 #include <iostream>
 #include <functional>
 #include <memory>
+#include <type_traits>
 #include <unordered_set>
 #include <string>
 #include <sstream>
@@ -189,8 +190,7 @@ namespace onika
   inline FatalErrorLogStream fatal_error() { return FatalErrorLogStream(); }
 }
 
-
-
+// bridge main objects to another namespace if it helps for the transition to standalone Onika
 #ifdef ONIKA_LOG_EXPORT_NAMESPACE
 namespace ONIKA_LOG_EXPORT_NAMESPACE
 {

@@ -18,8 +18,8 @@ under the License.
 */
 #include <exanb/amr/amr_grid_algorithm.h>
 #include <exanb/core/particle_type_pair.h>
-#include <exanb/core/math_utils.h>
-#include <exanb/core/basic_types.h>
+#include <onika/math/math_utils.h>
+#include <onika/math/basic_types.h>
 #include <exanb/core/geometry.h>
 #include <onika/log.h>
 #include <exanb/core/operator.h>

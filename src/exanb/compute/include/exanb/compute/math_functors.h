@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <onika/cuda/cuda.h>
-#include <exanb/core/basic_types_def.h>
+#include <onika/math/basic_types_def.h>
 
 // definition of a virtual field, a.k.a a field combiner
 namespace exanb

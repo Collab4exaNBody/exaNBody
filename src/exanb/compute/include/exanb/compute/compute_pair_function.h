@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <exanb/compute/compute_pair_buffer.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 #include <exanb/field_sets.h>
 #include <onika/soatl/field_id.h>
  

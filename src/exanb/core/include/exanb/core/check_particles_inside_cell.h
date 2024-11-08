@@ -19,7 +19,7 @@ under the License.
 #pragma once
 
 #include <onika/log.h>
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 #include <exanb/core/geometry.h>
 
 namespace exanb

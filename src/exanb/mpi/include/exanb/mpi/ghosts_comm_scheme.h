@@ -23,7 +23,7 @@ under the License.
 #include <unordered_map>
 
 #include <exanb/core/particle_id_codec.h>
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 #include <onika/memory/allocator.h> 
 #include <onika/cuda/cuda.h> 
 #include <onika/cuda/cuda_math.h> 

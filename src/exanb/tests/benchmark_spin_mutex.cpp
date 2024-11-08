@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/parallel_random.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 #include <onika/debug.h>
 
 #include <iostream>

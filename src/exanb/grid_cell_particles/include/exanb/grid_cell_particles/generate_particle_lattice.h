@@ -22,11 +22,11 @@ under the License.
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/basic_types_stream.h>
+#include <onika/math/basic_types_stream.h>
 #include <onika/log.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/parallel_random.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 #include <exanb/core/particle_type_id.h>
 #include <exanb/grid_cell_particles/particle_localized_filter.h>
 

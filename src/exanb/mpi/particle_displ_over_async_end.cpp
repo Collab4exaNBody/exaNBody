@@ -19,7 +19,7 @@ under the License.
 #include <exanb/core/operator.h>
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
-#include <exanb/core/basic_types.h>
+#include <onika/math/basic_types.h>
 
 #include <cmath>
 #include <mpi.h>

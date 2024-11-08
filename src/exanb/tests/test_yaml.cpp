@@ -18,8 +18,8 @@ under the License.
 */
 #include <yaml-cpp/yaml.h>
 
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_yaml.h>
+#include <onika/math/basic_types.h>
+#include <onika/math/basic_types_yaml.h>
 #include <onika/type_utils.h>
 
 #include <exaStamp/particle_species/particle_specie.h>

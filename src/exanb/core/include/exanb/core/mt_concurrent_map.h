@@ -20,7 +20,7 @@ under the License.
 
 #include <unordered_map>
 #include <cstdint>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 
 namespace exanb
 {

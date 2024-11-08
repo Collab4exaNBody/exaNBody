@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/parallel_random.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 #include <mpi.h>
 #include <yaml-cpp/yaml.h>
 #include <omp.h>
@@ -34,14 +34,14 @@ namespace exanb
 
     std::mt19937_64 & random_engine()
     {
-      return g_thread_random_engine[ get_thread_index() ];
+      return g_thread_random_engine[ onika::get_thread_index() ];
     }
 
     void generate_seed()
     {
 #     pragma omp parallel
       {
-        size_t tidx = get_thread_index();
+        size_t tidx = onika::get_thread_index();
 #       pragma omp critical(generate_seed_cs)
         {        
           g_thread_random_engine[ tidx ].seed( g_random_device() );
@@ -64,7 +64,7 @@ namespace exanb
       {
         std::mt19937_64 r( seed + rank * omp_get_num_threads() + omp_get_thread_num() );
         r(); r();
-        size_t tidx = get_thread_index();
+        size_t tidx = onika::get_thread_index();
 #       pragma omp critical(set_seed_cs)
         {
           g_thread_random_engine[ tidx ].seed( r() );
@@ -128,7 +128,7 @@ namespace exanb
       }
 #     pragma omp parallel
       {
-        int tidx = get_thread_index();
+        int tidx = onika::get_thread_index();
         if( thread_seeds.find(tidx) != thread_seeds.end() )
         {
           std::istringstream iss( thread_seeds[tidx] );

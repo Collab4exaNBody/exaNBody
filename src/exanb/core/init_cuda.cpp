@@ -22,7 +22,7 @@ under the License.
 #include <exanb/core/operator_factory.h>
 #include <onika/log.h>
 #include <onika/string_utils.h>
-#include <exanb/core/value_streamer.h>
+#include <onika/value_streamer.h>
 
 #ifdef ONIKA_CUDA_VERSION
 #include <onika/cuda/cuda_context.h>
@@ -202,9 +202,9 @@ namespace exanb
         }
 
         long long tmp[3];
-        ValueStreamer<long long>(tmp) << ndev << n_support_vmm << totalGlobalMem;
+        onika::ValueStreamer<long long>(tmp) << ndev << n_support_vmm << totalGlobalMem;
         MPI_Allreduce(MPI_IN_PLACE,tmp,3,MPI_LONG_LONG,MPI_SUM,*mpi);
-        ValueStreamer<long long>(tmp) >> ndev >> n_support_vmm >> totalGlobalMem;
+        onika::ValueStreamer<long long>(tmp) >> ndev >> n_support_vmm >> totalGlobalMem;
 
         if( n_support_vmm != ndev )
         {

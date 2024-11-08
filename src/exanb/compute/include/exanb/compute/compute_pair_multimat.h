@@ -25,7 +25,7 @@ under the License.
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/field_sets.h>
-#include <exanb/core/thread.h>
+#include <onika/thread.h>
 #include <exanb/core/particle_type_pair.h>
 //#include "exanb/debug/debug_particle_id.h"
 
