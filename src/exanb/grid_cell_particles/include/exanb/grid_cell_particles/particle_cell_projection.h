@@ -21,7 +21,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/grid_particle_field_accessor.h>
-#include <exanb/core/quaternion_operators.h>
+#include <onika/math/quaternion_operators.h>
 #include <onika/cuda/cuda.h>
 
 namespace exanb

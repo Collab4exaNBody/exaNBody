@@ -27,7 +27,7 @@ under the License.
 #include <onika/string_utils.h>
 #include <onika/math/basic_types.h>
 #include <onika/math/basic_types_yaml.h>
-#include <exanb/core/quaternion_operators.h>
+#include <onika/math/quaternion_operators.h>
 #include <onika/math/basic_types_stream.h>
 #include <onika/oarray.h>
 

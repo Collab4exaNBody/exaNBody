@@ -27,8 +27,8 @@ under the License.
 #include <iostream>
 #include <onika/math/basic_types_operators.h>
 #include <onika/math/basic_types_stream.h>
-#include <exanb/core/quaternion_operators.h>
-#include <exanb/core/quaternion_stream.h>
+#include <onika/math/quaternion_operators.h>
+#include <onika/math/quaternion_stream.h>
 #include <exanb/extra_storage/dynamic_data_storage.hpp>
 #include <exanb/extra_storage/reader_dynamic_data_storage.hpp>
 
