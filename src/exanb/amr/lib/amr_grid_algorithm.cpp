@@ -22,7 +22,7 @@ under the License.
 #include <onika/math/basic_types.h>
 #include <exanb/core/geometry.h>
 #include <onika/log.h>
-#include <exanb/core/operator.h>
+#include <onika/scg/operator.h>
 
 #include <vector>
 #include <set>

@@ -23,7 +23,7 @@ under the License.
 #include <onika/math/math_utils.h>
 #include <exanb/core/algorithm.h>
 #include <onika/log.h>
-#include <exanb/core/operator.h>
+#include <onika/scg/operator.h>
 
 #ifndef NDEBUG
 #include <onika/math/basic_types_stream.h>

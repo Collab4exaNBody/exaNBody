@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <exanb/core/grid.h>
-#include <exanb/core/operator_slot.h>
+#include <onika/scg/operator_slot.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <cmath>
 

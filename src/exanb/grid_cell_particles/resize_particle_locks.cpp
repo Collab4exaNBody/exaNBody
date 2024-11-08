@@ -17,9 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 #include <onika/thread.h>
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
 #include <onika/math/basic_types.h>
 #include <onika/log.h>
 #include <exanb/core/parallel_grid_algorithm.h>

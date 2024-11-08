@@ -184,4 +184,13 @@ namespace onika { namespace scg
 
 } }
 
+// bridge main objects to another namespace if it helps for the transition to standalone Onika
+#ifdef ONIKA_SCG_EXPORT_NAMESPACE
+namespace ONIKA_SCG_EXPORT_NAMESPACE
+{
+	using ::onika::scg::OperatorNodeFactory;
+	using ::onika::scg::make_simple_operator;
+	using ::onika::scg::make_compatible_operator;
+}
+#endif
 

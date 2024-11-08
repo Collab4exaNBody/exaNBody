@@ -20,7 +20,7 @@ under the License.
 #include <exanb/core/parallel_random.h>
 #include <onika/plugin.h>
 
-#include <exanb/core/operator_factory.h>
+#include <onika/scg/operator_factory.h>
 //#include "exanb/potential/pair_potential_factory.h"
 
 #include <onika/string_utils.h>

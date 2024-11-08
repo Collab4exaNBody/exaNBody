@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
 */
 #include "vite_operator_functions.h"
-#include <exanb/core/operator.h>
+#include <onika/scg/operator.h>
 #include <random>
 
 

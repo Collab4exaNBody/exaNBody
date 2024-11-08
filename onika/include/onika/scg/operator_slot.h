@@ -552,6 +552,6 @@ namespace onika { namespace scg
 } }
 
 // (!) Convinience macro, to be used _ONLY_ inside an OperatorNode derived class declaration
-#define ADD_SLOT(T,N,D...) OperatorSlot< ::onika::scg::automatic_slot_type_promotion<T> , GET_FIRST_ARG(D)==::onika::scg::INPUT > N { this, #N, ::onika::scg::operator_slot_details::make_operator_slot_construct_args(D) }
+#define ADD_SLOT(T,N,D...) ::onika::scg::OperatorSlot< ::onika::scg::automatic_slot_type_promotion<T> , GET_FIRST_ARG(D)==::onika::scg::INPUT > N { this, #N, ::onika::scg::operator_slot_details::make_operator_slot_construct_args(D) }
 
 

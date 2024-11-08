@@ -33,6 +33,7 @@ under the License.
 
 namespace onika { namespace math
 {
+
   struct Mat4d
   {
     /* M [ line ] [ column ] */
@@ -425,8 +426,7 @@ namespace YAML
     }
   };  
 
-} }
-
+}
 
 // =========== Unit tests ====================
 #include <onika/test/unit_test.h>
@@ -487,4 +487,12 @@ ONIKA_UNIT_TEST(matrix_4d)
     ONIKA_TEST_ASSERT( ierr1 < 1.e-10 && ierr2 < 1.e-10 );
   }
 }
+
+
+#ifdef ONIKA_MATH_EXPORT_NAMESPACE
+namespace ONIKA_MATH_EXPORT_NAMESPACE
+{
+  using ::onika::math::Mat4d;
+}
+#endif
 

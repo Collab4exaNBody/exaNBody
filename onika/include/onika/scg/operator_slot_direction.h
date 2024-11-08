@@ -35,3 +35,15 @@ namespace onika { namespace scg
 
 } }
 
+// bridge main objects to another namespace if it helps for the transition to standalone Onika
+#ifdef ONIKA_SCG_EXPORT_NAMESPACE
+namespace ONIKA_SCG_EXPORT_NAMESPACE
+{
+	static inline constexpr ::onika::scg::SlotDirection INPUT         = ::onika::scg::INPUT;
+	static inline constexpr ::onika::scg::SlotDirection OUTPUT        = ::onika::scg::OUTPUT;
+	static inline constexpr ::onika::scg::SlotDirection INPUT_OUTPUT  = ::onika::scg::INPUT_OUTPUT;
+	static inline constexpr ::onika::scg::SlotDirection PRIVATE       = ::onika::scg::PRIVATE;
+	using SlotDirection = ::onika::scg::SlotDirection;
+}
+#endif
+

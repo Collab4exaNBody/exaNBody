@@ -17,8 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot_base.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot_base.h>
 #include <onika/log.h>
 
 #include "dot_sim_graph.h"

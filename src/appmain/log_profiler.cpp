@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/operator.h>
+#include <onika/scg/operator.h>
 #include <onika/log.h>
 #include <onika/print_utils.h>
 

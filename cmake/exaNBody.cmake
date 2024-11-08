@@ -210,6 +210,7 @@ macro(exaNBodyStartApplication)
     ${ONIKA_COMPILE_DEFINITIONS}
     ONIKA_LOG_EXPORT_NAMESPACE=exanb
     ONIKA_MATH_EXPORT_NAMESPACE=exanb
+    ONIKA_SCG_EXPORT_NAMESPACE=exanb
     )
 
   # performance tuning : number of stored pointers for each cell

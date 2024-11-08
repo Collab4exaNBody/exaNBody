@@ -17,19 +17,29 @@ specific language governing permissions and limitations
 under the License.
 */
 
+//#pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
+
+#include <utility>
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
 #include <onika/physics/units.h>
+
+
 
 namespace exanb
 {
 
   class ApplicationUnitSystem : public onika::scg::OperatorNode
   {
-    static constexpr UnitSystem default_internal_unit_system = { { XNB_APP_INTERNAL_UNIT_SYSTEM } };
+    using UnitSystem = onika::physics::UnitSystem;
+    static inline constexpr UnitSystem default_internal_unit_system()
+    {
+      using namespace onika::physics;
+      return { { XNB_APP_INTERNAL_UNIT_SYSTEM } };
+    }
   
-    ADD_SLOT( UnitSystem , unit_system , INPUT , default_internal_unit_system );
+    ADD_SLOT( UnitSystem , unit_system , INPUT , default_internal_unit_system() );
 
   public:
 

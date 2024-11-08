@@ -16,9 +16,10 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
+
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/yaml/yaml_utils.h>
 #include <memory>
@@ -34,9 +35,9 @@ namespace exanb
   {
   public:
   
-    ADD_SLOT( long , timestep , INPUT);
-    ADD_SLOT( long , end_at   , INPUT);
-    ADD_SLOT( bool , result   , INPUT_OUTPUT);
+    ADD_SLOT( long , timestep , INPUT , REQUIRED );
+    ADD_SLOT( long , end_at   , INPUT , REQUIRED );
+    ADD_SLOT( bool , result   , INPUT_OUTPUT );
     
     void execute() override final
     {
@@ -47,33 +48,24 @@ namespace exanb
       out = ( timestep <= end_at );
       ldbg << "BeforeTimeStepNode: timestep="<<timestep<<", result="<<std::boolalpha<<out<<std::endl;
     }    
+
+    inline void yaml_initialize(const YAML::Node& node) override final
+    {
+      YAML::Node tmp;
+      if( node.IsScalar() )
+      {
+        tmp["end_at"] = node;
+      }
+      else { tmp = node; }
+      this->OperatorNode::yaml_initialize( tmp );
+    }
+
   };
 
    // === register factories ===  
   CONSTRUCTOR_FUNCTION
   {
-    OperatorNodeFactory::instance()->register_factory( "before_timestep",
-      []( const YAML::Node& node, const OperatorNodeFlavor& flavor) -> std::shared_ptr<OperatorNode> 
-      {
-        if( node.IsMap() || node.IsNull() )
-        {
-          return make_compatible_operator< BeforeTimeStepNode >(node,flavor);
-        }
-        else if( node.IsScalar() )
-        {
-          YAML::Node tmp;
-          tmp["end_at"] = node;
-          return make_compatible_operator< BeforeTimeStepNode >(tmp,flavor);
-        }
-        else
-        {
-          lerr << "before_timestep must have the form before_timestep: value or before_timestep: { end_at: value }" << std::endl;
-          lerr << "--- YAML node content ---" << std::endl;
-	  onika::yaml::dump_node_to_stream( lerr , node );
-          lerr << "-------------------------" << std::endl;
-          std::abort();
-        }
-      });
+    OperatorNodeFactory::instance()->register_factory( "before_timestep", make_simple_operator<BeforeTimeStepNode> );
   }
 
 }

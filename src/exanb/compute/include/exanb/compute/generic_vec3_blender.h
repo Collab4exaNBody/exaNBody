@@ -19,8 +19,8 @@ under the License.
 
 #pragma once
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
 #include <exanb/compute/compute_cell_particles.h>
 
 namespace exanb

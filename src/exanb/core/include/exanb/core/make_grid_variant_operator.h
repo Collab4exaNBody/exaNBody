@@ -18,8 +18,8 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_factory.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_factory.h>
 #include <exanb/field_sets.h>
 #include <exanb/core/grid.h>
 #include <yaml-cpp/yaml.h>

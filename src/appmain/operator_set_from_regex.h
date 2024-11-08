@@ -18,7 +18,7 @@ under the License.
 */
 #pragma once
 
-#include <exanb/core/operator.h>
+#include <onika/scg/operator.h>
 #include <unordered_set>
 #include <vector>
 #include <string>

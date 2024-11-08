@@ -68,3 +68,15 @@ namespace onika { namespace math
 
 } }
 
+#ifdef ONIKA_MATH_EXPORT_NAMESPACE
+namespace ONIKA_MATH_EXPORT_NAMESPACE
+{
+  using ::onika::math::make_ijk;
+  using ::onika::math::make_vec3d;
+  using ::onika::math::make_mat3d;
+  using ::onika::math::make_identity_matrix;
+  using ::onika::math::make_diagonal_matrix;
+  using ::onika::math::make_zero_matrix;
+}
+#endif
+

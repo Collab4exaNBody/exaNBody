@@ -18,9 +18,9 @@ under the License.
 */
 // #pragma xstamp_cuda_enable  // DO NOT REMOVE THIS LINE !!
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/memory/allocator.h>
 #include <onika/parallel/block_parallel_for.h>
