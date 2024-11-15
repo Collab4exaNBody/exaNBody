@@ -53,6 +53,7 @@ namespace exanb
   class RegionLegacyLattice : public OperatorNode
   {
     using StringVector = std::vector<std::string>;
+    using Vec3dVector = std::vector<Vec3d>;
 
     // -----------------------------------------------
     // Operator slots
@@ -82,8 +83,10 @@ namespace exanb
     // Variables related to the crystal structure
     ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
-    ADD_SLOT( double           , noise        , INPUT , 0.0);
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
+    ADD_SLOT( ssize_t          , np           , INPUT , OPTIONAL );    
+    ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL );    
+    ADD_SLOT( double           , noise        , INPUT , 0.0);
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
 
@@ -108,7 +111,7 @@ namespace exanb
           if( ! check_domain( *domain ) )
             {
               std::cout << "domain = " << *domain << std::endl;
-              fatal_error() << "Invalid domain configuration" << std::endl;
+              fatal_error() << "Invalid domain configurationAAAA" << std::endl;
             }
           if( grid->number_of_cells() > 0 )
             {
@@ -129,7 +132,97 @@ namespace exanb
           grid->set_dimension( local_grid_dim );
           grid->rebuild_particle_offsets();
         }
-        
+      
+      // Checking the required lattice :
+      //   if 'CUSTOM' -> check required fields then create LatticeCollection
+      //   if one of predefined lattices 'SC' 'BCC' 'FCC' 'HCP' etc... -> check required fields then create Lattice Collection
+
+      LatticeCollection lattice;
+      lattice.m_structure = *structure;
+      lattice.m_size = *size;
+      if (*structure == "CUSTOM") {
+        assert( (*np).has_value() );
+        assert( (*positions).has_value() );
+        lattice.m_np = *np;
+        lattice.m_types = *types;
+        // Checking that positions are contained between 0 and 1 -> fractional coordinates
+        for (int i=0;i<(*positions).size();i++) {
+          double px = (*positions)[i].x;
+          double py = (*positions)[i].y;
+          double pz = (*positions)[i].z;
+          assert( px >=0. && px <= 1. );
+          assert( py >=0. && py <= 1. );
+          assert( pz >=0. && pz <= 1. );
+        }
+        lattice.m_positions = *positions;
+      } else if (*structure == "SC") {
+        lattice.m_np = 1;
+        lattice.m_types = *types;
+        lattice.m_positions = { {.5, .5, .5 } };
+      } else if (*structure == "BCC") {
+        lattice.m_np = 2;
+        lattice.m_types = *types;
+        lattice.m_positions = { {.0, .0, .0} ,
+                                {.5, .5, .5} };
+      } else if (*structure == "2BCT") {
+        lattice.m_np = 4;
+        lattice.m_types = *types;
+        lattice.m_positions = { {.0, .0, .0 } ,
+                                {.0, .5, .25} ,
+                                {.5, .5, .5 } ,
+                                {.5, .0, .75} };
+      } else if (*structure == "FCC") {
+        lattice.m_np = 4;
+        lattice.m_types = *types;
+        lattice.m_positions = { {.0, .0, .0} ,
+                                {.0, .5, .5} ,
+                                {.5, .0, .5} ,
+                                {.5, .5, .0} };	
+      } else if (*structure == "HCP") {
+        lattice.m_np = 4;
+        lattice.m_types = *types;
+        lattice.m_positions = { {0.25,    0.25000000,    0.25} ,
+                                {0.75,    0.75000000,    0.25} ,
+                                {0.25,    0.58333333,    0.75} ,
+                                {0.75,    0.08333333,    0.75} };
+        lattice.m_size.y *= (2. * sin(120. * exanb::legacy_constant::pi / 180.));
+      } else if (*structure == "c-DIA") {
+        lattice.m_np = 8;
+        lattice.m_types = *types;
+        lattice.m_positions = { {.00, .00, .00} ,
+                                {.50, .50, .00} ,
+                                {.00, .50, .50} ,
+                                {.50, .00, .50} ,
+                                {.25, .25, .25} ,
+                                {.75, .75, .25} ,          
+                                {.75, .25, .75} ,
+                                {.25, .75, .75} };
+      } else if (*structure == "h-DIA") {
+        lattice.m_np = 8;
+        lattice.m_types = *types;
+        lattice.m_positions = { {0.50000000,    0.16666667,    0.50000000} ,
+                                {0.00000000,    0.66666667,    0.50000000} ,
+                                {0.50000000,    0.16666667,    0.87500000} ,
+                                {0.00000000,    0.66666667,    0.87500000} ,
+                                {0.00000000,    0.33333333,    0.00000000} ,
+                                {0.50000000,    0.83333333,    0.00000000} ,
+                                {0.00000000,    0.33333333,    0.37500000} ,
+                                {0.50000000,    0.83333333,    0.37500000} };
+        lattice.m_size.y *= (2. * sin(120. * exanb::legacy_constant::pi / 180.));
+      } else if (*structure == "graphite") {
+        lattice.m_np = 8;
+        lattice.m_types = *types;
+        lattice.m_positions = { {0.0,    0.00000000,    0.5} ,
+                                {0.5,    0.50000000,    0.5} ,
+                                {0.5,    0.16666667,    0.5} ,
+                                {0.0,    0.66666667,    0.5} ,
+                                {0.0,    0.33333333,    0.0} ,
+                                {0.5,    0.83333333,    0.0} ,
+                                {0.0,    0.00000000,    0.0} ,
+                                {0.5,    0.50000000,    0.0} };
+        lattice.m_size.y *= (2. * sin(120. * exanb::legacy_constant::pi / 180.));
+      }
+      
       const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
@@ -140,7 +233,7 @@ namespace exanb
       
       generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                               , *structure, *types, *noise, *size, noise_cutoff_ifset, *shift
+                               , lattice, *noise, noise_cutoff_ifset, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
     
