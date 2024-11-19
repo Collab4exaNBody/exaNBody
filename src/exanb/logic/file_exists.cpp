@@ -42,14 +42,13 @@ namespace exanb
       std::ifstream fin(*filename);
       *result = fin.good();
     }
-
-    // === register factories ===  
-    CLASS_CONSTRUCTOR_FUNCTION
-    {
-      OperatorNodeFactory::instance()->register_factory( "file_exists", make_compatible_operator< FileExists > );
-    }
-
   };
+
+  // === register factories ===  
+  ONIKA_AUTORUN_INIT(file_exists)
+  {
+    OperatorNodeFactory::instance()->register_factory( "file_exists", make_compatible_operator< FileExists > );
+  }
 
 }
 

@@ -137,7 +137,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(set_cell_values)
   {
     OperatorNodeFactory::instance()->register_factory( "set_cell_values", make_grid_variant_operator<SetCellValues> );
   }

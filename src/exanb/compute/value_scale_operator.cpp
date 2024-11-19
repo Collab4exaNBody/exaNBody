@@ -40,7 +40,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(value_scale_operator)
   {
    OperatorNodeFactory::instance()->register_factory("value_scale" , make_simple_operator< ValueScaleOperator > );
   }

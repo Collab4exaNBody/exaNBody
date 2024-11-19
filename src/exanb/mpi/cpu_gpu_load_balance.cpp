@@ -265,7 +265,7 @@ namespace exanb
 
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(cpu_gpu_load_balance)
   {
     OperatorNodeFactory::instance()->register_factory( "cpu_gpu_load_balance", make_compatible_operator<CpuGpuLoadBalance> );
   }

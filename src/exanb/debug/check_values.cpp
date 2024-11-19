@@ -412,7 +412,7 @@ namespace exanb
   template<class GridT> using CheckValuesNodeTmpl = CheckValuesNode<GridT>;
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(check_values)
   {
    OperatorNodeFactory::instance()->register_factory( "check_values", make_grid_variant_operator< CheckValuesNodeTmpl > );
   }

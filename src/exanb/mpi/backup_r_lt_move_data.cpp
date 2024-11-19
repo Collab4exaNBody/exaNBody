@@ -164,7 +164,7 @@ namespace exanb
   template<class GridT> using PositionBackupLongTermMoveDataTmpl = PositionBackupLongTermMoveData<GridT>;  
 
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(backup_r_lt_move_data)
   {
    OperatorNodeFactory::instance()->register_factory( "backup_r_lt_move_data", make_grid_variant_operator< PositionBackupLongTermMoveDataTmpl > );
   }

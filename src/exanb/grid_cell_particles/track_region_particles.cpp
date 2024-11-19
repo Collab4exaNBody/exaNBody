@@ -147,7 +147,7 @@ namespace exanb
   template<class GridT> using TrackRegionParticlesTmpl = TrackRegionParticles< GridT >;
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(track_region_particles)
   {
     OperatorNodeFactory::instance()->register_factory( "track_region_particles", make_grid_variant_operator<TrackRegionParticlesTmpl> );
   }

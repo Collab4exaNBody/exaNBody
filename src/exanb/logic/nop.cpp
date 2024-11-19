@@ -29,7 +29,7 @@ namespace exanb
   };
  
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(nop)
   {
     OperatorNodeFactory::instance()->register_factory( "nop", make_compatible_operator< NoOperationNode > );
   }

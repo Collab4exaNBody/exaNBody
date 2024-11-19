@@ -60,7 +60,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_plot1d)
   {
    OperatorNodeFactory::instance()->register_factory( "write_plot1d" , make_compatible_operator< WritePlot1D > );
   }

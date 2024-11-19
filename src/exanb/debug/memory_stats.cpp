@@ -117,7 +117,7 @@ namespace exanb
   };
 
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(memory_stats)
   {
     OperatorNodeFactory::instance()->register_factory( "memory_stats", make_simple_operator< PrintRUsageOperator > );
   }

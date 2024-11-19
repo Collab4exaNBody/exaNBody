@@ -55,7 +55,7 @@ namespace exanb
     template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , typename GridT::Fields , true >;
     template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false >;
 
-    CONSTRUCTOR_FUNCTION
+    ONIKA_AUTORUN_INIT(update_ghosts)
     {
       OperatorNodeFactory::instance()->register_factory( "ghost_update_all",    make_grid_variant_operator<UpdateGhostsAllFields> );
       OperatorNodeFactory::instance()->register_factory( "ghost_update_r",      make_grid_variant_operator<UpdateGhostsR> );

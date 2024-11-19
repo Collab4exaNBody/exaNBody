@@ -112,7 +112,7 @@ namespace exanb
   };
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(performance_adviser)
   {
     OperatorNodeFactory::instance()->register_factory( "performance_adviser", make_grid_variant_operator<PerformanceAdviser> );
   }

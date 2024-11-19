@@ -33,14 +33,13 @@ namespace exanb
     {
       assert( *mpi == MPI_COMM_WORLD ) ;
     }
-
-    // === register factory ===
-    CLASS_CONSTRUCTOR_FUNCTION
-    {
-      OperatorNodeFactory::instance()->register_factory( "mpi_comm_world", make_compatible_operator<MpiCommWorld> );
-    }
-
   };
+
+  // === register factory ===
+  ONIKA_AUTORUN_INIT(mpi_comm_world)
+  {
+    OperatorNodeFactory::instance()->register_factory( "mpi_comm_world", make_compatible_operator<MpiCommWorld> );
+  }
 
 }
 

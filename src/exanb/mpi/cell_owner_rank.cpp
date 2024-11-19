@@ -88,7 +88,7 @@ namespace exanb
   };
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(cell_owner_rank)
   {
     OperatorNodeFactory::instance()->register_factory( "cell_owner_rank", make_grid_variant_operator< CellOwnerRank > );
   }

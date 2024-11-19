@@ -72,7 +72,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(domain_init)
   {
     OperatorNodeFactory::instance()->register_factory( "domain", make_simple_operator<DomainInitNode> );
   }

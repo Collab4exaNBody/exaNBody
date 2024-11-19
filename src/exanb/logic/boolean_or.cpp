@@ -39,13 +39,13 @@ namespace exanb
       *result = ( (*in1) || (*in2) );
     }
 
-    // === register factories ===  
-    CLASS_CONSTRUCTOR_FUNCTION
-    {
-      OperatorNodeFactory::instance()->register_factory( "boolean_or" , make_compatible_operator< BooleanOrNode > );
-    }
-
   };
+
+  // === register factories ===  
+  ONIKA_AUTORUN_INIT(boolean_or)
+  {
+    OperatorNodeFactory::instance()->register_factory( "boolean_or" , make_compatible_operator< BooleanOrNode > );
+  }
 
 }
 

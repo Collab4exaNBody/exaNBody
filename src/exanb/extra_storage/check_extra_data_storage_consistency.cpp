@@ -24,7 +24,7 @@ namespace exanb
 	template<class GridT> using CheckInfoConsistencyTmpl = CheckInfoConsistency<GridT, GridExtraDynamicDataStorageT<double>>;
 
 	// === register factories ===  
-	CONSTRUCTOR_FUNCTION
+	ONIKA_AUTORUN_INIT(check_extra_data_storage_consistency)
 	{
 		OperatorNodeFactory::instance()->register_factory( "check_es_consistency_double", make_grid_variant_operator< CheckInfoConsistencyTmpl > );
 	}

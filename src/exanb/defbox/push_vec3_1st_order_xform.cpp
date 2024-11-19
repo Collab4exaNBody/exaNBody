@@ -16,9 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#pragma xstamp_cuda_enable
 
-#pragma xstamp_grid_variant
+// #pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
 
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
@@ -36,7 +35,7 @@ namespace exanb
   template<class GridT> using PushForceToPosition = PushVec3FirstOrder<GridT, field::_rx,field::_ry,field::_rz, field::_fx,field::_fy,field::_fz >;
 
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(push_vec3_1st_order_xform)
   {
    OperatorNodeFactory::instance()->register_factory( "push_v_r", make_grid_variant_operator< PushVelocityToPosition > );
    OperatorNodeFactory::instance()->register_factory( "push_f_v", make_grid_variant_operator< PushForceToVelocity > );

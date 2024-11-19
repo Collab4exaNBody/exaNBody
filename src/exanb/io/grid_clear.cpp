@@ -50,7 +50,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(grid_clear)
   {
     OperatorNodeFactory::instance()->register_factory( "grid_clear", make_grid_variant_operator<GridClear> );
   }

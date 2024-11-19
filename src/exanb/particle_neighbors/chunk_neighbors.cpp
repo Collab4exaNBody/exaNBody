@@ -16,7 +16,6 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#pragma xstamp_grid_variant
 
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
@@ -107,7 +106,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(chunk_neighbors)
   {
    OperatorNodeFactory::instance()->register_factory("chunk_neighbors", make_grid_variant_operator< BuildChunkNeighbors > );
    OperatorNodeFactory::instance()->register_factory("chunk_neighbors_init", make_simple_operator< ChunkNeighborsInit > );

@@ -313,7 +313,7 @@ Write a rectilinear grid's scalar fields to a .pvti vtk file (along with its .vt
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_grid_vtk)
   {
    OperatorNodeFactory::instance()->register_factory("write_grid_vtk", make_grid_variant_operator< WriteGridVTK > );
   }

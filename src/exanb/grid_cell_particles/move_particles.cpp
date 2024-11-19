@@ -39,7 +39,7 @@ namespace exanb
   template<class GridT> using MoveAtomsAcrossCells = MovePaticlesAcrossCells<GridT>;
   
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(move_particles)
   {
     OperatorNodeFactory::instance()->register_factory(
       "move_particles",

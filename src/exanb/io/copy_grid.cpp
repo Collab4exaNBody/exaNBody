@@ -40,7 +40,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(copy_grid)
   {
     OperatorNodeFactory::instance()->register_factory( "copy_grid", make_grid_variant_operator< CopyGridperator > );
   }

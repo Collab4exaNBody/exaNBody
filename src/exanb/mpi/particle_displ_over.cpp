@@ -16,9 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#pragma xstamp_cuda_enable
 
-#pragma xstamp_grid_variant
+// #pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
 
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
@@ -164,7 +163,7 @@ sets result output to true if at least one particle has moved further than thres
   };
     
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(particle_displ_over)
   {
     OperatorNodeFactory::instance()->register_factory( "particle_displ_over", make_grid_variant_operator< ParticleDisplacementOver > );
   }

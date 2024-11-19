@@ -89,7 +89,7 @@ namespace exanb
   };
     
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(restore_r)
   {
    OperatorNodeFactory::instance()->register_factory( "restore_r", make_grid_variant_operator< PositionRestoreNode > );
   }

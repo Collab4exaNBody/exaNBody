@@ -51,7 +51,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(lb_event_counter)
   {
    OperatorNodeFactory::instance()->register_factory( "lb_event_counter", make_simple_operator<LoadBalanceEventCounterOperator> );
   }

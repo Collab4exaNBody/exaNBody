@@ -39,7 +39,7 @@ namespace tutorial
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(synchronous_block_parallel)
   {
    OperatorNodeFactory::instance()->register_factory( "synchronous_block_parallel", make_simple_operator< SynchronousBlockParallelSample > );
   }

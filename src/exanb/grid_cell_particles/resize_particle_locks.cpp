@@ -60,7 +60,7 @@ namespace exanb
   };
     
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(resize_particle_locks)
   {
    OperatorNodeFactory::instance()->register_factory( "resize_particle_locks", make_grid_variant_operator< ResizeParticleLocksNode > );
   }

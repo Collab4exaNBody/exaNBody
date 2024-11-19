@@ -95,7 +95,7 @@ namespace exanb
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_paraview_generic)
   {
     OperatorNodeFactory::instance()->register_factory( "write_paraview_generic",make_grid_variant_operator<ParaviewGenericWriter >);
   }

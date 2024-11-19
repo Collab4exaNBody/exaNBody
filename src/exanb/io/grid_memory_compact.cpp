@@ -116,7 +116,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(grid_memory_compact)
   {
     OperatorNodeFactory::instance()->register_factory( "grid_memory_compact", make_grid_variant_operator<GridMemoryCompact> );
   }

@@ -42,7 +42,7 @@ namespace exanb
   };
 
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(value_greater_than)
   {
     OperatorNodeFactory::instance()->register_factory( "greater_than", make_compatible_operator< ValueGreaterThanNode > );
   }

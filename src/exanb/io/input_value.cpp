@@ -46,15 +46,14 @@ namespace exanb
       }
       ldbg << "value = '"<< *value << "'" << std::endl;
     }
-
-    // === register factories ===  
-    CLASS_CONSTRUCTOR_FUNCTION
-    {
-      OperatorNodeFactory::instance()->register_factory( "input_value", make_simple_operator<InputValueNode> );
-    }
-
   };
 
+
+  // === register factories ===  
+  ONIKA_AUTORUN_INIT(input_value)
+  {
+    OperatorNodeFactory::instance()->register_factory( "input_value", make_simple_operator<InputValueNode> );
+  }
 
 }
 

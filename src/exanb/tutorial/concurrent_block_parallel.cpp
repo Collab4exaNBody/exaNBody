@@ -68,7 +68,7 @@ namespace tutorial
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(concurrent_block_parallel)
   {
    OperatorNodeFactory::instance()->register_factory( "concurrent_block_parallel", make_simple_operator< ConcurrentBlockParallelSample > );
   }

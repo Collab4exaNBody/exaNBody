@@ -365,7 +365,7 @@ Write a structured grid's scalar fields to a .pvts vtk file (along with its .vts
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_deformed_grid_vtk)
   {
    OperatorNodeFactory::instance()->register_factory("write_deformed_grid_vtk", make_grid_variant_operator< WriteDeformedGridVTK > );
   }

@@ -181,7 +181,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(verify_chunk_neighbors)
   {
    OperatorNodeFactory::instance()->register_factory("verify_chunk_neighbors", make_grid_variant_operator< VerifyChunkNeighbors > );
   }

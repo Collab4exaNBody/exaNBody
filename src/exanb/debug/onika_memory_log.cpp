@@ -37,7 +37,7 @@ namespace exanb
   };
     
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(onika_memory_log)
   {
     OperatorNodeFactory::instance()->register_factory( "onika_memory_log", make_simple_operator<OnikaMemoryLog> );
   }

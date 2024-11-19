@@ -87,7 +87,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(nbh_dist)
   {
    OperatorNodeFactory::instance()->register_factory("nbh_dist" , make_simple_operator< NeighborDistanceNode > );
   }

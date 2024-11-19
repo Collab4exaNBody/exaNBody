@@ -133,7 +133,7 @@ namespace onika { namespace scg
   }
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(global)
   {
     OperatorNodeFactory::instance()->register_factory("global",make_global_operator);
   }

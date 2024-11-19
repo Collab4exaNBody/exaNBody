@@ -41,14 +41,14 @@ namespace exanb
     {
       *value = *set;
     }
+  };
 
   // === register factories ===  
-  CLASS_CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(boolean_set_operator)
   {
     OperatorNodeFactory::instance()->register_factory( "boolean_set", make_compatible_operator< BooleanSetNode > );
   }
 
-  };
 
 }
 

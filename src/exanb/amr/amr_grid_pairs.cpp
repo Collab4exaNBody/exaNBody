@@ -41,7 +41,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(amr_grid_pairs)
   {
    OperatorNodeFactory::instance()->register_factory("amr_grid_pairs", make_simple_operator< AmrGridSubCellPairs > );
   }

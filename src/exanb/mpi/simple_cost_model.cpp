@@ -25,7 +25,7 @@ namespace exanb
   template<class GridT> using SimpleCostModelTmpl = SimpleCostModel<GridT>;
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(simple_cost_model)
   {
     OperatorNodeFactory::instance()->register_factory(
       "simple_cost_model",

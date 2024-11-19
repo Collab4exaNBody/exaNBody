@@ -216,7 +216,7 @@ namespace exanb
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_vtklegacy)
   {
     OperatorNodeFactory::instance()->register_factory( "write_vtklegacy",make_grid_variant_operator<VtkLegacyWriter>);
   }

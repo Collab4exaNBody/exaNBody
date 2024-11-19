@@ -41,7 +41,7 @@ namespace exanb
 
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(duplicate_communicator)
   {
     OperatorNodeFactory::instance()->register_factory( "mpi_dup", make_compatible_operator<CommDupOperator> );
   }

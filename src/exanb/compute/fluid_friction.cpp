@@ -38,7 +38,7 @@ namespace exanb
   template<class GridT> using FluidFrictionTmpl = FluidFriction< GridT >;
   
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(fluid_friction)
   {
    OperatorNodeFactory::instance()->register_factory( "fluid_friction", make_grid_variant_operator< FluidFrictionTmpl > );
   }

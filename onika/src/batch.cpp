@@ -831,7 +831,7 @@ namespace onika { namespace scg
   }
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(batch)
   {
     OperatorNodeFactory::instance()->register_factory( "batch", OperatorBatchNode::make_operator_batch );
   }

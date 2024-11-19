@@ -152,7 +152,7 @@ namespace exanb
   };
   
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(constant_strain_rate_xform)
   {
    OperatorNodeFactory::instance()->register_factory(
     "xform_constant_strain_rate",

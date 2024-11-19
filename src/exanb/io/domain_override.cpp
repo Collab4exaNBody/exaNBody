@@ -107,7 +107,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(domain_override)
   {
     OperatorNodeFactory::instance()->register_factory( "domain_override", make_simple_operator<DomainOverride> );
   }

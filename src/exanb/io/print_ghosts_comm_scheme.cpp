@@ -43,7 +43,7 @@ namespace exanb
   };
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(print_ghosts_comm_scheme)
   {
     OperatorNodeFactory::instance()->register_factory("print_ghost_comm_scheme",make_simple_operator< PrintGhostsCommScheme > );
   }

@@ -111,7 +111,7 @@ namespace exanb
     
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(print_ghost_operator)
   {
    OperatorNodeFactory::instance()->register_factory( "debug_print_ghosts", make_grid_variant_operator< PrintGhostsTmpl > );
   }

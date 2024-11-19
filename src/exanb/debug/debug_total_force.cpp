@@ -96,7 +96,7 @@ namespace exanb
   template<class GridT> using DebugTotalForceTmpl = DebugTotalForce<GridT>;
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(debug_total_force)
   {
     OperatorNodeFactory::instance()->register_factory( "debug_total_force", make_grid_variant_operator< DebugTotalForceTmpl > );
   }

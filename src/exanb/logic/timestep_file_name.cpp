@@ -54,7 +54,7 @@ namespace exanb
   };
  
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(timestep_file_name)
   {
     OperatorNodeFactory::instance()->register_factory( "timestep_file", make_compatible_operator< TimeStepFileNameOperator > );
   }

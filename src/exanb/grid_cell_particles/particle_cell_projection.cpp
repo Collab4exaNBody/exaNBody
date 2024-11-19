@@ -69,7 +69,7 @@ namespace exanb
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(particle_cell_projection)
   {
     OperatorNodeFactory::instance()->register_factory("particle_cell_projection", make_grid_variant_operator< ParticleCellProjection > );
   }

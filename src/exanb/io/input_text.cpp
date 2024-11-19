@@ -47,7 +47,7 @@ namespace exanb
   };
     
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(input_text)
   {
     OperatorNodeFactory::instance()->register_factory( "input_text", make_simple_operator<InputTextNode> );
   }

@@ -246,7 +246,7 @@ Write a rectilinear grid's scalar fields to a legacy vtk file
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_grid_vtklegacy)
   {
    OperatorNodeFactory::instance()->register_factory("write_grid_vtklegacy", make_grid_variant_operator< WriteGridVTKLegacy > );
   }

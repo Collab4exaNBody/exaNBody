@@ -55,16 +55,15 @@ namespace exanb
       else { tmp = node; }
       this->OperatorNode::yaml_initialize( tmp );
    }
-
-    // === register factories ===  
-    CLASS_CONSTRUCTOR_FUNCTION
-    {
-      OperatorNodeFactory::instance()->register_factory( "print_real", make_simple_operator< PrintValue<double> > );
-      OperatorNodeFactory::instance()->register_factory( "print_int", make_simple_operator< PrintValue<long> > );
-      OperatorNodeFactory::instance()->register_factory( "print_bool", make_simple_operator< PrintValue<bool> > );
-    }
-
   };
-    
+ 
+  // === register factories ===  
+  ONIKA_AUTORUN_INIT(print_value)
+  {
+    OperatorNodeFactory::instance()->register_factory( "print_real", make_simple_operator< PrintValue<double> > );
+    OperatorNodeFactory::instance()->register_factory( "print_int", make_simple_operator< PrintValue<long> > );
+    OperatorNodeFactory::instance()->register_factory( "print_bool", make_simple_operator< PrintValue<bool> > );
+  }
+   
 }
 

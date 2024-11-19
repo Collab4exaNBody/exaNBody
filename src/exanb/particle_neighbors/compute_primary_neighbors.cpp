@@ -81,7 +81,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(compute_primary_neighbors)
   {
    OperatorNodeFactory::instance()->register_factory(
     "compute_primary_neighbors"

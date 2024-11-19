@@ -110,7 +110,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(sim_continue)
   {
     OperatorNodeFactory::instance()->register_factory( "sim_continue", make_simple_operator<SimContinueOperator> );
   }

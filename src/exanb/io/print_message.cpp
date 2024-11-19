@@ -59,7 +59,7 @@ namespace exanb
   };
     
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(print_message)
   {
     OperatorNodeFactory::instance()->register_factory( "message", make_simple_operator<PrintMessageNode> );
   }

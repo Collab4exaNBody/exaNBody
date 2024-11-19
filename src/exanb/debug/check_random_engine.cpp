@@ -77,7 +77,7 @@ namespace exanb
   };
   
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(check_random_engine)
   {
    OperatorNodeFactory::instance()->register_factory( "check_random_engine", make_simple_operator< CheckRandomEngine > );
   }

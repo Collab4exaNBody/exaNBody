@@ -26,7 +26,7 @@ namespace exanb
 	template<class GridT> using MigrateCellParticlesIntTmpl = MigrateCellParticlesES<GridT, GridExtraDynamicDataStorageT<int>>;
 
 	// === register factory ===
-	CONSTRUCTOR_FUNCTION
+	ONIKA_AUTORUN_INIT(migrate_cell_particles_es)
 	{
 		OperatorNodeFactory::instance()->register_factory( "migrate_cell_particles_double", make_grid_variant_operator<MigrateCellParticlesDoubleTmpl> );
 		OperatorNodeFactory::instance()->register_factory( "migrate_cell_particles_int", make_grid_variant_operator<MigrateCellParticlesIntTmpl> );

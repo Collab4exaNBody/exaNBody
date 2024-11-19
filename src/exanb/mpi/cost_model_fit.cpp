@@ -189,7 +189,7 @@ namespace exanb
 
   };
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(cost_model_fit)
   {
     OperatorNodeFactory::instance()->register_factory(
       "cost_model_fit",

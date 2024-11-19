@@ -27,7 +27,7 @@ namespace exanb
 	// === register factories ===  
 	namespace move_particles_es
 	{
-	  CONSTRUCTOR_FUNCTION
+	  ONIKA_AUTORUN_INIT(move_particles_es)
 	  {
 		  OperatorNodeFactory::instance()->register_factory( "move_particles_double", make_grid_variant_operator< MovePaticlesWithDoubleTmpl> );
 		  OperatorNodeFactory::instance()->register_factory( "move_particles_int", make_grid_variant_operator< MovePaticlesWithIntTmpl> );

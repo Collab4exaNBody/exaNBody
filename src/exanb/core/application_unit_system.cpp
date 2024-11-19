@@ -50,7 +50,7 @@ namespace exanb
   };
   
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(application_unit_system)
   {
    onika::scg::OperatorNodeFactory::instance()->register_factory( "application_unit_system", onika::scg::make_compatible_operator< ApplicationUnitSystem > );
   }

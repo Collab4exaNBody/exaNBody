@@ -95,7 +95,7 @@ Tests unified memory acces accross CPU and GPU.
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(check_cuda_mem_access)
   {
    OperatorNodeFactory::instance()->register_factory( "check_cuda_mem_access", make_simple_operator< CheckCudaMemAccess > );
   }

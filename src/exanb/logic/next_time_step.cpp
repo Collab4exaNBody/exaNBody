@@ -42,13 +42,13 @@ namespace exanb
       //std::cout << "physical_time -> " << *physical_time <<std::endl;
     }
 
-    // === register factories ===  
-    CLASS_CONSTRUCTOR_FUNCTION
-    {
-      OperatorNodeFactory::instance()->register_factory( "next_time_step", make_compatible_operator< NextTimeStepNode > );
-    }
-
   };
- 
+
+  // === register factories ===  
+  ONIKA_AUTORUN_INIT(next_time_step)
+  {
+    OperatorNodeFactory::instance()->register_factory( "next_time_step", make_compatible_operator< NextTimeStepNode > );
+  }
+
 }
 

@@ -63,7 +63,7 @@ namespace exanb
   };
 
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(before_timestep_operator)
   {
     OperatorNodeFactory::instance()->register_factory( "before_timestep", make_simple_operator<BeforeTimeStepNode> );
   }

@@ -121,7 +121,7 @@ namespace exanb
   };
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(load_balance_random)
   {
     OperatorNodeFactory::instance()->register_factory(
       "load_balance_random",

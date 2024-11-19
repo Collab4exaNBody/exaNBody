@@ -237,7 +237,7 @@ namespace exanb
   };
   
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(init_cuda)
   {
    OperatorNodeFactory::instance()->register_factory( "init_cuda", make_compatible_operator< InitCuda > );
   }

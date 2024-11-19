@@ -42,7 +42,7 @@ namespace exanb
 
   };
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(start_grid_cell_profiling)
   {
     OperatorNodeFactory::instance()->register_factory(
       "start_grid_cell_profiling",

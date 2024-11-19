@@ -42,7 +42,7 @@ namespace exanb
   namespace exanb_io_write_dump
   {
     // === register factories ===
-    CONSTRUCTOR_FUNCTION
+    ONIKA_AUTORUN_INIT(sim_dump_writer)
     {
       OperatorNodeFactory::instance()->register_factory( "write_dump_r" , make_grid_variant_operator<SimDumpWritePositions> );
       OperatorNodeFactory::instance()->register_factory( "write_dump_all" , make_grid_variant_operator<SimDumpWriteAll> );

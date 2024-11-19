@@ -207,7 +207,7 @@ namespace exanb
   };
   
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(extend_domain)
   {
     OperatorNodeFactory::instance()->register_factory("extend_domain", make_grid_variant_operator< ExtendDomainOperator> );
   }

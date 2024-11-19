@@ -44,7 +44,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(domain_update)
   {
     OperatorNodeFactory::instance()->register_factory( "domain_update", make_simple_operator<DomainUpdateNode> );
   }

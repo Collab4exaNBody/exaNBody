@@ -69,7 +69,7 @@ namespace exanb
   };
   
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(apply_xform)
   {
    OperatorNodeFactory::instance()->register_factory( "apply_xform", make_grid_variant_operator< ApplyXForm > );
   }

@@ -16,7 +16,6 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#pragma xstamp_grid_variant
 
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
@@ -150,7 +149,7 @@ the ghost cells are always empty after this operator.
   template<class GridT> using MigrateCellParticlesTmpl = MigrateCellParticles<GridT>;
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(migrate_cell_particles)
   {
     OperatorNodeFactory::instance()->register_factory( "migrate_cell_particles", make_grid_variant_operator<MigrateCellParticlesTmpl> );
   }

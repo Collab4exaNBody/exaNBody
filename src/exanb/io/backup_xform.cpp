@@ -38,7 +38,7 @@ namespace exanb
   };
 
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(backup_xform)
   {
    OperatorNodeFactory::instance()->register_factory( "backup_xform", make_simple_operator< BackupXForm > );
   }

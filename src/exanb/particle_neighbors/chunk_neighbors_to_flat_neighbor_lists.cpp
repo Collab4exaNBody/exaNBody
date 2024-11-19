@@ -144,7 +144,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(chunk_neighbors_to_flat_neighbor_lists)
   {
    OperatorNodeFactory::instance()->register_factory("chunk_neighbors_to_flat_neighbors", make_grid_variant_operator< ChunkNeighbors2FlatParticleLists > );
   }

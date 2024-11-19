@@ -38,7 +38,7 @@ namespace exanb
   template<class GridT> using ReplicateDomainDefaultIdShift = ReplicateDomain<GridT>;
 
    // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(replicate_domain)
   {
     OperatorNodeFactory::instance()->register_factory( "replicate_domain", make_grid_variant_operator< ReplicateDomainDefaultIdShift > );
   }

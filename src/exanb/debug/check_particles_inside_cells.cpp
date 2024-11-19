@@ -43,7 +43,7 @@ namespace exanb
   };
   
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(check_particles_inside_cells)
   {
     OperatorNodeFactory::instance()->register_factory(
       "check_particles_inside_cells",

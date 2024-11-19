@@ -587,7 +587,7 @@ namespace exanb
 
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(load_balance_rcb)
   {
 #   ifdef __use_lib_zoltan
     static float version = 0.0;

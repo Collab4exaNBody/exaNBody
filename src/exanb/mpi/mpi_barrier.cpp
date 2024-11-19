@@ -36,7 +36,7 @@ namespace exanb
   };
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(mpi_barrier)
   {
     OperatorNodeFactory::instance()->register_factory( "mpi_barrier", make_compatible_operator<MpiBarrier> );
   }

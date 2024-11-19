@@ -58,7 +58,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(grid_gpu_prefetch)
   {
     OperatorNodeFactory::instance()->register_factory( "grid_gpu_prefetch", make_grid_variant_operator<GridGPUPrefetch> );
   }

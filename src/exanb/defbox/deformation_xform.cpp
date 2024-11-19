@@ -84,7 +84,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(deformation_xform)
   {
    OperatorNodeFactory::instance()->register_factory( "deformation_xform", make_compatible_operator< DeformationXFormNode > );
   }

@@ -218,7 +218,7 @@ namespace exanb
   template<class GridT> using SetForceOperator      = GenericVec3Operator< GridT, field::_fx,field::_fy,field::_fz , SetFirstArgFunctor >;
   
  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(generic_op_vec3)
   {
    OperatorNodeFactory::instance()->register_factory( "shift_r", make_grid_variant_operator< ShiftPositionOperator > );
    OperatorNodeFactory::instance()->register_factory( "shift_v", make_grid_variant_operator< ShiftVelocityOperator > );

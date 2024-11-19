@@ -99,7 +99,7 @@ namespace exanb
 
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(comm_btree)
   {
     OperatorNodeFactory::instance()->register_factory( "mpi_btree", make_compatible_operator<CommBTreeNode> );
   }

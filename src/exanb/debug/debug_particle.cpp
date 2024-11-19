@@ -104,7 +104,7 @@ namespace exanb
   template<class GridT> using DebugParticleNodeTmpl = DebugParticleNode<GridT>;
   
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(debug_particle)
   {
    OperatorNodeFactory::instance()->register_factory( "debug_particle", make_grid_variant_operator<DebugParticleNodeTmpl> );
   }

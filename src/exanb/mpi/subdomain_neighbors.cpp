@@ -92,7 +92,7 @@ namespace exanb
   };
 
   // === register factory ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(subdomain_neighbors)
   {
     OperatorNodeFactory::instance()->register_factory( "subdomain_neighbors", make_grid_variant_operator< SubDomainNeighbors > );
   }

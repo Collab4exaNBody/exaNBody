@@ -42,7 +42,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(domain_extract_xform)
   {
    OperatorNodeFactory::instance()->register_factory( "domain_extract_xform", make_compatible_operator< DomainExtractXForm > );
   }

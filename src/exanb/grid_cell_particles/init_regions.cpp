@@ -71,7 +71,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(init_regions)
   {
     OperatorNodeFactory::instance()->register_factory( "particle_regions", make_compatible_operator<InitParticleRegions> );
   }

@@ -122,7 +122,7 @@ namespace exanb
   };
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(print_histogram)
   {
    OperatorNodeFactory::instance()->register_factory( "print_histogram" , make_compatible_operator< PrintHistogramOperator > );
   }

@@ -82,7 +82,7 @@ namespace exanb
   };
 
    // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(nth_timestep)
   {
     OperatorNodeFactory::instance()->register_factory( "nth_timestep", make_compatible_operator< NthTimeStepNode > );
   }

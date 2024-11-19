@@ -128,7 +128,7 @@ namespace exanb
   template<class GridT> using DebugParticleDistanceTmpl = DebugParticleDistance<GridT>;
   
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(debug_particle_distance)
   {
    OperatorNodeFactory::instance()->register_factory( "debug_particle_distance", make_grid_variant_operator<DebugParticleDistanceTmpl> );
   }

@@ -124,7 +124,7 @@ namespace exanb
   };
   
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(interpolated_byparts_xform)
   {
    OperatorNodeFactory::instance()->register_factory(
     "xform_time_interpolate_byparts",
