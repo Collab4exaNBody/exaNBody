@@ -20,7 +20,7 @@ under the License.
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 
 #include <mpi.h>
 
@@ -55,7 +55,7 @@ namespace exanb
         }
 #       pragma omp parallel
         {
-          auto& re = rand::random_engine();
+          auto& re = onika::parallel::random_engine();
           std::uniform_int_distribution<int> rint(1000,9999);
 
 #         pragma omp for schedule(static)

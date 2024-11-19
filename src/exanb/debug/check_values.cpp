@@ -26,7 +26,7 @@ under the License.
 #include <onika/math/basic_types_stream.h>
 #include <onika/math/basic_types_yaml.h>
 #include <onika/math/basic_types_operators.h>
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/file_utils.h>
 #include <onika/yaml/yaml_utils.h>
@@ -153,7 +153,7 @@ namespace exanb
         std::uniform_int_distribution<> rand_j( gl, dims.j - gl - 1 );
         std::uniform_int_distribution<> rand_k( gl, dims.k - gl - 1 );
 
-        auto& re = rand::random_engine();
+        auto& re = onika::parallel::random_engine();
 
         std::vector<long> local_ids;
         for(long i=0;i<number_of_samples;)
@@ -168,7 +168,7 @@ namespace exanb
           if( n_particles >= 1 )
           {
             std::uniform_int_distribution<> rand_p(0,n_particles-1);
-            size_t j = rand_p( rand::random_engine() );
+            size_t j = rand_p( onika::parallel::random_engine() );
             uint64_t id = cells[cell_index][field::id][j];
             if( selected_ids.find(id) == selected_ids.end() )
             {

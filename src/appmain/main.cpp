@@ -357,12 +357,12 @@ int main(int argc,char*argv[])
   // initialize random number generator
   if( ! rng_node.IsNull() )
   {
-    exanb::rand::load_state( rng_node );
+    onika::parallel::load_state( rng_node );
   }
   else 
   {
-    exanb::rand::generate_seed();
-    rng_node = exanb::rand::save_state();
+    onika::parallel::generate_seed();
+    rng_node = onika::parallel::save_state();
 //    config["random_generator_state"] = rng_node;
   }
   

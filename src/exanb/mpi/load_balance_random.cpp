@@ -24,7 +24,7 @@ under the License.
 #include <onika/string_utils.h>
 #include <onika/math/basic_types_stream.h>
 #include <exanb/core/simple_block_rcb.h>
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 #include <exanb/core/grid_algorithm.h>
 
 #include <mpi.h>
@@ -102,7 +102,7 @@ namespace exanb
       std::vector<double> cuts(size);
       if( rank == 0 )
       {
-        auto& re = rand::random_engine();
+        auto& re = onika::parallel::random_engine();
         std::uniform_real_distribution<double> uniform01( 0.0 , 1.0 );
         for(int i=0;i<size;i++)
         {

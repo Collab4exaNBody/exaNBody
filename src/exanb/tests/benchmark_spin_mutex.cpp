@@ -16,7 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 #include <onika/thread.h>
 #include <onika/debug.h>
 
@@ -50,7 +50,7 @@ void test_spin_lock_impl(const std::string& mesg, size_t factor, ssize_t Ns)
 
 # pragma omp parallel
   {
-    auto & re = exanb::rand::random_engine();
+    auto & re = onika::parallel::random_engine();
     //int ti = omp_get_thread_num();
 #   pragma omp barrier
 
@@ -107,7 +107,7 @@ int main(int argc,char*argv[])
   scale = atoi(argv[1]);
   Ns = atoi(argv[2]);
 
-  exanb::rand::generate_seed();
+  onika::parallel::generate_seed();
 
   // first, test spin lock implementations
 # ifdef NDEBUG

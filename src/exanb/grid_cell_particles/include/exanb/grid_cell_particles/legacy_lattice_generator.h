@@ -34,7 +34,7 @@ under the License.
 //#include "exanb/vector_utils.h"
 #include <exanb/core/check_particles_inside_cell.h>
 #include <onika/physics/constants.h>
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 #include <onika/thread.h>
 #include <exanb/core/particle_type_id.h>
 

@@ -23,7 +23,7 @@ under the License.
 #include <exanb/core/domain.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/fields.h>
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 
 #include <exanb/grid_cell_particles/particle_localized_filter.h>
 
@@ -102,7 +102,7 @@ namespace exanb
 
 #     pragma omp parallel
       {
-        auto& re = rand::random_engine();
+        auto& re = onika::parallel::random_engine();
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
           size_t i = grid_ijk_to_index( dims , loc + gstart );

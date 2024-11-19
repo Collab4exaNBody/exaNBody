@@ -25,7 +25,7 @@ under the License.
 #include <onika/math/basic_types_stream.h>
 #include <onika/log.h>
 #include <exanb/core/check_particles_inside_cell.h>
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 #include <onika/thread.h>
 #include <exanb/core/particle_type_id.h>
 #include <exanb/grid_cell_particles/particle_localized_filter.h>
@@ -484,7 +484,7 @@ namespace exanb
 
 #     pragma omp parallel
     {
-      auto& re = rand::random_engine();
+      auto& re = onika::parallel::random_engine();
       std::normal_distribution<double> f_rand(0.,1.);
       
 #       pragma omp for collapse(3) reduction(+:local_generated_count)
