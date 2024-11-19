@@ -17,22 +17,18 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/core/parallel_random.h>
+#include <onika/parallel/random.h>
 #include <onika/plugin.h>
 
 #include <onika/scg/operator_factory.h>
-//#include "exanb/potential/pair_potential_factory.h"
 
 #include <onika/string_utils.h>
 #include <onika/yaml/yaml_utils.h>
 #include <onika/file_utils.h>
 #include <onika/log.h>
-#include <exanb/core/grid.h>
 #include <onika/thread.h>
 #include <onika/test/unit_test.h>
 #include <onika/cpp_utils.h>
-
-//#include "exanb/debug/debug_particle_id.h"
 
 #include <onika/omp/version.h>
 #include <onika/omp/ompt_interface.h>
@@ -44,6 +40,8 @@ under the License.
 #include <onika/app/vite_operator_functions.h>
 #include <onika/scg/operator_set_from_regex.h>
 #include <onika/app/log_profiler.h>
+#include <onika/app/debug_profiler.h>
+#include <onika/app/dot_sim_graph.h>
 
 #include <iostream>
 #include <iomanip>
@@ -63,19 +61,9 @@ under the License.
 
 #include <yaml-cpp/yaml.h>
 
-#include "debug_profiler.h"
 #include <onika/trace/vite_trace_format.h>
 #include <onika/trace/dot_trace_format.h>
 #include <onika/trace/yaml_trace_format.h>
-#include "dot_sim_graph.h"
-
-
-std::string xstamp_grid_variants_as_string()
-{
-# define _XSTAMP_FIELD_SET_AS_STRING(FS) " " #FS
-  return XSTAMP_FOR_EACH_FIELD_SET(_XSTAMP_FIELD_SET_AS_STRING);
-# undef _XSTAMP_FIELD_SET_AS_STRING
-}
 
 // dummy function to be used as a breakpoint marker just before simulation is ran
 // usefull for adding breakpoints in loaded plugins
@@ -356,15 +344,14 @@ int main(int argc,char*argv[])
        << "OpenMP  : "<< onika::format_string("%-4d",num_threads) <<" thread"<<onika::plurial_suffix(num_threads) <<" (v"<< onika::omp::get_version_string() 
                       << ( ( configuration.omp_max_nesting > 1 ) ? onika::format_string(" nest=%d",configuration.omp_max_nesting) : std::string("") ) <<")"<<endl
        << "SIMD    : "<< onika::memory::simd_arch() << endl
-       << "SOATL   : HFA P"<<XSTAMP_FIELD_ARRAYS_STORE_COUNT<<" / A"<<onika::memory::DEFAULT_ALIGNMENT<<" / C"<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
+       << "SOATL   : align="<<onika::memory::DEFAULT_ALIGNMENT<<" , vec="<<onika::memory::DEFAULT_CHUNK_SIZE << endl;
 # ifdef ONIKA_CUDA_VERSION
        lout << ONIKA_CU_NAME_STR << "    : v"<< USTAMP_STR(ONIKA_CUDA_VERSION);
        if(n_gpus==0) lout<< " (no GPU)"<< endl;
        else if(n_gpus==1) lout<< " (1 GPU)"<< endl;
        else lout<< " ("<< n_gpus<<" GPUs)"<< endl;
 # endif
-  lout << "Align.  : "<< onika::memory::GenericHostAllocator::DefaultAlignBytes << endl
-       << "Grids   :" << xstamp_grid_variants_as_string() << endl <<endl;
+  lout << "Alloc.  : align="<< onika::memory::GenericHostAllocator::DefaultAlignBytes << endl;
 
   // ============= random number generator state ==============
   // initialize random number generator
@@ -515,7 +502,7 @@ int main(int argc,char*argv[])
   else if( configuration.profiling.exectime )
   {
 # ifndef NDEBUG
-    OperatorNode::set_profiler( { exanb::main::profiler_record_tag , onika::app::log_profiler_stop_event } );
+    OperatorNode::set_profiler( { onika::app::profiler_record_tag , onika::app::log_profiler_stop_event } );
 # else
     OperatorNode::set_profiler( { nullptr , onika::app::log_profiler_stop_event } );
 # endif
@@ -524,7 +511,7 @@ int main(int argc,char*argv[])
   else
   {
     OperatorNode::set_global_profiling( true );
-    OperatorNode::set_profiler( { exanb::main::profiler_record_tag , nullptr } );
+    OperatorNode::set_profiler( { onika::app::profiler_record_tag , nullptr } );
   }
 # endif
   // ===============================================
@@ -656,7 +643,7 @@ int main(int argc,char*argv[])
       bool expose_batch_slots = true;
       bool remove_batch_ended_path = true;
       bool invisible_batch_slots = true;
-      DotGraphOutput dotgen { expose_batch_slots, remove_batch_ended_path, invisible_batch_slots, configuration.debug.graph_rsc };
+      onika::app::DotGraphOutput dotgen { expose_batch_slots, remove_batch_ended_path, invisible_batch_slots, configuration.debug.graph_rsc };
       dotgen.dot_sim_graph(simulation_graph.get(),filename, show_unconnected_nodes, shrunk_nodes);
     }
     else

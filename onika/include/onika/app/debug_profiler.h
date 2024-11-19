@@ -16,13 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <onika/omp/ompt_task_timing.h>
 
-namespace exanb
+namespace onika
 {
-  namespace main
+  namespace app
   {
     extern const char * g_profiler_current_tag;
     extern void profiler_record_tag( const onika::omp::OpenMPToolTaskTiming& e );

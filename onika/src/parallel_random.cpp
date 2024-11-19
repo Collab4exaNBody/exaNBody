@@ -16,7 +16,9 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/core/parallel_random.h>
+
+#include <onika/parallel/random.h>
+
 #include <onika/thread.h>
 #include <mpi.h>
 #include <yaml-cpp/yaml.h>
@@ -24,10 +26,10 @@ under the License.
 #include <sstream>
 #include <unordered_map>
 
-namespace exanb
+namespace onika
 {
 
-  namespace rand
+  namespace parallel
   {
     static std::random_device g_random_device;
     static std::unordered_map< size_t, std::mt19937_64 > g_thread_random_engine;

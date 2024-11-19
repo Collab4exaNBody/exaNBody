@@ -203,7 +203,12 @@ namespace exanb
   // === register factories ===  
   ONIKA_AUTORUN_INIT(grid_stats)
   {
-   OperatorNodeFactory::instance()->register_factory( "grid_stats", make_grid_variant_operator< GridStats > );
+    const auto strvec = xnb_grid_variants_as_strings();
+    ldbg << "Available grid variants :";
+    for(const auto& s:strvec) ldbg << " " << s;
+    ldbg << std::endl;
+  
+    OperatorNodeFactory::instance()->register_factory( "grid_stats", make_grid_variant_operator< GridStats > );
   }
 
 }

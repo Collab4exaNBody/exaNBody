@@ -16,33 +16,25 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <onika/scg/operator.h>
-#include <onika/log.h>
-#include <onika/print_utils.h>
 
-#include <onika/omp/ompt_task_timing.h>
+#pragma once
 
-#include <iostream>
-#include <string>
+#include <random>
+#include <thread>
+#include <yaml-cpp/yaml.h>
 
-#include "debug_profiler.h"
-
-using namespace exanb;
-
-namespace exanb
+namespace onika
 {
-  namespace main
+  namespace parallel
   {
+    std::mt19937_64& random_engine();
 
-    const char * g_profiler_current_tag = nullptr;
+    void generate_seed();
+    void set_seed(uint64_t seed);
 
-    void profiler_record_tag( const onika::omp::OpenMPToolTaskTiming& e )
-    {
-#     ifndef ONIKA_HAVE_OPENMP_TOOLS
-      g_profiler_current_tag = e.tag;
-#     endif
-    }
-    
+    YAML::Node save_state();
+    void load_state(const YAML::Node& config);
   }
 }
+
 

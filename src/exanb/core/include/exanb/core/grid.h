@@ -714,6 +714,13 @@ namespace exanb
   }
   
 
+  inline std::vector<std::string> xnb_grid_variants_as_strings()
+  {
+#   define _XSTAMP_FIELD_SET_AS_STRING(FS) #FS ,
+    return { XSTAMP_FOR_EACH_FIELD_SET(_XSTAMP_FIELD_SET_AS_STRING) "" };
+#   undef _XSTAMP_FIELD_SET_AS_STRING
+  }
+
 } // end of namespace exanb
 
 // utility macro to help instantiate grid templated functions, with potential FieldSests restrictions
