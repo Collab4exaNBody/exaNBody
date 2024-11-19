@@ -42,13 +42,13 @@ namespace exanb
       *value = *set;
     }
 
-  };
-
-   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  // === register factories ===  
+  CLASS_CONSTRUCTOR_FUNCTION
   {
     OperatorNodeFactory::instance()->register_factory( "boolean_set", make_compatible_operator< BooleanSetNode > );
   }
+
+  };
 
 }
 

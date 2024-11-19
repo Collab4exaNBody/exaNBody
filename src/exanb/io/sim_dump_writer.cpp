@@ -39,11 +39,14 @@ namespace exanb
   template<class GridT> using SimDumpWritePositions = SimDumpWriter<GridT, FieldSet<field::_rx,field::_ry,field::_rz> >;
   template<class GridT> using SimDumpWriteAll = SimDumpWriter<GridT, typename GridT::Fields >;
 
-  // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  namespace exanb_io_write_dump
   {
-    OperatorNodeFactory::instance()->register_factory( "write_dump_r" , make_grid_variant_operator<SimDumpWritePositions> );
-    OperatorNodeFactory::instance()->register_factory( "write_dump_all" , make_grid_variant_operator<SimDumpWriteAll> );
+    // === register factories ===
+    CONSTRUCTOR_FUNCTION
+    {
+      OperatorNodeFactory::instance()->register_factory( "write_dump_r" , make_grid_variant_operator<SimDumpWritePositions> );
+      OperatorNodeFactory::instance()->register_factory( "write_dump_all" , make_grid_variant_operator<SimDumpWriteAll> );
+    }
   }
 
 }

@@ -143,7 +143,7 @@ void vite_start_trace(
   g_vite_output = output;
 
   // set start time reference
-  g_vite_trace_start_time = wall_clock_time();
+  g_vite_trace_start_time = onika::wall_clock_time();
 }
 
 

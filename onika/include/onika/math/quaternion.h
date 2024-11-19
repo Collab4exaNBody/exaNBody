@@ -32,3 +32,10 @@ namespace onika { namespace math
 
 } }
 
+#ifdef ONIKA_MATH_EXPORT_NAMESPACE
+namespace ONIKA_MATH_EXPORT_NAMESPACE
+{
+  using ::onika::math::Quaternion;
+}
+#endif
+

@@ -47,13 +47,14 @@ namespace exanb
       ldbg << "integer = '"<< *value << "'" << std::endl;
     }
 
+    // === register factories ===  
+    CLASS_CONSTRUCTOR_FUNCTION
+    {
+      OperatorNodeFactory::instance()->register_factory( "input_integer", make_simple_operator<InputInteger> );
+    }
+
   };
 
-  // === register factories ===  
-  CONSTRUCTOR_FUNCTION
-  {
-    OperatorNodeFactory::instance()->register_factory( "input_integer", make_simple_operator<InputInteger> );
-  }
 
 }
 

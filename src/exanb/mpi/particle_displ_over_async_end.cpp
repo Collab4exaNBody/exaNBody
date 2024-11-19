@@ -58,13 +58,14 @@ sets result output to true if at least one particle has moved further than thres
       *result = ( particle_displ_comm->m_all_particles_over > 0 );
     }
 
+    // === register factories ===  
+    CLASS_CONSTRUCTOR_FUNCTION
+    {
+     OperatorNodeFactory::instance()->register_factory( "particle_displ_over_async_end", make_simple_operator< ParticleDisplOverAsyncEnd > );
+    }
+
   };
     
- // === register factories ===  
-  CONSTRUCTOR_FUNCTION
-  {
-   OperatorNodeFactory::instance()->register_factory( "particle_displ_over_async_end", make_simple_operator< ParticleDisplOverAsyncEnd > );
-  }
 
 }
 

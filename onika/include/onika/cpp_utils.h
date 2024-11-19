@@ -33,8 +33,10 @@ under the License.
 
 #if defined(ONIKA_CMAKE_TARGET_ID) && defined(ONIKA_CMAKE_SOURCE_ID)
 #define CONSTRUCTOR_FUNCTION CONSTRUCTOR_ATTRIB void MAKE_UNIQUE_NAME(__onika_constructor,_,ONIKA_CMAKE_TARGET_ID,ONIKA_CMAKE_SOURCE_ID) ()
+#define CLASS_CONSTRUCTOR_FUNCTION CONSTRUCTOR_ATTRIB static void MAKE_UNIQUE_NAME(__onika_constructor,_,ONIKA_CMAKE_TARGET_ID,ONIKA_CMAKE_SOURCE_ID) ()
 #else
 #define CONSTRUCTOR_FUNCTION CONSTRUCTOR_ATTRIB void MAKE_UNIQUE_NAME(__onika_constructor,_,__LINE__,__COUNTER__) ()
+#define CLASS_CONSTRUCTOR_FUNCTION CONSTRUCTOR_ATTRIB static void MAKE_UNIQUE_NAME(__onika_constructor,_,__LINE__,__COUNTER__) ()
 #endif
 
 #include <onika/macro_utils.h>

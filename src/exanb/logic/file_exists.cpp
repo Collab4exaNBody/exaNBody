@@ -39,16 +39,17 @@ namespace exanb
     
     void execute() override final
     {
-	std::ifstream fin(*filename);
-	*result = fin.good();
+      std::ifstream fin(*filename);
+      *result = fin.good();
     }
-  };
 
-   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
-  {
-    OperatorNodeFactory::instance()->register_factory( "file_exists", make_compatible_operator< FileExists > );
-  }
+    // === register factories ===  
+    CLASS_CONSTRUCTOR_FUNCTION
+    {
+      OperatorNodeFactory::instance()->register_factory( "file_exists", make_compatible_operator< FileExists > );
+    }
+
+  };
 
 }
 

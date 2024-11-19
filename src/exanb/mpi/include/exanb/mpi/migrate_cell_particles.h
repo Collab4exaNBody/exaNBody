@@ -181,6 +181,9 @@ namespace exanb
       , OptionalParticleDataMigrationHelperT opt_data_helper = {}
       ) 
     {
+      using onika::spin_mutex_array;
+      using onika::spin_mutex;
+
       static constexpr bool null_opt_data = std::is_same_v<OptionalParticleDataMigrationHelperT,NullOptionalParticleDataMigrationHelper>;
 
       size_t otb_particle_count = otb_particles.size();

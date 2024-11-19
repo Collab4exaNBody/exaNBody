@@ -69,7 +69,7 @@ namespace exanb
     template< template<typename> typename _OperatorTemplate , typename... _fs>
     struct MakeGridVariantOperatorHelper<_OperatorTemplate , FieldSets<_fs...> >
     {
-      static inline std::shared_ptr<OperatorNode> make_operator( const YAML::Node& node, const OperatorNodeFlavor& flavor )
+      static inline std::shared_ptr<onika::scg::OperatorNode> make_operator( const YAML::Node& node, const onika::scg::OperatorNodeFlavor& flavor )
       {
         static constexpr bool all_have_memory_bytes_method = ( ... && (onika::memory::has_memory_bytes_method_v< GridFromFieldSet<_fs> > ) );
         static_assert( all_have_memory_bytes_method , "a valid memory_bytes method is needed for proper memory usage accounting" );
@@ -93,7 +93,7 @@ namespace exanb
   template< template<class> class _OperatorTemplate , class FieldSetsT  >
   struct make_grid_variant_operator_t
   {
-    static inline OperatorNodeCreateFunction make_factory(const std::string& opname)
+    static inline onika::scg::OperatorNodeCreateFunction make_factory(const std::string& opname)
     {
       using instantiable_field_sets = details::valid_template_field_sets_t< _OperatorTemplate , FieldSetsT >;
       static constexpr bool empty_instantiable_field_sets = FieldSetsEmpty<instantiable_field_sets>::value;
@@ -105,21 +105,21 @@ namespace exanb
         ldbg << std::endl;
         return nullptr;
       }
-      else if( OperatorNodeFactory::debug_verbose_level() >= 3 )
+      else if( onika::scg::OperatorNodeFactory::debug_verbose_level() >= 3 )
       {
         ldbg << "generate factory for "<<opname <<", instanciable field sets : ";
         details::PrintFieldSets< instantiable_field_sets >::print_field_sets( ldbg , "" , " , " , "" );
         ldbg << std::endl;
       }
 
-      OperatorNodeCreateFunction factory = [] (const YAML::Node& node, const OperatorNodeFlavor& flavor) -> std::shared_ptr<OperatorNode>
+      onika::scg::OperatorNodeCreateFunction factory = [] (const YAML::Node& node, const onika::scg::OperatorNodeFlavor& flavor) -> std::shared_ptr<onika::scg::OperatorNode>
         {
-          if( OperatorNodeFactory::debug_verbose_level() >= 3 )
+          if( onika::scg::OperatorNodeFactory::debug_verbose_level() >= 3 )
           {
             ldbg << "instantiable_field_sets :" << std::endl;
             details::PrintFieldSets< instantiable_field_sets >::print_field_sets( ldbg );
           }
-          std::shared_ptr<OperatorNode> op = details::MakeGridVariantOperatorHelper< _OperatorTemplate , instantiable_field_sets >::make_operator(node,flavor);
+          std::shared_ptr<onika::scg::OperatorNode> op = details::MakeGridVariantOperatorHelper< _OperatorTemplate , instantiable_field_sets >::make_operator(node,flavor);
           return op;        
         };
         
@@ -127,22 +127,33 @@ namespace exanb
     }
   };
   
-  template< template<class> class _OperatorTemplate , class FieldSetsT >
-  struct OperatorNodeFactoryGenerator< make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT> >
-  {
-    static inline OperatorNodeCreateFunction make_factory(const std::string& opname) { return make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT>::make_factory(opname) ; }
-  };
+} // temporary close exanb namespace
 
+
+namespace onika
+{
+  namespace scg
+  {
+    template< template<class> class _OperatorTemplate , class FieldSetsT >
+    struct OperatorNodeFactoryGenerator< ::exanb::make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT> >
+    {
+      static inline OperatorNodeCreateFunction make_factory(const std::string& opname) { return ::exanb::make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT>::make_factory(opname) ; }
+    };
+  }
+}
+
+namespace exanb
+{
   template<class FieldSetsT>
   struct make_grid_variant_operator_helper_t
   {
-    template< template<class> class _OperatorTemplate > static inline constexpr OperatorNodeFactoryGenerator< make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT> > _make_grid_variant_operator = {} ;
+    template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT> > _make_grid_variant_operator = {} ;
   };
 
 # ifdef XSTAMPV2_OVERRIDE_DEFAULT_FIELDS_SETS
-# define make_grid_variant_operator make_grid_variant_operator_helper_t<XSTAMPV2_OVERRIDE_DEFAULT_FIELDS_SETS>::_make_grid_variant_operator
+# define make_grid_variant_operator ::exanb::make_grid_variant_operator_helper_t<XSTAMPV2_OVERRIDE_DEFAULT_FIELDS_SETS>::_make_grid_variant_operator
 # else
-# define make_grid_variant_operator make_grid_variant_operator_helper_t<XSTAMP_ENABLED_FIELD_SETS>::_make_grid_variant_operator
+# define make_grid_variant_operator ::exanb::make_grid_variant_operator_helper_t<XSTAMP_ENABLED_FIELD_SETS>::_make_grid_variant_operator
 # endif
 
 }

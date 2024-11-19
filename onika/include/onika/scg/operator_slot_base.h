@@ -56,7 +56,7 @@ namespace onika { namespace scg
 
   struct OperatorNode;
 
-  class alignas(16) OperatorSlotBase
+  class OperatorSlotBase
   {
   public:
 
@@ -199,4 +199,10 @@ namespace onika { namespace scg
 
 } }
 
+#ifdef ONIKA_SCG_EXPORT_NAMESPACE
+namespace ONIKA_SCG_EXPORT_NAMESPACE
+{
+	using ::onika::scg::OperatorSlotBase;
+}
+#endif
 

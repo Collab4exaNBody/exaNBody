@@ -19,16 +19,15 @@ under the License.
 
 #pragma once
 
-#include <onika/math/basic_types.h>
-#include <exanb/fields.h>
-#include <exanb/field_sets.h>
-
-#include <exanb/core/grid.h>
-#include <exanb/core/grid_algorithm.h>
+#include <onika/thread.h>
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/stl_adaptors.h>
+#include <onika/math/basic_types.h>
 
+#include <exanb/fields.h>
+#include <exanb/field_sets.h>
+#include <exanb/core/grid_algorithm.h>
 #include <exanb/core/cell_particles_from_field_set.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
 #include <exanb/core/grid_particle_field_accessor.h>
@@ -51,6 +50,11 @@ under the License.
 
 namespace exanb
 {
+
+  // simple alias for array of lock arrays
+  using onika::spin_mutex_array;
+  using GridParticleLocks = std::vector<spin_mutex_array>;
+
   template<class GridFieldSet> class Grid;
 
   template<typename... particle_field_ids>

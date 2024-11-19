@@ -168,9 +168,6 @@ namespace onika
   };
   //using spin_mutex = stl_spin_mutex;   
 
-  // simple alias for array of lock arrays
-  using GridParticleLocks = std::vector<spin_mutex_array>;
-
   // =========== light weight shared mutex =====================
   // only capable of try_lock and try_lock_shared.
   // uses a single 32-bits atomic

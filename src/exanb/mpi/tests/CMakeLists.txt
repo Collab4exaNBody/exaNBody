@@ -15,19 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# =======================================
-# === Outils et bibliothèques tierces ===
-# =======================================
-# MPI est necessaire pour ce projet
-if(NOT MPI_CXX_LIBRARIES)
-  find_package(MPI REQUIRED COMPONENTS C)
-  set(MPI_CXX_LIBRARIES ${MPI_CXX_LIBRARIES} ${MPI_C_EXTRA_LIBRARIES})
-endif()
 
 # Test avec des intervalles stables à +/-1 pret, avec des identifiants tournant
 add_executable(XsDataMoveSimpleTest SimpleTest.cc)
-target_include_directories(XsDataMoveSimpleTest PUBLIC ${MPI_CXX_INCLUDE_PATH})
-target_link_libraries(XsDataMoveSimpleTest exanbMPI ${MPI_CXX_LIBRARIES})
+target_include_directories(XsDataMoveSimpleTest PUBLIC ${XNB_INCLUDE_DIRS})
+target_link_libraries(XsDataMoveSimpleTest exanbMPI ${XNB_CORE_LIBS})
 
 set(NUMPROCS_LIST 1 7 8)
 set(IDROTATION_LIST 0 1 77)
@@ -52,8 +44,8 @@ xstamp_add_test_par(xsdatamove_simple_adhoc2 3 1 ${CMAKE_CURRENT_BINARY_DIR}/XsD
 
 # test avec des intervalles et listes d'identifiants aléatoires
 add_executable(XsDataMoveRandomTest RandomTest.cc)
-target_include_directories(XsDataMoveRandomTest PUBLIC ${MPI_CXX_INCLUDE_PATH})
-target_link_libraries(XsDataMoveRandomTest exanbMPI ${MPI_CXX_LIBRARIES})
+target_include_directories(XsDataMoveRandomTest PUBLIC ${XNB_INCLUDE_DIRS})
+target_link_libraries(XsDataMoveRandomTest exanbMPI ${XNB_CORE_LIBS})
 
 foreach(NUMPROCS ${NUMPROCS_LIST})
   foreach(SEED ${SEED_LIST})

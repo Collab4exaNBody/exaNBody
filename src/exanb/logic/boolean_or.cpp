@@ -26,7 +26,7 @@ under the License.
 namespace exanb
 {
 
-  class BooleanOrNode : public OperatorNode
+  class BooleanOrNode  : public OperatorNode
   {
   public:
   
@@ -36,16 +36,16 @@ namespace exanb
     
     void execute() override final
     {
-      *result = *in1 || *in2;
+      *result = ( (*in1) || (*in2) );
+    }
+
+    // === register factories ===  
+    CLASS_CONSTRUCTOR_FUNCTION
+    {
+      OperatorNodeFactory::instance()->register_factory( "boolean_or" , make_compatible_operator< BooleanOrNode > );
     }
 
   };
-
-   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
-  {
-    OperatorNodeFactory::instance()->register_factory( "boolean_or", make_compatible_operator< BooleanOrNode > );
-  }
 
 }
 

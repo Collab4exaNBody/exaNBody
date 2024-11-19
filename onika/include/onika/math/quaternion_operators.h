@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <onika/math/basic_types_def.h>
+#include <onika/math/basic_types_operators.h>
 #include <onika/math/quaternion.h>
 #include <cmath>
 #include <onika/cuda/cuda.h>
@@ -136,7 +137,7 @@ namespace onika { namespace math
     ret.x = 0.5 * (omega.y * q.z - omega.z * q.y + omega.x * q.w);
     ret.y = 0.5 * (omega.z * q.x - omega.x * q.z + omega.y * q.w);
     ret.z = 0.5 * (omega.x * q.y - omega.y * q.x + omega.z * q.w);
-    ret.w = -0.5 * (exanb::dot(omega,Vec3d{q.x,q.y,q.z})); // real dot product
+    ret.w = -0.5 *  dot( omega , Vec3d{q.x,q.y,q.z} ) ; // real dot product
     return ret;
   }
 

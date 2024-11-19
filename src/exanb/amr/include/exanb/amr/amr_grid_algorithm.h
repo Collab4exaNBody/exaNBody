@@ -450,6 +450,6 @@ namespace exanb
     inline size_t nb_nbh_cells() const { size_t x = cell_layers()+1; return x*x*x; }
   };
 
-  void max_distance_sub_cell_pairs( OperatorDebugLogFilter & ldbg, const AmrGrid& amr, double cell_size, double max_dist, AmrSubCellPairCache& dscp );
+  void max_distance_sub_cell_pairs( onika::scg::OperatorDebugLogFilter & ldbg, const AmrGrid& amr, double cell_size, double max_dist, AmrSubCellPairCache& dscp );
 }
 

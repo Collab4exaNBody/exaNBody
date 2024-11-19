@@ -99,8 +99,8 @@ namespace exanb
   // ******************** sub grid cell pairs ********************************************
   // *************************************************************************************
 
-  void max_distance_sub_cell_pairs( OperatorDebugLogFilter & ldbg, const AmrGrid& amr, double cell_size, double max_dist, AmrSubCellPairCache& dscp_cache )
-  {
+  void max_distance_sub_cell_pairs(  onika::scg::OperatorDebugLogFilter & ldbg, const AmrGrid& amr, double cell_size, double max_dist, AmrSubCellPairCache& dscp_cache )
+  {  
     const auto& sub_grid_start = amr.sub_grid_start();
     const auto& sub_grid_cells = amr.sub_grid_cells();
     const size_t n_cells = sub_grid_start.size() - 1;

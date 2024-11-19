@@ -39,11 +39,14 @@ namespace exanb
   template<class GridT> using SimDumpReadPositions = SimDumpReader<GridT, FieldSet<field::_rx,field::_ry,field::_rz> >;
   template<class GridT> using SimDumpReadAll = SimDumpReader<GridT, typename GridT::Fields >;
 
-  // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  namespace exanb_io_read_dump
   {
-    OperatorNodeFactory::instance()->register_factory( "read_dump_r" , make_grid_variant_operator<SimDumpReadPositions> );
-    OperatorNodeFactory::instance()->register_factory( "read_dump_all" , make_grid_variant_operator<SimDumpReadAll> );
+    // === register factories ===
+    CONSTRUCTOR_FUNCTION
+    {
+      OperatorNodeFactory::instance()->register_factory( "read_dump_r" , make_grid_variant_operator<SimDumpReadPositions> );
+      OperatorNodeFactory::instance()->register_factory( "read_dump_all" , make_grid_variant_operator<SimDumpReadAll> );
+    }
   }
 
 }

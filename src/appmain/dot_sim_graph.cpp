@@ -176,7 +176,7 @@ void DotGraphOutput::apply_graph_path(
   }
 }
 
-void DotGraphOutput::dot_sim_graph(exanb::OperatorNode* simulation_graph, const std::string& filename, bool show_unconnected_slots, const std::set<OperatorNode*>& shrunk_nodes)
+void DotGraphOutput::dot_sim_graph(OperatorNode* simulation_graph, const std::string& filename, bool show_unconnected_slots, const std::set<OperatorNode*>& shrunk_nodes)
 {
   std::map< OperatorNode* , std::vector<OperatorNode*> > graph;
   OperatorNode* root = nullptr;

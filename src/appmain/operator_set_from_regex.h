@@ -25,12 +25,13 @@ under the License.
 #include <regex>
 
 std::unordered_set<size_t> operator_set_from_regex(
-  std::shared_ptr<exanb::OperatorNode> graph,
+  std::shared_ptr<onika::scg::OperatorNode> graph,
   const std::vector<std::string> & re_strings,
   const std::vector< std::pair<std::string,std::size_t> >& special_values = {} ,
   const std::string& message = "")
 {
   using namespace exanb;
+  using onika::scg::OperatorNode;
 
   std::unordered_set<size_t> hashes;
   for(const std::string& f : re_strings)

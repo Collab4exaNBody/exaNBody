@@ -59,3 +59,14 @@ namespace onika { namespace math
 
 } }
 
+#ifdef ONIKA_MATH_EXPORT_NAMESPACE
+namespace ONIKA_MATH_EXPORT_NAMESPACE
+{
+  using ::onika::math::icbrt;
+  using ::onika::math::icbrt64;
+  using ::onika::math::matrix_scale_min_max;
+  using ::onika::math::symmetric_matrix_eigensystem;
+  using ::onika::math::unitvec_uv;
+}
+#endif
+

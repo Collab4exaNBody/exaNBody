@@ -372,7 +372,7 @@ namespace exanb
           const double v_scale = 1.0;
 
           fout << "date: '" << date_str << "'" << std::endl;
-          fout << "length_unit: 1.0 "<< onika::physics::internal_unit_system.length().short_name() << std::endl;
+          fout << "length_unit: 1.0 "<< onika::physics::internal_unit_system().length().short_name() << std::endl;
           fout << "values:" << std::endl;
 
           for(auto p:reference_values)

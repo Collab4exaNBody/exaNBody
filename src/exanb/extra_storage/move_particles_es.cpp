@@ -23,11 +23,16 @@ namespace exanb
 {
 	template <typename GridT> using MovePaticlesWithDoubleTmpl = MovePaticlesWithES<GridT, double>;
 	template <typename GridT> using MovePaticlesWithIntTmpl = MovePaticlesWithES<GridT, int>;
+	
 	// === register factories ===  
-	CONSTRUCTOR_FUNCTION
+	namespace move_particles_es
 	{
-		OperatorNodeFactory::instance()->register_factory( "move_particles_double", make_grid_variant_operator< MovePaticlesWithDoubleTmpl> );
-		OperatorNodeFactory::instance()->register_factory( "move_particles_int", make_grid_variant_operator< MovePaticlesWithIntTmpl> );
+	  CONSTRUCTOR_FUNCTION
+	  {
+		  OperatorNodeFactory::instance()->register_factory( "move_particles_double", make_grid_variant_operator< MovePaticlesWithDoubleTmpl> );
+		  OperatorNodeFactory::instance()->register_factory( "move_particles_int", make_grid_variant_operator< MovePaticlesWithIntTmpl> );
+	  }
 	}
+
 }
 

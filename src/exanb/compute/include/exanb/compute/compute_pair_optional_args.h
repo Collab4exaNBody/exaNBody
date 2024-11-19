@@ -24,6 +24,7 @@ under the License.
 
 #include <exanb/core/compact_grid_pair_weights.h>
 #include <exanb/core/xform.h>
+#include <exanb/core/grid.h>
 
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/stl_adaptors.h>

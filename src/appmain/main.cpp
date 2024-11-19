@@ -765,7 +765,7 @@ int main(int argc,char*argv[])
   /**********************************/
   /********* run simulation *********/
   /**********************************/
-  exanb::OperatorNode::reset_profiling_reference_timestamp();
+  OperatorNode::reset_profiling_reference_timestamp();
   if( configuration_needs_profiling )
   {
     onika::omp::OpenMPToolInterace::enable();
