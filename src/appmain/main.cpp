@@ -38,6 +38,13 @@ under the License.
 #include <onika/omp/ompt_interface.h>
 #include <onika/parallel/parallel_execution_context.h>
 
+#include <onika/yaml/cmdline.h>
+#include <onika/app/default_app_config.h>
+#include <onika/app/vite_profiler.h>
+#include <onika/app/vite_operator_functions.h>
+#include <onika/scg/operator_set_from_regex.h>
+#include <onika/app/log_profiler.h>
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -56,18 +63,11 @@ under the License.
 
 #include <yaml-cpp/yaml.h>
 
-#include "cmdline.h"
 #include "debug_profiler.h"
-#include "log_profiler.h"
-#include "vite_profiler.h"
 #include <onika/trace/vite_trace_format.h>
 #include <onika/trace/dot_trace_format.h>
 #include <onika/trace/yaml_trace_format.h>
-#include "vite_operator_functions.h"
 #include "dot_sim_graph.h"
-#include "operator_set_from_regex.h"
-
-#include "xstampv2_config.h"
 
 
 std::string xstamp_grid_variants_as_string()
@@ -128,7 +128,7 @@ int main(int argc,char*argv[])
   }
   
   // additional arguments are interpreted as YAML strings that are parsed, and merged on top of files read previously
-  command_line_options_to_yaml_config(argc,argv,start_opt_arg,input_data);
+  onika::yaml::command_line_options_to_yaml_config(argc,argv,start_opt_arg,input_data);
   // ======================================================
 
 
@@ -141,7 +141,7 @@ int main(int argc,char*argv[])
   }
 
   // convert YAML configuration node to data structure
-  xsv2ConfigStruct_configuration configuration { config_node };
+  onika::app::ApplicationConfiguration configuration { config_node };
 
   // allow special block configuration block "set" to overload base input data
   if( configuration.set.IsMap() && configuration.set.size()>0 )
@@ -485,8 +485,8 @@ int main(int argc,char*argv[])
       configuration.profiling.trace.file = oss.str();
     }
 
-    ViteColoringFunction colfunc = g_vite_operator_rnd_color;
-    if( configuration.profiling.trace.color == "tag" ) colfunc = g_vite_tag_rnd_color;
+    onika::app::ViteColoringFunction colfunc = onika::app::g_vite_operator_rnd_color;
+    if( configuration.profiling.trace.color == "tag" ) colfunc = onika::app::g_vite_tag_rnd_color;
 
     if( configuration.profiling.trace.format == "vite" )
     {
@@ -509,15 +509,15 @@ int main(int argc,char*argv[])
       std::abort();
     }
 
-    vite_start_trace( configuration.profiling.trace, otf, g_vite_operator_label , colfunc );
-    OperatorNode::set_profiler( { nullptr , vite_process_event } );
+    onika::app::vite_start_trace( configuration.profiling.trace, otf, onika::app::g_vite_operator_label , colfunc );
+    OperatorNode::set_profiler( { nullptr , onika::app::vite_process_event } );
   }
   else if( configuration.profiling.exectime )
   {
 # ifndef NDEBUG
-    OperatorNode::set_profiler( { exanb::main::profiler_record_tag , exanb::main::log_profiler_stop_event } );
+    OperatorNode::set_profiler( { exanb::main::profiler_record_tag , onika::app::log_profiler_stop_event } );
 # else
-    OperatorNode::set_profiler( { nullptr , exanb::main::log_profiler_stop_event } );
+    OperatorNode::set_profiler( { nullptr , onika::app::log_profiler_stop_event } );
 # endif
   }
 # ifndef NDEBUG
@@ -671,7 +671,7 @@ int main(int argc,char*argv[])
   {
     //lout << "set debug filtering"<< std::endl;
     //for(const auto& f:configuration.debug.filter) lout << "\t" << f<< std::endl;
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.debug.filter, { { "ooo" , std::numeric_limits<uint64_t>::max() } } , "debug filter: add " );
+    auto hashes = onika::scg::operator_set_from_regex( simulation_graph, configuration.debug.filter, { { "ooo" , std::numeric_limits<uint64_t>::max() } } , "debug filter: add " );
     //lout << "hashes =>"<< std::endl;
     //for(auto h:hashes) lout << "\t" << h << std::endl;
     ldbg_raw.set_filters( hashes );
@@ -695,7 +695,7 @@ int main(int argc,char*argv[])
   // setup profiling filtering
   if( ! configuration.profiling.filter.empty() )
   {
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.profiling.filter, {} , "profiling enabled for " );
+    auto hashes = onika::scg::operator_set_from_regex( simulation_graph, configuration.profiling.filter, {} , "profiling enabled for " );
     simulation_graph->apply_graph(
         [&hashes](OperatorNode* o)
         {
@@ -721,7 +721,7 @@ int main(int argc,char*argv[])
   // setup GPU disable filtering
   if( ! configuration.onika.gpu_disable_filter.empty() )
   {
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_disable_filter, {} , "GPU disabled for " );
+    auto hashes = onika::scg::operator_set_from_regex( simulation_graph, configuration.onika.gpu_disable_filter, {} , "GPU disabled for " );
     simulation_graph->apply_graph(
         [&hashes](OperatorNode* o)
         {
@@ -730,7 +730,7 @@ int main(int argc,char*argv[])
   }
   if( ! configuration.onika.gpu_enable_filter.empty() )
   {
-    auto hashes = operator_set_from_regex( simulation_graph, configuration.onika.gpu_enable_filter, {} , "GPU enabled for " );
+    auto hashes = onika::scg::operator_set_from_regex( simulation_graph, configuration.onika.gpu_enable_filter, {} , "GPU enabled for " );
     simulation_graph->apply_graph(
         [&hashes](OperatorNode* o)
         {
@@ -744,7 +744,7 @@ int main(int argc,char*argv[])
     for(const auto& p : configuration.omp_max_threads_filter )
     {
       const int nthreads = p.second;
-      auto hashes = operator_set_from_regex( simulation_graph, { p.first } );
+      auto hashes = onika::scg::operator_set_from_regex( simulation_graph, { p.first } );
       simulation_graph->apply_graph(
           [&hashes,nthreads](OperatorNode* o)
           {

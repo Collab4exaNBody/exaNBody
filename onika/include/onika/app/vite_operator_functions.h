@@ -16,15 +16,17 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
-#include <onika/omp/ompt_task_timing.h>
+#include <onika/app/vite_profiler.h>
 
-namespace exanb
+namespace onika
 {
-  namespace main
+  namespace app
   {
-    extern void log_profiler_stop_event( const onika::omp::OpenMPToolTaskTiming& e );
+    extern ViteLabelFunction         g_vite_operator_label;
+    extern ViteColoringFunction      g_vite_operator_rnd_color;
   }
 }
 

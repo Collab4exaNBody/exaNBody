@@ -25,17 +25,17 @@ under the License.
 #include <iostream>
 #include <string>
 
-#include "log_profiler.h"
+#include <onika/app/log_profiler.h>
 
-using namespace exanb;
-
-namespace exanb
+namespace onika
 {
-  namespace main
+  namespace app
   {
 
     void log_profiler_stop_event( const onika::omp::OpenMPToolTaskTiming& e )
     {
+      using onika::scg::OperatorNode;
+
 #     ifdef ONIKA_HAVE_OPENMP_TOOLS
       if( std::string(e.tag) != "sequential" || e.ctx==nullptr ) return;
 #     else

@@ -16,10 +16,19 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
-#include "vite_profiler.h"
+#include <string>
+#include <yaml-cpp/yaml.h>
 
-extern ViteLabelFunction         g_vite_operator_label;
-extern ViteColoringFunction      g_vite_operator_rnd_color;
+namespace onika
+{
+  namespace yaml
+  {
+    std::string cmdline_option_to_yaml_int( std::string s , std::string value );
+    std::string cmdline_option_to_yaml( std::string s , std::string value );
+    void command_line_options_to_yaml_config(int argc, char*argv[], int start_opt_arg, YAML::Node& node);
+  }
+}
 
