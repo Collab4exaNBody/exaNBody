@@ -16,15 +16,18 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <cstdint>
 #include <cstddef>
 
-namespace XsDataMove
+namespace onika
 {
-  using index_type = uint64_t;
-  using id_type = index_type;
-  using size_type = std::size_t;
-  
+  namespace mpi
+  {
+    using index_type = uint64_t;
+    using id_type = index_type;
+    using size_type = std::size_t;
+  }
 } // namespace XsDataMove

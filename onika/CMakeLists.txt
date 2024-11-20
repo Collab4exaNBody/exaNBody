@@ -370,19 +370,24 @@ if(ONIKA_ENABLE_TESTS)
     get_filename_component(TESTNAME ${TESTSRC} NAME_WLE)
     message(STATUS "onika found test ${TESTNAME}")
     add_executable(${TESTNAME} src/tests/${TESTNAME}.cpp)
-    target_compile_options(${TESTNAME} PRIVATE -Wall ${OpenMP_CXX_FLAGS})
-    target_compile_definitions(${TESTNAME} PRIVATE ${ONIKA_COMPILE_DEFINITIONS})
-    target_include_directories(${TESTNAME} PRIVATE ${ONIKA_INCLUDE_DIRS})
-    target_link_libraries(${TESTNAME} onika)
+    target_compile_options(${TESTNAME} PUBLIC ${ONIKA_COMPILE_OPTIONS})
+    target_compile_definitions(${TESTNAME} PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
+    target_include_directories(${TESTNAME} PUBLIC ${ONIKA_INCLUDE_DIRS_USER})
+    target_link_directories(${TESTNAME} PUBLIC ${ONIKA_LIBRARY_DIRS_USER})
+    target_link_libraries(${TESTNAME} PUBLIC ${ONIKA_LIBRARIES_USER})
   endforeach()
 
   enable_testing()
 
+  ######### OpenMP tests ##################
   foreach(tn 1;2;3;4;5;6;7;8;9;10;11)
     #message(STATUS "omp_tasks test #${tn}")
     onika_add_test(omp_tasks_${tn} ${CMAKE_CURRENT_BINARY_DIR}/omp_tasks ${tn})
   endforeach()
 
+
+
+  ############ SOATL tests ##################
 #  onika_add_test(soatl_fa_pfa_aliasing ${CMAKE_CURRENT_BINARY_DIR}/soatl_fa_pfa_aliasing)
   onika_add_test(soatl_test1 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 0)
   onika_add_test(soatl_test2 ${CMAKE_CURRENT_BINARY_DIR}/soatltest 1000 34523452)
@@ -421,6 +426,40 @@ if(ONIKA_ENABLE_TESTS)
     GenerateBenchmark(1 1 f OFF OFF)
     GenerateBenchmark(1 1 f OFF ON)
   endif()
+
+
+
+  ###### xs data move algorithm tests ########
+  set(NUMPROCS_LIST 1 7 8)
+  set(IDROTATION_LIST 0 1 77)
+  set(IDSTART_LIST 0 1 1023)
+  set(IDCOUNT_LIST 10 110 100000)
+  set(NPERMS_LIST 10 1000)
+  set(SEED_LIST 0 1976)
+
+  foreach(NUMPROCS ${NUMPROCS_LIST})
+      foreach(IDROTATION ${IDROTATION_LIST})
+        foreach(IDSTART ${IDSTART_LIST})
+          foreach(IDCOUNT ${IDCOUNT_LIST})
+            math(EXPR IDEND ${IDSTART}+${IDCOUNT})
+            onika_add_test_par(xsdatamove_simple_np${NUMPROCS}_rot${IDROTATION}_st${IDSTART}_ic${IDCOUNT} ${NUMPROCS} 1 ${CMAKE_CURRENT_BINARY_DIR}/xs_data_move_simple ${MPIEXEC_POSTFLAGS} ${IDSTART} ${IDEND} ${IDROTATION})
+          endforeach()
+        endforeach()
+      endforeach()
+  endforeach()
+
+  onika_add_test_par(xsdatamove_simple_adhoc1 3 1 ${CMAKE_CURRENT_BINARY_DIR}/xs_data_move_simple ${MPIEXEC_POSTFLAGS} 0 20 3)
+  onika_add_test_par(xsdatamove_simple_adhoc2 3 1 ${CMAKE_CURRENT_BINARY_DIR}/xs_data_move_simple ${MPIEXEC_POSTFLAGS} 0 107 3)
+
+  foreach(NUMPROCS ${NUMPROCS_LIST})
+    foreach(SEED ${SEED_LIST})
+      foreach(IDCOUNT ${IDCOUNT_LIST})
+        foreach(NPERMS ${NPERMS_LIST})
+          onika_add_test_par(xsdatamove_random_s${SEED}_ic${IDCOUNT}_permm${NPERMS}_np${NUMPROCS} ${NUMPROCS} 1 ${CMAKE_CURRENT_BINARY_DIR}/xs_data_move_random ${MPIEXEC_POSTFLAGS} ${SEED} ${IDCOUNT} ${NPERMS})
+        endforeach()
+      endforeach()
+    endforeach()
+  endforeach()
 
 endif()
 

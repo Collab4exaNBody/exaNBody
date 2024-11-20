@@ -1,5 +1,5 @@
 #include <iostream>
-#include <exanb/mpi/xs_data_move.h>
+#include <onika/mpi/xs_data_move.h>
 
 #include <cstdint>
 #include <random>
@@ -33,9 +33,9 @@ int main(int argc, char* argv[])
     
     std::mt19937 rng(seed);
     
-    XsDataMove::index_type all_IdMin = seed;
-    XsDataMove::index_type all_IdMax = all_IdMin+N;
-    std::vector<XsDataMove::index_type> all_ids_before( N );
+    onika::mpi::index_type all_IdMin = seed;
+    onika::mpi::index_type all_IdMax = all_IdMin+N;
+    std::vector<onika::mpi::index_type> all_ids_before( N );
     for(int i=0;i<N;i++)
     {
       all_ids_before[i] = all_IdMin+i;
@@ -63,13 +63,13 @@ int main(int argc, char* argv[])
     }
     std::sort( procRanges.begin(), procRanges.end() );
     
-    XsDataMove::index_type before_range_start = procRanges[rank];
-    XsDataMove::index_type before_range_end = procRanges[rank+1];
-    XsDataMove::size_type before_ids_count = before_range_end - before_range_start;
-    XsDataMove::index_type* before_ids = all_ids_before.data() + before_range_start;
+    onika::mpi::index_type before_range_start = procRanges[rank];
+    onika::mpi::index_type before_range_end = procRanges[rank+1];
+    onika::mpi::size_type before_ids_count = before_range_end - before_range_start;
+    onika::mpi::index_type* before_ids = all_ids_before.data() + before_range_start;
     
     // all_ids_after is equal to all_ids_before with perms permutations
-    std::vector<XsDataMove::index_type> all_ids_after = all_ids_before;
+    std::vector<onika::mpi::index_type> all_ids_after = all_ids_before;
     {
       std::uniform_int_distribution<> dist(0,N-1);
       for(int i=0;i<perms;i++)
@@ -90,10 +90,10 @@ int main(int argc, char* argv[])
     }
     std::sort( procRanges.begin(), procRanges.end() );
     
-    XsDataMove::index_type after_range_start = procRanges[rank];
-    XsDataMove::index_type after_range_end = procRanges[rank+1];
-    XsDataMove::size_type after_ids_count = after_range_end - after_range_start;
-    XsDataMove::index_type* after_ids = all_ids_after.data() + after_range_start;
+    onika::mpi::index_type after_range_start = procRanges[rank];
+    onika::mpi::index_type after_range_end = procRanges[rank+1];
+    onika::mpi::size_type after_ids_count = after_range_end - after_range_start;
+    onika::mpi::index_type* after_ids = all_ids_after.data() + after_range_start;
 
 #   ifdef VERBOSE_DEBUG
     std::cout<<"P"<<rank<<":        Bedfore Ids:";
@@ -117,31 +117,31 @@ int main(int argc, char* argv[])
     std::vector<int> recv_count;       // resized to number of processors in comm, unit data element count (not byte size)
     std::vector<int> recv_displ;        // resized to number of processors in comm, unit data element count (not byte size)
 
-    XsDataMove::communication_scheme_from_ids( MPI_COMM_WORLD, all_IdMin, all_IdMax, before_ids_count, before_ids, after_ids_count, after_ids,
+    onika::mpi::communication_scheme_from_ids( MPI_COMM_WORLD, all_IdMin, all_IdMax, before_ids_count, before_ids, after_ids_count, after_ids,
                                                send_indices, send_count, send_displ, recv_indices, recv_count, recv_displ);
     
     assert( send_indices.size() == before_ids_count );
-    assert( send_count.size() == np );
-    assert( send_displ.size() == np );
+    assert( send_count.size() == size_t(np) );
+    assert( send_displ.size() == size_t(np) );
     assert( recv_indices.size() == after_ids_count );
-    assert( recv_count.size() == np );
-    assert( recv_displ.size() == np );
+    assert( recv_count.size() == size_t(np) );
+    assert( recv_displ.size() == size_t(np) );
     
-    std::vector<XsDataMove::index_type> after_ids_check( after_ids, after_ids+after_ids_count );
+    std::vector<onika::mpi::index_type> after_ids_check( after_ids, after_ids+after_ids_count );
     
     // check that communication scheme produces valid data movement
-    XsDataMove::data_move( MPI_COMM_WORLD, send_indices, send_count, send_displ, recv_indices, recv_count, recv_displ, before_ids, after_ids_check.data() );
+    onika::mpi::data_move( MPI_COMM_WORLD, send_indices, send_count, send_displ, recv_indices, recv_count, recv_displ, before_ids, after_ids_check.data() );
 
 #   ifdef VERBOSE_DEBUG
     std::cout<<"P"<<rank<<":    Check after Ids:";
-    for(int i=0;i<after_ids_count;i++)
+    for(size_t i=0;i<after_ids_count;i++)
     {
       std::cout<<" "<<after_ids_check[i];
     }
     std::cout<<std::endl; std::cout.flush();
 #   endif
 
-    for(int i=0;i<after_ids_count;i++)
+    for(size_t i=0;i<after_ids_count;i++)
     {
       assert( after_ids_check[i] == after_ids[i] );
     }
@@ -149,14 +149,14 @@ int main(int argc, char* argv[])
 
     // test with arbitrary struct
     std::vector<MyStruct> myData(before_ids_count);
-    for(int i=0;i<before_ids_count;i++)
+    for(size_t i=0;i<before_ids_count;i++)
     {
       myData[i] = MyStruct { before_ids[i]*0.5 , before_ids[i] , before_ids[i]*2.0 };
     }
     myData.resize( std::max(before_ids_count,after_ids_count) );
-    XsDataMove::data_move( MPI_COMM_WORLD, send_indices, send_count, send_displ, recv_indices, recv_count, recv_displ, myData.data(), myData.data() );
+    onika::mpi::data_move( MPI_COMM_WORLD, send_indices, send_count, send_displ, recv_indices, recv_count, recv_displ, myData.data(), myData.data() );
     myData.resize(after_ids_count);
-    for(int i=0;i<after_ids_count;i++)
+    for(size_t i=0;i<after_ids_count;i++)
     {
       assert( myData[i].id == after_ids[i] );
       assert( myData[i].id*0.5 == myData[i].x );
