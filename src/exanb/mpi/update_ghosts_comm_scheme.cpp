@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
@@ -36,7 +37,7 @@ under the License.
 #include <mpi.h>
 #include <exanb/mpi/update_ghost_utils.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
-#include <exanb/mpi/data_types.h>
+#include <onika/mpi/data_types.h>
 
 namespace exanb
 {
@@ -86,6 +87,8 @@ namespace exanb
 
     inline void execute () override final
     {
+      using onika::mpi::mpi_datatype;
+      
       MPI_Comm comm = *mpi;
 
       // start with prerequisites

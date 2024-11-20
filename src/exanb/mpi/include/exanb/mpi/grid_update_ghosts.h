@@ -38,7 +38,7 @@ under the License.
 
 #include <mpi.h>
 #include <exanb/mpi/update_ghost_utils.h>
-#include <exanb/mpi/data_types.h>
+#include <onika/mpi/data_types.h>
 
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>

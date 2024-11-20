@@ -42,7 +42,7 @@ under the License.
 #include <mpi.h>
 #include <exanb/mpi/update_from_ghost_utils.h>
 #include <exanb/mpi/grid_update_from_ghosts.h>
-#include <exanb/mpi/data_types.h>
+#include <onika/mpi/data_types.h>
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
 #include <onika/parallel/block_parallel_for.h>

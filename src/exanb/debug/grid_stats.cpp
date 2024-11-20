@@ -31,7 +31,7 @@ under the License.
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 
 #include <mpi.h>
-#include <exanb/mpi/all_reduce_multi.h>
+#include <onika/mpi/all_reduce_multi.h>
 
 namespace exanb
 {
@@ -50,7 +50,9 @@ namespace exanb
     ADD_SLOT( GridCellValues , grid_cell_values , INPUT, OPTIONAL );
 
     inline void execute () override final
-    {            
+    {
+      using onika::mpi::all_reduce_multi;
+      
       IJK dims = grid->dimension();
       size_t ghost_layers = grid->ghost_layers();
       //size_t n_cells = grid.number_of_cells();

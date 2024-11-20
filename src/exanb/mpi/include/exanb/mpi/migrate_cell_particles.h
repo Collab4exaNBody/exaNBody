@@ -40,7 +40,7 @@ under the License.
 #include <algorithm>
 
 
-#include <exanb/mpi/data_types.h>
+#include <onika/mpi/data_types.h>
 
 #define ENFORCE_ASSERTION_CHECK 1
 // #define MIGRATE_CELL_DEBUG_PROFILING 1
@@ -183,6 +183,7 @@ namespace exanb
     {
       using onika::spin_mutex_array;
       using onika::spin_mutex;
+      using onika::mpi::mpi_datatype;
 
       static constexpr bool null_opt_data = std::is_same_v<OptionalParticleDataMigrationHelperT,NullOptionalParticleDataMigrationHelper>;
 

@@ -28,7 +28,7 @@ under the License.
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/mpi/update_from_ghost_utils.h>
-#include <exanb/mpi/data_types.h>
+#include <onika/mpi/data_types.h>
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
 #include <onika/soatl/field_tuple.h>

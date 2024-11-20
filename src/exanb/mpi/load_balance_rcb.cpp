@@ -31,7 +31,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 
 #include <mpi.h>
-#include <exanb/mpi/all_value_equal.h>
+//#include <onika/mpi/all_value_equal.h>
 
 #include <vector>
 #include <string>

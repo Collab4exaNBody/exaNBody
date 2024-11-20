@@ -57,7 +57,7 @@ under the License.
 #include <filesystem>
 		
 #include <mpi.h>
-#include <exanb/mpi/mpi_parallel_stats.h>
+#include <onika/mpi/mpi_parallel_stats.h>
 
 #include <yaml-cpp/yaml.h>
 
@@ -779,7 +779,7 @@ int main(int argc,char*argv[])
     lout<<endl<<"Profiling .........................................  tot. time  ( GPU )   avginb  maxinb     count  percent"<<endl;        
     auto statsfunc = []( const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg )
     {
-      exanb::mpi_parallel_stats(MPI_COMM_WORLD,x,np,r,minval,maxval,avg);
+      onika::mpi::mpi_parallel_stats(MPI_COMM_WORLD,x,np,r,minval,maxval,avg);
     };
     simulation_graph->pretty_print(lout,false,true,statsfunc);
     lout<<"=================================="<<endl<<endl;

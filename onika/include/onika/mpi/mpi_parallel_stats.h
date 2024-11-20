@@ -19,21 +19,22 @@ under the License.
 #pragma once
 
 #include <mpi.h>
-#include <onika/value_streamer.h>
+#include <vector>
+#include <cstdlib>
 
-#include <exanb/mpi/data_types.h>
-
-namespace exanb
+namespace onika
 {
-  
-
-  template<class T, class... U>
-  void all_reduce_multi( MPI_Comm comm, MPI_Op op , T , U& ... u)
+  namespace mpi
   {
-    T tmp [ sizeof...(U) ];
-    ( onika::ValueStreamer<T>( tmp ) << ... << u );
-    MPI_Allreduce(MPI_IN_PLACE,tmp,sizeof...(U),mpi_datatype<T>(),op,comm);
-    ( onika::ValueStreamer<T>( tmp ) >> ... >> u );
-  }
+  
+    void mpi_parallel_stats(MPI_Comm comm, const std::vector<double>& x, int& np, int& r, std::vector<double>& minval, std::vector<double>& maxval, std::vector<double>& avg);
 
+    void mpi_parallel_sum(MPI_Comm comm,
+           unsigned long long in,
+           unsigned long long &sum,
+           unsigned long long &min,
+           unsigned long long &avg,
+           unsigned long long &max);
+
+  }
 }

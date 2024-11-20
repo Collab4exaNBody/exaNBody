@@ -41,7 +41,7 @@ under the License.
 
 #include <mpi.h>
 #include <exanb/mpi/grid_update_ghosts.h>
-#include <exanb/mpi/data_types.h>
+#include <onika/mpi/data_types.h>
 
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>

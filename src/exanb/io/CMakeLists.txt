@@ -22,7 +22,7 @@ find_package(ZLIB REQUIRED)
 
 set(XNB_MPIIO_PREOPEN_FILE_PARTS "4" CACHE STRING "Number of pre-opened MPI-IO file parts. Increase if crashes happen when writing very large files during parallel runs")
 set(exanbIO_COMPILE_DEFINITIONS "XNB_MPIIO_PREOPEN_FILE_PARTS=${XNB_MPIIO_PREOPEN_FILE_PARTS}")
-set(exanbIO_LINK_LIBRARIES exanbGridCellParticles exanbMPI ${ZLIB_LIBRARIES} stdc++fs)
+set(exanbIO_LINK_LIBRARIES exanbGridCellParticles exanbCompute exanbMPI ${ZLIB_LIBRARIES} stdc++fs)
 set(exanbIO_INCLUDE_DIRS ${BASEN_INCLUDE_DIRS}) 
 xstamp_add_plugin(exanbIO ${CMAKE_CURRENT_SOURCE_DIR})
 

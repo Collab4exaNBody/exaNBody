@@ -30,7 +30,7 @@ target_compile_options(${XNB_APP_NAME} PUBLIC ${USTAMP_CXX_FLAGS}) # $<$<COMPILE
 target_compile_definitions(${XNB_APP_NAME} PUBLIC ${XNB_COMPILE_DEFINITIONS} ${ONIKA_CUDA_COMPILE_DEFINITIONS})
 #target_compile_features(${XNB_APP_NAME} PUBLIC cuda_std_17)
 target_include_directories(${XNB_APP_NAME} PUBLIC ${XNB_INCLUDE_DIRS})
-target_link_libraries(${XNB_APP_NAME} exanbMPI ${XNB_CORE_LIBS})
+target_link_libraries(${XNB_APP_NAME} ${XNB_CORE_LIBS})
 #set_target_properties(${XNB_APP_NAME} PROPERTIES CUDA_RUNTIME_LIBRARY Shared CUDA_SEPARABLE_COMPILATION ON)
 
 install(TARGETS ${XNB_APP_NAME} DESTINATION bin)
