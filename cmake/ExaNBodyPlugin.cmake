@@ -142,25 +142,23 @@ function(xstamp_make_all_plugins_input FileName)
   file(APPEND ${FileName} "    plugins: true\n")
 endfunction()
 
-
 macro(xstamp_generate_all_plugins_input)
   set(LoadAllPluginsInputFile ${CMAKE_CURRENT_BINARY_DIR}/gen_plugins_db.msp)
   xstamp_make_all_plugins_input(${LoadAllPluginsInputFile})
 endmacro()
 
 macro(xstamp_generate_plugin_database)
-  set(XstampV2PluginDBGenCommandBase ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true --logging-debug true --nogpu true)
+  set(XstampV2PluginDBGenCommandBase ${ONIKA_RUN} ${LoadAllPluginsInputFile} --generate_plugins_db true --logging-debug true --nogpu true)
   MakeRunCommand(XstampV2PluginDBGenCommandBase 1 ${ONIKA_HOST_HW_CORES} XstampV2PluginDBGenCommand)
   #message(STATUS "gen db command = ${XstampV2PluginDBGenCommand}")
   #set(XstampV2PluginDBGenCommand ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --generate_plugins_db true )
-  add_custom_target(UpdatePluginDataBase ${XstampV2PluginDBGenCommand} BYPRODUCTS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/plugins_db.msp)
+  add_custom_target(UpdatePluginDataBase COMMAND ${XstampV2PluginDBGenCommand} DEPENDS ${ONIKA_RUN} BYPRODUCTS ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/plugins_db.msp)
   get_property(XSTAMP_BUILT_PLUGINS GLOBAL PROPERTY GLOBAL_XSTAMP_BUILT_PLUGINS)
-  add_dependencies(UpdatePluginDataBase ${XNB_APP_NAME} ${XSTAMP_BUILT_PLUGINS})
   install(FILES ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/plugins_db.msp DESTINATION lib)
 endmacro()
 
 macro(xstamp_add_unit_tests)
-  set(XStampV2UnitsTestsCommand ${USTAMP_APPS_DIR}/${XNB_APP_NAME} ${LoadAllPluginsInputFile} --run_unit_tests true)
+  set(XStampV2UnitsTestsCommand ${ONIKA_RUN} ${LoadAllPluginsInputFile} --run_unit_tests true)
   AddTestWithDebugTarget(XStampV2UnitsTests XStampV2UnitsTestsCommand 1 ${ONIKA_HOST_HW_CORES})
 endmacro()
 

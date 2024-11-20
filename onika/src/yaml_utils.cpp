@@ -200,15 +200,14 @@ namespace onika
      * from a single yaml configuration file name, find its complete path
      * and the complete list of files recursively included, only once per file, in the correct include order.
      */
-    std::vector<std::string> resolve_config_file_includes(const std::string& app_path, const std::vector<std::string>& file_names )
+    std::vector<std::string> resolve_config_file_includes(const std::vector<std::string>& file_names , const std::string& workdir)
     {
       using std::string;
       using std::vector;
 
       // the local file .build-config.msp is usually loaded after main-config.msp, but we need to read it first in case
       // it defines an alternative config directory via the "config_dir key"
-      string app_dir = dirname(app_path);
-      string local_default_include_file = app_dir + "/.build-config.msp" ;
+      string local_default_include_file = workdir + "/.build-config.msp" ;
       // std::cout << "local_default_include_file = "<<local_default_include_file<<std::endl;
       bool has_local_config_file = false;
       if( std::ifstream(local_default_include_file).good() )
@@ -223,23 +222,23 @@ namespace onika
       }
 
       // find path to the main base config file 'main-config.msp'
-      string default_include_file = config_file_path(".","main-config.msp");
+      string default_include_file = config_file_path("main-config.msp",workdir);
       // ldbg << "default_include_file = "<<default_include_file<<std::endl;
           
       vector<string> files;
-      prefix_config_file_includes( files , app_dir, default_include_file );
+      prefix_config_file_includes( files , workdir, default_include_file );
       
       // if a file named .build-config.msp is found in current working directory, it is included right after default include file
       if( has_local_config_file )
       {
         // std::cout << "using local config file "<<local_default_include_file << std::endl;
-        prefix_config_file_includes( files, app_dir, local_default_include_file );
+        prefix_config_file_includes( files, workdir, local_default_include_file );
       }
       
       // then add user input file and all subsequent include files
       for(const auto& file_name:file_names) if( ! file_name.empty() )
       {
-        prefix_config_file_includes( files , app_dir, file_name );
+        prefix_config_file_includes( files , workdir, file_name );
       }
       return files;
     }

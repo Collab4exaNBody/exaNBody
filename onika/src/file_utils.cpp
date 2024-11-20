@@ -28,6 +28,10 @@ under the License.
 #define ONIKA_DEFAULT_CONFIG_DIR "."
 #endif
 
+#ifndef ONIKA_DEFAULT_DATA_DIRS
+#define ONIKA_DEFAULT_DATA_DIRS "./data"
+#endif
+
 namespace onika
 {
 
@@ -102,9 +106,9 @@ namespace onika
     }
   }
 
-  std::string config_file_path(const std::string& base_dir, const std::string& filepath)
+  std::string config_file_path( const std::string& filepath , const std::string& workdir )
   {
-    std::vector<std::string> dirs = { base_dir , g_install_config_dir };
+    std::vector<std::string> dirs = { workdir , g_install_config_dir };
     // for( auto d : dirs ) { lout << "config dir "<<d<<std::endl; }
     std::string resolved_path = filepath;
     bool found = resolve_file_path( dirs , resolved_path );

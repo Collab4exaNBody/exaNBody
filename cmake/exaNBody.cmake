@@ -25,7 +25,7 @@ macro(exaNBodyStartApplication)
   # =============================
   # === Application branding  ===
   # =============================
-  set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
+#  set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
   set(XNB_APP_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include)
   set(XNB_FIELD_SETS_HDR ${PROJECT_SOURCE_DIR}/include/exanb/field_sets.h)
   if(XNB_PRODUCT_VARIANT)
@@ -169,7 +169,7 @@ macro(exaNBodyStartApplication)
   file(READ ${XNB_ROOT_DIR}/scripts/patch_library_path.sh PATCH_LIBRARY_PATH)
   set(APP_SETUP_PLUGIN_PATH "PLUGIN_PATH=${CMAKE_INSTALL_PREFIX}/lib\n${PATCH_LIBRARY_PATH}")
   file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-env.sh "${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n")
-  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-run.sh "#!/bin/bash\n${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n${CMAKE_INSTALL_PREFIX}/bin/${XNB_APP_NAME} \$*\n")
+  file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-run.sh "#!/bin/bash\n${PROJECT_SETUP_ENV_COMMANDS}\n${APP_SETUP_PLUGIN_PATH}\n${ONIKA_RUN} \$*\n")
   install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-run.sh DESTINATION bin)
   install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME}-env.sh DESTINATION bin)
 
@@ -237,7 +237,7 @@ macro(exaNBodyStartApplication)
   option(XNB_TEST_MPI "Enable MPI+Threads tests" ON)
 
   # build components, plugins and builtin tests
-  add_subdirectory(${XNB_ROOT_DIR}/src ${XNB_BINARY_DIR})
+  add_subdirectory(${XNB_ROOT_DIR}/exanb ${XNB_BINARY_DIR})
 
   # install various files to install dir
   #install(DIRECTORY include/ustamp DESTINATION include)

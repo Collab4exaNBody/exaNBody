@@ -36,7 +36,7 @@ set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(CMAKE_CXX_EXTENSIONS ${CMAKE_CXX_
 # ==========================
 # === project definition ===
 # ==========================
-project(onika VERSION 1.1 LANGUAGES C CXX)
+project(onika VERSION 1.2 LANGUAGES C CXX)
 
 
 # =======================================
@@ -46,6 +46,11 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 include(RunCommand)
 include(DebugTests)
 include(GenerateBenchmarkSOATL)
+
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE) 
+SET(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(ONIKA_COMPILE_FEATURES cxx_std_17)
 
@@ -287,7 +292,7 @@ if(ONIKA_INTERNAL_UNIT_SYSTEM)
 endif()
 set(ONIKA_DEFAULT_CONFIG_DIR "${CMAKE_INSTALL_PREFIX}/share/config")
 set(ONIKA_DEFAULT_PLUGIN_DIR "${CMAKE_INSTALL_PREFIX}/lib")
-list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_DEFAULT_CONFIG_DIR="${ONIKA_DEFAULT_CONFIG_DIR}" ONIKA_DEFAULT_DATA_DIRS=".:${CMAKE_INSTALL_PREFIX}/share/data" ONIKA_DEFAULT_PLUGIN_DIR="${ONIKA_DEFAULT_PLUGIN_DIR}")
+list(APPEND ONIKA_COMPILE_DEFINITIONS ONIKA_VERSION="${CMAKE_PROJECT_VERSION}" ONIKA_DEFAULT_CONFIG_DIR="${ONIKA_DEFAULT_CONFIG_DIR}" ONIKA_DEFAULT_DATA_DIRS=".:${CMAKE_INSTALL_PREFIX}/share/data" ONIKA_DEFAULT_PLUGIN_DIR="${ONIKA_DEFAULT_PLUGIN_DIR}")
 
 
 # =====================================
@@ -334,10 +339,6 @@ target_compile_features(onika PUBLIC ${ONIKA_COMPILE_FEATURES})
 target_link_directories(onika PUBLIC ${ONIKA_LIBRARY_DIRS})
 target_link_libraries(onika PUBLIC ${ONIKA_LIBRARIES} PRIVATE ${ONIKA_PRIVATE_LIBRARIES})
 
-# compile tools
-add_executable(trace_convert src/tools/trace_convert.cpp)
-target_link_libraries(trace_convert onika)
-
 # Generate config file
 list(APPEND ONIKA_INCLUDE_DIRS_USER ${CMAKE_INSTALL_PREFIX}/include ${ONIKA_INCLUDE_DIRS})
 list(APPEND ONIKA_LIBRARY_DIRS_USER ${CMAKE_INSTALL_PREFIX}/lib ${ONIKA_LIBRARY_DIRS})
@@ -350,13 +351,30 @@ set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LIBRARY_DIRS ${ONIKA_LIBRAR
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_LIBRARIES ${ONIKA_LIBRARIES_USER})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_BUILD_CUDA ${ONIKA_BUILD_CUDA})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_ENABLE_HIP ${ONIKA_ENABLE_HIP})\n")
+set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(ONIKA_RUN ${CMAKE_INSTALL_PREFIX}/bin/onikarun)\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_DIR ${CMAKE_INSTALL_PREFIX})\n")
 set(ONIKA_CONFIG_DATA "${ONIKA_CONFIG_DATA}set(onika_FOUND TRUE)\n")
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake "${ONIKA_CONFIG_DATA}")
 
+# compile tools and apps
+file(GLOB app_sources RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/apps ${CMAKE_CURRENT_SOURCE_DIR}/apps/*.cpp)
+unset(ONIKA_APPLICATIONS)
+foreach(APPSRC ${app_sources})
+  get_filename_component(APPNAME ${APPSRC} NAME_WLE)
+  message(STATUS "Onika found application ${APPNAME}")
+  list(APPEND ONIKA_APPLICATIONS ${APPNAME})
+  add_executable(${APPNAME} apps/${APPNAME}.cpp)
+  target_compile_options(${APPNAME} PUBLIC ${ONIKA_COMPILE_OPTIONS})
+  target_compile_definitions(${APPNAME} PUBLIC ${ONIKA_COMPILE_DEFINITIONS})
+  target_include_directories(${APPNAME} PUBLIC ${ONIKA_INCLUDE_DIRS_USER})
+  target_link_directories(${APPNAME} PUBLIC ${ONIKA_LIBRARY_DIRS_USER})
+  target_link_libraries(${APPNAME} PUBLIC ${ONIKA_LIBRARIES_USER})
+endforeach()
+
 # install files
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/onika-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
 install(TARGETS onika DESTINATION lib)
+install(TARGETS ${ONIKA_APPLICATIONS} DESTINATION bin)
 install(DIRECTORY include/onika DESTINATION include)
 
 # ==================

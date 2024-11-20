@@ -62,7 +62,7 @@ namespace onika
 
     void dump_node_to_file(const std::string& basename, YAML::Node config);
 
-    std::vector<std::string> resolve_config_file_includes(const std::string& app_path, const std::vector<std::string>& file_names );
+    std::vector<std::string> resolve_config_file_includes(const std::vector<std::string>& file_names , const std::string& workdir = "." );
     YAML::Node yaml_load_file_abort_on_except(const std::string& file_name);
 
 

@@ -70,98 +70,157 @@ under the License.
 void simulation_start_breakpoint() {}
 void plugins_loaded_breakpoint() {}
 
+namespace onika
+{
+  namespace app
+  {
+    void initialize()
+    {
+      const char * confpath = std::getenv("ONIKA_CONFIG_PATH");
+      if( confpath != nullptr ) set_install_config_dir( confpath );
+
+      const char * datapath = std::getenv("ONIKA_DATA_PATH");
+      if( datapath != nullptr ) set_data_file_dirs( datapath );
+    }
+
+    void finalize()
+    {
+    }
+
+    std::pair< std::vector<std::string> , YAML::Node >
+    parse_command_args( int argc, char*argv[] )
+    {
+      if( argc < 2 )
+      {
+        lerr<<"Usage: "<<argv[0]<<" <input-file> [opt1,opt2...]"<<std::endl;
+        lerr<<"   Or: "<<argv[0]<<" --help [operator-name]"<<std::endl;
+        std::exit(1);
+      }
+
+      std::vector<std::string> main_input_files;
+      YAML::Node cmdline(YAML::NodeType::Map);
+
+      int start_opt_arg = 1;
+      main_input_files.clear();
+      while(start_opt_arg < argc && std::string(argv[start_opt_arg]).find("--")!=0 )
+      {
+        main_input_files.push_back( argv[start_opt_arg] );
+        ++ start_opt_arg;
+      }
+
+      // additional arguments are interpreted as YAML strings that are parsed, and merged on top of files read previously
+      onika::yaml::command_line_options_to_yaml_config(argc,argv,start_opt_arg,cmdline);
+      return { main_input_files , cmdline };
+    }
+
+    std::tuple<YAML::Node,YAML::Node,onika::app::ApplicationConfiguration>
+    load_yaml_input( const std::vector<std::string>& main_input_files, YAML::Node cmdline = YAML::Node(YAML::NodeType::Map) )
+    {
+      using namespace onika;
+      using namespace onika::scg;
+
+      // load user file and all subsequent include includes.
+      // when no includes is specified, USTAMP_DEFAULT_CONFIG_FILE is loaded as if it has been included.
+      // to prevent any file from being included, write "includes: []" in your input file
+      std::vector<std::string> files_to_load = onika::yaml::resolve_config_file_includes( main_input_files );
+      assert( ! files_to_load.empty() );
+
+      // merge YAML nodes from inner most included files up to user provided file
+      YAML::Node input_data(YAML::NodeType::Map);
+      for(auto f:files_to_load)
+      {
+        std::string pf = onika::config_file_path( f );
+        onika::ldbg << "load config file "<< pf << std::endl; ldbg << std::flush;
+        input_data = onika::yaml::merge_nodes( YAML::Clone(input_data) , onika::yaml::yaml_load_file_abort_on_except(pf) );
+      }
+
+      input_data = onika::yaml::merge_nodes( YAML::Clone(input_data) , cmdline );
+
+      // ====== extract YAML information blocks =========
+      YAML::Node config_node;
+      if( input_data["configuration"] )
+      {
+        config_node = input_data["configuration"];
+        input_data = onika::yaml::remove_map_key( input_data, "configuration" );
+      }
+
+      // convert YAML configuration node to data structure
+      onika::app::ApplicationConfiguration configuration { config_node };
+
+      // allow special block configuration block "set" to overload base input data
+      if( configuration.set.IsMap() && configuration.set.size()>0 )
+      {
+        input_data = onika::yaml::merge_nodes( input_data , configuration.set );
+        configuration.set = YAML::Node();
+        config_node = onika::yaml::remove_map_key( config_node, "set" );
+      }
+      
+      // simulation definition
+      YAML::Node simulation_node;
+      if( input_data["simulation"] )
+      {
+        simulation_node = input_data["simulation"];
+        input_data = onika::yaml::remove_map_key( input_data, "simulation" );
+      }
+
+      // ======== process debugging options =============
+      OperatorNodeFactory::set_debug_verbose_level( configuration.debug.verbose );
+      if( configuration.debug.fpe ) { feenableexcept( FE_ALL_EXCEPT & ~FE_INEXACT ); }
+      // ===============================================
+
+      // dump input files loaded
+      if( configuration.debug.files )
+      {
+        lout << "===== loaded input files =====" << std::endl;
+        for(std::string f : files_to_load) { lout << f << std::endl; }
+        lout << "==============================" << std::endl << std::endl;
+      }
+
+      // dump input config
+      if( configuration.debug.yaml )
+      {
+        lout << "======== configuration ========" << std::endl;
+        onika::yaml::dump_node_to_stream( lout, config_node );
+        lout << std::endl << "==============================" << std::endl << std::endl;
+        lout << "===== default definitions =====" << std::endl;
+        onika::yaml::dump_node_to_stream( lout, input_data );
+        lout << std::endl << "==============================" << std::endl << std::endl;
+        lout << "========= simulation ==========" << std::endl;
+        onika::yaml::dump_node_to_stream( lout, simulation_node );
+        lout << std::endl << "==============================" << std::endl << std::endl;
+      }
+      if( configuration.debug.config )
+      {
+        lout << "======== configuration ========" << std::endl;
+        configuration.m_doc.print_value( lout );
+        lout << std::endl << "==============================" << std::endl << std::endl;
+      }
+      
+      return { input_data , simulation_node , configuration };
+    }
+
+  }
+}
+
+
 int main(int argc,char*argv[])
 {
-  using namespace exanb;
   using std::cout;
   using std::cerr;
   using std::endl;
   using std::string;
   using std::vector;
+  
+  using namespace onika;
+  using namespace onika::scg;
 
 # ifndef NDEBUG
   std::cout << "to debug, use 'b simulation_start_breakpoint()' in gdb to stop program when all symbols are loaded"<<std::endl;
 # endif
 
-  if( argc < 2 )
-  {
-    lerr<<"Usage: "<<argv[0]<<" <input-file> [opt1,opt2...]"<<endl;
-    lerr<<"   Or: "<<argv[0]<<" --help [operator-name]"<<endl;
-    return 1;
-  }
-
-  int start_opt_arg = 1;
-  std::vector<std::string> main_input_files;
-  while(start_opt_arg < argc && std::string(argv[start_opt_arg]).find("--")!=0 )
-  {
-    main_input_files.push_back( argv[start_opt_arg] );
-    ++ start_opt_arg;
-  }
-
-  // ======== read YAML input files and command line ===========
-
-  // load user file and all subsequent include includes.
-  // when no includes is specified, USTAMP_DEFAULT_CONFIG_FILE is loaded as if it has been included.
-  // to prevent any file from being included, write "includes: []" in your input file
-  vector<string> files_to_load = onika::yaml::resolve_config_file_includes( argv[0] , main_input_files );
-  assert( ! files_to_load.empty() );
-  
-  // merge YAML nodes from inner most included files up to user provided file
-  YAML::Node input_data(YAML::NodeType::Map);
-  for(auto f:files_to_load)
-  {
-    string pf = onika::config_file_path( std::filesystem::path(argv[0]).remove_filename().string() , f );
-    ldbg << "load config file "<< pf << std::endl; lout << std::flush;
-    input_data = onika::yaml::merge_nodes( YAML::Clone(input_data) , onika::yaml::yaml_load_file_abort_on_except(pf) );
-  }
-  
-  // additional arguments are interpreted as YAML strings that are parsed, and merged on top of files read previously
-  onika::yaml::command_line_options_to_yaml_config(argc,argv,start_opt_arg,input_data);
-  // ======================================================
-
-
-  // ====== extract YAML information blocks =========
-  YAML::Node config_node;
-  if( input_data["configuration"] )
-  {
-    config_node = input_data["configuration"];
-    input_data = onika::yaml::remove_map_key( input_data, "configuration" );
-  }
-
-  // convert YAML configuration node to data structure
-  onika::app::ApplicationConfiguration configuration { config_node };
-
-  // allow special block configuration block "set" to overload base input data
-  if( configuration.set.IsMap() && configuration.set.size()>0 )
-  {
-    input_data = onika::yaml::merge_nodes( input_data , configuration.set );
-    configuration.set = YAML::Node();
-    config_node = onika::yaml::remove_map_key( config_node, "set" );
-  }
-  
-  // simulation definition
-  YAML::Node simulation_node;
-  if( input_data["simulation"] )
-  {
-    simulation_node = input_data["simulation"];
-    input_data = onika::yaml::remove_map_key( input_data, "simulation" );
-  }
-  
-  // random number generator state
-  YAML::Node rng_node(YAML::NodeType::Null);
-  if( input_data["random_generator_state"] )
-  {
-    rng_node = input_data["random_generator_state"];
-    input_data = onika::yaml::remove_map_key( input_data, "random_generator_state" );
-  }
-  // ===================================
-  
-
-  // ======== process debugging options =============
-  OperatorNodeFactory::set_debug_verbose_level( configuration.debug.verbose );
-  if( configuration.debug.fpe ) { feenableexcept( FE_ALL_EXCEPT & ~FE_INEXACT ); }
-  // ===============================================
-
+  onika::app::initialize();
+  auto [ main_input_files , cmdline ] = onika::app::parse_command_args( argc , argv );
+  auto [ input_data , simulation_node , configuration ] = onika::app::load_yaml_input( main_input_files , cmdline );
 
   // ============= OpenMP Initialization =============
   if( configuration.omp_num_threads > 0 )
@@ -246,16 +305,23 @@ int main(int argc,char*argv[])
   // ============= MPI Initialization =============
   int rank=0, nb_procs=0;
   int support = 0;
-  if( configuration.mpimt )
+  int external_mpi_init = 0;
+  MPI_Initialized( &external_mpi_init );
+  
+  if( ! external_mpi_init )
   {
-    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &support);
+    if( configuration.mpimt )
+    {
+      MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &support);
+    }
+    else
+    {
+      MPI_Init(&argc, &argv);
+    }
   }
-  else
-  {
-    MPI_Init(&argc, &argv);
-  }
+  
   // scoped variable that properly finalizes MPI upon main function exit
-  struct MpiScopedFinalizer { ~MpiScopedFinalizer() { MPI_Finalize(); } } mpi_finalize_on_scope_exit;
+  struct MpiScopedFinalizer { bool finalize_on_exit=true; ~MpiScopedFinalizer() { if(finalize_on_exit) MPI_Finalize(); } } mpi_finalize_on_scope_exit = { !external_mpi_init };
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
   if( configuration.mpimt && support != MPI_THREAD_MULTIPLE && rank==0 )
@@ -334,7 +400,7 @@ int main(int argc,char*argv[])
 
   // host system info
   lout << endl
-       << "Version : "<< USTAMP_VERSION
+       << "Version : "<< ONIKA_VERSION
 # ifndef NDEBUG
        <<" (debug)"
 # endif
@@ -354,59 +420,8 @@ int main(int argc,char*argv[])
   lout << "Alloc.  : align="<< onika::memory::GenericHostAllocator::DefaultAlignBytes << endl;
 
   // ============= random number generator state ==============
-  // initialize random number generator
-  if( ! rng_node.IsNull() )
-  {
-    onika::parallel::load_state( rng_node );
-  }
-  else 
-  {
-    onika::parallel::generate_seed();
-    rng_node = onika::parallel::save_state();
-//    config["random_generator_state"] = rng_node;
-  }
-  
-  if( ! configuration.debug.rng.empty() )
-  {
-    std::ostringstream oss;
-    oss << configuration.debug.rng << "." << rank;
-    std::string file_name = oss.str();
-    lout << "dump random state to file " <<file_name<< endl;    
-    std::ofstream fout( file_name );
-    onika::yaml::dump_node_to_stream( fout, rng_node );
-    fout << std::endl;
-  }
+  onika::parallel::generate_seed();
   // ==========================================================
-  
-
-  // dump input files loaded
-  if( configuration.debug.files )
-  {
-    lout << "===== loaded input files =====" << endl;
-    for(string f : files_to_load) { lout << f << std::endl; }
-    lout << "==============================" << endl << endl;
-  }
-
-  // dump input config
-  if( configuration.debug.yaml )
-  {
-    lout << "======== configuration ========" << endl;
-    onika::yaml::dump_node_to_stream( lout, config_node );
-    lout << std::endl << "==============================" << endl << endl;
-    lout << "===== default definitions =====" << endl;
-    onika::yaml::dump_node_to_stream( lout, input_data );
-    lout << std::endl << "==============================" << endl << endl;
-    lout << "========= simulation ==========" << endl;
-    onika::yaml::dump_node_to_stream( lout, simulation_node );
-    lout << std::endl << "==============================" << endl << endl;
-  }
-  if( configuration.debug.config )
-  {
-    lout << "======== configuration ========" << endl;
-    configuration.m_doc.print_value( lout );
-    lout << std::endl << "==============================" << endl << endl;
-  }
-
 
   // ============= plugin loading ============
   
