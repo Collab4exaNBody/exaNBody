@@ -165,12 +165,12 @@ namespace onika
       return YAML::Node();
     }
 
-    static void prefix_config_file_includes(std::vector<std::string>& files , std::string base_dir, std::string file_name )
+    static inline void prefix_config_file_includes( std::vector<std::string>& files , std::string file_name , std::string base_dir = "." )
     {
       using std::string;
       using std::vector;
 
-      file_name = config_file_path(base_dir,file_name);
+      file_name = config_file_path( file_name , base_dir );
       base_dir = dirname(file_name);
       // std::cout << " ==> base_dir=" << base_dir << std::endl;
 
@@ -184,7 +184,7 @@ namespace onika
         {
           if( std::find( files.begin() , files.end() , incfile ) == files.end() )
           {
-            prefix_config_file_includes( files, base_dir , incfile );
+            prefix_config_file_includes( files , incfile , base_dir );
           }
         }
       }
@@ -212,33 +212,35 @@ namespace onika
       bool has_local_config_file = false;
       if( std::ifstream(local_default_include_file).good() )
       {
+        std::cout<<"found workdir pre-config file '"<<local_default_include_file<<"'"<<std::endl;
         YAML::Node node = yaml_load_file_abort_on_except( local_default_include_file );
         if( node["configuration"] ) if( node["configuration"]["config_dir"] )
         {
-          // std::cout<<"overload config dir with '"<<node["configuration"]["config_dir"].as<string>()<<"'"<<std::endl;
-          set_install_config_dir( node["configuration"]["config_dir"].as<string>() );
+          std::string config_dir = node["configuration"]["config_dir"].as<string>();
+          std::cout<<"overload config dir with '"<<config_dir<<"'"<<std::endl;
+          set_install_config_dir( config_dir );
         }
         has_local_config_file = true;
       }
 
       // find path to the main base config file 'main-config.msp'
       string default_include_file = config_file_path("main-config.msp",workdir);
-      // ldbg << "default_include_file = "<<default_include_file<<std::endl;
+      std::cout << "default_include_file = "<<default_include_file<<std::endl;
           
       vector<string> files;
-      prefix_config_file_includes( files , workdir, default_include_file );
+      prefix_config_file_includes( files , default_include_file , workdir );
       
       // if a file named .build-config.msp is found in current working directory, it is included right after default include file
       if( has_local_config_file )
       {
         // std::cout << "using local config file "<<local_default_include_file << std::endl;
-        prefix_config_file_includes( files, workdir, local_default_include_file );
+        prefix_config_file_includes( files , local_default_include_file , workdir );
       }
       
       // then add user input file and all subsequent include files
       for(const auto& file_name:file_names) if( ! file_name.empty() )
       {
-        prefix_config_file_includes( files , workdir, file_name );
+        prefix_config_file_includes( files , file_name , workdir );
       }
       return files;
     }

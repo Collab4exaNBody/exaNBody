@@ -353,14 +353,12 @@ namespace onika { namespace scg
 
       if( OperatorSlotBase::m_type != typeid(T).name() && ! has_conversion() )
       {
-        lerr << "Type violation: cannot get " << onika::pretty_short_type<T>() << " from " << onika::pretty_short_type(OperatorSlotBase::m_type) << std::endl;
-        std::abort();
+        fatal_error() << "Type violation: cannot get " << onika::pretty_short_type<T>() << " from " << onika::pretty_short_type(OperatorSlotBase::m_type) << std::endl;
       }
       
       if( m_resource->is_null() && OperatorSlotBase::m_type != typeid(T).name() )
       {
-        lerr << "Internal error: internal type has been promoted but slot is not connected to anything." << std::endl << std::flush;
-        std::abort();
+        fatal_error() << "Internal error: internal type has been promoted but slot is not connected to anything." << std::endl << std::flush;
       }
 
       void* p = nullptr;
@@ -378,8 +376,7 @@ namespace onika { namespace scg
           }
           else
           {
-            lerr << "Internal error: no conversion from "<<onika::pretty_short_type(m_type)<<" to "<<onika::pretty_short_type(typeid(T).name())<<std::endl;
-            std::abort();
+            fatal_error() << "Internal error: no conversion from "<<onika::pretty_short_type(m_type)<<" to "<<onika::pretty_short_type(typeid(T).name())<<std::endl;
           }
         }
       }
@@ -401,8 +398,7 @@ namespace onika { namespace scg
       std::memcpy( &m_data_pointer_cache , &p, sizeof(p) );
       if( m_value_required && m_data_pointer_cache == nullptr )
       {
-        lerr << "Internal error: m_data_pointer_cache is null while resource pointer is not, conversion did not work" << std::endl;
-        std::abort();
+        fatal_error() << "Internal error: m_data_pointer_cache is null while resource pointer is not, conversion did not work" << std::endl;
       }
       
       m_pointer_cache_intialized = true;

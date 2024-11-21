@@ -77,7 +77,11 @@ namespace onika
     void initialize()
     {
       const char * confpath = std::getenv("ONIKA_CONFIG_PATH");
-      if( confpath != nullptr ) set_install_config_dir( confpath );
+      if( confpath != nullptr )
+      {
+        std::cout<<"set config path from ONIKA_CONFIG_PATH env to '"<<confpath<<"'"<<std::endl;
+        set_install_config_dir( confpath );
+      }
 
       const char * datapath = std::getenv("ONIKA_DATA_PATH");
       if( datapath != nullptr ) set_data_file_dirs( datapath );
@@ -130,7 +134,8 @@ namespace onika
       for(auto f:files_to_load)
       {
         std::string pf = onika::config_file_path( f );
-        onika::ldbg << "load config file "<< pf << std::endl; ldbg << std::flush;
+        //onika::ldbg
+        std::cout << "load config file "<< pf << std::endl; ldbg << std::flush;
         input_data = onika::yaml::merge_nodes( YAML::Clone(input_data) , onika::yaml::yaml_load_file_abort_on_except(pf) );
       }
 
@@ -198,13 +203,32 @@ namespace onika
       
       return { input_data , simulation_node , configuration };
     }
+    
+    onika::scg::OperatorNode* node_from_path( std::shared_ptr<onika::scg::OperatorNode> simulation_graph , const std::string& nodepath )
+    {
+      onika::scg::OperatorNode* node = nullptr;
+      simulation_graph->apply_graph( [&nodepath,&node](onika::scg::OperatorNode* o){ if( o->pathname() == nodepath ) node = o; } );
+      return node;
+    }
 
+    void configure_openmp() {}
   }
 }
 
 
 int main(int argc,char*argv[])
 {
+# ifndef NDEBUG
+  std::cout << "to debug, use 'b simulation_start_breakpoint()' in gdb to stop program when all symbols are loaded"<<std::endl;
+# endif
+
+  onika::app::initialize();
+  auto [ main_input_files , cmdline ] = onika::app::parse_command_args( argc , argv );
+  auto [ input_data , simulation_node , configuration ] = onika::app::load_yaml_input( main_input_files , cmdline );
+
+//  auto node = node_from_path(simulation_graph,"sim.loop.core");
+//  node.in_slot("deltat").set_resource( OperatorSlotResource{ copy_construct_allocator<double>( mydeltat ) , default_destructor<double>() } );
+
   using std::cout;
   using std::cerr;
   using std::endl;
@@ -213,14 +237,6 @@ int main(int argc,char*argv[])
   
   using namespace onika;
   using namespace onika::scg;
-
-# ifndef NDEBUG
-  std::cout << "to debug, use 'b simulation_start_breakpoint()' in gdb to stop program when all symbols are loaded"<<std::endl;
-# endif
-
-  onika::app::initialize();
-  auto [ main_input_files , cmdline ] = onika::app::parse_command_args( argc , argv );
-  auto [ input_data , simulation_node , configuration ] = onika::app::load_yaml_input( main_input_files , cmdline );
 
   // ============= OpenMP Initialization =============
   if( configuration.omp_num_threads > 0 )

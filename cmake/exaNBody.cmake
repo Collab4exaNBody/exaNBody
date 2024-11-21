@@ -25,7 +25,7 @@ macro(exaNBodyStartApplication)
   # =============================
   # === Application branding  ===
   # =============================
-#  set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
+  set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
   set(XNB_APP_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include)
   set(XNB_FIELD_SETS_HDR ${PROJECT_SOURCE_DIR}/include/exanb/field_sets.h)
   if(XNB_PRODUCT_VARIANT)
