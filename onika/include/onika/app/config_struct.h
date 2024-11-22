@@ -125,7 +125,7 @@ namespace onika
         }
       }
 
-      template<class StreamT> inline StreamT& print_default_config( StreamT& out , int indent = 0)
+      template<class StreamT> inline StreamT& print_default_config( StreamT& out , int indent = 0) const
       {
         out << std::setfill(' ') << std::setw(indent*4) << "" << m_key << ": " << m_default << " #";
         if( m_sub_items.empty() )
@@ -146,7 +146,7 @@ namespace onika
         return out;
       }
 
-      template<class StreamT> inline StreamT& print_command_line_options( StreamT& out , int level=0 , const std::string& path = std::string{} )
+      template<class StreamT> inline StreamT& print_command_line_options( StreamT& out , int level=0 , const std::string& path = std::string{} ) const
       {
         if( m_sub_items.empty() )
         {

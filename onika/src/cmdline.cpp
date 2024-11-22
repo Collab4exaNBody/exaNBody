@@ -51,7 +51,7 @@ namespace onika
       return opt;
     }
 
-    void command_line_options_to_yaml_config(int argc, char*argv[], int start_opt_arg, YAML::Node& input_data)
+    void command_line_options_to_yaml_config(int argc, char const * const argv[], int start_opt_arg, YAML::Node& input_data)
     {
       using std::string;
       // additional arguments are interpreted as YAML strings that are parsed, and merged on top of files read previously

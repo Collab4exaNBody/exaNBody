@@ -132,6 +132,37 @@ namespace onika { namespace scg
     static bool has_type_conversion(const std::string& s, const std::string& d);
     static void enable_registration();
 
+    // high level external access API
+    template<class T>
+    inline void copy_input_value(const T& defval)
+    {
+      if( typeid(T).name() != m_type )
+      {
+        fatal_error() << "Slot "<<pathname()<<" can only copy input value of type "<<m_type<<" (input is "<<typeid(T).name()<<")"<<std::endl;
+      }
+      set_resource( default_value_copy_constructor_resource(defval) );
+    }
+    
+    template<class T>
+    void set_value_pointer(T* ptr)
+    {
+      if( typeid(T).name() != m_type )
+      {
+        fatal_error() << "Slot "<<pathname()<<" can only use an input pointer to type "<<m_type<<" (input points to "<<typeid(T).name()<<")"<<std::endl;
+      }
+      set_resource( borrowed_pointer_resource(ptr) );
+    }
+
+    template<class T>
+    const T* output_value_pointer()
+    {
+      if( typeid(T).name() != m_type )
+      {
+        fatal_error() << "Slot "<<pathname()<<" output type is "<<m_type<<" (requested pointer to type "<<typeid(T).name()<<")"<<std::endl;
+      }
+      return static_cast<T*>( m_resource->memory_ptr() );
+    }
+
     // slot graph traversal
     void set_resource( std::shared_ptr<OperatorSlotResource> resource );
     void free_resource();

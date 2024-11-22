@@ -252,6 +252,9 @@ namespace onika { namespace scg
 
     void set_omp_max_threads(int nt);
 
+    void set_multiple_run(bool yn);
+    bool multiple_run() const;
+
     // each call allocates a new context to be used to build up a new parallel operation
     void set_task_group_mode( bool m );
     bool task_group_mode() const;
@@ -345,6 +348,8 @@ namespace onika { namespace scg
     
     // allow gpu execution for this particular instance
     bool m_gpu_execution_allowed = true;
+    
+    bool m_multiple_run = false;
     
     static ProfilingFunctionSet s_profiling_functions;
     static TimeStampT s_profiling_timestamp_ref;

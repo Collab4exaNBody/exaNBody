@@ -25,14 +25,18 @@ under the License.
 #include <ios>
 
 #include <onika/log.h>
+#include <onika/type_utils.h>
 
 namespace onika { namespace scg
 {
 
   class OperatorSlotResource
-  {    
+  {
   public:
-    
+    OperatorSlotResource( const OperatorSlotResource& other ) = default;
+    OperatorSlotResource( OperatorSlotResource && other );
+    OperatorSlotResource& operator = ( OperatorSlotResource && other );
+
     OperatorSlotResource( void* memory_ptr = nullptr );
     OperatorSlotResource( std::function<void*()> allocator, std::function<void(void*)> deleter=nullptr );
     ~OperatorSlotResource();
@@ -46,14 +50,47 @@ namespace onika { namespace scg
     void free();
 
   private:
-    void* m_memory_ptr = nullptr;
     std::function<void*()> m_allocate = nullptr;
     std::function<void(void*)> m_deleter = nullptr;
-    // std::vector< uint64_t > m_access_masks;
-    // std::mutex m_mutex;
+    void* m_memory_ptr = nullptr;
   };
 
   std::ostream& operator << ( std::ostream& out, const OperatorSlotResource& r );
+
+
+  // default constructor/destructor allocators and deleters
+  template<class T,bool=std::is_destructible<T>::value> struct DefaultResourceDeleter
+  {
+    static inline std::function<void(void*)> build()
+    {
+      std::function<void(void*)> deleter = [](void* p) { delete reinterpret_cast<T*>(p); };
+      return deleter;
+    }
+  };
+  template<class T> struct DefaultResourceDeleter<T,false>
+  {
+    static inline std::function<void(void*)> build() { return nullptr; }
+  };
+
+  // utility resource allocator functions  
+  template<class T>
+  static inline std::shared_ptr<OperatorSlotResource> default_value_copy_constructor_resource(const T& defval)
+  {
+    return std::make_shared<OperatorSlotResource>( [defval]() -> void* { return new T(defval); } , DefaultResourceDeleter<T>::build() );
+  }
+
+  template<class T>
+  static inline std::shared_ptr<OperatorSlotResource> default_constructor_resource( TypePlaceHolder<T> = {} )
+  {
+    return std::make_shared<OperatorSlotResource>( []() -> void* { return new T(); } , DefaultResourceDeleter<T>::build() );
+  }
+
+  template<class T>
+  static inline std::shared_ptr<OperatorSlotResource> borrowed_pointer_resource( T* ptr )
+  {
+    return std::make_shared<OperatorSlotResource>( [ptr]() -> void* { return ptr; } );
+  }
+
 
 } }
 

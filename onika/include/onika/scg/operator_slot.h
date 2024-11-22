@@ -44,20 +44,6 @@ namespace onika { namespace scg
   template<typename T>
   inline std::shared_ptr< OperatorSlot<T> > make_operator_slot( OperatorNode* opnode, const std::string& k, SlotDirection d );
 
-  template<class T,bool=std::is_destructible<T>::value> struct DefaultResourceDeleter
-  {
-    static inline std::function<void(void*)> build()
-    {
-      std::function<void(void*)> deleter = [](void* p) { delete reinterpret_cast<T*>(p); };
-      return deleter;
-    }
-  };
-
-  template<class T> struct DefaultResourceDeleter<T,false>
-  {
-    static inline std::function<void(void*)> build() { return nullptr; }
-  };
-
 } }
 
 // stream helper operator, so that slot can be output to a std:ostream as is
@@ -122,8 +108,6 @@ namespace onika { namespace scg
       static inline SlotDirection dir() { return INPUT_OUTPUT; } // compatible with PRIVATE declaration without any given direction
       static inline const default_value_t& defval() { return std::nullopt; }
     };
-
-    template<typename T> struct TypePlaceHolder {};
 
     template<class T> const T& undefined_value_reference()
     {
@@ -241,7 +225,7 @@ namespace onika { namespace scg
       //, m_access_patterns( operator_slot_details::SlotConstructArgs<U...>::dap_t::dac_masks() )
       , m_value_required( args.is_required_v )
     {
-      using place_holder_t = operator_slot_details::TypePlaceHolder<T>;
+      using place_holder_t = TypePlaceHolder<T>;
       if( is_output_only() && args.is_optional_v )
       {
         lerr << "An output only slot cannot be marked as optional"<<std::endl;
@@ -305,7 +289,7 @@ namespace onika { namespace scg
     template<class U, class = std::enable_if_t< std::is_constructible_v<T,U> > >
     inline void set_resource_default_value(const U& init_val)
     {
-      set_resource( std::make_shared<OperatorSlotResource>( [init_val]() -> void* { return new T(init_val); } , DefaultResourceDeleter<T>::build() ) );
+      set_resource( default_value_copy_constructor_resource(init_val) );
     }
     
     inline T* get_typed_pointer()

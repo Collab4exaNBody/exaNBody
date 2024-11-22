@@ -29,10 +29,31 @@ namespace onika { namespace scg
   }
 
   OperatorSlotResource::OperatorSlotResource( std::function<void*()> allocator , std::function<void(void*)> deleter )
-    : m_memory_ptr( nullptr )
-    , m_allocate( allocator )
-    , m_deleter( deleter )
+    : m_allocate  ( allocator )
+    , m_deleter   ( deleter )
+    , m_memory_ptr( nullptr )
   {
+  }
+
+  OperatorSlotResource::OperatorSlotResource( OperatorSlotResource && other )
+  : m_allocate  ( std::move(other.m_allocate) )
+  , m_deleter   ( std::move(other.m_deleter) )
+  , m_memory_ptr( std::move(other.m_memory_ptr) )
+  {
+    other.m_allocate   = nullptr;
+    other.m_deleter    = nullptr;
+    other.m_memory_ptr = nullptr;
+  }
+  
+  OperatorSlotResource& OperatorSlotResource::operator = ( OperatorSlotResource && other )
+  {
+    m_allocate   = std::move(other.m_allocate);
+    m_deleter    = std::move(other.m_deleter);
+    m_memory_ptr = std::move(other.m_memory_ptr);
+    other.m_allocate   = nullptr;
+    other.m_deleter    = nullptr;
+    other.m_memory_ptr = nullptr;
+    return *this;
   }
 
   OperatorSlotResource::~OperatorSlotResource()

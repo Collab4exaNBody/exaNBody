@@ -517,11 +517,11 @@ namespace onika { namespace scg
       else lout<<pathname()<<" END"<<std::endl;
     }
 
-    bool may_finalize = !is_looping() && !task_group_mode();
+    bool may_finalize = !is_looping() && !task_group_mode() && !multiple_run();
     auto * p = parent();
     while( p != nullptr )
     {
-      may_finalize = may_finalize && ( ! p->is_looping() && ! task_group_mode() );
+      may_finalize = may_finalize && ( ! p->is_looping() && ! p->task_group_mode() && ! p->multiple_run() );
       p = p->parent();
     }
     if(may_finalize)
@@ -542,6 +542,17 @@ namespace onika { namespace scg
   {
     m_gpu_execution_allowed = b;
   }
+
+  void OperatorNode::set_multiple_run(bool yn)
+  {
+    m_multiple_run = yn;
+  }
+  
+  bool OperatorNode::multiple_run() const
+  {
+    return m_multiple_run;
+  }
+
 
   void OperatorNode::finalize_parallel_execution(onika::parallel::ParallelExecutionContext* pec, void * v_self)
   {

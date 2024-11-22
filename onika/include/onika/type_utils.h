@@ -28,6 +28,9 @@ under the License.
 
 namespace onika
 {
+  // just hold type information as a parameter
+  template<typename T> struct TypePlaceHolder {};
+
   std::string demangle_type_string(std::string s);
 
   template<typename T>
