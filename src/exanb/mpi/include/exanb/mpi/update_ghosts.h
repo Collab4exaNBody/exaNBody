@@ -70,7 +70,7 @@ namespace exanb
     ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
     ADD_SLOT( bool                     , wait_all          , INPUT , false );
 
-    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
+    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, INPUT_OUTPUT );
 
   public:
     inline void execute() override final
