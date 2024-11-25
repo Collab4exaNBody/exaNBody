@@ -110,14 +110,16 @@ namespace exanb
         lattice.m_np = *np;
         lattice.m_types = *types;
         // Checking that positions are contained between 0 and 1 -> fractional coordinates
-        for (int i=0;i<(*positions).size();i++) {
-          double px = (*positions)[i].x;
-          double py = (*positions)[i].y;
-          double pz = (*positions)[i].z;
+#       ifndef NDEBUG
+        for (size_t i=0;i<positions->size();i++) {
+          double px = positions->at(i).x;
+          double py = positions->at(i).y;
+          double pz = positions->at(i).z;
           assert( px >=0. && px <= 1. );
           assert( py >=0. && py <= 1. );
           assert( pz >=0. && pz <= 1. );
         }
+#       endif
         lattice.m_positions = *positions;
       } else if (*structure == "SC") {
         lattice.m_np = 1;
