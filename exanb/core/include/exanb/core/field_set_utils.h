@@ -20,7 +20,7 @@ under the License.
 #pragma once
 
 #include <onika/type_utils.h>
-#include <exanb/field_sets_macro.h>
+#include <exanb/field_sets.h>
 
 namespace exanb
 {

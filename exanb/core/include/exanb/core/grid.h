@@ -713,21 +713,9 @@ namespace exanb
     apply_grid_field_tuple_idx( grid, f, tp, std::make_index_sequence< onika::tuple_size_const_v<FieldTupleT> >{} );
   }
   
-
-  inline std::vector<std::string> xnb_grid_variants_as_strings()
-  {
-#   define _XSTAMP_FIELD_SET_AS_STRING(FS) #FS ,
-    return { XSTAMP_FOR_EACH_FIELD_SET(_XSTAMP_FIELD_SET_AS_STRING) "" };
-#   undef _XSTAMP_FIELD_SET_AS_STRING
-  }
+  template<class... FS> inline std::vector<std::string> xnb_grid_variants_as_strings( FieldSets<FS...> ) { return { onika::pretty_short_type<FS>() ... }; }
+  inline std::vector<std::string> xnb_grid_variants_as_strings() { return xnb_grid_variants_as_strings( standard_field_sets_v ); }
 
 } // end of namespace exanb
 
-// utility macro to help instantiate grid templated functions, with potential FieldSests restrictions
-#define INSTANTIATE_GRID_VARIANT_FUNCTION_TEMPLATE(func,_FS) \
-template<typename FS> class __Inst_##func ; \
-template<typename... FS> class __Inst_##func < ::exanb::FieldSets<FS...> > \
-{ using FuncPtrsTuple = decltype( std::make_tuple( & func<::exanb::GridFromFieldSet<FS> > ... ) ); \
-  virtual void f(){ FuncPtrsTuple * x = nullptr; *x = std::make_tuple( & func<::exanb::GridFromFieldSet<FS> > ... ); } \
-}; \
-template struct __Inst_##func < _FS >
+

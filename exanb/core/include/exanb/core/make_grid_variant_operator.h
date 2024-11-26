@@ -144,18 +144,6 @@ namespace onika
 
 namespace exanb
 {
-  template<class FieldSetsT>
-  struct make_grid_variant_operator_helper_t
-  {
-    template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT> > _make_grid_variant_operator = {} ;
-  };
-
-# ifdef XSTAMPV2_OVERRIDE_DEFAULT_FIELDS_SETS
-# define make_grid_variant_operator ::exanb::make_grid_variant_operator_helper_t<XSTAMPV2_OVERRIDE_DEFAULT_FIELDS_SETS>::_make_grid_variant_operator
-# else
-# define make_grid_variant_operator ::exanb::make_grid_variant_operator_helper_t<XSTAMP_ENABLED_FIELD_SETS>::_make_grid_variant_operator
-# endif
-
+  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , ::exanb::StandardFieldSets > > make_grid_variant_operator = {};
 }
-
 
