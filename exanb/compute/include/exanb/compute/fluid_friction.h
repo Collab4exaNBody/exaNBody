@@ -16,22 +16,24 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
+
+#include <utility>
 
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
+
+#include <onika/memory/allocator.h>
+#include <onika/soatl/field_pointer_tuple.h>
+
+#include <exanb/core/grid.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/core/grid.h>
-#include <onika/memory/allocator.h>
-
-#include <onika/soatl/field_pointer_tuple.h>
 #include <exanb/compute/compute_cell_particles.h>
 #include <exanb/grid_cell_particles/particle_region.h>
 #include <exanb/grid_cell_particles/particle_cell_projection.h>
-
-#include <memory>
 
 namespace exanb
 {

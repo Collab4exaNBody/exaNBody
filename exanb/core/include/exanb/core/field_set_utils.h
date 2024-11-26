@@ -16,10 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <onika/type_utils.h>
-#include "exanb/field_sets_macro.h"
+#include <exanb/field_sets_macro.h>
 
 namespace exanb
 {

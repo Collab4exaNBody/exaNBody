@@ -47,7 +47,6 @@ macro(exaNBodyStartApplication)
   include(DebugTests)
   include(ExaStampFileGlob)
   include(AddRegressionTestDir)
-  include(ConfigureGenerateVariants)
   include(ExaNBodyPlugin)
 
   SET(CMAKE_SKIP_BUILD_RPATH FALSE)
