@@ -43,7 +43,6 @@ macro(exaNBodyStartApplication)
 
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
   include(CMakeDependentOption)
-  include(RunCommand)
   include(DebugTests)
   include(ExaStampFileGlob)
   include(AddRegressionTestDir)
@@ -193,11 +192,6 @@ macro(exaNBodyStartApplication)
   # create a marker file to identify when applications are run from build tree
   file(GENERATE OUTPUT ${USTAMP_APPS_DIR}/${XNB_LOCAL_CONFIG_FILE}
        CONTENT "configuration: { plugin_dir: '${CMAKE_LIBRARY_OUTPUT_DIRECTORY}' , config_dir: '${CMAKE_CURRENT_SOURCE_DIR}/data/config' }\n")
-
-  # sets default internal unit system
-  if(XNB_APP_INTERNAL_UNIT_SYSTEM)
-    list(APPEND XNB_APP_DEFINITIONS XNB_APP_INTERNAL_UNIT_SYSTEM=${XNB_APP_INTERNAL_UNIT_SYSTEM})
-  endif()
 
   # compile time definitions
   set(XNB_COMPILE_DEFINITIONS
