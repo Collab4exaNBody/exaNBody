@@ -21,11 +21,15 @@
 cmake_minimum_required(VERSION 3.26)
 project(exaNBody LANGUAGES C CXX)
 
+find_package(onika REQUIRED)
 
-
+set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
 get_filename_component(XNB_ROOT_DIR ${CMAKE_INSTALL_PREFIX} ABSOLUTE)
-file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake "set(exaNBody_DIR ${XNB_ROOT_DIR})\nlist(APPEND CMAKE_MODULE_PATH \"${XNB_ROOT_DIR}/cmake\")\ninclude(exaNBody)\n")
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+add_subdirectory(src)
+
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake "set(exaNBody_DIR ${XNB_ROOT_DIR})\n")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake DESTINATION ${XNB_ROOT_DIR})
 
 #install(DIRECTORY exanb cmake thirdparty scripts DESTINATION ${CMAKE_INSTALL_PREFIX})
 

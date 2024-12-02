@@ -21,6 +21,6 @@
 
 
 set(exanbExtraStorage_LINK_LIBRARIES exanbCompute exanbIO exanbMPI)
-xstamp_add_plugin(exanbExtraStorage ${CMAKE_CURRENT_SOURCE_DIR})
+onika_add_plugin(exanbExtraStorage ${CMAKE_CURRENT_SOURCE_DIR})
 
 

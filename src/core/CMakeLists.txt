@@ -21,5 +21,5 @@
 # ==============================
 set(exanbCore_NO_CORE_LIBS ON)
 set(exanbCore_LINK_LIBRARIES ${XNB_CORE_DEPEND_LIBS})
-xstamp_add_plugin(exanbCore ${CMAKE_CURRENT_SOURCE_DIR})
+onika_add_plugin(exanbCore ${CMAKE_CURRENT_SOURCE_DIR})
 
