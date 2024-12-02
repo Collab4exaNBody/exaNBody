@@ -21,7 +21,7 @@ under the License.
 #include <string>
 #include <yaml-cpp/yaml.h>
 
-# define XSTAMP_TEXT_ENUM_START(name) \
+# define XNB_TEXT_ENUM_START(name) \
   namespace exanb { struct name { \
     inline name() = default; \
     inline name(const name&) = default; \
@@ -36,11 +36,11 @@ under the License.
     static inline int register_enum(const char* str) { s_text[s_item_count] = str; return s_item_count++; } \
     int value = 0
 
-# define XSTAMP_TEXT_ENUM_ITEM(itname) static inline const int itname = register_enum(#itname)
+# define XNB_TEXT_ENUM_ITEM(itname) static inline const int itname = register_enum(#itname)
 
-# define XSTAMP_TEXT_ENUM_END() }; } using __exanb_##name=int
+# define XNB_TEXT_ENUM_END() }; } using __exanb_##name=int
 
-#define XSTAMP_TEXT_ENUM_YAML(name) \
+#define XNB_TEXT_ENUM_YAML(name) \
 namespace YAML { template<> struct convert< ::exanb::name > { \
     static inline Node encode(const ::exanb::name& v) { Node node; if(v.valid()) node = std::string( ::exanb::name::s_text[ v.value ] ); return node; } \
     static inline bool decode(const Node& node, ::exanb::name& v) { v = ::exanb::name(node.as<std::string>()); return v.valid(); } \

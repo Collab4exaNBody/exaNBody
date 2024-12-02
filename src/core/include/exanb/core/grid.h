@@ -25,8 +25,9 @@ under the License.
 #include <onika/cuda/stl_adaptors.h>
 #include <onika/math/basic_types.h>
 
-#include <exanb/fields.h>
-#include <exanb/field_sets.h>
+#include <exanb/core/grid_fields.h>
+#include <exanb/core/field_set_utils.h>
+
 #include <exanb/core/grid_algorithm.h>
 #include <exanb/core/cell_particles_from_field_set.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
@@ -44,10 +45,6 @@ under the License.
 #include <onika/soatl/field_arrays.h>
 #include <onika/memory/memory_usage.h>
 
-#ifndef XSTAMP_FIELD_ARRAYS_STORE_COUNT
-#define XSTAMP_FIELD_ARRAYS_STORE_COUNT 3
-#endif
-
 namespace exanb
 {
 
@@ -64,7 +61,7 @@ namespace exanb
 
   public:
 
-    static constexpr size_t MaxStoredPointerCount = XSTAMP_FIELD_ARRAYS_STORE_COUNT;
+    static constexpr size_t MaxStoredPointerCount = XNB_FIELD_ARRAYS_STORE_COUNT;
     static constexpr size_t StoredPointerCount = std::min( MaxStoredPointerCount , size_t(sizeof...(particle_field_ids)+3) );
 
     using field_set_t = FieldSet<particle_field_ids...>;

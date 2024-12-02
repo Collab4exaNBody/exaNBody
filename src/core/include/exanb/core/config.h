@@ -18,12 +18,15 @@ under the License.
 */
 #pragma once
 
-#include <exanb/fields.h>
-#include <onika/soatl/field_id.h>
+#include <cstdlib>
+// Application wide constants, shared accros differents apps
+
+#ifndef XNB_MAX_PARTICLE_NEIGHBORS_DEFAULT
+#define XNB_MAX_PARTICLE_NEIGHBORS_DEFAULT 512
+#endif
 
 namespace exanb
 {
-  template<typename... field_ids> using FieldSet = onika::soatl::FieldIds< field_ids... > ;
-  template<typename... field_sets> struct FieldSets {};
+  static inline constexpr size_t MAX_PARTICLE_NEIGHBORS = XNB_MAX_PARTICLE_NEIGHBORS_DEFAULT;
 }
 

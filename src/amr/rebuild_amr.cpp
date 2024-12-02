@@ -28,8 +28,6 @@ under the License.
 
 #include <memory>
 
-
-
 namespace exanb
 {
 

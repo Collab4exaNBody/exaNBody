@@ -24,16 +24,14 @@ under the License.
 #include <algorithm>
 
 
-#define XSTAMP_IGNORE_UNUSED_VARIABLE(x) if(false){auto y=x;x=y;}
-
 // convinience macros
 #define GRID_FOR_BEGIN(dims,index,cell) { \
   ::exanb::IJK _d=dims; \
-  ssize_t index=0; XSTAMP_IGNORE_UNUSED_VARIABLE(index) \
+  [[maybe_unused]] ssize_t index=0; \
   for(ssize_t _k=0;_k<_d.k;++_k) \
   for(ssize_t _j=0;_j<_d.j;++_j) \
   for(ssize_t _i=0;_i<_d.i;++_i,++index) { \
-    ::exanb::IJK cell={_i,_j,_k}; XSTAMP_IGNORE_UNUSED_VARIABLE(cell)
+    [[maybe_unused]] ::exanb::IJK cell={_i,_j,_k};
 
 #define GRID_FOR_END } }
 
@@ -46,7 +44,7 @@ under the License.
   for(ssize_t _j=_s.j;_j<_e.j;_j++) { \
   for(ssize_t _i=_s.i;_i<_e.i;_i++) { \
     ::exanb::IJK loc = ::exanb::IJK{_i,_j,_k}; \
-    ssize_t index = ::exanb::grid_ijk_to_index(_d,loc); XSTAMP_IGNORE_UNUSED_VARIABLE(index)
+    [[maybe_unused]] ssize_t index = ::exanb::grid_ijk_to_index(_d,loc);
 
 #define GRID_BLOCK_FOR_END }}} }
 

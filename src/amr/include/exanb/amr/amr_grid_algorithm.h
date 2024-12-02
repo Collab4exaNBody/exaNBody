@@ -35,7 +35,7 @@ under the License.
 #include <omp.h>
 
 // uncomment the following to scramble particles order before AMR re-ordering (for perf tests only)
-// #define XSTAMP_AMR_RANDOMIZE_PARTICLES 1
+// #define XNB_AMR_RANDOMIZE_PARTICLES 1
 
 namespace exanb
 {
@@ -167,7 +167,7 @@ namespace exanb
             sub_grid_cells_tmp[sgindex] = 0;
           }
 
-#         ifdef XSTAMP_AMR_RANDOMIZE_PARTICLES
+#         ifdef XNB_AMR_RANDOMIZE_PARTICLES
           // scramble particles in cell (for performance testing purposes only)
           for(ssize_t p=0;p<n_particles;p++)
           {

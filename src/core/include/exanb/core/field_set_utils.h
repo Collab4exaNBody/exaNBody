@@ -20,14 +20,10 @@ under the License.
 #pragma once
 
 #include <onika/type_utils.h>
-#include <exanb/field_sets.h>
+#include <exanb/core/grid_fields.h>
 
 namespace exanb
 {
-
-# ifdef XSTAMP_ENABLED_FIELD_SETS
-  using EnabledFieldSets = XSTAMP_ENABLED_FIELD_SETS ;
-# endif
 
   // ====================== utlity functions =========================
   template<class... _ids>
@@ -44,7 +40,6 @@ namespace exanb
   template<> struct FieldContainDefaultField<field::_rz> : std::true_type {};
   using DefaultFields = FieldSet< field::_rx, field::_ry, field::_rz >;
 
-  
   // ====================================================
   // determine if a field set contain a specific field
   // ====================================================

@@ -20,8 +20,11 @@ under the License.
 
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_factory.h>
-#include <exanb/field_sets.h>
+
+#include <exanb/core/grid_fields.h>
+#include <exanb/core/field_set_utils.h>
 #include <exanb/core/grid.h>
+
 #include <yaml-cpp/yaml.h>
 #include <memory>
 
@@ -144,6 +147,6 @@ namespace onika
 
 namespace exanb
 {
-  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , ::exanb::StandardFieldSets > > make_grid_variant_operator = {};
+  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , XNB_AVAILABLE_FIELD_SETS > > make_grid_variant_operator = {};
 }
 
