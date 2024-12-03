@@ -15,25 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
 # ===============
 # === Project ===
 # ===============
 cmake_minimum_required(VERSION 3.26)
 project(exaNBody LANGUAGES C CXX)
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
 
-find_package(onika REQUIRED)
-
+# main dependency and configuation variables
 set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
 get_filename_component(XNB_ROOT_DIR ${CMAKE_INSTALL_PREFIX} ABSOLUTE)
 set(XNB_CMAKE_PACKAGE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake)
+find_package(onika REQUIRED)
 
-string(TIMESTAMP XNB_BUILD_DATE "%Y-%m-%d@%Hh%M:%S")
+string(TIMESTAMP XNB_BUILD_DATE "%Y-%m-%d %Hh%M:%S")
 file(WRITE ${XNB_CMAKE_PACKAGE} "# exaNBody CMake package (generated on ${XNB_BUILD_DATE})\n\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "# Main package configuration\n")
-file(APPEND ${XNB_CMAKE_PACKAGE} "set(onika_DIR ${onika_DIR})\n")
+if(onika_DIR)
+  file(APPEND ${XNB_CMAKE_PACKAGE} "set(onika_DIR ${onika_DIR})\n")
+endif()
 file(APPEND ${XNB_CMAKE_PACKAGE} "find_package(onika REQUIRED)\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_ROOT_DIR ${XNB_ROOT_DIR})\n")
-file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_SUFFIX -\$\{CMAKE_PROJECT_NAME\})\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_NAME \$\{CMAKE_PROJECT_NAME\})\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_SUFFIX -\$\{XNB_APP_NAME\})\n")
 
 # setup thirdparty base-n encoding lib and export it to cmake package
 add_library(basen INTERFACE)
@@ -46,12 +51,12 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "target_include_directories(basen INTERFACE \$\
 function(xnb_add_plugin PluginName dirname)
 
   # Backward compatibility trick : we used to automaticaly add exanbCore to link libraries
-  if(NOT "${PluginName}" STREQUAL "exanbCore")
+  if("${PluginName}" STREQUAL "exanbCore")
+    # Tell Onika to duplicate type name definitions to exanb namespace, so that we don't have to rewite all the code by now
+    list(APPEND ${PluginName}_COMPILE_DEFINITIONS ONIKA_LOG_EXPORT_NAMESPACE=exanb ONIKA_MATH_EXPORT_NAMESPACE=exanb ONIKA_SCG_EXPORT_NAMESPACE=exanb)
+  else()
     list(APPEND ${PluginName}_LINK_LIBRARIES exanbCore)
   endif()
-
-  # Tell Onika to duplicate type name definitions to exanb namespace, so that we don't have to rewite all the code by now
-  list(APPEND ${PluginName}_COMPILE_DEFINITIONS ONIKA_LOG_EXPORT_NAMESPACE=exanb ONIKA_MATH_EXPORT_NAMESPACE=exanb ONIKA_SCG_EXPORT_NAMESPACE=exanb)
 
   onika_add_plugin(${PluginName} ${dirname})
   
@@ -68,51 +73,51 @@ function(xnb_add_plugin PluginName dirname)
     file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Configuration of exaNBody's ${PluginName} component\n")
     if(${PluginName}_INCLUDE_DIRS)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_INCLUDE_DIRS ${${PluginName}_INCLUDE_DIRS})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_INCLUDE_DIRS)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_INCLUDE_DIRS)\n")
     endif()
     
     if(${PluginName}_COMPILE_DEFINITIONS)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_COMPILE_DEFINITIONS ${${PluginName}_COMPILE_DEFINITIONS})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_COMPILE_DEFINITIONS)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_COMPILE_DEFINITIONS)\n")
     endif()
  
     if(${PluginName}_COMPILE_OPTIONS)
        file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_COMPILE_OPTIONS ${${PluginName}_COMPILE_OPTIONS})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_COMPILE_OPTIONS)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_COMPILE_OPTIONS)\n")
     endif()
  
     if(${PluginName}_COMPILE_FEATURES)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_COMPILE_FEATURES ${${PluginName}_COMPILE_FEATURES})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_COMPILE_FEATURES)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_COMPILE_FEATURES)\n")
     endif()
  
     if(${PluginName}_LINK_DIRECTORIES)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_LINK_DIRECTORIES ${${PluginName}_LINK_DIRECTORIES})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_LINK_DIRECTORIES)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_LINK_DIRECTORIES)\n")
     endif()
  
     if(${PluginName}_LINK_LIBRARIES)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_LINK_LIBRARIES ${${PluginName}_LINK_LIBRARIES})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_LINK_LIBRARIES)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_LINK_LIBRARIES)\n")
     endif()
     
     if(${PluginName}_EXTERNAL_SRCS)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_EXTERNAL_SRCS ${${PluginName}_EXTERNAL_SRCS})\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_EXTERNAL_SRCS)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_EXTERNAL_SRCS)\n")
     endif()
     
     if(${PluginName}_CUSTOM_CMAKE)
       install(FILES ${${PluginName}_CUSTOM_CMAKE} DESTINATION ${XNB_ROOT_DIR}/redist/${PluginName})
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_CUSTOM_CMAKE ${XNB_ROOT_DIR}/redist/${PluginName}/${PluginName}.cmake)\n")
-    else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_CUSTOM_CMAKE)\n")
+#    else()
+#      file(APPEND ${XNB_CMAKE_PACKAGE} "unset(${PluginName}_CUSTOM_CMAKE)\n")
     endif()
   endif()
 
@@ -134,16 +139,17 @@ function(xnb_add_plugin PluginName dirname)
       file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_definitions(${${PluginName}_SHARED_LIB} INTERFACE \$\{${PluginName}_COMPILE_DEFINITIONS\})\n")
       file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_features(${${PluginName}_SHARED_LIB} INTERFACE \$\{${PluginName}_COMPILE_FEATURES\})\n")
     else()
-      file(APPEND ${XNB_CMAKE_PACKAGE} "add_library(${${PluginName}_SHARED_LIB} IMPORTED GLOBAL)\n")
-      file(APPEND ${XNB_CMAKE_PACKAGE} "target_include_directories(${${PluginName}_SHARED_LIB} PRIVATE \$\{ONIKA_INCLUDE_DIRS\} PUBLIC \$\{${PluginName}_INCLUDE_DIRS\} ${XNB_ROOT_DIR}/include)\n")
-      file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_definitions(${${PluginName}_SHARED_LIB} PRIVATE \$\{ONIKA_COMPILE_DEFINITIONS\} PUBLIC \$\{${PluginName}_COMPILE_DEFINITIONS\})\n")
-      file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_options(${${PluginName}_SHARED_LIB} PRIVATE \$\{ONIKA_COMPILE_OPTIONS\} \$<\$<COMPILE_LANGUAGE:CUDA>:\$\{ONIKA_CUDA_COMPILE_FLAGS\}> \$<\$<COMPILE_LANGUAGE:HIP>:\$\{ONIKA_HIP_COMPILE_FLAGS\}> \$\{${PluginName}_COMPILE_OPTIONS\})\n")
-      file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_features(${${PluginName}_SHARED_LIB} PRIVATE \$\{ONIKA_COMPILE_FEATURES\} \$\{${PluginName}_COMPILE_FEATURES\})\n")
-      file(APPEND ${XNB_CMAKE_PACKAGE} "target_link_directories(${${PluginName}_SHARED_LIB} PUBLIC \$\{ONIKA_LIBRARY_DIRS\} \$\{${PluginName}_LINK_DIRECTORIES\})\n")
-      file(APPEND ${XNB_CMAKE_PACKAGE} "target_link_libraries(${${PluginName}_SHARED_LIB} \$\{ONIKA_LIBRARIES\} \$\{${PluginName}_LINK_LIBRARIES\})\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "add_library(${${PluginName}_SHARED_LIB} SHARED IMPORTED GLOBAL)\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "set_target_properties(${${PluginName}_SHARED_LIB} PROPERTIES IMPORTED_CONFIGURATIONS Release)\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "set_target_properties(${${PluginName}_SHARED_LIB} PROPERTIES IMPORTED_LOCATION_RELEASE ${CMAKE_INSTALL_PREFIX}/lib/lib${${PluginName}_SHARED_LIB}.so)\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "target_include_directories(${${PluginName}_SHARED_LIB} INTERFACE \$\{ONIKA_INCLUDE_DIRS\} \$\{${PluginName}_INCLUDE_DIRS\} ${XNB_ROOT_DIR}/include)\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_definitions(${${PluginName}_SHARED_LIB} INTERFACE \$\{ONIKA_COMPILE_DEFINITIONS\} \$\{${PluginName}_COMPILE_DEFINITIONS\})\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_options(${${PluginName}_SHARED_LIB} INTERFACE \$\{ONIKA_COMPILE_OPTIONS\} \$<\$<COMPILE_LANGUAGE:CUDA>:\$\{ONIKA_CUDA_COMPILE_FLAGS\}> \$<\$<COMPILE_LANGUAGE:HIP>:\$\{ONIKA_HIP_COMPILE_FLAGS\}> \$\{${PluginName}_COMPILE_OPTIONS\})\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "target_compile_features(${${PluginName}_SHARED_LIB} INTERFACE \$\{ONIKA_COMPILE_FEATURES\} \$\{${PluginName}_COMPILE_FEATURES\})\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "target_link_directories(${${PluginName}_SHARED_LIB} INTERFACE \$\{ONIKA_LIBRARY_DIRS\} \$\{${PluginName}_LINK_DIRECTORIES\})\n")
+      file(APPEND ${XNB_CMAKE_PACKAGE} "target_link_libraries(${${PluginName}_SHARED_LIB} INTERFACE \$\{ONIKA_LIBRARIES\} \$\{${PluginName}_LINK_LIBRARIES\})\n")
     endif()
   endif()
-
 
 endfunction()
 
