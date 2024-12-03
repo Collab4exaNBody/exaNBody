@@ -68,7 +68,7 @@ namespace exanb
 {
   struct unused_field_id_t {};
   static inline constexpr unused_field_id_t unused_field_id_v = {};
-  using default_available_field_sets_t = FieldSets< FieldSet< /*field::_fx,field::_fy,field::_fz,*/ field::_vx,field::_vy,field::_vz,field::_ax,field::_ay,field::_az,field::_id,field::_type> >;
+  using default_available_field_sets_t = FieldSets< FieldSet<field::_vx,field::_vy,field::_vz,field::_ax,field::_ay,field::_az,field::_id,field::_type> >;
   static inline constexpr default_available_field_sets_t default_available_field_sets_v = {};
 }
 

@@ -21,6 +21,7 @@ under the License.
 #include <cstdint>
 #include <iomanip>
 #include <onika/math/basic_types_def.h>
+#include <onika/math/quaternion.h>
 #include <onika/oarray.h>
 
 namespace exanb

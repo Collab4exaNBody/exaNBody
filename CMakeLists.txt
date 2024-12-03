@@ -27,10 +27,21 @@ set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
 get_filename_component(XNB_ROOT_DIR ${CMAKE_INSTALL_PREFIX} ABSOLUTE)
 set(XNB_CMAKE_PACKAGE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake)
 
-file(WRITE ${XNB_CMAKE_PACKAGE} "set(onika_DIR ${onika_DIR})\n")
+string(TIMESTAMP XNB_BUILD_DATE "%Y-%m-%d@%Hh%M:%S")
+file(WRITE ${XNB_CMAKE_PACKAGE} "# exaNBody CMake package (generated on ${XNB_BUILD_DATE})\n\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "# Main package configuration\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(onika_DIR ${onika_DIR})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "find_package(onika REQUIRED)\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_ROOT_DIR ${XNB_ROOT_DIR})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_SUFFIX -\$\{CMAKE_PROJECT_NAME\})\n")
+
+# setup thirdparty base-n encoding lib and export it to cmake package
+add_library(basen INTERFACE)
+target_include_directories(basen INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/base-n DESTINATION include)
+file(APPEND ${XNB_CMAKE_PACKAGE} "\n# base-n encoding library, needed by VTK binary output tools\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "add_library(basen INTERFACE)\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "target_include_directories(basen INTERFACE \$\{XNB_ROOT_DIR\}/include)\n")
 
 function(xnb_add_plugin PluginName dirname)
 
@@ -106,14 +117,12 @@ function(xnb_add_plugin PluginName dirname)
   endif()
 
   if(GVFILES)
-    message(STATUS "${PluginName} grid variant sources : ${GVFILES}")
     install(FILES ${GVFILES} DESTINATION ${XNB_ROOT_DIR}/redist/${PluginName})
     file(GLOB ${PluginName}_HDRS ${dirname}/*.h)
     if(${PluginName}_HDRS)
       install(FILES ${${PluginName}_HDRS} DESTINATION ${XNB_ROOT_DIR}/redist/${PluginName})
     endif()
-
-    file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Grid templated part of exaNBody's ${PluginName} component\n")    
+    file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Grid templated part of exaNBody's ${PluginName} plugin\n")    
     file(APPEND ${XNB_CMAKE_PACKAGE} "onika_add_plugin(${PluginName}\$\{XNB_APP_SUFFIX\} ${XNB_ROOT_DIR}/redist/${PluginName})\n")
   endif()
 
