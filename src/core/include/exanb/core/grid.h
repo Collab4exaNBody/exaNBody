@@ -711,7 +711,7 @@ namespace exanb
   }
   
   template<class... FS> inline std::vector<std::string> xnb_grid_variants_as_strings( FieldSets<FS...> ) { return { onika::pretty_short_type<FS>() ... }; }
-  inline std::vector<std::string> xnb_grid_variants_as_strings() { return xnb_grid_variants_as_strings( standard_field_sets_v ); }
+  inline std::vector<std::string> xnb_grid_variants_as_strings() { return xnb_grid_variants_as_strings( XNB_AVAILABLE_FIELD_SETS ); }
 
 } // end of namespace exanb
 

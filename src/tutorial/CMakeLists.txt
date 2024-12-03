@@ -1,5 +1,5 @@
 # educational components, for teaching purposes
 
 set(exanbTutorial_LINK_LIBRARIES exanbCore)
-onika_add_plugin(exanbTutorial ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbTutorial ${CMAKE_CURRENT_SOURCE_DIR})
 

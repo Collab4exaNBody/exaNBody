@@ -19,9 +19,9 @@ under the License.
 
 #pragma once
 
-#include <exanb/field_sets.h>
 #include <onika/memory/allocator.h>
 #include <onika/soatl/field_arrays.h>
+#include <exanb/core/grid_fields.h>
 
 #ifndef XNB_FIELD_ARRAYS_STORE_COUNT
 #define XNB_FIELD_ARRAYS_STORE_COUNT 1

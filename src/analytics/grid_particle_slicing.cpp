@@ -8,7 +8,6 @@
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <onika/plot1d.h>
 #include <exanb/analytics/grid_particle_slicing.h>
-#include <exanb/fields.h>
 
 #include <regex>
 #include <type_traits>

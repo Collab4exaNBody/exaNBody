@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-# ====================================================================
-# === micro-stamp pair potential compute operator library library  ===
-# ====================================================================
 
-onika_add_plugin(exanbAMR ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbAMR ${CMAKE_CURRENT_SOURCE_DIR})
 

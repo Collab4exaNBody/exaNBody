@@ -5,7 +5,6 @@
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/analytics/grid_particle_histogram.h>
-#include <exanb/fields.h>
 
 #include <mpi.h>
 

@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <onika/scg/operator.h>
@@ -24,7 +25,6 @@ under the License.
 #include <onika/log.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/fields.h>
 #include <exanb/core/domain.h>
 
 #include <exanb/core/cell_costs.h>

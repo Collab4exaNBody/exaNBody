@@ -47,7 +47,10 @@ namespace exanb
     struct instantiable_grid_template< _OperatorTemplate , GridT , decltype(void(sizeof(_OperatorTemplate<GridT>))) > : public std::true_type {};
 
     template<template<class> class _OperatorTemplate, class FSS >
-    struct valid_template_field_sets {};
+    struct valid_template_field_sets
+    {
+      using type = FieldSets<>;
+    };
     
     template<template<class> class _OperatorTemplate, class fs_head, class... other_fss >
     struct valid_template_field_sets< _OperatorTemplate , FieldSets<fs_head,other_fss...> >
@@ -80,7 +83,12 @@ namespace exanb
       }
     };
 
-    template< typename FSS > struct PrintFieldSets;
+    template< typename FSS > struct PrintFieldSets
+    {
+      template<class StreamT>
+      static inline void print_field_sets(StreamT& out , const std::string& = "- ", const std::string& = "", const std::string& = "\n" ) {}
+    };
+    
     template< typename... FS > struct PrintFieldSets< FieldSets<FS...> >
     {
       template<class StreamT>
@@ -147,6 +155,6 @@ namespace onika
 
 namespace exanb
 {
-  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , XNB_AVAILABLE_FIELD_SETS > > make_grid_variant_operator = {};
+  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , decltype(XNB_AVAILABLE_FIELD_SETS) > > make_grid_variant_operator = {};
 }
 

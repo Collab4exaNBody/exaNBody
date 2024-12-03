@@ -19,5 +19,5 @@
 # === micro-stamp pair potential compute operator library library  ===
 # ====================================================================
 
-onika_add_plugin(exanbLogic ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbLogic ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -20,5 +20,5 @@
 # ====================================================================
 
 set(exanbDefBox_LINK_LIBRARIES exanbCompute)
-onika_add_plugin(exanbDefBox ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbDefBox ${CMAKE_CURRENT_SOURCE_DIR})
 

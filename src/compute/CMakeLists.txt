@@ -34,5 +34,5 @@ set(exanbCompute_COMPILE_DEFINITIONS
 	"${XNB_USE_CS1_SPECIALIZATION_CPP}")
 
 set(exanbCompute_LINK_LIBRARIES exanbGridCellParticles exanbParticleNeighbors)
-onika_add_plugin(exanbCompute ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbCompute ${CMAKE_CURRENT_SOURCE_DIR})
 

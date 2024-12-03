@@ -19,12 +19,11 @@ under the License.
 
 #pragma once
 
-#include <exanb/fields.h>
-#include <exanb/field_sets.h>
-
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/stl_adaptors.h>
+
+#include <exanb/core/grid_fields.h>
 
 #include <cstdlib>
 #include <vector>

@@ -1,3 +1,3 @@
 set(exanbAnalytics_LINK_LIBRARIES exanbGridCellParticles exanbCompute)
-onika_add_plugin(exanbAnalytics ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbAnalytics ${CMAKE_CURRENT_SOURCE_DIR})
 

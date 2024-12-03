@@ -22,9 +22,8 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_error.h>
 #include <onika/cuda/device_storage.h>
-#include <onika/soatl/field_id.h>
-#include <exanb/field_sets.h>
 #include <exanb/core/grid_particle_field_accessor.h>
+//#include <exanb/core/grid.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>

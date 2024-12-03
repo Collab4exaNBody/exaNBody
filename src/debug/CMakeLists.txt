@@ -20,5 +20,5 @@
 # =================================
 
 set(exanbDebug_LINK_LIBRARIES exanbParticleNeighbors exanbGridCellParticles)
-onika_add_plugin(exanbDebug ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbDebug ${CMAKE_CURRENT_SOURCE_DIR})
 

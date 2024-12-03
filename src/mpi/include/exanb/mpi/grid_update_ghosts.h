@@ -23,11 +23,9 @@ under the License.
 #include <exanb/core/grid.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
-#include <exanb/field_sets.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/domain.h>
-
 #include <onika/soatl/field_tuple.h>
 
 #include <vector>
@@ -39,7 +37,6 @@ under the License.
 #include <mpi.h>
 #include <exanb/mpi/update_ghost_utils.h>
 #include <onika/mpi/data_types.h>
-
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>
 

@@ -23,5 +23,5 @@ set(XNB_CHUNK_NEIGHBORS_CS_LIST "4,2,1" CACHE STRING "Chunk neighbors specializa
 string(REPLACE "," " XNB_COMMA " XNB_CHUNK_NEIGHBORS_CS_LIST ${XNB_CHUNK_NEIGHBORS_CS_LIST})
 set(exanbParticleNeighbors_COMPILE_DEFINITIONS "XNB_CHUNK_NEIGHBORS_CS_LIST=${XNB_CHUNK_NEIGHBORS_CS_LIST}")
 set(exanbParticleNeighbors_LINK_LIBRARIES exanbAMR)
-onika_add_plugin(exanbParticleNeighbors ${CMAKE_CURRENT_SOURCE_DIR})
+xnb_add_plugin(exanbParticleNeighbors ${CMAKE_CURRENT_SOURCE_DIR})
 

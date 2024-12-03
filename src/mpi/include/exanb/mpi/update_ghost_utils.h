@@ -16,11 +16,11 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
-#include <onika/soatl/field_tuple.h>
-#include <exanb/field_sets.h>
 #include <onika/cuda/cuda.h>
+#include <onika/soatl/field_tuple.h>
 #include <onika/memory/allocator.h>
 #include <vector>
 #include <onika/parallel/parallel_execution_stream.h>

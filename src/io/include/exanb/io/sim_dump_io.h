@@ -16,9 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#pragma once
 
-#include <exanb/fields.h>
+#pragma once
 
 #include <exanb/core/domain.h>
 #include <onika/log.h>
