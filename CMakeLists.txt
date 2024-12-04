@@ -40,6 +40,9 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_ROOT_DIR ${XNB_ROOT_DIR})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_NAME \$\{CMAKE_PROJECT_NAME\})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_SUFFIX -\$\{XNB_APP_NAME\})\n")
 
+# create a plugin function, wrapping onika_add_plugin so that we can add application specific global parameters
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(ONIKA_COMPILE_DEFINITIONS \${ONIKA_COMPILE_DEFINITIONS} \${XNB_COMPILE_DEFINITIONS})\n")
+
 # setup thirdparty base-n encoding lib and export it to cmake package
 add_library(basen INTERFACE)
 target_include_directories(basen INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
