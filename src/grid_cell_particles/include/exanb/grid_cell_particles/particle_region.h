@@ -128,7 +128,7 @@ namespace exanb
     ParticleRegionCSGShallowCopy& operator = (ParticleRegionCSGShallowCopy&&) = default;
     ParticleRegionCSGShallowCopy& operator = (const ParticleRegionCSG& prcsg) { init_from(prcsg); return *this; }
 
-    ONIKA_HOST_DEVICE_FUNC inline void init_from(const ParticleRegionCSG& prcsg)
+    inline void init_from(const ParticleRegionCSG& prcsg)
     {
       m_regions = prcsg.m_regions.data();
       m_expr = prcsg.m_expr;
