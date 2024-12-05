@@ -9,5 +9,7 @@ simulation:
   - unit_system:
       verbose: true
       unit_system: { length: meter , mass: kilogram , time: second , charge: coulomb , temperature: kelvin , amount: mol , luminosity: candela , angle: radian , energy: joule }
+  - grid_clear
+  - memory_stats: { musage_threshold: 16 }
   - finalize_cuda
 

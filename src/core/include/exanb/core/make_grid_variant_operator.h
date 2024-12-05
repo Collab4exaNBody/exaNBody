@@ -111,7 +111,7 @@ namespace exanb
 
       if( empty_instantiable_field_sets )
       {
-        ldbg << "ignore factory for "<<opname <<", field sets : ";
+        ldbg << "ignore factory for "<<opname <<", field sets ("<< field_sets_count_v<FieldSetsT> <<"): ";
         details::PrintFieldSets< FieldSetsT >::print_field_sets( ldbg , "" , " , " , "" );
         ldbg << std::endl;
         return nullptr;
@@ -148,13 +148,19 @@ namespace onika
     template< template<class> class _OperatorTemplate , class FieldSetsT >
     struct OperatorNodeFactoryGenerator< ::exanb::make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT> >
     {
-      static inline OperatorNodeCreateFunction make_factory(const std::string& opname) { return ::exanb::make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT>::make_factory(opname) ; }
+      static inline OperatorNodeCreateFunction make_factory(const std::string& opname)
+      {
+        //ldbg << "make grid variant factory for "<<opname <<" , field sets ("<< ::exanb::field_sets_count_v<FieldSetsT> <<") are ";
+        //::exanb::details::PrintFieldSets< FieldSetsT >::print_field_sets( ldbg , "" , " , " , "" );
+        //ldbg << std::endl;
+        return ::exanb::make_grid_variant_operator_t<_OperatorTemplate,FieldSetsT>::make_factory(opname) ;
+      }
     };
   }
 }
 
 namespace exanb
 {
-  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , decltype(XNB_AVAILABLE_FIELD_SETS) > > make_grid_variant_operator = {};
+  template< template<class> class _OperatorTemplate > static inline constexpr onika::scg::OperatorNodeFactoryGenerator< make_grid_variant_operator_t< _OperatorTemplate , std::remove_const_t<decltype(XNB_AVAILABLE_FIELD_SETS)> > > make_grid_variant_operator = {};
 }
 

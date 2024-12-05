@@ -170,8 +170,10 @@ install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 # also an executable wrapper for exaNBody itself
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody
   "source ${CMAKE_INSTALL_PREFIX}/bin/setup-env.sh\n"
-  "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
-  "export ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${CMAKE_INSTALL_PREFIX}/plugins\n"
+  "[ \$ONIKA_CONFIG_PATH ] || ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
+  "[ \$ONIKA_PLUGIN_PATH ] || ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${CMAKE_INSTALL_PREFIX}/plugins\n"
+  "export ONIKA_CONFIG_PATH\n"
+  "export ONIKA_PLUGIN_PATH\n"
   "${ONIKA_RUN} \$*\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody DESTINATION bin)
 
@@ -180,9 +182,11 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exaNBody
   "source ${onika_DIR}/bin/setup-env.sh\n"
   "[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib:\$LD_LIBRARY_PATH\n"
   "[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${PROJECT_BINARY_DIR}/lib\n"
+  "[ \$ONIKA_CONFIG_PATH ] || ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
+  "[ \$ONIKA_PLUGIN_PATH ] || ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${PROJECT_BINARY_DIR}/plugins\n"
+  "export ONIKA_CONFIG_PATH\n"
+  "export ONIKA_PLUGIN_PATH\n"
   "export LD_LIBRARY_PATH\n"
-  "export ONIKA_CONFIG_PATH=${CMAKE_CURRENT_SOURCE_DIR}/data/config\n"
-  "export ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${PROJECT_BINARY_DIR}/plugins\n"
   "${ONIKA_RUN} \$*\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/exaNBody FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 

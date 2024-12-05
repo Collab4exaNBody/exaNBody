@@ -72,9 +72,16 @@ namespace exanb
   // =======================================
   // test if empty FieldSets
   // =======================================
-  template<typename FS> struct FieldSetsEmpty :  std::false_type {};
+  template<class FS> struct FieldSetsEmpty :  std::false_type {};
   template<> struct FieldSetsEmpty< FieldSets<> > : std::true_type {};
 
+  // =======================================
+  // count FieldSets
+  // =======================================
+  template<class FS> struct FieldSetsCount : public std::integral_constant<size_t,0> {};
+  template<class... FS> struct FieldSetsCount< FieldSets<FS...> > : public std::integral_constant<size_t,sizeof...(FS)> {};
+  template<class FS> struct FieldSetsCount<const FS> : public FieldSetsCount<FS> {};
+  template<class FS> static inline constexpr size_t field_sets_count_v = FieldSetsCount<FS>::value;
 
   // =======================================
   // conditionaly add a field to a FieldSet 
