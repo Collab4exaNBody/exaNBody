@@ -139,6 +139,31 @@ endfunction()
 
 add_subdirectory(src)
 
+file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Optionall generate an executable wrapper named after end user's application name\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "macro(GenerateEndUserExecEnv)\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(MAKE_DIRECTORY \${CMAKE_CURRENT_BINARY_DIR}/bin)\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(WRITE \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"source \${exaNBody_DIR}/bin/setup-env.sh\\n[ \\\$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=\${CMAKE_INSTALL_PREFIX}/lib:\\\$LD_LIBRARY_PATH\\n[ \\\$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=\${CMAKE_INSTALL_PREFIX}/lib\\nexport LD_LIBRARY_PATH\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  install(PROGRAMS \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(WRITE \${CMAKE_CURRENT_BINARY_DIR}/bin/\${XNB_APP_NAME} \"source \${CMAKE_INSTALL_PREFIX}/bin/setup-env.sh \\nexport ONIKA_CONFIG_PATH=\${CMAKE_INSTALL_PREFIX}/data/config\\nexport ONIKA_PLUGIN_PATH=\${onika_DIR}/plugins:\${exaNBody_DIR}/plugins:\${CMAKE_INSTALL_PREFIX}/plugins\\n${ONIKA_RUN} \\\$*\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  install(PROGRAMS \${CMAKE_CURRENT_BINARY_DIR}/bin/\${XNB_APP_NAME} DESTINATION bin)\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  # local execution wrapper for execution from build directory without installation\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(WRITE \${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp \"configuration:\\n  plugin_dir: \${onika_DIR}/plugins:\${exaNBody_DIR}/plugins:./plugins\\n  config_dir: \${CMAKE_CURRENT_SOURCE_DIR}/data/config\\n\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(WRITE \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"source \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \\n${ONIKA_RUN} \\\$*\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "endmacro()\n")
+
+# install cmake package file to allow external project to find_package exaNBody
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake DESTINATION ${XNB_ROOT_DIR})
-#install(DIRECTORY exanb cmake thirdparty scripts DESTINATION ${CMAKE_INSTALL_PREFIX})
+
+# generate exaNBody environment setup, based on onika onverionment setup script
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh "source ${onika_DIR}/bin/setup-env.sh\n[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib\nexport LD_LIBRARY_PATH\n")
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
+
+# also an executable wrapper for exaNBody itself
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody "source ${CMAKE_INSTALL_PREFIX}/bin/setup-env.sh && ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${CMAKE_INSTALL_PREFIX}/plugins \\\n${ONIKA_RUN} \$*\n")
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody DESTINATION bin)
+
+# generate configuration files and scripts to run from build directory without install
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh "source ${onika_DIR}/bin/setup-env.sh\n[ \$LD_LIBRARY_PATH ] && LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}/lib:\$LD_LIBRARY_PATH\n[ \$LD_LIBRARY_PATH ] || LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR}/lib\nexport LD_LIBRARY_PATH\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exaNBody "source ${CMAKE_CURRENT_BINARY_DIR}/setup-env.sh\n${ONIKA_RUN} \$*\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/.build-config.msp "configuration:\n  plugin_dir: ${onika_DIR}/plugins:./plugins\n  config_dir: ${CMAKE_CURRENT_SOURCE_DIR}/data/config\n\n")
 
