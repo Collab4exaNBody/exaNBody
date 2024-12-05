@@ -1,0 +1,13 @@
+configuration:
+  logging:
+    debug: false
+
+simulation:
+  - message: "..oO exaNBody v2.0 Oo.."
+  - mpi_comm_world
+  - init_cuda
+  - unit_system:
+      verbose: true
+      unit_system: { length: meter , mass: kilogram , time: second , charge: coulomb , temperature: kelvin , amount: mol , luminosity: candela , angle: radian , energy: joule }
+  - finalize_cuda
+
