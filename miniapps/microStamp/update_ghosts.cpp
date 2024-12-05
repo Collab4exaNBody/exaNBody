@@ -4,10 +4,10 @@
 #include <exanb/core/log.h>
 #include <exanb/core/basic_types_stream.h>
 #include <exanb/core/grid.h>
+#include <exanb/core/grid_fields.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
-#include <exanb/field_sets.h>
 #include <exanb/core/check_particles_inside_cell.h>
 
 #include <onika/soatl/field_tuple.h>

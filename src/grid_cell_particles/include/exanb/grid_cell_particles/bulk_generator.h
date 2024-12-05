@@ -16,15 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/fields.h>
 #include <exanb/core/domain.h>
-//#include "exanb/container_utils.h"
 
 #include <onika/math/basic_types_yaml.h>
 #include <onika/math/basic_types_stream.h>

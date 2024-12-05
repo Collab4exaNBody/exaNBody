@@ -19,7 +19,6 @@ under the License.
 #pragma once
 
 #include <onika/soatl/field_tuple.h>
-#include <exanb/field_sets.h>
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
 #include <vector>

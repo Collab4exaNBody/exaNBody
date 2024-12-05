@@ -6,7 +6,6 @@
 #include <exanb/core/log.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/fields.h>
 #include <exanb/core/basic_types.h>
 
 #include <mpi.h>

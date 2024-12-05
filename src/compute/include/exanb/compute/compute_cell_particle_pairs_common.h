@@ -26,7 +26,6 @@ under the License.
 #include <exanb/compute/compute_pair_traits.h>
 
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/field_sets.h>
 #include <exanb/core/particle_id_codec.h>
 #include <onika/log.h>
 

@@ -17,7 +17,7 @@ specific language governing permissions and limitations
 under the License.
  */
 
-#include <include/exanb/extra_storage/move_particles_es.hpp>
+#include <exanb/extra_storage/move_particles_es.hpp>
 
 namespace exanb
 {

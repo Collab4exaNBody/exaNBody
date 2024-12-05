@@ -16,7 +16,8 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <exanb/field_sets.h>
+
+#include <exanb/core/grid_fields.h>
 #include <onika/type_utils.h>
 #include "test_field_set.h"
 

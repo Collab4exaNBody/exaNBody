@@ -19,9 +19,6 @@ under the License.
 
 #pragma once
 
-#include <exanb/fields.h>
-#include <exanb/core/field_set_utils.h>
-//#include <exaStamp/particle_species/particle_specie.h>
 #include <onika/soatl/field_tuple.h>
 #include <exanb/io/sim_dump_io.h>
 #include <iostream>

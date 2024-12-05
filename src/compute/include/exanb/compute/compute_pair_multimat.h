@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/grid.h>
@@ -24,7 +25,6 @@ under the License.
 #include <exanb/compute/compute_pair_function.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/field_sets.h>
 #include <onika/thread.h>
 #include <exanb/core/particle_type_pair.h>
 //#include "exanb/debug/debug_particle_id.h"

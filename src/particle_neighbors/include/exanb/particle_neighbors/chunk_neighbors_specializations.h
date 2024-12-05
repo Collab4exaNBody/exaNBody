@@ -36,12 +36,9 @@ under the License.
 #define _XNB_CHUNK_NEIGHBORS_CS_VAR_16(VAR,IN)  static constexpr onika::UIntConst<16> VAR = {}
 #define _XNB_CHUNK_NEIGHBORS_CS_VAR_VARIMPL(VAR,IN) const unsigned int VAR = IN
 
-#undef XNB_COMMA // don't care about multiple definitions
-#define XNB_COMMA ,
-
 #ifndef XNB_CHUNK_NEIGHBORS_CS_LIST
-#warning XNB_CHUNK_NEIGHBORS_CS_LIST shoud have been defined from CMake. using specializations 1,VARIMPL
-#define XNB_CHUNK_NEIGHBORS_CS_LIST 8 XNB_COMMA 4 XNB_COMMA 1
+#warning XNB_CHUNK_NEIGHBORS_CS_LIST shoud have been defined from CMake. using specializations 4,1,VARIMPL
+#define XNB_CHUNK_NEIGHBORS_CS_LIST 4,1,VARIMPL
 #endif
 
 #define __XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( FUNC , ... ) EXPAND_WITH_FUNC_NOSEP( FUNC ,##__VA_ARGS__ )

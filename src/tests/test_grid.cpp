@@ -22,7 +22,7 @@ under the License.
 #endif
 
 #include <exanb/core/grid.h>
-#include <exanb/fields.h>
+#include <exanb/core/grid_fields.h>
 
 #include <iostream>
 #include <cstdlib>

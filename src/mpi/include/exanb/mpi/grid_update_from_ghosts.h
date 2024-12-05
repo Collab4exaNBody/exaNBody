@@ -24,7 +24,6 @@ under the License.
 #include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
-#include <exanb/field_sets.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/mpi/update_from_ghost_utils.h>

@@ -4,7 +4,6 @@
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/fields.h>
 #include <exanb/core/parallel_random.h>
 
 #include <exanb/grid_cell_particles/particle_region.h>

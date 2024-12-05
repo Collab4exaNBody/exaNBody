@@ -22,7 +22,6 @@ under the License.
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/fields.h>
 #include <onika/parallel/random.h>
 
 #include <exanb/grid_cell_particles/particle_localized_filter.h>
