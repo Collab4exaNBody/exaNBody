@@ -50,7 +50,8 @@ namespace exanb
     
     template<class T> inline T * __restrict__ data() { return reinterpret_cast<T *>(data_pointer()); }
     template<class T> inline const T * __restrict__ data() const { return reinterpret_cast<const T *>(data_pointer()); }
-    
+
+    virtual inline ~FlatArrayDescriptor() {}
   protected:
     onika::memory::CudaMMVector<uint8_t> m_data_storage;
   };

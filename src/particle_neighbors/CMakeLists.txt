@@ -20,7 +20,6 @@
 # ====================================================================
 
 set(XNB_CHUNK_NEIGHBORS_CS_LIST "4;1" CACHE STRING "Chunk neighbors specialization list. Use VARIMPL insead of a number for runtime variable chunk_size.")
-
 unset(XNB_CHUNK_NEIGHBORS_CS_LIST_DEF)
 foreach(SPE ${XNB_CHUNK_NEIGHBORS_CS_LIST})
   if(XNB_CHUNK_NEIGHBORS_CS_LIST_DEF)

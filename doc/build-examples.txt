@@ -36,11 +36,15 @@ ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
 XNB_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/exaNBody
 XNB_SRC_DIR=${HOME}/dev/exaNBody
 CXX_COMPILER=`which icpx`
+C_COMPILER=`which icx`
 cmake -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=${XNB_INSTALL_DIR} \
-  -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
-  -DCMAKE_CXX_FLAGS=-diag-disable=15518,15552 \
-  -Donika_DIR=${ONIKA_INSTALL_DIR} \
+      -DCMAKE_INSTALL_PREFIX=${XNB_INSTALL_DIR} \
+      -DCMAKE_C_COMPILER=${C_COMPILER} \
+      -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+      -DCMAKE_CXX_FLAGS=-diag-disable=15518,15552 \
+  -DCMAKE_CUDA_FLAGS="-ccbin ${CXX_COMPILER} -allow-unsupported-compiler" \
+  -DCMAKE_CUDA_COMPILER=/ccc/products/cuda-12.4/system/default/bin/nvcc \
+      -Donika_DIR=${ONIKA_INSTALL_DIR} \
 	${XNB_SRC_DIR}
 
 #
