@@ -833,7 +833,9 @@ namespace exanb
         }
       }
       // special atomic pointer array to grab extra receive buffers
-      std::atomic<ParticleBuffer*> extra_recv_buffer_ptrs[extra_rcv_bufs]; // small array allocated on the stack
+      //std::atomic<ParticleBuffer*> extra_recv_buffer_ptrs[extra_rcv_bufs]; // small array allocated on the stack
+      std::unique_ptr< std::atomic<ParticleBuffer*> [] > extra_recv_buffer_array( new std::atomic<ParticleBuffer*> [extra_rcv_bufs] );
+      auto extra_recv_buffer_ptrs = extra_recv_buffer_array.get();
       for(size_t i=0;i<extra_rcv_bufs;i++)
       {
         extra_recv_buffer_ptrs[i] = & receive_buffer[nprocs+i];
@@ -852,7 +854,7 @@ namespace exanb
       size_t total_particles_copied = 0;
 #     endif
 
- 			assert( opt_data_helper.check() );
+      assert( opt_data_helper.check() );
 #     pragma omp parallel
       {
 #       pragma omp single nowait

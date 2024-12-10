@@ -19,9 +19,18 @@
 # === micro-stamp pair potential compute operator library library  ===
 # ====================================================================
 
-set(XNB_CHUNK_NEIGHBORS_CS_LIST "4,1" CACHE STRING "Chunk neighbors specializations. Use VARIMPL insead of a number for runtime variable chunk_size.")
+set(XNB_CHUNK_NEIGHBORS_CS_LIST "4;1" CACHE STRING "Chunk neighbors specialization list. Use VARIMPL insead of a number for runtime variable chunk_size.")
 if(XNB_CHUNK_NEIGHBORS_CS_LIST)
-  set(exanbParticleNeighbors_COMPILE_DEFINITIONS XNB_CHUNK_NEIGHBORS_CS_LIST=${XNB_CHUNK_NEIGHBORS_CS_LIST})
+  unset(XNB_CHUNK_NEIGHBORS_CS_SPEDEF)
+  foreach(SPE ${XNB_CHUNK_NEIGHBORS_CS_LIST})
+    if(XNB_CHUNK_NEIGHBORS_CS_SPEDEF)
+      set(XNB_CHUNK_NEIGHBORS_CS_SPEDEF "${XNB_CHUNK_NEIGHBORS_CS_SPEDEF} XNB_COMMA ${SPE}")
+    else()
+      set(XNB_CHUNK_NEIGHBORS_CS_SPEDEF "${SPE}")
+    endif()
+  endforeach()
+  message(STATUS "XNB_CHUNK_NEIGHBORS_CS_SPEDEF=${XNB_CHUNK_NEIGHBORS_CS_SPEDEF}")
+  set(exanbParticleNeighbors_COMPILE_DEFINITIONS XNB_CHUNK_NEIGHBORS_CS_SPE_WITH_XNB_COMMA=${XNB_CHUNK_NEIGHBORS_CS_SPEDEF})
 endif()
 set(exanbParticleNeighbors_LINK_LIBRARIES exanbAMR)
 xnb_add_plugin(exanbParticleNeighbors ${CMAKE_CURRENT_SOURCE_DIR})

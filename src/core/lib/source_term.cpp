@@ -62,8 +62,8 @@ namespace exanb
       return p + std::sin( w ) * m_amplitude;
     }
   private:
-    Plane3d m_ref_plane = { 1.0 , 0.0 , 0.0 , 0.0 };
-    Plane3d m_wave_plane = { 0.0 , 1.0 , 0.0 , 0.0 };
+    Plane3d m_ref_plane = { { 1.0 , 0.0 , 0.0 } , 0.0 };
+    Plane3d m_wave_plane = { { 0.0 , 1.0 , 0.0 } , 0.0 };
     double m_amplitude = 1.0;
   };
 
