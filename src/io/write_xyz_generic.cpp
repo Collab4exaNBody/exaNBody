@@ -24,10 +24,12 @@ under the License.
 namespace exanb
 {
 
+  template<class GridT> using WriteXYZGenericTmplWithDefaults = WriteXYZGeneric<GridT>;
+
   // === register factories ===  
   ONIKA_AUTORUN_INIT(write_xyz_generic)
   {
-    OperatorNodeFactory::instance()->register_factory( "write_xyz_generic", make_grid_variant_operator< WriteXYZGeneric > );
+    OperatorNodeFactory::instance()->register_factory( "write_xyz_generic", make_grid_variant_operator< WriteXYZGenericTmplWithDefaults > );
   }
 
 }

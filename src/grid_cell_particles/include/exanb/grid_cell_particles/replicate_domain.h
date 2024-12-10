@@ -31,13 +31,13 @@ under the License.
 
 namespace exanb
 {
-
   struct ShiftParticleIdFunctor
   {
     template<class FieldTupleT>
     inline void operator () ( FieldTupleT& tp , int64_t id_offset ) const
     {
-      if constexpr ( tp.has_field( field::id ) )
+      
+      if constexpr ( onika::soatl::field_tuple_has_field_v<FieldTupleT,field::_id> )
       {
         tp[field::id] += id_offset;
       }

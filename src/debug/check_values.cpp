@@ -323,13 +323,13 @@ namespace exanb
         if( nprocs > 1 )
         {
           int data_size = reference_values.size();
-          int all_data_sizes[nprocs];
-          MPI_Allgather( &data_size, 1 , MPI_INT , all_data_sizes , 1 , MPI_INT , comm );
+	  std::vector<int> all_data_sizes( nprocs , 0 );
+          MPI_Allgather( &data_size, 1 , MPI_INT , all_data_sizes.data() , 1 , MPI_INT , comm );
           assert( all_data_sizes[rank] == data_size );
           
           ldbg << "data_size=" << data_size << std::endl;
           
-          int displs[nprocs];
+          std::vector<int> displs( nprocs , 0 );
           long tot = 0;
           for(int i=0;i<nprocs;i++)
           {
@@ -341,7 +341,7 @@ namespace exanb
           ldbg << "tot=" << tot << std::endl;
           std::vector<ParticleReferenceValue> all_values(tot);
           
-          MPI_Gatherv( (char*) reference_values.data() , data_size*sizeof(ParticleReferenceValue) , MPI_CHAR , (char*) all_values.data() , all_data_sizes , displs , MPI_CHAR , 0, comm );
+          MPI_Gatherv( (char*) reference_values.data() , data_size*sizeof(ParticleReferenceValue) , MPI_CHAR , (char*) all_values.data() , all_data_sizes.data() , displs.data() , MPI_CHAR , 0, comm );
           if( rank == 0 )
           {
             reference_values = all_values;
