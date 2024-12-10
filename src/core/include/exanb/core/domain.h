@@ -106,6 +106,8 @@ namespace exanb
     {
       if(b) m_flags |=  mask;
       else  m_flags &= ~mask;
+      // the following is useless, just here to avoid different warnging policies across compilers
+      if(false) m_reserved_padding = m_reserved_padding && false;
     }
     inline bool get_bit(uint32_t mask) const
     {
@@ -123,7 +125,7 @@ namespace exanb
     double m_xform_max_scale = 1.0;
 
     uint32_t m_flags = FLAG_EXPANDABLE | FLAG_XFORM_IDENTITY;
-    [[maybe_unused]] uint32_t m_reserved_padding = 0;
+    uint32_t m_reserved_padding = 0;
   };
 
   enum class ReadBoundsSelectionMode

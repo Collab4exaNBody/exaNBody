@@ -42,7 +42,7 @@ namespace exanb
       subcell_loc = vclamp( make_ijk(ro / sub_cellsize) , 0 , subdiv-1 );
     }
 
-    static inline void subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
+    inline void subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
     {
       nbh_cell_loc = cell_loc;
       nbh_subcell_loc = subcell_loc + ninc;
@@ -56,7 +56,7 @@ namespace exanb
 
     // @return how much of this particle contributes to region cell_box.
     // sum of contributions for all disjoint cell_box paving the domain is guaranteed to be 1.0
-    static inline double particle_weight(const Vec3d& r, double sp_size, const AABB& cell_box)
+    inline double particle_weight(const Vec3d& r, double sp_size, const AABB& cell_box)
     {
       AABB contrib_box = { r - sp_size*0.5 , r + sp_size*0.5 };
       AABB sub_contrib_box = intersection( contrib_box , cell_box );

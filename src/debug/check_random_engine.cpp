@@ -46,9 +46,9 @@ namespace exanb
       int nsamples = *samples;
       int ncycles = *cycles;
       
+      std::vector<int> tab( nsamples );
       for(int c=0;c<ncycles;c++)
       {
-        int tab[nsamples];
         for(int i=0;i<nsamples;i++)
         {
           tab[i] = -1;

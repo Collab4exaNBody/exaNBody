@@ -27,6 +27,7 @@ namespace exanb
 
     inline Mat3d xform() const { return m_xform; }
 
+    inline void nop() const { [[maybe_unused]] const bool unused = m_xform_min_scale==1.0 || m_xform_max_scale==1.0 || m_xform_is_identity; }
   private:
     AABB m_bounds { {0.,0.,0.} , {0.,0.,0.} };
     IJK m_grid_dims { 0, 0, 0 };
