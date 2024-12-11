@@ -1,4 +1,3 @@
-//#pragma xstamp_enbale_cuda
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/basic_types.h>

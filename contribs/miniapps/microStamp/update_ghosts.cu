@@ -30,7 +30,7 @@ namespace microStamp
   using namespace UpdateGhostsUtils;
 
   // === register factory ===
-  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_ep, field::_vx, field::_vy, field::_vz > > , true >;
+  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > , true >;
 
   CONSTRUCTOR_FUNCTION
   {
