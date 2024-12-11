@@ -52,7 +52,7 @@ namespace exanb
   template< class GridT, class FieldSetT, bool CreateParticles>
   class UpdateGhostsNode : public OperatorNode
   {
-    using UpdateGhostsScratch = typename UpdateGhostsUtils::UpdateGhostsScratch;
+    using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
 
     // -----------------------------------------------
     // Operator slots

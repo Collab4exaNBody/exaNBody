@@ -86,10 +86,10 @@ namespace exanb
       {
         using namespace SliceParticleFieldTools;
         using field_type = decltype( m_pacc[0][proj_field][0] /*m_pacc.get(0,0,proj_field)*/ );
-        static constexpr FieldSet< field::_rx , field::_ry , field::_rz > slice_field_set = {};
         
         if constexpr ( std::is_arithmetic_v<field_type> )
         {
+          static constexpr FieldSet< field::_rx , field::_ry , field::_rz > slice_field_set = {};
           const auto name = proj_field.short_name();
           if( m_field_selector(name) )
           {
