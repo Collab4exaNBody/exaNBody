@@ -54,7 +54,12 @@ find_package(exaNBody)
 # ==========================================
 # === build application plugins and libs ===
 # ==========================================
-onika_add_plugin(microStamp ${CMAKE_CURRENT_SOURCE_DIR})
+onika_add_plugin(microStamp ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# ============================
+# === Add some basic tests ===
+# ============================
+AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/regression)
 
 # ===========================================================
 # === generate execution wrappers and environment scripts ===

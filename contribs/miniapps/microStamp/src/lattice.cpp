@@ -16,23 +16,19 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <onika/scg/operator.h>
-#include <onika/scg/operator_factory.h>
 
-namespace exanb
+#include <exanb/grid_cell_particles/lattice_generator.h>
+
+namespace microStamp
 {
+  using namespace exanb;
 
-  struct NoOperationNode : public OperatorNode
-  {  
-    inline NoOperationNode() { set_profiling(false); }
-    inline void execute() override final {}
-  };
- 
-  // === register factories ===  
-  ONIKA_AUTORUN_INIT(nop)
+  template<class GridT> using RegionLatticeTmpl = exanb::RegionLattice<GridT,field::_type>;
+
+  // === register factories ===
+  CONSTRUCTOR_FUNCTION
   {
-    OperatorNodeFactory::instance()->register_factory( "nop", make_compatible_operator< NoOperationNode > );
+    OperatorNodeFactory::instance()->register_factory("lattice", make_grid_variant_operator< RegionLatticeTmpl >);
   }
 
 }
-

@@ -138,8 +138,10 @@ function(xnb_add_plugin PluginName dirname)
     if(${PluginName}_HDRS)
       install(FILES ${${PluginName}_HDRS} DESTINATION ${XNB_ROOT_DIR}/redist/${PluginName})
     endif()
-    file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Grid templated part of exaNBody's ${PluginName} plugin\n")    
-    file(APPEND ${XNB_CMAKE_PACKAGE} "onika_add_plugin(${PluginName} ${XNB_ROOT_DIR}/redist/${PluginName} -\${XNB_APP_NAME}-plugin)\n")
+    file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Grid templated part of exaNBody's ${PluginName} plugin\n")
+    file(APPEND ${XNB_CMAKE_PACKAGE} "if(XNB_APP_HAS_GRID_SPECIALIZATIONS)\n")  
+    file(APPEND ${XNB_CMAKE_PACKAGE} "  onika_add_plugin(${PluginName} ${XNB_ROOT_DIR}/redist/${PluginName} -\${XNB_APP_NAME}-plugin)\n")
+    file(APPEND ${XNB_CMAKE_PACKAGE} "endif()\n")  
   endif()
 
 endfunction()
@@ -177,7 +179,7 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "  file(CHMOD  \${CMAKE_CURRENT_BINARY_DIR}/\${
 file(APPEND ${XNB_CMAKE_PACKAGE} "endmacro()\n")
 
 # install cmake package file to allow external project to find_package exaNBody
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake DESTINATION ${XNB_ROOT_DIR})
+install(FILES ${XNB_CMAKE_PACKAGE} DESTINATION ${XNB_ROOT_DIR})
 
 # generate exaNBody environment setup, based on onika onverionment setup script
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
