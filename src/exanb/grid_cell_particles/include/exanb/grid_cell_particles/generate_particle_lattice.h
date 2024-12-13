@@ -214,7 +214,7 @@ namespace exanb
     // =============== Generate particles into grid ========================
 
     //std::vector<unsigned long> particle_type_count( n_particles_cell , 0 );
-    ssize_t n_particles_cell = lattice.m_np;
+    size_t n_particles_cell = lattice.m_np;
     std::vector<unsigned int> particle_type_id(n_particles_cell);
     for(size_t i=0;i<n_particles_cell;i++) { particle_type_id[i] = typeMap.at( lattice.m_types.at(i) ); }
     if( typeMap.size()>1 && !has_field_type )
@@ -277,7 +277,7 @@ namespace exanb
               Vec3d grid_pos = inv_xform * lab_pos;
 	            const IJK loc = grid.locate_cell(grid_pos); //domain_periodic_location( domain , pos );
 
-	            if( is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
+	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
         			{          			
                 Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
                 const double noiselen = norm(noise);
@@ -287,7 +287,6 @@ namespace exanb
 
                 if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
 	              {
-	              	assert( grid.contains(loc) );
 	              	assert( min_distance_between( grid_pos, grid.cell_bounds(loc) ) <= grid.cell_size()/2.0 );
 	              	size_t cell_i = grid_ijk_to_index(local_grid_dim, loc);
                   ++ local_generated_count;
