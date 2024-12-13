@@ -25,6 +25,7 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debu
 
 # main dependency and configuation variables
 set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
+set(ONIKA_RUN_WRAPPER ${XNB_APP_NAME})
 get_filename_component(XNB_ROOT_DIR ${CMAKE_INSTALL_PREFIX} ABSOLUTE)
 set(XNB_CMAKE_PACKAGE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake)
 find_package(onika REQUIRED)
@@ -38,10 +39,10 @@ endif()
 file(APPEND ${XNB_CMAKE_PACKAGE} "find_package(onika REQUIRED)\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_ROOT_DIR ${XNB_ROOT_DIR})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_APP_NAME \${CMAKE_PROJECT_NAME})\n")
-
-# create a plugin function, wrapping onika_add_plugin so that we can add application specific global parameters
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(ONIKA_RUN_WRAPPER \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "list(APPEND ONIKA_COMPILE_DEFINITIONS \${XNB_COMPILE_DEFINITIONS})\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS \${XNB_INCLUDE_DIRECTORIES})\n")
+
 
 # setup thirdparty base-n encoding lib and export it to cmake package
 add_library(basen INTERFACE)
