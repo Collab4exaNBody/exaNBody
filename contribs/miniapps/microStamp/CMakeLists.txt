@@ -54,6 +54,7 @@ find_package(exaNBody)
 # ==========================================
 # === build application plugins and libs ===
 # ==========================================
+set(microStamp_LINK_LIBRARIES exanbGridCellParticles exanbCompute exanbMPI exanbCore)
 onika_add_plugin(microStamp ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # ============================

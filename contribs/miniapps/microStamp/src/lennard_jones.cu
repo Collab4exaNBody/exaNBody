@@ -17,18 +17,17 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/core/grid.h>
-#include <exanb/core/domain.h>
-#include <exanb/core/basic_types.h>
-#include <exanb/core/basic_types_operators.h>
-#include <exanb/compute/compute_cell_particle_pairs.h>
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_factory.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/log.h>
+#include <onika/log.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_factory.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/math/basic_types.h>
 
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
+#include <exanb/core/grid.h>
+#include <exanb/core/domain.h>
+#include <exanb/compute/compute_cell_particle_pairs.h>
+#include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/particle_neighbors/chunk_neighbors.h> // for MAX_PARTICLE_NEIGHBORS constant
 
 // this allows for parallel compilation of templated operator for each available field set
@@ -212,7 +211,7 @@ namespace microStamp
   template<class GridT> using LennardJonesForceTmpl = LennardJonesForce<GridT>;
 
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(lennard_jones_force)
   {  
     OperatorNodeFactory::instance()->register_factory( "lennard_jones_force" , make_grid_variant_operator< LennardJonesForceTmpl > );
   }

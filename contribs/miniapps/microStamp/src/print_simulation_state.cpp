@@ -17,16 +17,19 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
-#include <exanb/core/log.h>
-#include <exanb/core/string_utils.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
+#include <onika/log.h>
+#include <onika/string_utils.h>
+#include <onika/cpp_utils.h>
 #include <exanb/core/domain.h>
 
 namespace microStamp
 {
   using namespace exanb;
+  using onika::scg::OperatorNodeFactory;
+  using onika::scg::OperatorNode;
   using SimulationState = std::vector<double>;
 
   class PrintSimulationState : public OperatorNode
@@ -34,7 +37,7 @@ namespace microStamp
     // thermodynamic state & physics data
     ADD_SLOT( long               , timestep            , INPUT , REQUIRED );
     ADD_SLOT( double             , physical_time       , INPUT , REQUIRED );
-    ADD_SLOT( SimulationState , simulation_state , INPUT , REQUIRED );
+    ADD_SLOT( SimulationState    , simulation_state    , INPUT , REQUIRED );
 
     // LB and particle movement statistics
     ADD_SLOT( long               , lb_counter          , INPUT_OUTPUT );
@@ -56,7 +59,7 @@ namespace microStamp
   };
     
   // === register factories ===  
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(print_simulation_state)
   {
    OperatorNodeFactory::instance()->register_factory( "print_simulation_state", make_simple_operator<PrintSimulationState> );
   }
