@@ -185,6 +185,13 @@ namespace exanb
     onika::memory::CudaMMVector< GhostCellSendScheme > m_sends;
     onika::memory::CudaMMVector< GhostCellReceiveScheme > m_receives;
     onika::memory::CudaMMVector< uint64_t > m_receive_offset;
+
+    // control values, can be be rebuilt from previous containers.
+    // they are computed and stored here for 2 reasons :
+    // 1. to check consistency of data for debug pruposes
+    // 2. allow for communication buffer resize without touching memory in CudaMMVector, avoiding back-and-forth CPU/GPU memory moves
+    size_t m_particles_to_receive = 0;
+    size_t m_particles_to_send = 0;
   };
 
   struct GhostCommunicationScheme

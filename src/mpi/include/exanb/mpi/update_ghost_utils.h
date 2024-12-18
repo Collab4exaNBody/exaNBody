@@ -103,7 +103,7 @@ namespace exanb
         send_pack_async.resize( nprocs );
         recv_unpack_async.resize( nprocs );
       }
-            
+
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components )
       {
         int nprocs = comm_scheme.m_partner.size();
@@ -113,29 +113,43 @@ namespace exanb
         for(int p=0;p<nprocs;p++)
         {   
           const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
-          size_t particles_to_receive = 0;
+          const size_t particles_to_receive = comm_scheme.m_partner[p].m_particles_to_receive;
+#         ifndef NDEBUG
+          size_t particles_to_receive_chk = 0;
           for(size_t i=0;i<cells_to_receive;i++)
           {
-            particles_to_receive += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
+            particles_to_receive_chk += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
           }
+          assert( particles_to_receive == particles_to_receive_chk );
+#         endif
           const size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
           
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
-          size_t particles_to_send = 0;
+          const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
+#         ifndef NDEBUG
+          size_t particles_to_send_chk = 0;
           for(size_t i=0;i<cells_to_send;i++)
           {
-            particles_to_send += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+            particles_to_send_chk += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
           }
+          assert( particles_to_send == particles_to_send_chk );
+#         endif
           const size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
 
           recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + receive_size;
           send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;
         }
       
-        recv_buffer.clear();
-        recv_buffer.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
-        send_buffer.clear();
-        send_buffer.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
+        if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
+        {
+          recv_buffer.clear();
+          recv_buffer.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
+        }
+        if( ( sendbuf_total_size() + BUFFER_GUARD_SIZE ) > send_buffer.size() )
+        {
+          send_buffer.clear();
+          send_buffer.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
+        }
       }
       
       inline size_t sendbuf_size(int p) const { return send_buffer_offsets[p+1] - send_buffer_offsets[p]; } 
