@@ -315,7 +315,7 @@ namespace exanb
     {
       unsigned long long particle_id_start = 0;
       MPI_Exscan( &local_generated_count , &particle_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm);
-      std::atomic<uint64_t> particle_id_counter = particle_id_start + next_id;
+      const uint64_t particle_id_counter = particle_id_start + next_id;
 
       const IJK dims = grid.dimension();
       const ssize_t gl = grid.ghost_layers();
@@ -356,7 +356,7 @@ namespace exanb
           {
             if( cells[i][field::id][j] == no_id )
             {
-              cells[i][field::id][j] = cell_alloc_ids ++;
+              cells[i][field::id][j] = particle_id_counter + cell_alloc_ids ++;
             }
           }
         }
