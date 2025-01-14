@@ -157,7 +157,7 @@ namespace exanb
      */
     struct UnitSystem
     {
-      UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES];      
+      UnitDefinition m_units[NUMBER_OF_UNIT_CLASSES+1];      
       inline const UnitDefinition& length() const { return m_units[LENGTH]; }
       inline const UnitDefinition& time() const { return m_units[TIME]; }
       inline const UnitDefinition& charge() const { return m_units[CHARGE]; }
@@ -173,7 +173,7 @@ namespace exanb
      */
     struct UnitPowers
     {
-      double m_powers[NUMBER_OF_UNIT_CLASSES] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
+      double m_powers[NUMBER_OF_UNIT_CLASSES+1] = { 0. , 0. , 0. , 0. , 0. , 0. , 0. , 0. };
     };
       
     // list of all available unit definitions

@@ -70,6 +70,11 @@ namespace exanb
       return id>=m_id_start && id<m_id_end && is_inside(m_bounds,r) && quadric_eval(m_quadric,r)<=0.0 ;
     }
     
+    ONIKA_HOST_DEVICE_FUNC inline bool contains( const Vec3d& r ) const
+    {
+      return is_inside(m_bounds,r) && quadric_eval(m_quadric,r)<=0.0 ;
+    }
+    
     inline void set_name(const std::string& s)
     {
       std::strncpy( m_name , s.c_str() , MAX_NAME_LEN-1 );
@@ -138,6 +143,42 @@ namespace exanb
       for(unsigned int i=0;i<n;i++) m_operand_places[i] = prcsg.m_operand_places[i];
       m_nb_operands_log2 = 0;
       while( n > 1 ) { ++m_nb_operands_log2 ; n=n>>1; }
+    }
+
+    ONIKA_HOST_DEVICE_FUNC inline bool contains(const Vec3d& r) const
+    {
+      uint64_t rvalues = 0;
+      for(int i=0;i<m_nb_regions;i++)
+      {
+        uint64_t C = m_regions[i].contains(r);
+        rvalues |= ( C << i );
+      }
+      uint64_t values = ( m_nb_operands > 0 ) ? 0 : 1;
+      for(unsigned int i=0;i<m_nb_operands;i++)
+      {
+        values |= ( ( rvalues >> m_operand_places[i] ) & 1ull ) << i;
+      }
+      
+      uint64_t expr = m_expr;
+      unsigned int nop = m_nb_operands;
+      for(unsigned int i=0;i<m_nb_operands_log2;i++)
+      {
+        values = values ^ expr; // apply input optional negation
+        values = values & (values>>1); // execute AND operation
+
+        // prepare next operations for next round
+        expr = expr >> nop;
+        nop = nop / 2;
+
+        // compact operation results
+        uint64_t next = 0;
+        for(unsigned int j=0;j<nop;j++) 
+        {
+          next |= ( ( ( values >> (j*2) ) & 1ull ) << j );
+        }
+        values = next;
+      }
+      return ( values & 1ull ) != 0;
     }
     
     ONIKA_HOST_DEVICE_FUNC inline bool contains(const Vec3d& r , uint64_t id) const
