@@ -144,10 +144,10 @@ namespace exanb
        
     const IJK local_grid_dim = grid.dimension();
     unsigned long long next_id = 0;      
+    const size_t n_cells = grid.number_of_cells();
     
     if( has_field_id )
     {
-      size_t n_cells = grid.number_of_cells();
       auto cells = grid.cells();
 #       pragma omp parallel for schedule(dynamic) reduction(max:next_id)
       for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( ! grid.is_ghost_cell(cell_i) )
@@ -323,7 +323,9 @@ namespace exanb
       const IJK gend = dims - IJK{ gl, gl, gl };
       const IJK gdims = gend - gstart;
 
-#       pragma omp parallel
+              // = particle_id_counter.fetch_add(1,std::memory_order_relaxed);
+      std::vector<size_t> cell_id_count( n_cells , 0 );
+#     pragma omp parallel
       {
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
@@ -333,7 +335,28 @@ namespace exanb
           {
             if( cells[i][field::id][j] == no_id )
             {
-              cells[i][field::id][j] = particle_id_counter.fetch_add(1,std::memory_order_relaxed);
+              ++ cell_id_count[i];
+            }
+          }
+        }
+        GRID_OMP_FOR_END
+        
+#       pragma omp single
+        {
+          std::exclusive_scan(cell_id_count.begin(), cell_id_count.end(), cell_id_count.begin(),0);
+        }
+#       pragma omp barrier
+        
+        GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
+        {
+          size_t i = grid_ijk_to_index( dims , loc + gstart );
+          size_t n = cells[i].size();
+          size_t cell_alloc_ids = cell_id_count[i];
+          for(size_t j=0;j<n;j++)
+          {
+            if( cells[i][field::id][j] == no_id )
+            {
+              cells[i][field::id][j] = cell_alloc_ids ++;
             }
           }
         }
