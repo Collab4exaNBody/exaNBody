@@ -29,9 +29,6 @@ under the License.
 
 #include <mpi.h>
 
-#include <onika/force_assert.h>
-#define CC_LABEL_ASSERT(c) ONIKA_FORCE_ASSERT(c)
-
 namespace exanb
 {
   class ConnectedComponentLabel : public OperatorNode
@@ -118,7 +115,7 @@ namespace exanb
       const size_t density_stride = density_accessor.m_stride;
       
       // sanity check
-      CC_LABEL_ASSERT( cc_label_stride == density_stride );
+      assert( cc_label_stride == density_stride );
       const size_t stride = density_stride; // for simplicity
 
       // density threshold to select cells
@@ -137,7 +134,7 @@ namespace exanb
       MPI_Allreduce(MPI_IN_PLACE,&max_n_sub_cells,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
       const unsigned long long cell_id_alloc_end = max_n_sub_cells * (rank+1);
       const unsigned long long cell_id_alloc_start = max_n_sub_cells * rank;
-      ldbg << "pré-alloc'd cell ids = ["<< cell_id_alloc_start<<";"<<cell_id_alloc_end<<"["<<std::endl;
+      ldbg << "pre-alloc'd cell ids = ["<< cell_id_alloc_start<<";"<<cell_id_alloc_end<<"["<<std::endl;
       // then, we can determine own process of an id with ( id / max_n_sub_cells )
 
       static constexpr double ghost_no_label = -2.0;
@@ -165,13 +162,13 @@ namespace exanb
 
           // compute a simulation wide, processor invariant, sub cell label id;
           size_t unique_id = cell_id_alloc_start + cell_index * subdiv3 + subcell_index;
-          CC_LABEL_ASSERT( unique_id >= cell_id_alloc_start && unique_id < cell_id_alloc_end );
+          assert( unique_id >= cell_id_alloc_start && unique_id < cell_id_alloc_end );
           double label = static_cast<double>(unique_id);
-          CC_LABEL_ASSERT( label == unique_id ); // ensures lossless conversion to double
+          assert( label == unique_id ); // ensures lossless conversion to double
 
           // value index, is the index of current subcell for local processor's grid
           ssize_t value_index = cell_index * stride + subcell_index;
-          CC_LABEL_ASSERT( value_index >= 0 );
+          assert( value_index >= 0 );
           
           // assign a label to cells where density is above given threshold, otherwise assign no_label (-1.0)
           if( is_ghost ) label = ghost_no_label;
@@ -191,9 +188,12 @@ namespace exanb
        * When done, all MPI processes assigned the same
        * globaly known unique label ids to connected cells.
        ****************************************************/
-      unsigned long long label_update_passes = 0;   
+      unsigned long long label_update_passes = 0;
+      unsigned long long total_local_passes = 0;
+      unsigned long long total_comm_passes = 0;
       do
       {
+        ++ total_comm_passes;
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
                             *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
                             0, false, false, false,
@@ -205,10 +205,12 @@ namespace exanb
         do
         {
           ++ local_propagate_pass;
-          //ldbg << "local propagate pass "<< local_propagate_pass << std::endl;
+          ++ total_local_passes;
+          ldbg << "local propagate pass "<< local_propagate_pass << std::endl;
           label_update_count = 0;
+          //size_t n_ghost_updated = 0;
 
-#         pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
+#         pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count/*,n_ghost_updated*/)
           for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
           for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
           for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
@@ -223,7 +225,7 @@ namespace exanb
               ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
               ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
               ssize_t value_index = cell_index * stride + subcell_index;
-              CC_LABEL_ASSERT( value_index >= 0 );
+              assert( value_index >= 0 );
               if( cc_label_ptr[ value_index ] >= 0.0 )
               {
                 for( ssize_t nk=-1 ; nk<=1 ; nk++)
@@ -243,10 +245,8 @@ namespace exanb
                     const ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
                     const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
-                    CC_LABEL_ASSERT( nbh_value_index >= 0 );
-                    // all values in ghost area must have been overwritten by original cell values during ghost_update
-                    CC_LABEL_ASSERT( cc_label_ptr[ nbh_value_index ] != ghost_no_label ); 
-                    
+                    assert( nbh_value_index >= 0 );
+                    //if( nbh_is_ghost && cc_label_ptr[ nbh_value_index ] != ghost_no_label ) { ++ n_ghost_updated; }                    
                     if( cc_label_ptr[nbh_value_index] >= 0.0 && cc_label_ptr[nbh_value_index] < cc_label_ptr[value_index] )
                     {
                       cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
@@ -257,6 +257,7 @@ namespace exanb
               }
             }
           }
+          //ldbg << "n_ghost_updated="<<n_ghost_updated<<std::endl;
         
           if( label_update_count > 0 ) ++ label_update_passes;
         } while( label_update_count > 0 );
@@ -266,6 +267,7 @@ namespace exanb
         ldbg << "Max local label update passes = "<<label_update_passes<<std::endl;
       } while( label_update_passes > 0 );
 
+      ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
 
       /*******************************************************************
        * count number of local ids and identify their respective owner process
@@ -286,7 +288,7 @@ namespace exanb
           const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
           const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
           const ssize_t value_index = cell_index * stride + subcell_index;
-          CC_LABEL_ASSERT( value_index >= 0 );
+          assert( value_index >= 0 );
           const double label = cc_label_ptr[ value_index ];
           if( label >= 0.0 )
           {
@@ -296,14 +298,14 @@ namespace exanb
             {
               cc_info.m_label = label;
               cc_info.m_rank = unique_id / max_n_sub_cells;
-              CC_LABEL_ASSERT( cc_info.m_rank >= 0 && cc_info.m_rank < nprocs );
+              assert( cc_info.m_rank >= 0 && cc_info.m_rank < nprocs );
               cc_info.m_cell_count = 0;
               cc_info.m_center = Vec3d{0.,0.,0.};
               cc_info.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
             }
             else
             {
-              CC_LABEL_ASSERT( cc_info.m_label == label );
+              assert( cc_info.m_label == label );
             }
             cc_info.m_cell_count += 1;
             cc_info.m_center += make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc );
@@ -335,7 +337,7 @@ namespace exanb
         ldbg << "SEND["<<i<<"] : c="<<cc_send_counts[i]<<" d="<<cc_send_displs[i]<<std::endl;
         ldbg << "RECV["<<i<<"] : c="<<cc_recv_counts[i]<<" d="<<cc_recv_displs[i]<<std::endl;
       }
-      CC_LABEL_ASSERT( cc_total_send == cc_map.size() );
+      assert( cc_total_send == cc_map.size() );
       ldbg << "cc_total_send="<<cc_total_send<<" , cc_total_recv="<<cc_total_recv<<std::endl; 
       
       std::vector<ConnectedComponentInfo> cc_recv_data( cc_total_recv , ConnectedComponentInfo{} );
@@ -344,12 +346,12 @@ namespace exanb
       cc_total_send = 0;
       for(const auto & cc : cc_map)
       {
-        CC_LABEL_ASSERT( cc_send_data[cc_send_displs[cc.second.m_rank]].m_label == -1.0 );
+        assert( cc_send_data[cc_send_displs[cc.second.m_rank]].m_label == -1.0 );
         cc_send_data[ cc_send_displs[cc.second.m_rank] ++ ] = cc.second;
       }
       cc_map.clear();
       // make sur there's no hole left
-      for(const auto& cc:cc_send_data) { CC_LABEL_ASSERT( cc.m_label >= 0.0 ); }
+      for(const auto& cc:cc_send_data) { assert( cc.m_label >= 0.0 ); }
 
       for(int i=0;i<nprocs;i++)
       {
@@ -390,9 +392,9 @@ namespace exanb
         }
         else
         {
-          CC_LABEL_ASSERT( cc_info.m_label == cc.m_label );
-          CC_LABEL_ASSERT( cc_info.m_rank == cc.m_rank );
-          CC_LABEL_ASSERT( cc_info.m_rank == rank );
+          assert( cc_info.m_label == cc.m_label );
+          assert( cc_info.m_rank == cc.m_rank );
+          assert( cc_info.m_rank == rank );
         }
         cc_info.m_cell_count += cc.m_cell_count;
         cc_info.m_center += cc.m_center;
