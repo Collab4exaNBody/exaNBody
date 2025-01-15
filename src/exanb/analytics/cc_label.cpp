@@ -293,8 +293,8 @@ namespace exanb
             if( cc_info.m_label == -1.0 )
             {
               cc_info.m_label = label;
-              cc_info.m_owner = unique_id / max_n_sub_cells;
-              assert( cc_info.m_owner >= 0 && cc_info.m_owner < nprocs );
+              cc_info.m_rank = unique_id / max_n_sub_cells;
+              assert( cc_info.m_rank >= 0 && cc_info.m_rank < nprocs );
               cc_info.m_cell_count = 0;
               cc_info.m_center = Vec3d{0.,0.,0.};
               cc_info.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
@@ -316,7 +316,7 @@ namespace exanb
       ldbg << "cc_map.size() = "<<cc_map.size()<<std::endl;
       for(const auto & cc : cc_map)
       {
-        cc_send_counts[ cc.second.m_owner ] += 1;
+        cc_send_counts[ cc.second.m_rank ] += 1;
       }
 
       MPI_Alltoall( cc_send_counts.data() , 1 , MPI_INT , cc_recv_counts.data() , 1 , MPI_INT , *mpi );      
@@ -330,8 +330,11 @@ namespace exanb
         cc_total_send += cc_send_counts[i];
         cc_recv_displs[i] = cc_total_recv;
         cc_total_recv += cc_recv_counts[i];
+        ldbg << "SEND["<<i<<"] : c="<<cc_send_counts[i]<<" d="<<cc_send_displs[i]<<std::endl;
+        ldbg << "RECV["<<i<<"] : c="<<cc_recv_counts[i]<<" d="<<cc_recv_displs[i]<<std::endl;
       }
       assert( cc_total_send == cc_map.size() );
+      ldbg << "cc_total_send="<<cc_total_send<<" , cc_total_recv="<<cc_total_recv<<std::endl; 
       
       std::vector<ConnectedComponentInfo> cc_recv_data( cc_total_recv , ConnectedComponentInfo{} );
       std::vector<ConnectedComponentInfo> cc_send_data( cc_total_send , ConnectedComponentInfo{} );      
@@ -339,20 +342,25 @@ namespace exanb
       cc_total_send = 0;
       for(const auto & cc : cc_map)
       {
-        cc_send_data[ cc_total_send ++ ] = cc.second;
+        assert( cc_send_data[cc_send_displs[cc.second.m_rank]].m_label == -1.0 );
+        cc_send_data[ cc_send_displs[cc.second.m_rank] ++ ] = cc.second;
       }
       cc_map.clear();
-      std::sort( cc_send_data.begin() , cc_send_data.end() , [](const ConnectedComponentInfo& A, const ConnectedComponentInfo& B)->bool { return A.m_owner < b.m_owner; } );
+      // make sur there's no hole left
+      for(const auto& cc:cc_send_data) { assert( cc.m_label >= 0.0 ); }
 
       for(int i=0;i<nprocs;i++)
       {
+        cc_send_displs[i] -= cc_send_counts[i];
         cc_send_counts[i] *= sizeof(ConnectedComponentInfo);
         cc_recv_counts[i] *= sizeof(ConnectedComponentInfo);
         cc_send_displs[i] *= sizeof(ConnectedComponentInfo);
         cc_recv_displs[i] *= sizeof(ConnectedComponentInfo);
+        ldbg << "* SEND["<<i<<"] : c="<<cc_send_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_send_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
+        ldbg << "* RECV["<<i<<"] : c="<<cc_recv_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_recv_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
       }
-      MPI_Alltoallv( cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_UNSIGNED_BYTE
-                   , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_UNSIGNED_BYTE
+      MPI_Alltoallv( cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
+                   , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
                    , *mpi );
 
       cc_send_counts.clear(); cc_send_counts.shrink_to_fit();
@@ -373,8 +381,7 @@ namespace exanb
         if( cc_info.m_label == -1.0 )
         {
           cc_info.m_label = cc.m_label;
-          cc_info.m_owner = cc.m_owner;
-          cc_info.m_global_idx = -1;
+          cc_info.m_rank = cc.m_rank;
           cc_info.m_cell_count = 0;
           cc_info.m_center = Vec3d{0.,0.,0.};
           cc_info.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
@@ -382,8 +389,8 @@ namespace exanb
         else
         {
           assert( cc_info.m_label == cc.m_label );
-          assert( cc_info.m_owner == cc.m_owner );
-          assert( cc_info.m_owner == rank );
+          assert( cc_info.m_rank == cc.m_rank );
+          assert( cc_info.m_rank == rank );
         }
         cc_info.m_cell_count += cc.m_cell_count;
         cc_info.m_center += cc.m_center;
@@ -404,9 +411,11 @@ namespace exanb
       MPI_Exscan( &global_label_count , &global_label_idx_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
       MPI_Allreduce( MPI_IN_PLACE , &global_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
 
+      // starting from here, m_rank field is not the rank of owning processor any more,
+      // just the global rank (index) of CC
       for(size_t i=0;i<cc_table->size();i++)
       {
-        cc_table->at(i).m_global_idx = i + global_label_idx_start;
+        cc_table->at(i).m_rank = i + global_label_idx_start;
       }
       cc_table->m_global_label_count = global_label_count;
       cc_table->m_local_label_start = global_label_idx_start;

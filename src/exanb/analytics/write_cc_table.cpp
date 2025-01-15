@@ -74,7 +74,7 @@ namespace exanb
       for(size_t i=0;i<cc_table->size();i++)
       {
         const ssize_t cell_label = static_cast<ssize_t>(cc_table->at(i).m_label);
-        const ssize_t global_id = cc_table->at(i).m_global_idx;
+        const ssize_t global_id = cc_table->at(i).m_rank;
         format_string_inplace( cc_str , csv_format , cell_label , global_id , rank , cc_table->at(i).m_cell_count , cc_table->at(i).m_center.x , cc_table->at(i).m_center.y , cc_table->at(i).m_center.z );
         assert( cc_str.length() == sample_size );
         MPI_File_write_at( fileh , header_size + ( global_id * sample_size ) , cc_str.c_str() , sample_size , MPI_CHAR , MPI_STATUSES_IGNORE );

@@ -26,8 +26,7 @@ namespace exanb
 {
   struct ConnectedComponentInfo
   {
-    ssize_t m_owner = -1;
-    ssize_t m_global_idx = -1;
+    ssize_t m_rank = -1;
     ssize_t m_cell_count = 0;
     double m_label = -1.0;
     Vec3d m_center = {0.,0.,0.};
