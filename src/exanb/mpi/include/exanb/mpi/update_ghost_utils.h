@@ -130,7 +130,7 @@ namespace exanb
           size_t particles_to_send_chk = 0;
           for(size_t i=0;i<cells_to_send;i++)
           {
-            particles_to_send += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+            particles_to_send_chk += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
           }
           assert( particles_to_send == particles_to_send_chk );
 #         endif

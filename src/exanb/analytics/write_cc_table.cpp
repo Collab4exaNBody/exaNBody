@@ -44,7 +44,7 @@ namespace exanb
       ldbg << "CC table size = "<< cc_table->size() << std::endl;
       for(size_t i=0;i<cc_table->size();i++)
       {
-        ldbg <<"CC #"<<i<<" : label="<<cc_table->at(i).m_label<<" count="<<cc_table->at(i).m_cell_count<<" center="<<cc_table->at(i).m_center<<std::endl;
+        ldbg <<"CC #"<<i<<" : label="<<static_cast<ssize_t>(cc_table->at(i).m_label)<<" count="<<cc_table->at(i).m_cell_count<<" center="<<cc_table->at(i).m_center<<std::endl;
       }
       
       int rank = 0 , nprocs = 1;
