@@ -84,8 +84,8 @@ namespace exanb
       const ssize_t gl = grid_cell_values->ghost_layers();
       
       // number of subdivisions, in each directions, applied on cells
-            
       const ssize_t subdiv = grid_cell_values->field( *grid_cell_field ).m_subdiv;
+      
       // side size of a sub-cell
       const double subcell_size = cell_size / subdiv;
       
@@ -93,13 +93,11 @@ namespace exanb
       const double subcell_volume = subcell_size * subcell_size * subcell_size;
       
       // dimension of the subdivided simulation's grid
-      const IJK domain_subdiv_dims = domain_dims * subdiv; 
+      const IJK domain_subdiv_dims = domain_dims * subdiv;
 
       // some debug information
-      ldbg << "ghost_layers="<<gl<<", cell_size="<<cell_size<<", subdiv="<<subdiv<<", subcell_size="
+      ldbg << "cc_label: gl="<<gl<<", cell_size="<<cell_size<<", subdiv="<<subdiv<<", subcell_size="
            <<subcell_size<<", grid_dims="<<grid_dims<<", grid_offset="<<grid_offset<<", domain_dims="<<domain_dims<<", domain_subdiv_dims="<<domain_subdiv_dims<<std::endl;
-
-      // note: if we are to add new data fields, they must be added BEFORE we retreive access information
 
       // create additional data field for connected component label
       if( ! grid_cell_values->has_field("cc_label") )
@@ -107,12 +105,12 @@ namespace exanb
         grid_cell_values->add_field("cc_label",subdiv,1);
       }
       
-      // retreive cc_label field data accessor.
+      // cc_label field data accessor.
       const auto cc_label_accessor = grid_cell_values->field_data("cc_label");
       double * __restrict__ cc_label_ptr = cc_label_accessor.m_data_ptr;
       const size_t cc_label_stride = cc_label_accessor.m_stride; ONIKA_SILENT_USE(cc_label_stride);
 
-      // retreive density field data accessor.
+      // density field data accessor.
       const auto density_accessor = grid_cell_values->field_data( *grid_cell_field );
       const double  * __restrict__ density_ptr = density_accessor.m_data_ptr;
       const size_t density_stride = density_accessor.m_stride;
@@ -121,7 +119,19 @@ namespace exanb
       assert( cc_label_stride == density_stride );
       const size_t stride = density_stride; // for simplicity
 
+      // density threshold to select cells
       const double threshold = *grid_cell_threshold ;
+
+      // pre-allocate a range of ids each MPI process can safely use
+      // without intersecting with others
+      const size_t n_cells = grid_cell_values->number_of_cells();
+      const size_t subdiv3 = subdiv * subdiv * subdiv;
+      const size_t n_sub_cells = n_cells * subdiv3;
+      const unsigned long long cell_id_alloc_end = n_sub_cells;
+      const unsigned long long cell_id_alloc_start = 0;
+      MPI_Exscan( &cell_id_alloc_end , &cell_id_alloc_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+      cell_id_alloc_end += cell_id_alloc_start;
+      ldbg << "pré-alloc'd cell ids = ["<< cell_id_alloc_start<<";"<<cell_id_alloc_end<<"["<<std::endl;
 
       // as a preamble, build a ghost cell owner map
       int rank=0, nprocs=1;
@@ -150,48 +160,42 @@ namespace exanb
         else return rank;
       };
 
-      // create a unique label id for each cell satisfying selction criteria
+      static constexpr double ghost_no_label = -2.0;
+      static constexpr double no_label = -1.0;
+
+      // create a unique label id for each cell satisfying selection criteria
 #     pragma omp parallel for collapse(3) schedule(static)
       for( ssize_t k=0 ; k < grid_dims.k ; k++)
       for( ssize_t j=0 ; j < grid_dims.j ; j++)
       for( ssize_t i=0 ; i < grid_dims.i ; i++)
       {
-        // position of the cell in the simulation grid, which size is 'domain_dims'
-        IJK cell_location = IJK{i,j,k} + grid_offset;
+        // are we in the ghost cell area ?
+        const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl))
+                           || (j<gl) || (j>=(grid_dims.j-gl))
+                           || (k<gl) || (k>=(grid_dims.k-gl));
 
         // triple loop to enumerate sub cells inside a cell
         for( ssize_t sk=0 ; sk<subdiv ; sk++)
         for( ssize_t sj=0 ; sj<subdiv ; sj++)
         for( ssize_t si=0 ; si<subdiv ; si++)
         {
-          // location of the subcell in simulation's subcell grid, which dimension is 'domain_subdiv_dims'
-          IJK subcell_global_location = cell_location * subdiv + IJK{si,sj,sk};
-
-          if( domain->periodic_boundary_x() && subcell_global_location.i <  0                    ) subcell_global_location.i += domain_subdiv_dims.i;
-          if( domain->periodic_boundary_x() && subcell_global_location.i >= domain_subdiv_dims.i ) subcell_global_location.i -= domain_subdiv_dims.i;
-
-          if( domain->periodic_boundary_y() && subcell_global_location.j <  0                    ) subcell_global_location.j += domain_subdiv_dims.j;
-          if( domain->periodic_boundary_y() && subcell_global_location.j >= domain_subdiv_dims.j ) subcell_global_location.j -= domain_subdiv_dims.j;
-
-          if( domain->periodic_boundary_z() && subcell_global_location.k <  0                    ) subcell_global_location.k += domain_subdiv_dims.k;
-          if( domain->periodic_boundary_z() && subcell_global_location.k >= domain_subdiv_dims.k ) subcell_global_location.k -= domain_subdiv_dims.k;
-
-          ssize_t subcell_global_index = grid_ijk_to_index( domain_subdiv_dims , subcell_global_location );
-          assert( subcell_global_index >= 0 );
-
-          // compute a simulation wide, processor invariant, sub cell label id;
-          double label = static_cast<double>(subcell_global_index);
-
           // computation of subcell index in local processor's grid
           ssize_t cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
           ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
+
+          // compute a simulation wide, processor invariant, sub cell label id;
+          size_t unique_id = cell_id_alloc_start + cell_index * subdiv3 + subcell_index;
+          assert( unique_id >= cell_id_alloc_start && unique_id < cell_id_alloc_end );
+          double label = static_cast<double>(unique_id);
 
           // value index, is the index of current subcell for local processor's grid
           ssize_t value_index = cell_index * stride + subcell_index;
           assert( value_index >= 0 );
           
-          // assign a label to cells where density is above given threshold, otherwise assign -1
-          cc_label_ptr[ value_index ] = density_ptr[ value_index ] > threshold ? label : -1.0;
+          // assign a label to cells where density is above given threshold, otherwise assign no_label (-1.0)
+          if( is_ghost ) label = ghost_no_label;
+          else if( density_ptr[value_index] < threshold ) label = no_label;
+          cc_label_ptr[value_index] = label;
         }
       }
 
@@ -201,12 +205,6 @@ namespace exanb
       onika::FlatTuple<> update_fields = {};
 
       unsigned long long total_label_count = 0;
-      unsigned long long max_local_labels = 0;
-      std::unordered_map<ssize_t,ssize_t> label_id_transition;
-
-      // identify unique labels owned by this MPI process
-      unsigned long long local_id_start=0, local_id_end=0;
-      std::unordered_map<double,unsigned long long> local_labels;
 
       /****************************************************
        * >>> propagate_minimum_label( pass_number ) <<<
@@ -214,7 +212,7 @@ namespace exanb
        * When done, all MPI processes assigned the same
        * globaly known unique label ids to connected cells.
        ****************************************************/
-      auto propagate_minimum_label = [&](int pass_number)
+      auto propagate_minimum_label = [&]()
       {      
         unsigned long long label_update_passes = 0;   
         total_label_count = 0;
@@ -238,11 +236,12 @@ namespace exanb
             label_update_count = 0;
 
 #           pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
-            for( ssize_t k=0 ; k < grid_dims.k ; k++)
-            for( ssize_t j=0 ; j < grid_dims.j ; j++)
-            for( ssize_t i=0 ; i < grid_dims.i ; i++)
+            for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+            for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+            for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
             {        
               const IJK cell_loc = {i,j,k};
+
               for( ssize_t sk=0 ; sk<subdiv ; sk++)
               for( ssize_t sj=0 ; sj<subdiv ; sj++)
               for( ssize_t si=0 ; si<subdiv ; si++)
@@ -264,23 +263,19 @@ namespace exanb
                      && nbh_cell_loc.j>=0 && nbh_cell_loc.j<grid_dims.j
                      && nbh_cell_loc.k>=0 && nbh_cell_loc.k<grid_dims.k )
                     {
-                      ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
-                      ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
-                      ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
+                      // is neighbor in the ghost cell area ?
+                      const bool nbh_is_ghost = (nbh_cell_loc.i<gl) || (nbh_cell_loc.i>=(grid_dims.i-gl))
+                                             || (nbh_cell_loc.j<gl) || (nbh_cell_loc.j>=(grid_dims.j-gl))
+                                             || (nbh_cell_loc.k<gl) || (nbh_cell_loc.k>=(grid_dims.k-gl));
+                      const ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
+                      const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
+                      const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
                       assert( nbh_value_index >= 0 );
-                      if( cc_label_ptr[ nbh_value_index ] >= 0.0 && cc_label_ptr[ nbh_value_index ] < cc_label_ptr[ value_index ] )
+                      // all values in ghost area must have been overwritten by original cell values during ghost_update
+                      assert( cc_label_ptr[ nbh_value_index ] != ghost_no_label ); 
+                      
+                      if( cc_label_ptr[nbh_value_index] >= 0.0 && cc_label_ptr[nbh_value_index] < cc_label_ptr[value_index] )
                       {
-                        if( pass_number > 1 )
-                        {
-                          assert( max_local_labels > 0 );
-                          ssize_t prev_label_id = static_cast<ssize_t>( cc_label_ptr[value_index] );
-                          ssize_t new_label_id = static_cast<ssize_t>( cc_label_ptr[nbh_value_index] );
-                          int prev_owner_rank = prev_label_id / max_local_labels;
-                          int new_owner_rank = new_label_id / max_local_labels;
-                          assert( new_owner_rank < prev_owner_rank );
-#                         pragma omp critical(label_id_map_update)
-                          label_id_transition[ prev_owner_rank ] = new_owner_rank;
-                        }
                         cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
                         ++ label_update_count;
                       }
