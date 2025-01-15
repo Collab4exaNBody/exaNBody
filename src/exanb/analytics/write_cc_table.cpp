@@ -78,7 +78,7 @@ namespace exanb
         format_string_inplace( cc_str , csv_format , cell_label , global_id , rank , cc_table->at(i).m_cell_count , cc_table->at(i).m_center.x , cc_table->at(i).m_center.y , cc_table->at(i).m_center.z );
         assert( cc_str.length() == sample_size );
         MPI_File_write_at( fileh , header_size + ( global_id * sample_size ) , cc_str.c_str() , sample_size , MPI_CHAR , MPI_STATUSES_IGNORE );
-        ldbg << cc_str ;
+        ldbg << std::string_view(cc_str.c_str(),sample_size-1) << std::endl;
       }
       
       MPI_File_close( &fileh );
