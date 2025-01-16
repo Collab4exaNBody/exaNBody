@@ -125,20 +125,27 @@ namespace exanb
       int rank=0, nprocs=1;
       MPI_Comm_rank( *mpi , &rank );
       MPI_Comm_size( *mpi , &nprocs );
+      assert( rank < nprocs );
 
-      // pre-allocate a range of ids each MPI process can safely use
-      // without intersecting with others
-      const size_t n_cells = grid_cell_values->number_of_cells();
       const size_t subdiv3 = subdiv * subdiv * subdiv;
-      unsigned long long max_n_sub_cells = n_cells * subdiv3;
-      MPI_Allreduce(MPI_IN_PLACE,&max_n_sub_cells,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
-      const unsigned long long cell_id_alloc_end = max_n_sub_cells * (rank+1);
-      const unsigned long long cell_id_alloc_start = max_n_sub_cells * rank;
-      ldbg << "pre-alloc'd cell ids = ["<< cell_id_alloc_start<<";"<<cell_id_alloc_end<<"["<<std::endl;
-      // then, we can determine own process of an id with ( id / max_n_sub_cells )
-
       static constexpr double ghost_no_label = -2.0;
       static constexpr double no_label = -1.0;
+      
+      // these 3 funcions define how we build unique ids such a way that :
+      // 1. owner rank can be guessed from the unique_id
+      // 2. final (stripped) unique ids will be deterministic and independant from parallel settings
+      auto encode_unique_id = [&](uint64_t cell_index, uint64_t subcell_index) -> uint64_t
+      {
+        return ( cell_index * subdiv3 + subcell_index ) * nprocs + rank;
+      };
+      auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
+      {
+        return unique_id % nprocs;
+      };
+      auto strip_unique_id = [&](uint64_t unique_id) -> uint64_t 
+      {
+        return unique_id / nprocs;
+      };
 
       // create a unique label id for each cell satisfying selection criteria
 #     pragma omp parallel for collapse(3) schedule(static)
@@ -161,8 +168,7 @@ namespace exanb
           ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
 
           // compute a simulation wide, processor invariant, sub cell label id;
-          size_t unique_id = cell_id_alloc_start + cell_index * subdiv3 + subcell_index;
-          assert( unique_id >= cell_id_alloc_start && unique_id < cell_id_alloc_end );
+          size_t unique_id = encode_unique_id( cell_index , subcell_index );
           double label = static_cast<double>(unique_id);
           assert( label == unique_id ); // ensures lossless conversion to double
 
@@ -206,23 +212,22 @@ namespace exanb
         {
           ++ local_propagate_pass;
           ++ total_local_passes;
-          ldbg << "local propagate pass "<< local_propagate_pass << std::endl;
+          // ldbg << "local propagate pass "<< local_propagate_pass << std::endl;
           label_update_count = 0;
           //size_t n_ghost_updated = 0;
 
-#         pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count/*,n_ghost_updated*/)
+#         pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
           for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
           for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
           for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
           {        
             const IJK cell_loc = {i,j,k};
-
+            const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
             for( ssize_t sk=0 ; sk<subdiv ; sk++)
             for( ssize_t sj=0 ; sj<subdiv ; sj++)
             for( ssize_t si=0 ; si<subdiv ; si++)
             {
               const IJK subcell_loc = {si,sj,sk};
-              ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
               ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
               ssize_t value_index = cell_index * stride + subcell_index;
               assert( value_index >= 0 );
@@ -280,12 +285,12 @@ namespace exanb
       {        
         const IJK cell_loc = {i,j,k};
         const IJK domain_cell_loc = cell_loc + grid_offset ;
+        const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
         for( ssize_t sk=0 ; sk<subdiv ; sk++)
         for( ssize_t sj=0 ; sj<subdiv ; sj++)
         for( ssize_t si=0 ; si<subdiv ; si++)
         {
           const IJK subcell_loc = {si,sj,sk};
-          const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
           const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
           const ssize_t value_index = cell_index * stride + subcell_index;
           assert( value_index >= 0 );
@@ -297,7 +302,7 @@ namespace exanb
             if( cc_info.m_label == -1.0 )
             {
               cc_info.m_label = label;
-              cc_info.m_rank = unique_id / max_n_sub_cells;
+              cc_info.m_rank = owner_from_unique_id( unique_id );
               assert( cc_info.m_rank >= 0 && cc_info.m_rank < nprocs );
               cc_info.m_cell_count = 0;
               cc_info.m_center = Vec3d{0.,0.,0.};
@@ -334,8 +339,8 @@ namespace exanb
         cc_total_send += cc_send_counts[i];
         cc_recv_displs[i] = cc_total_recv;
         cc_total_recv += cc_recv_counts[i];
-        ldbg << "SEND["<<i<<"] : c="<<cc_send_counts[i]<<" d="<<cc_send_displs[i]<<std::endl;
-        ldbg << "RECV["<<i<<"] : c="<<cc_recv_counts[i]<<" d="<<cc_recv_displs[i]<<std::endl;
+        // ldbg << "SEND["<<i<<"] : c="<<cc_send_counts[i]<<" d="<<cc_send_displs[i]<<std::endl;
+        // ldbg << "RECV["<<i<<"] : c="<<cc_recv_counts[i]<<" d="<<cc_recv_displs[i]<<std::endl;
       }
       assert( cc_total_send == cc_map.size() );
       ldbg << "cc_total_send="<<cc_total_send<<" , cc_total_recv="<<cc_total_recv<<std::endl; 
@@ -360,8 +365,8 @@ namespace exanb
         cc_recv_counts[i] *= sizeof(ConnectedComponentInfo);
         cc_send_displs[i] *= sizeof(ConnectedComponentInfo);
         cc_recv_displs[i] *= sizeof(ConnectedComponentInfo);
-        ldbg << "* SEND["<<i<<"] : c="<<cc_send_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_send_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
-        ldbg << "* RECV["<<i<<"] : c="<<cc_recv_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_recv_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
+        // ldbg << "* SEND["<<i<<"] : c="<<cc_send_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_send_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
+        // ldbg << "* RECV["<<i<<"] : c="<<cc_recv_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_recv_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
       }
       MPI_Alltoallv( cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
                    , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
@@ -376,7 +381,7 @@ namespace exanb
       
       /*************************************************************************
        * finalize CC information statistics and filter out some of the CCs
-       * dependending on optional filtering parameters
+       * dependending on optional filtering parameters.
        *************************************************************************/
       for(const auto & cc : cc_recv_data)
       {
@@ -414,15 +419,38 @@ namespace exanb
       unsigned long long global_label_count = cc_table->m_table.size();
       MPI_Exscan( &global_label_count , &global_label_idx_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
       MPI_Allreduce( MPI_IN_PLACE , &global_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+      cc_table->m_global_label_count = global_label_count;
+      cc_table->m_local_label_start = global_label_idx_start;
 
-      // starting from here, m_rank field is not the rank of owning processor any more,
-      // just the global rank (index) of CC
+      // (!) starting from here, m_rank field is not the rank of owning processor any more,
+      // but the global label index, in [0;number_of_ccs[, of CC
       for(size_t i=0;i<cc_table->size();i++)
       {
         cc_table->at(i).m_rank = i + global_label_idx_start;
+        assert( cc_table->at(i).m_label >= 0.0 );
+        const uint64_t unique_id = strip_unique_id( static_cast<uint64_t>( cc_table->at(i).m_label ) );
+        cc_table->at(i).m_label = unique_id;
+        assert( unique_id == cc_table->at(i).m_label );
+        // ldbg << "CC["<<cc_table->at(i).m_rank<<"] : id="<<unique_id<<", count="<<cc_table->at(i).m_cell_count<<std::endl;
       }
-      cc_table->m_global_label_count = global_label_count;
-      cc_table->m_local_label_start = global_label_idx_start;
+
+      // also strip unique_id (cc_label) stored in cell values
+#     pragma omp parallel for collapse(3) schedule(static)
+      for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+      for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+      for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
+      {        
+        const ssize_t cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
+        for( ssize_t sk=0 ; sk<subdiv ; sk++)
+        for( ssize_t sj=0 ; sj<subdiv ; sj++)
+        for( ssize_t si=0 ; si<subdiv ; si++)
+        {
+          const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
+          const ssize_t value_index = cell_index * stride + subcell_index;
+          assert( value_index >= 0 );
+          if( cc_label_ptr[value_index] >= 0.0 ) cc_label_ptr[value_index] = strip_unique_id( static_cast<uint64_t>( cc_label_ptr[value_index] ) );              
+        }
+      }
 
       ldbg << "cc_label : owned_label_count="<<cc_table->size()<<", global_label_count="<<global_label_count<<", global_label_idx_start="<<global_label_idx_start << std::endl;
     }
