@@ -212,10 +212,8 @@ namespace exanb
         {
           ++ local_propagate_pass;
           ++ total_local_passes;
-          // ldbg << "local propagate pass "<< local_propagate_pass << std::endl;
-          label_update_count = 0;
-          //size_t n_ghost_updated = 0;
 
+          label_update_count = 0;
 #         pragma omp parallel for collapse(3) schedule(static) reduction(+:label_update_count)
           for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
           for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)

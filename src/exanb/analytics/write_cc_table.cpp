@@ -21,7 +21,6 @@ under the License.
 #include <exanb/core/operator_slot.h>
 #include <exanb/core/operator_factory.h>
 #include <exanb/core/domain.h>
-#include <exanb/core/string_utils.h>
 #include <exanb/analytics/cc_info.h>
 #include <mpi.h>
 #include <fstream>
@@ -42,11 +41,12 @@ namespace exanb
     inline void execute ()  override final
     {
       ldbg << "CC table size = "<< cc_table->size() << std::endl;
+/*
       for(size_t i=0;i<cc_table->size();i++)
       {
         ldbg <<"CC #"<<i<<" : label="<<static_cast<ssize_t>(cc_table->at(i).m_label)<<" count="<<cc_table->at(i).m_cell_count<<" center="<<cc_table->at(i).m_center<<std::endl;
       }
-      
+*/    
       int rank = 0 , nprocs = 1;
       MPI_Comm_rank( *mpi , &rank );
       MPI_Comm_size( *mpi , &nprocs );
@@ -59,26 +59,34 @@ namespace exanb
         fatal_error() << "MpiIO: unable to open file '" << *filename << "' for writing" << std::endl << std::flush ;
       }
 
-      static const std::string csv_header = "label ; global_id ; owner ; count ; center_x ; center_y ; center_z\n";
-      static const std::string csv_format = "%09d ; %09d ; %06d ; %09d ; % .6e ; % .6e ; % .6e\n";
-      static const std::string csv_sample = format_string( csv_format , 1 , 2 , 3 , 4, -3.5 , 56.36589845454 , -123 );
-      static const size_t header_size = csv_header.length();
-      static const size_t sample_size = csv_sample.length();
+      const char* csv_header = "label ; global_id ; count ; center_x ; center_y ; center_z\n";
+      const size_t header_size = std::strlen(csv_header);
+      const char* csv_sample_format = "% 012llu ; % 012llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
+      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0ull, 0., 0., 0. );
+      ldbg << "write_cc_table : samples="<<cc_table->size() <<", header_size="<<header_size<<", csv_sample_size="<<csv_sample_size<<std::endl;
 
       if( rank == 0)
       {
-        MPI_File_write_at( fileh , 0 , csv_header.c_str() , header_size , MPI_CHAR , MPI_STATUSES_IGNORE );
+        MPI_File_write_at( fileh, 0, csv_header, header_size, MPI_CHAR, MPI_STATUSES_IGNORE);
       }
-      
-      std::string cc_str;
+
+      std::vector<char> sample_buffer;
       for(size_t i=0;i<cc_table->size();i++)
       {
-        const ssize_t cell_label = static_cast<ssize_t>(cc_table->at(i).m_label);
-        const ssize_t global_id = cc_table->at(i).m_rank;
-        format_string_inplace( cc_str , csv_format , cell_label , global_id , rank , cc_table->at(i).m_cell_count , cc_table->at(i).m_center.x , cc_table->at(i).m_center.y , cc_table->at(i).m_center.z );
-        assert( cc_str.length() == sample_size );
-        MPI_File_write_at( fileh , header_size + ( global_id * sample_size ) , cc_str.c_str() , sample_size , MPI_CHAR , MPI_STATUSES_IGNORE );
-        ldbg << std::string_view(cc_str.c_str(),sample_size-1) << std::endl;
+        const unsigned long long cell_label = static_cast<ssize_t>(cc_table->at(i).m_label);
+        const unsigned long long global_id = cc_table->at(i).m_rank;
+        const unsigned long long cell_count = cc_table->at(i).m_cell_count;
+        const double cx = cc_table->at(i).m_center.x;
+        const double cy = cc_table->at(i).m_center.y;
+        const double cz = cc_table->at(i).m_center.z;
+        sample_buffer.assign( csv_sample_size+2 , '\0' );
+        int bufsize = std::snprintf( sample_buffer.data(), csv_sample_size+1, csv_sample_format, global_id, cell_label, cell_count, cx, cy, cz );
+        assert( bufsize == csv_sample_size );
+        sample_buffer[csv_sample_size-1] = '\n';
+        sample_buffer[csv_sample_size  ] = '\0';
+        MPI_File_write_at( fileh , header_size + ( global_id * csv_sample_size ) , sample_buffer.data() , csv_sample_size , MPI_CHAR , MPI_STATUSES_IGNORE );
+        //for(size_t c=0;c<csv_sample_size;c++) if( sample_buffer[c] == '\n' ) sample_buffer[c]=' ';
+        //ldbg << sample_buffer.data() << std::endl;
       }
       
       MPI_File_close( &fileh );
