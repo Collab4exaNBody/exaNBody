@@ -141,6 +141,7 @@ namespace exanb
       lerr.m_out = nullptr;
     }
 
+    bool disable_dbg_output = false;
     if( debug )
     {
       if( rank == 0 || parallel_log )
@@ -152,12 +153,15 @@ namespace exanb
       {
         ldbg_raw.m_begin_line = [rank](std::ostream& out) -> std::ostream& { return out<<exanb::format_string("P%03d: DBG: ",rank); } ;
       }
-      else
+      else if( rank == 0 )
       {
         ldbg_raw.m_begin_line = [](std::ostream& out) -> std::ostream& { return out<<"DBG: "; } ;
       }
+      else { disable_dbg_output = true; }
     }
-    else
+    else { disable_dbg_output = true; }
+    
+    if( disable_dbg_output )
     {
       ldbg_raw.m_out = nullptr;
       ldbg_raw.m_begin_line = nullptr;
