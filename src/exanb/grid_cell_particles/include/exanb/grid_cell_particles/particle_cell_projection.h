@@ -159,6 +159,8 @@ namespace exanb
           
           auto cells = grid.cells();
           const IJK dims = grid.dimension();
+          const ssize_t gl = grid.ghost_layers();
+          const IJK dims_no_gl = dims - 2*gl;
           //const ssize_t gl = grid.ghost_layers();      
           const double cell_size = grid.cell_size();
           const double subcell_size = cell_size / m_subdiv;
@@ -202,8 +204,10 @@ namespace exanb
                 }
               }
 
-              GRID_OMP_FOR_BEGIN(dims,i,cell_loc, schedule(dynamic) )
+              GRID_OMP_FOR_BEGIN(dims_no_gl,i_no_gl,cell_loc_no_gl, schedule(dynamic) )
               {
+                const IJK cell_loc = cell_loc_no_gl + gl;
+                const size_t i = grid_ijk_to_index( dims , cell_loc );
                 const Vec3d cell_origin = grid.cell_position( cell_loc );
                 const auto* __restrict__ rx = cells[i][field::rx];
                 const auto* __restrict__ ry = cells[i][field::ry];
