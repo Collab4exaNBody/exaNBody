@@ -26,6 +26,8 @@ under the License.
 #include <exanb/core/grid.h>
 #include <exanb/mpi/grid_update_ghosts.h>
 #include <exanb/analytics/cc_info.h>
+#include <exanb/grid_cell_particles/cell_particle_update_functor.h>
+#include <exanb/mpi/grid_update_from_ghosts.h>
 
 #include <mpi.h>
 
@@ -43,6 +45,7 @@ namespace exanb
 
     ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
     ADD_SLOT( long                    , cc_count_threshold  , INPUT , 1 ); // CC that have less or equal cells than this value, are ignored
+    ADD_SLOT( bool                    , cc_ordered  , INPUT , false , DocString{"When false, ccc ranks may change from run to run, but each process will have information about CCs it 'owns'. if true, output is fully deterministic and ordered according to CC unique ids"} );
 
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
@@ -66,6 +69,20 @@ namespace exanb
       {
         fatal_error() << "domain mirror boundary conditions are not supported yet for connected component analysis"<<std::endl;
       }
+
+/*
+      // DEBUG ONLY
+      // test if empty cells are also "ghost updated"
+      size_t n_empty_send_cells = 0;
+      for(const auto & partner : ghost_comm_scheme->m_partner)
+      {
+        for(const auto send_info : partner.m_sends)
+        {
+          if( send_info.m_particle_i.empty() ) ++ n_empty_send_cells;
+        }
+      }
+      ldbg << "n_empty_send_cells=" << n_empty_send_cells << std::endl;
+*/
       
       // cell size (alle cells are cubical)
       const double cell_size = domain->cell_size(); 
@@ -111,15 +128,12 @@ namespace exanb
 
       // density field data accessor.
       const auto density_accessor = grid_cell_values->field_data( *grid_cell_field );
-      const double  * __restrict__ density_ptr = density_accessor.m_data_ptr;
+      double  * __restrict__ density_ptr = density_accessor.m_data_ptr;
       const size_t density_stride = density_accessor.m_stride;
       
       // sanity check
       assert( cc_label_stride == density_stride );
       const size_t stride = density_stride; // for simplicity
-
-      // density threshold to select cells
-      const double threshold = *grid_cell_threshold ;
 
       // get communicator size and local rank
       int rank=0, nprocs=1;
@@ -127,6 +141,68 @@ namespace exanb
       MPI_Comm_size( *mpi , &nprocs );
       assert( rank < nprocs );
 
+      // null grid and functors needed for ghost updates
+      auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
+      auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); };
+      Grid< FieldSet<> > * null_grid_ptr = nullptr;
+      onika::FlatTuple<> update_fields = {};
+
+      // does the projected cell value has values in the ghost area ?
+      // create a unique label id for each cell satisfying selection criteria
+      unsigned long long nonzero_ghost_subcells = 0;
+#     pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
+      for( ssize_t k=0 ; k < grid_dims.k ; k++)
+      for( ssize_t j=0 ; j < grid_dims.j ; j++)
+      for( ssize_t i=0 ; i < grid_dims.i ; i++)
+      {
+        const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl)) || (j<gl) || (j>=(grid_dims.j-gl)) || (k<gl) || (k>=(grid_dims.k-gl));
+        if( is_ghost )
+        {
+          const ssize_t grid_cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
+          for( ssize_t sk=0 ; sk<subdiv ; sk++)
+          for( ssize_t sj=0 ; sj<subdiv ; sj++)
+          for( ssize_t si=0 ; si<subdiv ; si++)
+          {
+            const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
+            const ssize_t value_index = grid_cell_index * stride + subcell_index;
+            if( density_ptr[value_index] > 0.0 ) ++ nonzero_ghost_subcells;
+          }
+        }
+      }
+      MPI_Allreduce(MPI_IN_PLACE,&nonzero_ghost_subcells,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
+      
+      // if needed, propagate ghost cell scalars to inner cells using additive update.
+      if( nonzero_ghost_subcells > 0 )
+      {
+        ldbg << "nonzero_ghost_subcells="<<nonzero_ghost_subcells<<", grid_update_from_ghosts with UpdateValueAdd merge functor"<<std::endl;
+        grid_update_from_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
+                          *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                          0, false, false, false,
+                          true, false, UpdateValueAdd{} );
+#       pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
+        for( ssize_t k=0 ; k < grid_dims.k ; k++)
+        for( ssize_t j=0 ; j < grid_dims.j ; j++)
+        for( ssize_t i=0 ; i < grid_dims.i ; i++)
+        {
+          const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl)) || (j<gl) || (j>=(grid_dims.j-gl)) || (k<gl) || (k>=(grid_dims.k-gl));
+          if( is_ghost )
+          {
+            const ssize_t grid_cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
+            for( ssize_t sk=0 ; sk<subdiv ; sk++)
+            for( ssize_t sj=0 ; sj<subdiv ; sj++)
+            for( ssize_t si=0 ; si<subdiv ; si++)
+            {
+              const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
+              const ssize_t value_index = grid_cell_index * stride + subcell_index;
+              density_ptr[value_index] = 0.0;
+            }
+          }
+        }
+      }
+
+      // density threshold to select cells
+      const double threshold = *grid_cell_threshold ;
+      // other usefull values
       const size_t subdiv3 = subdiv * subdiv * subdiv;
       static constexpr double ghost_no_label = -2.0;
       static constexpr double no_label = -1.0;
@@ -134,17 +210,15 @@ namespace exanb
       // these 3 funcions define how we build unique ids such a way that :
       // 1. owner rank can be guessed from the unique_id
       // 2. final (stripped) unique ids will be deterministic and independant from parallel settings
-      auto encode_unique_id = [&](uint64_t cell_index, uint64_t subcell_index) -> uint64_t
+      auto encode_unique_id = [&](uint64_t domain_cell_index, uint64_t grid_cell_index, uint64_t subcell_index) -> uint64_t
       {
-        return ( cell_index * subdiv3 + subcell_index ) * nprocs + rank;
-      };
-      auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
-      {
-        return unique_id % nprocs;
+        if( *cc_ordered ) return domain_cell_index * subdiv3 + subcell_index;
+        else return ( grid_cell_index * subdiv3 + subcell_index ) * nprocs + rank;
       };
       auto strip_unique_id = [&](uint64_t unique_id) -> uint64_t 
       {
-        return unique_id / nprocs;
+        if( *cc_ordered ) return unique_id;
+        else return unique_id / nprocs;
       };
 
       // create a unique label id for each cell satisfying selection criteria
@@ -153,40 +227,24 @@ namespace exanb
       for( ssize_t j=0 ; j < grid_dims.j ; j++)
       for( ssize_t i=0 ; i < grid_dims.i ; i++)
       {
-        // are we in the ghost cell area ?
-        const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl))
-                           || (j<gl) || (j>=(grid_dims.j-gl))
-                           || (k<gl) || (k>=(grid_dims.k-gl));
-
-        // triple loop to enumerate sub cells inside a cell
+        const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl)) || (j<gl) || (j>=(grid_dims.j-gl)) || (k<gl) || (k>=(grid_dims.k-gl));
+        const ssize_t grid_cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
+        const ssize_t domain_cell_index = grid_ijk_to_index( domain_dims , IJK{i,j,k} - grid_offset );
         for( ssize_t sk=0 ; sk<subdiv ; sk++)
         for( ssize_t sj=0 ; sj<subdiv ; sj++)
         for( ssize_t si=0 ; si<subdiv ; si++)
         {
-          // computation of subcell index in local processor's grid
-          ssize_t cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
-          ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
-
-          // compute a simulation wide, processor invariant, sub cell label id;
-          size_t unique_id = encode_unique_id( cell_index , subcell_index );
+          const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
+          const uint64_t unique_id = encode_unique_id( domain_cell_index, grid_cell_index, subcell_index );
           double label = static_cast<double>(unique_id);
           assert( label == unique_id ); // ensures lossless conversion to double
-
-          // value index, is the index of current subcell for local processor's grid
-          ssize_t value_index = cell_index * stride + subcell_index;
+          const ssize_t value_index = grid_cell_index * stride + subcell_index;
           assert( value_index >= 0 );
-          
-          // assign a label to cells where density is above given threshold, otherwise assign no_label (-1.0)
           if( is_ghost ) label = ghost_no_label;
           else if( density_ptr[value_index] < threshold ) label = no_label;
           cc_label_ptr[value_index] = label;
         }
       }
-
-      auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
-      auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); };
-      Grid< FieldSet<> > * null_grid_ptr = nullptr;
-      onika::FlatTuple<> update_fields = {};
 
       /****************************************************
        * >>> propagate_minimum_label <<<
@@ -249,7 +307,7 @@ namespace exanb
                     const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
                     assert( nbh_value_index >= 0 );
-                    //if( nbh_is_ghost && cc_label_ptr[ nbh_value_index ] != ghost_no_label ) { ++ n_ghost_updated; }                    
+                    //assert( cc_label_ptr[nbh_value_index] != ghost_no_label );
                     if( cc_label_ptr[nbh_value_index] >= 0.0 && cc_label_ptr[nbh_value_index] < cc_label_ptr[value_index] )
                     {
                       cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
@@ -260,7 +318,6 @@ namespace exanb
               }
             }
           }
-          //ldbg << "n_ghost_updated="<<n_ghost_updated<<std::endl;
         
           if( label_update_count > 0 ) ++ label_update_passes;
         } while( label_update_count > 0 );
@@ -271,6 +328,7 @@ namespace exanb
       } while( label_update_passes > 0 );
 
       ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
+
 
       /*******************************************************************
        * count number of local ids and identify their respective owner process
@@ -300,8 +358,7 @@ namespace exanb
             if( cc_info.m_label == -1.0 )
             {
               cc_info.m_label = label;
-              cc_info.m_rank = owner_from_unique_id( unique_id );
-              assert( cc_info.m_rank >= 0 && cc_info.m_rank < nprocs );
+              cc_info.m_rank = -1; // not known yet
               cc_info.m_cell_count = 0;
               cc_info.m_center = Vec3d{0.,0.,0.};
               cc_info.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
@@ -316,16 +373,70 @@ namespace exanb
           }
         }
       }
-            
-      std::vector<int> cc_send_counts( nprocs , 0 );
-      std::vector<int> cc_recv_counts( nprocs , 0 );
 
-      ldbg << "cc_map.size() = "<<cc_map.size()<<std::endl;
-      for(const auto & cc : cc_map)
+      // compute unique ids dispatch accross processes
+      // such that we can deterministically order CCs
+      unsigned long long min_unique_id = 0;
+      unsigned long long max_unique_id = 0;
+      if( *cc_ordered )
       {
-        cc_send_counts[ cc.second.m_rank ] += 1;
+        bool range_init = true;
+        for(const auto & cc : cc_map)
+        {
+          assert( cc.second.m_label >= 0.0 );
+          unsigned long long unique_id = static_cast<unsigned long long>( cc.second.m_label );
+          if( range_init )
+          {
+            min_unique_id = max_unique_id = unique_id;
+            range_init = false;
+          }
+          else
+          {
+            min_unique_id = std::min( min_unique_id , unique_id );
+            max_unique_id = std::max( max_unique_id , unique_id );
+          }
+        }
+        MPI_Allreduce(MPI_IN_PLACE,&min_unique_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
+        MPI_Allreduce(MPI_IN_PLACE,&max_unique_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
+        ++ max_unique_id; // it has to be the first value that is never reached
+        ldbg << "min_unique_id="<<min_unique_id<<" , max_unique_id="<<max_unique_id<<std::endl;
       }
 
+      // now we can build a function to determine final destination (process rank) for each CC based on its label
+      auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
+      {
+        if( *cc_ordered )
+        {
+          return ( ( unique_id - min_unique_id ) * nprocs ) / ( max_unique_id - min_unique_id );
+        }
+        else
+        {
+          return unique_id % nprocs;
+        }
+      };      
+
+      // update map assigning correct destination process in m_rank field
+      for(auto & cc : cc_map)
+      {
+        assert( cc.second.m_label >= 0.0 );
+        unsigned long long unique_id = static_cast<unsigned long long>( cc.second.m_label );
+        cc.second.m_rank = owner_from_unique_id( unique_id );
+        assert( cc.second.m_rank >= 0 && cc.second.m_rank < nprocs );
+      }
+
+      // count how many cc table entries we'll send to each partner process
+      ldbg << "cc_map.size() = "<<cc_map.size()<<std::endl;
+      std::vector<int> cc_send_counts( nprocs , 0 );
+      std::vector<int> cc_recv_counts( nprocs , 0 );
+      for(const auto & cc : cc_map)
+      {
+        const int dest_proc = cc.second.m_rank;
+        assert( dest_proc>=0 && dest_proc<nprocs);
+        cc_send_counts[ dest_proc ] += 1;
+      }
+
+      // here, we know only how many elements we'll send to others processes,
+      // the following communication allows to get the number of elements we will receive from others
       MPI_Alltoall( cc_send_counts.data() , 1 , MPI_INT , cc_recv_counts.data() , 1 , MPI_INT , *mpi );      
       std::vector<int> cc_send_displs( nprocs , 0 );
       std::vector<int> cc_recv_displs( nprocs , 0 );
@@ -343,14 +454,17 @@ namespace exanb
       assert( cc_total_send == cc_map.size() );
       ldbg << "cc_total_send="<<cc_total_send<<" , cc_total_recv="<<cc_total_recv<<std::endl; 
       
+      
       std::vector<ConnectedComponentInfo> cc_recv_data( cc_total_recv , ConnectedComponentInfo{} );
       std::vector<ConnectedComponentInfo> cc_send_data( cc_total_send , ConnectedComponentInfo{} );      
       // fill send buffer from map ith respect to process rank order
       cc_total_send = 0;
       for(const auto & cc : cc_map)
       {
-        assert( cc_send_data[cc_send_displs[cc.second.m_rank]].m_label == -1.0 );
-        cc_send_data[ cc_send_displs[cc.second.m_rank] ++ ] = cc.second;
+        const int dest_proc = cc.second.m_rank;
+        assert( dest_proc>=0 && dest_proc<nprocs);
+        assert( cc_send_data[cc_send_displs[dest_proc]].m_label == -1.0 );
+        cc_send_data[ cc_send_displs[dest_proc] ++ ] = cc.second;
       }
       cc_map.clear();
       // make sur there's no hole left
@@ -410,8 +524,12 @@ namespace exanb
         if( ccp.second.m_cell_count >= (*cc_count_threshold) )
         {
           cc_table->m_table.push_back( ccp.second );
+          assert( cc_table->m_table.back().m_rank == rank );
+          cc_table->m_table.back().m_rank = -1;
         }
       }
+      cc_map.clear();
+      std::sort( cc_table->m_table.begin() , cc_table->m_table.end() , []( const ConnectedComponentInfo& cc_a , const ConnectedComponentInfo& cc_b ) -> bool { return cc_a.m_label < cc_b.m_label; } );
 
       unsigned long long global_label_idx_start = 0;
       unsigned long long global_label_count = cc_table->m_table.size();

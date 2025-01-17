@@ -59,10 +59,10 @@ namespace exanb
         fatal_error() << "MpiIO: unable to open file '" << *filename << "' for writing" << std::endl << std::flush ;
       }
 
-      const char* csv_header = "label ; global_id ; count ; center_x ; center_y ; center_z\n";
+      const char* csv_header = "label ; count ; center_x ; center_y ; center_z\n";
       const size_t header_size = std::strlen(csv_header);
-      const char* csv_sample_format = "% 012llu ; % 012llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
-      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0ull, 0., 0., 0. );
+      const char* csv_sample_format = "% 012llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
+      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0., 0., 0. );
       ldbg << "write_cc_table : samples="<<cc_table->size() <<", header_size="<<header_size<<", csv_sample_size="<<csv_sample_size<<std::endl;
 
       if( rank == 0)
@@ -80,7 +80,7 @@ namespace exanb
         const double cy = cc_table->at(i).m_center.y;
         const double cz = cc_table->at(i).m_center.z;
         sample_buffer.assign( csv_sample_size+2 , '\0' );
-        int bufsize = std::snprintf( sample_buffer.data(), csv_sample_size+1, csv_sample_format, global_id, cell_label, cell_count, cx, cy, cz );
+        int bufsize = std::snprintf( sample_buffer.data(), csv_sample_size+1, csv_sample_format, cell_label, cell_count, cx, cy, cz );
         assert( bufsize == csv_sample_size );
         sample_buffer[csv_sample_size-1] = '\n';
         sample_buffer[csv_sample_size  ] = '\0';

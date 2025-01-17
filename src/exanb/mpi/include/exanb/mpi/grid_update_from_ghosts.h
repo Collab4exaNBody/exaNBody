@@ -66,7 +66,7 @@ namespace exanb
     LDBGT& ldbg,
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
-    GridT& grid,
+    GridT* gridp,
     const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
@@ -93,7 +93,7 @@ namespace exanb
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
-    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
+    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
     using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
     using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,UpdateFuncT,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -111,6 +111,7 @@ namespace exanb
 
     //CellParticles* cells = grid.cells();
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
+    const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -120,7 +121,7 @@ namespace exanb
       cell_scalar_components = grid_cell_values->components();
       if( cell_scalar_components > 0 )
       {
-        assert( grid_cell_values->data().size() == grid.number_of_cells() * cell_scalar_components );
+        assert( grid_cell_values->data().size() == n_cells * cell_scalar_components );
         cell_scalars = grid_cell_values->data().data();
       }
     }
@@ -133,6 +134,8 @@ namespace exanb
       cell_scalar_components = 0;
     }
 
+    CellsAccessorT cells_accessor = { nullptr , nullptr };
+    if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
     // reverse order begins here, before the code is the same as in update_ghosts.h
     
     // initialize MPI requests for both sends and receives
@@ -169,7 +172,7 @@ namespace exanb
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                              , comm_scheme.m_partner[p].m_receive_offset.data()
                                              , ghost_comm_buffers.recvbuf_ptr(p)
-                                             , grid.cells_accessor()
+                                             , cells_accessor
                                              , cell_scalar_components
                                              , cell_scalars
                                              , ghost_comm_buffers.recvbuf_size(p)
@@ -247,7 +250,7 @@ namespace exanb
       const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
       ghost_cells_recv += cells_to_receive;
       unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
-                                              , grid.cells_accessor()
+                                              , cells_accessor
                                               , cell_scalars
                                               , cell_scalar_components
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
@@ -350,6 +353,31 @@ namespace exanb
     }
     
     ldbg << "--- end update_from_ghosts : received "<< ghost_cells_recv<<" ghost cells" << std::endl;
+  }
+
+
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT>
+  static inline void grid_update_from_ghosts(
+    LDBGT& ldbg,
+    MPI_Comm comm,
+    GhostCommunicationScheme& comm_scheme,
+    GridT& grid,
+    const Domain& domain,
+    GridCellValues* grid_cell_values,
+    UpdateGhostsScratchT& ghost_comm_buffers,
+    const PECFuncT& parallel_execution_context,
+    const PESFuncT& parallel_execution_stream,
+    const FieldAccTupleT& update_fields,
+    long comm_tag ,
+    bool gpu_buffer_pack ,
+    bool async_buffer_pack ,
+    bool staging_buffer ,
+    bool serialize_pack_send ,
+    bool wait_all,
+    UpdateFuncT update_func )
+  {
+    grid_update_from_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_stream,
+                       update_fields,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,update_func);
   }
 
 }

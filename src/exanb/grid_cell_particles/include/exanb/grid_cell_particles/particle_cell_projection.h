@@ -167,6 +167,11 @@ namespace exanb
           const ssize_t n_subcells = m_subdiv * m_subdiv * m_subdiv;
   #       endif
 
+          if( m_splat_size >= subcell_size )
+          {
+            lerr << "Warning: splat_size ("<<m_splat_size<<") >= subcell_size("<<subcell_size<<"), projected values wil be truncated"<<std::endl;
+          }
+
           const auto name = proj_field.short_name();
 
           if( m_field_selector(name) )
