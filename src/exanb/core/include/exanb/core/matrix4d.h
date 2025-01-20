@@ -417,7 +417,7 @@ namespace YAML
           {
             const auto vec = node["matrix"].as< std::vector<double> >();
             if( vec.size() != 16 ) return false;
-            M = make_mat4d( vec.data() );
+            M = exanb::make_mat4d( vec.data() );
           }
           else { return false; }
         }
