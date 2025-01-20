@@ -22,6 +22,7 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/math/basic_types.h>
+#include <onika/physics/units.h>
 
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
 #include <exanb/core/grid.h>
@@ -64,7 +65,6 @@ namespace microStamp
     inline void operator () (
       size_t n,                          // number of neighbor particles
       const ComputePairBufferT& buffer,  // neighbors buffer
-      double& e,                        // central particle's potential energy reference
       double& fx,                        // central particle's force/X reference
       double& fy,                        // central particle's force/Y reference
       double& fz,                        // central particle's force/Z reference
@@ -72,26 +72,22 @@ namespace microStamp
       ) const
     {
       // local energy and force contributions to the particle
-      double _e = 0.; 
       double _fx = 0.;
       double _fy = 0.;
       double _fz = 0.;
 
-#     pragma omp simd reduction(+:_e,_fx,_fy,_fz)
+#     pragma omp simd reduction(+:_fx,_fy,_fz)
       for(size_t i=0;i<n;i++)
       {
         const double r = std::sqrt(buffer.d2[i]);
         double pair_e=0.0, pair_de=0.0;
         lj_compute_energy( m_params, r, pair_e, pair_de );
         const auto interaction_weight = buffer.nbh_data.get(i);
-        pair_e *= interaction_weight;
         pair_de *= interaction_weight / r;        
         _fx += pair_de * buffer.drx[i];  // force is energy derivative multiplied by rij vector, sum force contributions for all neighbor particles
         _fy += pair_de * buffer.dry[i];
         _fz += pair_de * buffer.drz[i];
-        _e += .5 * pair_e;
       }
-      e  += _e;   // add local contribution to central particle's attributes
       fx += _fx;
       fy += _fy;
       fz += _fz;
@@ -102,7 +98,6 @@ namespace microStamp
     ONIKA_HOST_DEVICE_FUNC inline void operator () (
         Vec3d dr
       , double d2
-      , double& e
       , double& fx
       , double& fy
       , double& fz
@@ -114,12 +109,10 @@ namespace microStamp
       const double r = sqrt(d2);
       double pair_e = 0.0 , pair_de = 0.0;
       lj_compute_energy( m_params, r, pair_e, pair_de );
-      pair_e *= interaction_weight;
       pair_de *= interaction_weight / r;        
       fx += pair_de * dr.x;
       fy += pair_de * dr.y;
       fz += pair_de * dr.z;
-      e += .5 * pair_e;
     }
 
   };
@@ -144,18 +137,15 @@ namespace exanb
 // Yaml conversion operators, allows to read potential parameters from config file
 namespace YAML
 {
-  using microStamp::LennardJonesParms;
-  using exanb::UnityConverterHelper;
-  using exanb::Quantity;
 
-  template<> struct convert<LennardJonesParms>
+  template<> struct convert< microStamp::LennardJonesParms >
   {
-    static bool decode(const Node& node, LennardJonesParms& v)
+    static bool decode(const Node& node, microStamp::LennardJonesParms & v)
     {
-      v = LennardJonesParms{};
+      v = microStamp::LennardJonesParms {};
       if( !node.IsMap() ) { return false; }
-      v.epsilon = node["epsilon"].as<Quantity>().convert();
-      v.sigma   = node["sigma"]  .as<Quantity>().convert();
+      v.epsilon = node["epsilon"].as<onika::physics::Quantity>().convert();
+      v.sigma   = node["sigma"]  .as<onika::physics::Quantity>().convert();
       return true;
     }
   };
@@ -168,7 +158,7 @@ namespace microStamp
 
   template<
     class GridT,
-    class = AssertGridHasFields< GridT, field::_ep ,field::_fx ,field::_fy ,field::_fz >
+    class = AssertGridHasFields< GridT, field::_fx ,field::_fy ,field::_fz >
     >
   class LennardJonesForce : public OperatorNode
   {
@@ -184,8 +174,7 @@ namespace microStamp
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_pair_singlemat
     using ComputeBuffer = ComputePairBuffer2<false,false>;
-    using CellParticles = typename GridT::CellParticles;
-    using ComputeFields = FieldSet< field::_ep ,field::_fx ,field::_fy ,field::_fz >;
+    static inline constexpr FieldSet< field::_fx ,field::_fy ,field::_fz > compute_field_set = {};
 
   public:
     // Operator execution
@@ -203,7 +192,7 @@ namespace microStamp
 
       LinearXForm cp_xform { domain->xform() };
       auto optional = make_compute_pair_optional_args( nbh_it, ComputePairNullWeightIterator{} , cp_xform, cp_locks );
-      compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , ComputeFields{} , DefaultPositionFields{} , parallel_execution_context() );      
+      compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , compute_field_set , parallel_execution_context() );      
     }
 
   };

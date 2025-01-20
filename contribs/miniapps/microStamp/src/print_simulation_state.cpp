@@ -25,12 +25,13 @@ under the License.
 #include <onika/cpp_utils.h>
 #include <exanb/core/domain.h>
 
+#include "simulation_state.h"
+
 namespace microStamp
 {
   using namespace exanb;
   using onika::scg::OperatorNodeFactory;
   using onika::scg::OperatorNode;
-  using SimulationState = std::vector<double>;
 
   class PrintSimulationState : public OperatorNode
   {  
@@ -45,15 +46,12 @@ namespace microStamp
     ADD_SLOT( long               , domain_ext_counter  , INPUT_OUTPUT );
     ADD_SLOT( double             , lb_inbalance_max    , INPUT_OUTPUT );
 
-    // NEW
-    ADD_SLOT(Domain              , domain              , INPUT , OPTIONAL, DocString{"Deformation box matrix"} );
-
   public:
     inline bool is_sink() const override final { return true; }
   
     inline void execute () override final
-    {      
-      lout << "T=" << (*physical_time) << " , N="<< simulation_state->at(2) << " , Kin.E="<<simulation_state->at(0)<< " , Pot.E="<<simulation_state->at(1) << std::endl;
+    {
+      lout << "T=" << (*physical_time) << " , N="<< simulation_state->m_particle_count << " , Kin.E="<<simulation_state->m_kinetic_energy << " , LB="<<(*lb_counter)<<"/"<<(*move_counter)<<"/"<<(*domain_ext_counter)<<"/"<<(*lb_inbalance_max)<<std::endl;
     }
 
   };

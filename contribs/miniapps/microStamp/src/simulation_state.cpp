@@ -31,10 +31,11 @@ under the License.
 #include <mpi.h>
 #include <cstring>
 
+#include "simulation_state.h"
+
 namespace microStamp
 {
   using namespace exanb;
-  using SimulationState = std::vector<double>;
 
   template<
     class GridT ,
@@ -45,13 +46,12 @@ namespace microStamp
     ADD_SLOT( MPI_Comm           , mpi                 , INPUT , MPI_COMM_WORLD);
     ADD_SLOT( GridT              , grid                , INPUT , REQUIRED);
     ADD_SLOT( Domain             , domain              , INPUT , REQUIRED);
-    ADD_SLOT( SimulationState , simulation_state , OUTPUT );
+    ADD_SLOT( SimulationState    , simulation_state    , OUTPUT );
 
     inline void execute () override final
     {
       MPI_Comm comm = *mpi;
       GridT& grid = *(this->grid);
-      auto & sim_info = *simulation_state;
 
       auto cells = grid.cells();
       IJK dims = grid.dimension();
@@ -60,11 +60,11 @@ namespace microStamp
 
       double kinetic_energy = 0.0;  // constructs itself with 0s
       double potential_energy = 0.;
-      size_t total_particles = 0;
+      unsigned long long total_particles = 0;
       
 #     pragma omp parallel
       {
-        GRID_OMP_FOR_BEGIN(dims_no_ghost,_,loc_no_ghosts, reduction(+:potential_energy,kinetic_energy,total_particles) )
+        GRID_OMP_FOR_BEGIN(dims_no_ghost,_,loc_no_ghosts, reduction(+:kinetic_energy,total_particles) )
         {
           IJK loc = loc_no_ghosts + ghost_layers;
           size_t cell_i = grid_ijk_to_index(dims,loc);
@@ -72,32 +72,28 @@ namespace microStamp
           const double* __restrict__ vx = cells[cell_i][field::vx];
           const double* __restrict__ vy = cells[cell_i][field::vy];
           const double* __restrict__ vz = cells[cell_i][field::vz];
-          const double* __restrict__ ep = cells[cell_i].field_pointer_or_null(field::ep);
 
           double local_kinetic_ernergy = 0.;
-          double local_potential_energy = 0.;
           size_t n = cells[cell_i].size();
 
-#         pragma omp simd reduction(+:local_potential_energy,local_kinetic_ernergy)
+#         pragma omp simd reduction(+:local_kinetic_ernergy)
           for(size_t j=0;j<n;j++)
           {
             const double mass = 1.0;
             Vec3d v { vx[j], vy[j], vz[j] };
             local_kinetic_ernergy += dot(v,v) * mass;
-            local_potential_energy += ep[j];
           }
-          potential_energy += local_potential_energy;
           kinetic_energy += local_kinetic_ernergy;
           total_particles += n;
         }
         GRID_OMP_FOR_END
       }
 
-      sim_info.resize(3,0.0);
-      sim_info[0] = kinetic_energy;
-      sim_info[1] = potential_energy;
-      sim_info[2] = total_particles;
-      MPI_Allreduce(MPI_IN_PLACE,sim_info.data(),3,MPI_DOUBLE,MPI_SUM,comm);
+      MPI_Allreduce(MPI_IN_PLACE, &kinetic_energy, 1, MPI_DOUBLE, MPI_SUM, comm);
+      MPI_Allreduce(MPI_IN_PLACE, &total_particles, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, comm);
+      
+      simulation_state->m_kinetic_energy = kinetic_energy;
+      simulation_state->m_particle_count = total_particles;
     }
   };
     
