@@ -96,6 +96,11 @@ namespace exanb
     return M;
   }
 
+  ONIKA_HOST_DEVICE_FUNC inline Mat4d make_mat4d( const double* m_in )
+  {
+    return Mat4d{ { {m_in[0],m_in[1],m_in[2],m_in[3]} , {m_in[4],m_in[5],m_in[6],m_in[7]} ,{m_in[8],m_in[9],m_in[10],m_in[11]} ,{m_in[12],m_in[13],m_in[14],m_in[15]} } };
+  }
+
   struct Vec4d
   {
     double v[4] = { 0.0 , 0.0 , 0.0 , 1.0 };
@@ -408,6 +413,12 @@ namespace YAML
           else if( node["scale"] ) M = exanb::scaling_mat4d( node["scale"].as<Vec3d>() );
           else if( node["translate"] ) M = exanb::translation_mat4d( node["translate"].as<Vec3d>() );
           else if( node["plane"] ) M = exanb::plane_quadric( node["plane"].as<Plane3d>() );
+          else if( node["matrix"] )
+          {
+            const auto vec = node["matrix"].as< std::vector<double> >();
+            if( vec.size() != 16 ) return false;
+            M = make_mat4d( vec.data() );
+          }
           else { return false; }
         }
         else
