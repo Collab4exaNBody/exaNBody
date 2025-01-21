@@ -45,6 +45,7 @@ default_simulation:
   - global
   - unit_system
   - input_data
+  - nbh_dist
   - print_domain
   - first_iteration
   - compute_loop

@@ -1,16 +1,10 @@
 compute_force: nop
 
-compute_force_prolog:
-  - set_force: { value: [ 0.0 , 0.0 , 0.0 ] }
-
-# usually this is where you divide force by mass to use it as acceleration
+# usually at then end of this block you divide force by mass to use it as acceleration
 # in the simplest case, we'll assume a uniform mass of 1.0, thus we have f=m.a <=> f=a
-compute_force_epilog: nop
-
 compute_all_forces_energy:
-  - compute_force_prolog
+  - zero_particle_force
   - compute_force
-  - compute_force_epilog
 
 verlet_first_half:
   - push_f_v_r: { dt_scale: 1.0 , xform_mode: INV_XFORM }
