@@ -1,0 +1,25 @@
+trigger_dump_data:
+  rebind: { freq: simulation_dump_frequency , result: trigger_dump_data }
+  body:
+    - nth_timestep: { first: false }
+
+dump_data_if_triggered:
+  condition: trigger_dump_data
+  body:
+    - dump_data
+
+# paraview output
+dump_data_paraview:
+  - timestep_file: "paraview/output_%09d"
+  - message: { mesg: "Write " , endl: false }
+  - print_dump_file:
+      rebind: { mesg: filename }
+      body:
+        - message: { endl: true }
+  - write_paraview_generic
+
+dump_data: dump_data_paraview
+
+final_dump: dump_data
+
+

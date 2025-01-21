@@ -15,46 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
 # =============================
 # === micro-stamp mini-app  ===
 # =============================
-
-
-cmake_minimum_required(VERSION 3.26)
-
-# ========================================
-# === Compiler toolchain configuration ===
-# ========================================
-# C++ standard
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS NO)
-
-# ===============
-# === Project ===
-# ===============
-project(microStamp VERSION 1.0 LANGUAGES C CXX)
-
-# ==============================
-# === Application version    ===
-# ==============================
-set(MICROSTAMP_VERSION "microStamp-${CMAKE_PROJECT_VERSION}") 
-message(STATUS "Project version : ${MICROSTAMP_VERSION}")
-
-# ===========================
-# === CMake customization ===
-# ===========================
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
-
-# ======================================
-# === exaNBody application framework ===
-# ======================================
-find_package(exaNBody)
+# does not specialize anything, simmply adds a plugin with MD intramolecular potential
 
 # ==========================================
 # === build application plugins and libs ===
 # ==========================================
-set(microStamp_LINK_LIBRARIES exanbGridCellParticles exanbCompute exanbMPI exanbCore)
+set(ONIKA_BUILD_microStamp_FORCED ON)
+set(microStamp_LINK_LIBRARIES exanbGridCellParticles exanbCompute exanbParticleNeighbors exanbIO exanbMPI exanbCore)
 onika_add_plugin(microStamp ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # ============================
@@ -62,8 +33,4 @@ onika_add_plugin(microStamp ${CMAKE_CURRENT_SOURCE_DIR}/src)
 # ============================
 AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/regression)
 
-# ===========================================================
-# === generate execution wrappers and environment scripts ===
-# ===========================================================
-GenerateEndUserExecEnv()
 

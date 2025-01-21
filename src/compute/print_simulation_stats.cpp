@@ -21,45 +21,40 @@ under the License.
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
-#include <onika/string_utils.h>
 #include <onika/cpp_utils.h>
 #include <exanb/core/domain.h>
 
-#include "simulation_state.h"
+#include <exanb/compute/simulation_statistics.h>
 
-namespace microStamp
+namespace exanb
 {
-  using namespace exanb;
   using onika::scg::OperatorNodeFactory;
   using onika::scg::OperatorNode;
 
-  class PrintSimulationState : public OperatorNode
+  class PrintSimulationStatistics : public OperatorNode
   {  
     // thermodynamic state & physics data
     ADD_SLOT( long               , timestep            , INPUT , REQUIRED );
     ADD_SLOT( double             , physical_time       , INPUT , REQUIRED );
-    ADD_SLOT( SimulationState    , simulation_state    , INPUT , REQUIRED );
-
-    // LB and particle movement statistics
-    ADD_SLOT( long               , lb_counter          , INPUT_OUTPUT );
-    ADD_SLOT( long               , move_counter        , INPUT_OUTPUT );
-    ADD_SLOT( long               , domain_ext_counter  , INPUT_OUTPUT );
-    ADD_SLOT( double             , lb_inbalance_max    , INPUT_OUTPUT );
+    ADD_SLOT( SimulationStatistics    , simulation_stats    , INPUT , REQUIRED );
 
   public:
     inline bool is_sink() const override final { return true; }
   
     inline void execute () override final
     {
-      lout << "T=" << (*physical_time) << " , N="<< simulation_state->m_particle_count << " , Kin.E="<<simulation_state->m_kinetic_energy << " , LB="<<(*lb_counter)<<"/"<<(*move_counter)<<"/"<<(*domain_ext_counter)<<"/"<<(*lb_inbalance_max)<<std::endl;
+      lout<<"step="<<*timestep<<", time=" << (*physical_time)
+      << ", N="<< simulation_stats->m_particle_count << ", Kin.E="<<simulation_stats->m_kinetic_energy
+      <<", vel=["<<simulation_stats->m_min_vel<<";"<<simulation_stats->m_max_vel<<"]"
+      <<", acc=["<<simulation_stats->m_min_acc<<";"<<simulation_stats->m_max_acc<<"]" <<std::endl;
     }
 
   };
     
   // === register factories ===  
-  ONIKA_AUTORUN_INIT(print_simulation_state)
+  ONIKA_AUTORUN_INIT(print_simulation_stats)
   {
-   OperatorNodeFactory::instance()->register_factory( "print_simulation_state", make_simple_operator<PrintSimulationState> );
+   OperatorNodeFactory::instance()->register_factory( "print_simulation_stats", make_simple_operator<PrintSimulationStatistics> );
   }
 
 }

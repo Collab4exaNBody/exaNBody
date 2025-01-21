@@ -2,7 +2,28 @@ configuration:
   logging:
     debug: false
 
-simulation:
+includes:
+  - global-defaults.msp
+  - dump-data.msp
+  - simulation-log.msp
+  - numerical-scheme.msp
+  - update-particles.msp
+  - compute-loop.msp
+
+domain:
+  cell_size: 1.0
+
+# defaults to null input data
+input_data:
+  - domain
+  - grid_clear
+
+unit_system:
+      verbose: true
+      unit_system: { length: meter , mass: kilogram , time: second , charge: coulomb , temperature: kelvin , amount: mol , luminosity: candela , angle: radian , energy: joule }
+
+# pretty logo banner
+logo_banner:
   - message: |
       
                       _   _ ______           _                _____  _____
@@ -14,12 +35,32 @@ simulation:
                                                 __/ |
                                                |___/
 
+
+# default N-Body simulation structure
+# one can use this default simulation backbone as a start point or miniapp skeleton
+default_simulation:
+  - logo_banner
   - mpi_comm_world
   - init_cuda
-  - unit_system:
-      verbose: true
-      unit_system: { length: meter , mass: kilogram , time: second , charge: coulomb , temperature: kelvin , amount: mol , luminosity: candela , angle: radian , energy: joule }
-  - grid_clear
+  - global
+  - unit_system
+  - input_data
+  - print_domain
+  - first_iteration
+  - compute_loop
   - memory_stats: { musage_threshold: 16 }
   - finalize_cuda
+
+# demo test simulation block, may run without any data at all
+# just to see if executable runs well
+test_simulation:
+  - logo_banner
+  - mpi_comm_world
+  - init_cuda
+  - global
+  - unit_system
+  - memory_stats: { musage_threshold: 16 }
+  - finalize_cuda
+
+simulation: test_simulation
 

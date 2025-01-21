@@ -148,6 +148,7 @@ function(xnb_add_plugin PluginName dirname)
 endfunction()
 
 add_subdirectory(src)
+add_subdirectory(contribs)
 
 file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Optionall generate an executable wrapper named after end user's application name\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "macro(GenerateEndUserExecEnv)\n")

@@ -19,11 +19,15 @@ under the License.
 
 #pragma once
 
-namespace microStamp
+namespace exanb
 {
-  struct SimulationState
+  struct SimulationStatistics
   {
     double m_kinetic_energy = 0.0;
+    double m_min_vel = std::numeric_limits<double>::max();
+    double m_max_vel = 0.0;
+    double m_min_acc = std::numeric_limits<double>::max();
+    double m_max_acc = 0.0;
     unsigned long long m_particle_count = 0;
   };
 }

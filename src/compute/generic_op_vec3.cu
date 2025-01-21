@@ -55,7 +55,7 @@ namespace exanb
   template<class OP>
   struct GenericVec3Functor
   {
-    const Vec3d v;
+    const Vec3d v = {0.,0.,0.};
     const OP op;
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( double & x, double & y, double & z ) const
     {
@@ -119,7 +119,7 @@ namespace exanb
     >
   class GenericVec3Operator : public OperatorNode
   {  
-    ADD_SLOT( Vec3d , value , INPUT , REQUIRED );
+    ADD_SLOT( Vec3d , value , INPUT , Vec3d{0.,0.,0.} );
     ADD_SLOT( GridT , grid  , INPUT_OUTPUT);
 
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );

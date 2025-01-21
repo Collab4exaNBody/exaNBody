@@ -163,14 +163,13 @@ namespace microStamp
   class LennardJonesForce : public OperatorNode
   {
     // ========= I/O slots =======================
-    ADD_SLOT( LennardJonesParms , config , INPUT , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
-    ADD_SLOT( double , rcut , INPUT , 0.0 , DocString{"Cutoff distance"} );
-    ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
-    ADD_SLOT( bool , ghost , INPUT , false , DocString{"Enables computation in ghost cells"});
-    ADD_SLOT( Domain , domain , INPUT , REQUIRED , DocString{"Simulation domain"});
-
-    ADD_SLOT( double , rcut_max , INPUT_OUTPUT , 0.0 , DocString{"Updated max rcut"});
-    ADD_SLOT( GridT , grid , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
+    ADD_SLOT( LennardJonesParms         , config          , INPUT        , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
+    ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance"} );
+    ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
+    ADD_SLOT( bool                      , ghost           , INPUT        , false , DocString{"Enables computation in ghost cells"});
+    ADD_SLOT( Domain                    , domain          , INPUT        , REQUIRED , DocString{"Simulation domain"});
+    ADD_SLOT( double                    , rcut_max        , INPUT_OUTPUT , 0.0 , DocString{"Updated max rcut"});
+    ADD_SLOT( GridT                     , grid            , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_pair_singlemat
     using ComputeBuffer = ComputePairBuffer2<false,false>;
