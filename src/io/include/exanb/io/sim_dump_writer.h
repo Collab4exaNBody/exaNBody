@@ -523,18 +523,24 @@ namespace exanb
   template<typename GridT, class OptionalDumpFilter, class ... DumpFieldIds >
   class SimDumpWriter< GridT , FieldSet<DumpFieldIds...> , OptionalDumpFilter > : public OperatorNode
   {
-    ADD_SLOT( MPI_Comm    , mpi             , INPUT );
-    ADD_SLOT( GridT       , grid     , INPUT );
-    ADD_SLOT( Domain      , domain   , INPUT );
-    ADD_SLOT( std::string , filename , INPUT );
-    ADD_SLOT( long        , timestep      , INPUT , DocString{"Iteration number"} );
-    ADD_SLOT( double      , physical_time , INPUT , DocString{"Physical time"} );
-    ADD_SLOT( long        , compression_level , INPUT , 0 , DocString{"Zlib compression level"} );
+    ADD_SLOT( MPI_Comm    , mpi               , INPUT , REQUIRED );
+    ADD_SLOT( GridT       , grid              , INPUT , REQUIRED );
+    ADD_SLOT( Domain      , domain            , INPUT , REQUIRED );
+    ADD_SLOT( std::string , filename          , INPUT , std::string("output.dump") );
+    ADD_SLOT( long        , timestep          , INPUT , DocString{"Iteration number"} );
+    ADD_SLOT( double      , physical_time     , INPUT , DocString{"Physical time"} );
+    ADD_SLOT( long        , compression_level , INPUT , 6 , DocString{"Zlib compression level"} );
+    ADD_SLOT( long        , max_part_size     , INPUT , -1 , DocString{"Maximum file partition size. set -1 for system default value"} );
 
   public:
     inline void execute () override final
     {
-      write_dump( *mpi, ldbg, *grid, *domain, *physical_time, *timestep, *filename, *compression_level, FieldSet< DumpFieldIds... >{} , OptionalDumpFilter{} );
+      static constexpr FieldSet< field::_rx,field::_ry,field::_rz, field::_vx,field::_vy,field::_vz, field::_id, field::_type > dump_fields = {};
+      static constexpr OptionalDumpFilter dump_filter = {};
+      
+      size_t mps = MpiIO::DEFAULT_MAX_FILE_SIZE;
+      if( *max_part_size > 0 ) mps = *max_part_size;
+      write_dump( *mpi, ldbg, *grid, *domain, *physical_time, *timestep, *filename, *compression_level, dump_fields, dump_filter, mps );
     }
   };
 

@@ -19,10 +19,8 @@ under the License.
 
 #include <exanb/grid_cell_particles/lattice_generator.h>
 
-namespace microStamp
+namespace exanb
 {
-  using namespace exanb;
-
   template<class GridT> using RegionLatticeTmpl = exanb::RegionLattice<GridT,field::_type>;
 
   // === register factories ===

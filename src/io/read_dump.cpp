@@ -30,23 +30,18 @@ under the License.
 #include <fstream>
 #include <string>
 
-#include <exanb/io/sim_dump_writer.h>
+#include <exanb/io/sim_dump_reader.h>
 
 namespace exanb
 {
   
 
-  template<class GridT> using SimDumpWritePositions = SimDumpWriter<GridT, FieldSet<field::_rx,field::_ry,field::_rz> >;
-  template<class GridT> using SimDumpWriteAll = SimDumpWriter<GridT, typename GridT::Fields >;
+  template<class GridT> using SimDumpReadAllButForce = SimDumpReader<GridT, FieldSet<field::_rx,field::_ry,field::_rz, field::_vx,field::_vy,field::_vz, field::_id, field::_type> >;
 
-  namespace exanb_io_write_dump
+  // === register factories ===
+  ONIKA_AUTORUN_INIT(read_dump)
   {
-    // === register factories ===
-    ONIKA_AUTORUN_INIT(sim_dump_writer)
-    {
-      OperatorNodeFactory::instance()->register_factory( "write_dump_r" , make_grid_variant_operator<SimDumpWritePositions> );
-      OperatorNodeFactory::instance()->register_factory( "write_dump_all" , make_grid_variant_operator<SimDumpWriteAll> );
-    }
+    OperatorNodeFactory::instance()->register_factory( "read_dump" , make_grid_variant_operator<SimDumpReadAllButForce> );
   }
 
 }

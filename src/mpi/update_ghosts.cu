@@ -48,16 +48,15 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
   // === register factory ===
-  namespace ghost_update
-  {
-    template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , typename GridT::Fields , true >;
-    template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false >;
+  template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , typename GridT::Fields , true >;
+  template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false >;
+  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > , true >;
 
-    ONIKA_AUTORUN_INIT(update_ghosts)
-    {
-      OperatorNodeFactory::instance()->register_factory( "ghost_update_all",    make_grid_variant_operator<UpdateGhostsAllFields> );
-      OperatorNodeFactory::instance()->register_factory( "ghost_update_r",      make_grid_variant_operator<UpdateGhostsR> );
-    }
+  ONIKA_AUTORUN_INIT(update_ghosts)
+  {
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_all",       make_grid_variant_operator<UpdateGhostsAllFields> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_fv", make_grid_variant_operator<UpdateGhostsAllFieldsNoFV> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_r",         make_grid_variant_operator<UpdateGhostsR> );
   }
 
 }

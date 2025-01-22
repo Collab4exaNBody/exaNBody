@@ -27,10 +27,8 @@ under the License.
 #include <exanb/grid_cell_particles/particle_region.h>
 #include <exanb/compute/gaussian_noise.h>
 
-namespace microStamp
+namespace exanb
 {
-  using namespace exanb;
-
   template<class GridT> using GaussianNoiseR = GaussianNoise < GridT , field::_id , FieldSet<field::_rx,field::_ry,field::_rz> >;
   template<class GridT> using GaussianNoiseV = GaussianNoise < GridT , field::_id , FieldSet<field::_vx,field::_vy,field::_vz> >;
   template<class GridT> using GaussianNoiseF = GaussianNoise < GridT , field::_id , FieldSet<field::_fx,field::_fy,field::_fz> >;

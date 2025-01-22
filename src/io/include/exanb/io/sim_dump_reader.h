@@ -33,6 +33,7 @@ under the License.
 
 #include <exanb/io/mpi_file_io.h>
 #include <exanb/io/sim_dump_io.h>
+#include <onika/file_utils.h>
 
 #include <string>
 #include <mpi.h>
@@ -430,22 +431,29 @@ namespace exanb
     read_dump_transcode( comm, ldbg, grid, domain, phystime, timestep, filename, dump_filter, dump_fields );
   }
 
+
+  // =============== give user a default component implementation for dump read ==========================  
   template<typename GridT, class FS, class OptionalDumpFilter = NullDumpOptionalFilter > class SimDumpReader;
 
   template<typename GridT, class OptionalDumpFilter, class ... DumpFieldIds >
   class SimDumpReader< GridT , FieldSet<DumpFieldIds...> , OptionalDumpFilter > : public OperatorNode
   {
-    ADD_SLOT( MPI_Comm    , mpi             , INPUT );
-    ADD_SLOT( GridT       , grid     , INPUT_OUTPUT );
-    ADD_SLOT( Domain      , domain   , INPUT_OUTPUT );
-    ADD_SLOT(long         , timestep      , INPUT_OUTPUT , DocString{"Iteration number"} );
-    ADD_SLOT(double       , physical_time , INPUT_OUTPUT , DocString{"Physical time"} );
-    ADD_SLOT( std::string , filename , INPUT );
+    ADD_SLOT( MPI_Comm    , mpi           , INPUT , REQUIRED );
+    ADD_SLOT( std::string , filename      , INPUT , REQUIRED );
+    ADD_SLOT( long        , timestep      , INPUT , DocString{"Iteration number"} );
+    ADD_SLOT( double      , physical_time , INPUT , DocString{"Physical time"} );
+    ADD_SLOT( GridT       , grid          , INPUT_OUTPUT , REQUIRED );
+    ADD_SLOT( Domain      , domain        , INPUT_OUTPUT , REQUIRED );
 
   public:
     inline void execute () override final
     {
-      read_dump( *mpi, ldbg, *grid, *domain, *physical_time, *timestep, *filename, FieldSet< DumpFieldIds... >{} , OptionalDumpFilter{} );
+      static constexpr FieldSet< DumpFieldIds... > dump_field_set = {};
+      static constexpr OptionalDumpFilter dump_filter = {};
+      std::string file_name = onika::data_file_path( *filename );
+      *physical_time = 0.0;
+      *timestep = 0;
+      read_dump( *mpi, ldbg, *grid, *domain, *physical_time, *timestep, file_name, dump_field_set, dump_filter );
     }
   };
 
