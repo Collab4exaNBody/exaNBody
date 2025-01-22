@@ -58,7 +58,6 @@ namespace exanb
       IJK dims_no_ghost = dims - (2*ghost_layers);
 
       double kinetic_energy = 0.0;  // constructs itself with 0s
-      double potential_energy = 0.;
       unsigned long long total_particles = 0;
       double min_vel = std::numeric_limits<double>::max();
       double min_acc = std::numeric_limits<double>::max();

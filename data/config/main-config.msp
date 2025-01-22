@@ -19,8 +19,7 @@ input_data:
   - grid_clear
 
 unit_system:
-      verbose: true
-      unit_system: { length: meter , mass: kilogram , time: second , charge: coulomb , temperature: kelvin , amount: mol , luminosity: candela , angle: radian , energy: joule }
+  verbose: true
 
 # pretty logo banner
 logo_banner:
