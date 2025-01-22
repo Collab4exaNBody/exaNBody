@@ -413,12 +413,6 @@ namespace YAML
           else if( node["scale"] ) M = exanb::scaling_mat4d( node["scale"].as<Vec3d>() );
           else if( node["translate"] ) M = exanb::translation_mat4d( node["translate"].as<Vec3d>() );
           else if( node["plane"] ) M = exanb::plane_quadric( node["plane"].as<Plane3d>() );
-          else if( node["matrix"] )
-          {
-            const auto vec = node["matrix"].as< std::vector<double> >();
-            if( vec.size() != 16 ) return false;
-            M = exanb::make_mat4d( vec.data() );
-          }
           else { return false; }
         }
         else
