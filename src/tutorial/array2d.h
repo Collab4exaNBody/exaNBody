@@ -28,7 +28,7 @@ namespace tutorial
     double * const m_data_ptr = nullptr; // our 2D array
     size_t const m_rows = 0;              // number of rows in our array
     size_t const m_columns = 0;           // number of columns in our array
-    ONIKA_HOST_DEVICE_FUNC inline Array2DReference(Array2DReference && a) = default;
+    Array2DReference(Array2DReference && a) = default;
     ONIKA_HOST_DEVICE_FUNC inline Array2DReference(const Array2DReference& a) : m_data_ptr(a.m_data_ptr) , m_rows(a.m_rows) , m_columns(a.m_columns) {}
     ONIKA_HOST_DEVICE_FUNC inline Array2DReference(Array2D& a) : m_data_ptr(a.data()) , m_rows(a.rows()) , m_columns(a.columns()) {}
     ONIKA_HOST_DEVICE_FUNC inline double * operator [] (size_t row) const { return m_data_ptr + ( m_columns * row ); }

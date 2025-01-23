@@ -10,10 +10,6 @@
 #include <type_traits>
 #include <mpi.h>
 
-//#include <exanb/compute/math_functors.h>
-// allow field combiner to be processed as standard field
-//ONIKA_DECLARE_FIELD_COMBINER( exanb, VelocityNorm2Combiner , vnorm2 , exanb::Vec3Norm2Functor , exanb::field::_vx , exanb::field::_vy , exanb::field::_vz )
-
 namespace exanb
 {
 
@@ -124,7 +120,11 @@ namespace exanb
   {
     static inline constexpr bool RequiresBlockSynchronousCall = false;
     static inline constexpr bool RequiresCellParticleIndex = false;
+#   ifdef ONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE
     static inline constexpr bool CudaCompatible = true;
+#   else
+    static inline constexpr bool CudaCompatible = false;
+#   endif
   };
 
   template<class ParticleFieldAccessorT,class FieldT>

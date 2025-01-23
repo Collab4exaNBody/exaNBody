@@ -1,7 +1,3 @@
-// #pragma xstamp_cuda_enable // DO NOT REMOVE THIS LINE
-
-// #pragma xstamp_grid_variant // DO NOT REMOVE THIS LINE
-
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
