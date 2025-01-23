@@ -57,7 +57,7 @@ namespace microStamp
   struct alignas(onika::memory::DEFAULT_ALIGNMENT) LennardJonesForceFunctor
   {
     // potential function parameters
-    const LennardJonesParms& m_params;
+    const LennardJonesParms m_params;
 
     // concrete type of computation buffer and particle container may vary,
     // we use templates here to adapat to various situations
