@@ -329,8 +329,17 @@ namespace YAML
       if( node["bounds"] ) R.m_bounds = node["bounds"].as<exanb::AABB>();
       if( node["quadric"] )
       {
-        if( ! node["quadric"]["shape"] ) { exanb::lerr << "Quadric has no shape" << std::endl; return false; }
-        R.m_quadric = node["quadric"]["shape"].as<exanb::Mat4d>();
+        if( ( ! node["quadric"]["shape"] && ! node["quadric"]["matrix"] ) || ( node["quadric"]["shape"] && node["quadric"]["matrix"] ) ) { exanb::lerr << "Quadric has no shape or matrix or both are defined. Needs only one, either shape or matrix." << std::endl; return false; }
+        if( node["quadric"]["shape"] )
+          {
+            R.m_quadric = node["quadric"]["shape"].as<exanb::Mat4d>();
+          }
+        if( node["quadric"]["matrix"] )
+        {
+          const auto vec = node["quadric"]["matrix"].as< std::vector<double> >();
+          if( vec.size() != 16 ) return false;
+          R.m_quadric = exanb::make_mat4d( vec.data() );
+        }        
         if( node["quadric"]["transform"] )
         {
           R.transform_quadric( node["quadric"]["transform"].as<exanb::Mat4d>() );
