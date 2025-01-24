@@ -106,7 +106,7 @@ namespace exanb
       const double subcell_size = cell_size / subdiv;
       
       // sub-cell volume
-      const double subcell_volume = subcell_size * subcell_size * subcell_size;
+      // const double subcell_volume = subcell_size * subcell_size * subcell_size;
       
       // dimension of the subdivided simulation's grid
       const IJK domain_subdiv_dims = domain_dims * subdiv;
@@ -124,7 +124,7 @@ namespace exanb
       // cc_label field data accessor.
       const auto cc_label_accessor = grid_cell_values->field_data("cc_label");
       double * __restrict__ cc_label_ptr = cc_label_accessor.m_data_ptr;
-      const size_t cc_label_stride = cc_label_accessor.m_stride;
+      [[maybe_unused]] const size_t cc_label_stride = cc_label_accessor.m_stride;
 
       // density field data accessor.
       const auto density_accessor = grid_cell_values->field_data( *grid_cell_field );
@@ -300,9 +300,9 @@ namespace exanb
                    && nbh_cell_loc.k>=0 && nbh_cell_loc.k<grid_dims.k )
                   {
                     // is neighbor in the ghost cell area ?
-                    const bool nbh_is_ghost = (nbh_cell_loc.i<gl) || (nbh_cell_loc.i>=(grid_dims.i-gl))
+                    /* const bool nbh_is_ghost = (nbh_cell_loc.i<gl) || (nbh_cell_loc.i>=(grid_dims.i-gl))
                                            || (nbh_cell_loc.j<gl) || (nbh_cell_loc.j>=(grid_dims.j-gl))
-                                           || (nbh_cell_loc.k<gl) || (nbh_cell_loc.k>=(grid_dims.k-gl));
+                                           || (nbh_cell_loc.k<gl) || (nbh_cell_loc.k>=(grid_dims.k-gl)); */
                     const ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
                     const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
@@ -334,7 +334,7 @@ namespace exanb
        * count number of local ids and identify their respective owner process
        *******************************************************************/
       std::unordered_map<size_t,ConnectedComponentInfo> cc_map;
-      const size_t own_label_count = 0;
+      // const size_t own_label_count = 0;
       for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
       for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
       for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
@@ -467,8 +467,11 @@ namespace exanb
         cc_send_data[ cc_send_displs[dest_proc] ++ ] = cc.second;
       }
       cc_map.clear();
+
+#     ifndef NDEBUG
       // make sur there's no hole left
       for(const auto& cc:cc_send_data) { assert( cc.m_label >= 0.0 ); }
+#     endif
 
       for(int i=0;i<nprocs;i++)
       {

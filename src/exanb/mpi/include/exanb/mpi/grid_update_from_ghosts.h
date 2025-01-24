@@ -111,7 +111,7 @@ namespace exanb
 
     //CellParticles* cells = grid.cells();
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
-    const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
+    [[maybe_unused]] const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
