@@ -153,7 +153,7 @@ namespace exanb
                                            {0.75,    0.75000000,    0.25} ,
                                            {0.25,    0.58333333,    0.75} ,
                                            {0.75,    0.08333333,    0.75} };
-        lattice.m_size.y *= (2. * sin(120. * exanb::legacy_constant::pi / 180.));
+        lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
       } else if (*structure == "c-DIA") {
         lattice.m_np = 8;
         lattice.m_types = *types;
@@ -176,7 +176,7 @@ namespace exanb
                                 {0.50000000,    0.83333333,    0.00000000} ,
                                 {0.00000000,    0.33333333,    0.37500000} ,
                                 {0.50000000,    0.83333333,    0.37500000} };
-        lattice.m_size.y *= (2. * sin(120. * exanb::legacy_constant::pi / 180.));
+        lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
       } else if (*structure == "graphite") {
         lattice.m_np = 8;
         lattice.m_types = *types;
@@ -188,7 +188,7 @@ namespace exanb
                                 {0.5,    0.83333333,    0.0} ,
                                 {0.0,    0.00000000,    0.0} ,
                                 {0.5,    0.50000000,    0.0} };
-        lattice.m_size.y *= (2. * sin(120. * exanb::legacy_constant::pi / 180.));
+        lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
       }
       
       const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;

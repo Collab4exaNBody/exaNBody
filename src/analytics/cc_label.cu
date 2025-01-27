@@ -17,9 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
 #include <exanb/core/domain.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/grid_algorithm.h>
@@ -33,6 +33,10 @@ under the License.
 
 namespace exanb
 {
+  using onika::scg::OperatorNode;
+  using onika::scg::OperatorNodeFactory;
+  using onika::scg::make_simple_operator;
+
   class ConnectedComponentLabel : public OperatorNode
   {
     using UpdateGhostsScratch = typename UpdateGhostsUtils::UpdateGhostsScratch;
@@ -586,7 +590,7 @@ Computes cell connected components information
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(cc_label)
   {
    OperatorNodeFactory::instance()->register_factory("cc_label", make_simple_operator< ConnectedComponentLabel > );
   }

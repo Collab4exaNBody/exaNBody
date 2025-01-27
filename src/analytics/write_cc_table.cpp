@@ -17,9 +17,9 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/core/operator.h>
-#include <exanb/core/operator_slot.h>
-#include <exanb/core/operator_factory.h>
+#include <onika/scg/operator.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
 #include <exanb/core/domain.h>
 #include <exanb/analytics/cc_info.h>
 #include <mpi.h>
@@ -27,6 +27,10 @@ under the License.
 
 namespace exanb
 {
+  using onika::scg::OperatorNode;
+  using onika::scg::OperatorNodeFactory;
+  using onika::scg::make_simple_operator;
+
   class CCTableCSVWriter : public OperatorNode
   {
     ADD_SLOT( MPI_Comm                , mpi     , INPUT , MPI_COMM_WORLD , DocString{"MPI communicator"} );
@@ -80,7 +84,7 @@ namespace exanb
         const double cy = cc_table->at(i).m_center.y;
         const double cz = cc_table->at(i).m_center.z;
         sample_buffer.assign( csv_sample_size+2 , '\0' );
-        int bufsize = std::snprintf( sample_buffer.data(), csv_sample_size+1, csv_sample_format, cell_label, cell_count, cx, cy, cz );
+        [[maybe_unused]] int bufsize = std::snprintf( sample_buffer.data(), csv_sample_size+1, csv_sample_format, cell_label, cell_count, cx, cy, cz );
         assert( bufsize == csv_sample_size );
         sample_buffer[csv_sample_size-1] = '\n';
         sample_buffer[csv_sample_size  ] = '\0';
@@ -129,7 +133,7 @@ output.PointData.append( cc_volume , "cc_volume" )
   };
 
   // === register factories ===
-  CONSTRUCTOR_FUNCTION
+  ONIKA_AUTORUN_INIT(write_cc_table)
   {
    OperatorNodeFactory::instance()->register_factory("write_cc_table", make_simple_operator< CCTableCSVWriter > );
   }

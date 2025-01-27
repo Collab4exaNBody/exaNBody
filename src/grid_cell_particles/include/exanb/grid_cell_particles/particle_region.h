@@ -338,7 +338,7 @@ namespace YAML
         {
           const auto vec = node["quadric"]["matrix"].as< std::vector<double> >();
           if( vec.size() != 16 ) return false;
-          R.m_quadric = exanb::make_mat4d( vec.data() );
+          R.m_quadric = onika::math::make_mat4d( vec.data() );
         }        
         if( node["quadric"]["transform"] )
         {
