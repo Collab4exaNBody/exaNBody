@@ -110,8 +110,8 @@ namespace exanb
       lattice.m_structure = *structure;
       lattice.m_size = *size;
       if (*structure == "CUSTOM") {
-        assert( (*np).has_value() );
-        assert( (*positions).has_value() );
+        assert( np.has_value() );
+        assert( positions.has_value() );
         lattice.m_np = *np;
         lattice.m_types = *types;
         // Checking that positions are contained between 0 and 1 -> fractional coordinates

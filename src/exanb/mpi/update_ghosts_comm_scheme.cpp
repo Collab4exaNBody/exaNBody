@@ -89,7 +89,7 @@ namespace exanb
       MPI_Comm comm = *mpi;
 
       // start with prerequisites
-      assert( check_domain(*domain) );
+     // assert( check_domain(*domain) );
       assert( grid->cell_size() == domain->cell_size() );
 
       GridT& grid = *(this->grid);

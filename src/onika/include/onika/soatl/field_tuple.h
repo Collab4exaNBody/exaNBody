@@ -203,6 +203,8 @@ namespace onika
       static constexpr size_t TupleSize = 0;
       using FieldIdsTuple = FlatTuple< > ;
       using TupleType = FlatTuple< > ;
+      template<typename field_id> using HasField = std::false_type;
+      template<typename field_id> static inline constexpr bool has_field( FieldId<field_id> ) { return false; }
     };
 
     template<class Fids> struct _FieldTupleFromFieldIds;
