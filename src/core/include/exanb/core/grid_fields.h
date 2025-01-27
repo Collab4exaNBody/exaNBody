@@ -72,6 +72,8 @@ namespace exanb
   static inline constexpr default_available_field_sets_t default_available_field_sets_v = {};
 }
 
+#define XNB_HAS_GRID_FIELDS_DEFINTIONS 1
+
 #ifdef XNB_DOMAIN_SPECIFIC_FIELDS_INCLUDE
 #include XNB_DOMAIN_SPECIFIC_FIELDS_INCLUDE
 #endif
