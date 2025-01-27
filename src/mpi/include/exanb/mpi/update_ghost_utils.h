@@ -164,7 +164,8 @@ namespace exanb
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple , class FieldAccTuple >
     struct GhostSendPackFunctor
     {
-      using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
+      static constexpr size_t FieldCount = onika::tuple_size_const_v<FieldAccTuple>;
+      using FieldIndexSeq = std::make_index_sequence< FieldCount >;
       const GhostCellSendScheme * m_sends = nullptr;
       CellsAccessorT m_cells = {};
       const GridCellValueType * m_cell_scalars = nullptr;
@@ -200,7 +201,7 @@ namespace exanb
 
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( uint64_t i ) const
-      {
+      {      
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
         assert( byte_offset < m_data_buffer_size );
@@ -218,7 +219,7 @@ namespace exanb
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );          
+          if constexpr ( FieldCount > 0 ) { assert( particle_index[j] < m_cells[cell_i].size() ); }
           // m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
           pack_particle_fields( data, cell_i, particle_index[j] , j , FieldIndexSeq{} );
           apply_particle_boundary( data->m_particles[j], m_boundary, cell_boundary_flags );

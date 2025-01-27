@@ -422,7 +422,7 @@ namespace exanb
 #               endif 
 
                 [[maybe_unused]] const int partner_rank = p;
-#               pragma omp task default(none) firstprivate(grid_index,send_buf_ptr,partner_rank) shared(gridp,cells_ptr,cell_use_count_ptr,opt_data_helper,rank DBG_OPT_DATA_COUNTERS) if(n_particles>=size_t(cptask_threshold))
+#               pragma omp task default(none) firstprivate(grid_index,send_buf_ptr,partner_rank) shared(gridp,cells_ptr,cell_use_count_ptr,opt_data_helper,rank DBG_OPT_DATA_COUNTERS) if(n_particles>=size_t(cptask_threshold) && null_opt_data)
                 {
                   MIGRATE_CELL_PARTICLE_ASSERT( cell_use_count_ptr[grid_index] > 0 );
                   size_t npart = cells_ptr[grid_index].size();

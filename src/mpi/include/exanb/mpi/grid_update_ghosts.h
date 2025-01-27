@@ -65,7 +65,7 @@ namespace exanb
     LDBGT& ldbg,
     MPI_Comm comm,
     GhostCommunicationScheme& comm_scheme,
-    GridT& grid,
+    GridT* gridp,
     const Domain& domain,
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
@@ -92,11 +92,16 @@ namespace exanb
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
-    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid.cells_accessor() ) > >;
+    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
     using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
     using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
+
+    if( CreateParticles && gridp==nullptr )
+    {
+      fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
+    }
 
     //int comm_tag = *mpi_tag;
     int nprocs = 1;
@@ -104,7 +109,33 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
-    CellParticles* cells = grid.cells();
+    const size_t ghost_layers = (gridp!=nullptr) ? gridp->ghost_layers() : ( (grid_cell_values!=nullptr) ? grid_cell_values->ghost_layers() : 0 );
+    const IJK grid_dims = (gridp!=nullptr) ? gridp->dimension() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_dims() : IJK{0,0,0} );
+    const IJK grid_domain_offset = (gridp!=nullptr) ? gridp->offset() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_offset() : IJK{0,0,0} );
+    double cell_size = domain.cell_size();
+    const Vec3d grid_start_position = domain.origin() + ( grid_domain_offset * cell_size );
+    const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
+
+    if( gridp!=nullptr )
+    {
+      assert( n_cells == gridp->number_of_cells() );
+      assert( ghost_layers == gridp->ghost_layers() );
+      assert( grid_dims == gridp->dimension() );
+      assert( grid_domain_offset == gridp->offset() );
+      assert( grid_start_position == gridp->cell_position({0,0,0}) );
+    }
+    if( grid_cell_values!=nullptr )
+    {
+      assert( n_cells == grid_cell_values->number_of_cells() );
+      assert( ghost_layers == grid_cell_values->ghost_layers() );
+      assert( grid_dims == grid_cell_values->grid_dims() );
+      assert( grid_domain_offset == grid_cell_values->grid_offset() );
+    }
+    ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
+        <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
+        <<", cell_size="<<cell_size<< std::endl;
+
+    CellParticles * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
@@ -115,7 +146,7 @@ namespace exanb
       cell_scalar_components = grid_cell_values->components();
       if( cell_scalar_components > 0 )
       {
-        assert( grid_cell_values->data().size() == grid.number_of_cells() * cell_scalar_components );
+        assert( grid_cell_values->data().size() == n_cells * cell_scalar_components );
         cell_scalars = grid_cell_values->data().data();
       }
     }
@@ -128,16 +159,14 @@ namespace exanb
       cell_scalar_components = 0;
     }
 
-#   ifndef NDEBUG
-    const size_t n_cells = grid.number_of_cells();
-#   endif      
-    
     // initialize MPI requests for both sends and receives
     std::vector< MPI_Request > requests( 2 * nprocs , MPI_REQUEST_NULL );
     std::vector< int > partner_idx( 2 * nprocs , -1 );
     int total_requests = 0;
     //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
+    CellsAccessorT cells_accessor = { nullptr , nullptr };
+    if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
 
     // ***************** send/receive buffers resize ******************
     ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof(ParticleTuple) , sizeof(GridCellValueType) , cell_scalar_components );
@@ -170,7 +199,7 @@ namespace exanb
 
         const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_sends.data()
-                                             , grid.cells_accessor()
+                                             , cells_accessor
                                              , cell_scalars
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
@@ -255,10 +284,10 @@ namespace exanb
           const auto cell_input = ghost_cell_receive_info(cell_input_it);
           const size_t n_particles = cell_input.m_n_particles;
           const size_t cell_i = cell_input.m_cell_i;
-          assert( grid.is_ghost_cell(cell_i) );
+          assert( gridp->is_ghost_cell(cell_i) );
           assert( /*cell_i>=0 &&*/ cell_i<n_cells );
           assert( cells[cell_i].empty() );
-          cells[cell_i].resize( n_particles , grid.cell_allocator() );
+          cells[cell_i].resize( n_particles , gridp->cell_allocator() );
         }
       }
       
@@ -268,17 +297,17 @@ namespace exanb
       m_unpack_functors[p] = UnpackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data()
                                         , comm_scheme.m_partner[p].m_receive_offset.data()
                                         , (p!=rank) ? ghost_comm_buffers.recvbuf_ptr(p) : ghost_comm_buffers.sendbuf_ptr(p)
-                                        , grid.cells_accessor() 
+                                        , cells_accessor 
                                         , cell_scalar_components 
                                         , cell_scalars
                                         , ghost_comm_buffers.recvbuf_size(p)
                                         , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr
                                         , update_fields
 #                                       ifndef NDEBUG
-                                        , grid.ghost_layers()
-                                        , grid.dimension()
-                                        , grid.cell_position({0,0,0})
-                                        , grid.cell_size()
+                                        , ghost_layers
+                                        , grid_dims
+                                        , grid_start_position
+                                        , cell_size
 #                                       endif
                                         };
                                         
@@ -376,13 +405,13 @@ namespace exanb
 
     if( CreateParticles )
     {
-      grid.rebuild_particle_offsets();
+      gridp->rebuild_particle_offsets();
 #     ifndef NDEBUG
-      double cell_size_epsilon_sq = grid.cell_size() * 1.e-3; cell_size_epsilon_sq *= cell_size_epsilon_sq;
-      for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( grid.is_ghost_cell(cell_i) )
+      double cell_size_epsilon_sq = gridp->cell_size() * 1.e-3; cell_size_epsilon_sq *= cell_size_epsilon_sq;
+      for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( gridp->is_ghost_cell(cell_i) )
       {
-        const IJK cell_loc = grid.cell_ijk(cell_i);
-        const AABB cell_bounds = grid.cell_bounds(cell_loc);
+        const IJK cell_loc = gridp->cell_ijk(cell_i);
+        const AABB cell_bounds = gridp->cell_bounds(cell_loc);
         unsigned int n_particles = cells[cell_i].size();
         for(unsigned int p=0;p<n_particles;p++)
         {
@@ -394,6 +423,31 @@ namespace exanb
     }
 
     ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
+  }
+
+  // version with a Grid reference instead of a pointer, for backward compatibility
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, bool CreateParticles , class FieldAccTupleT>
+  static inline void grid_update_ghosts(
+    LDBGT& ldbg,
+    MPI_Comm comm,
+    GhostCommunicationScheme& comm_scheme,
+    GridT& grid,
+    const Domain& domain,
+    GridCellValues* grid_cell_values,
+    UpdateGhostsScratchT& ghost_comm_buffers,
+    const PECFuncT& parallel_execution_context,
+    const PESFuncT& parallel_execution_stream,
+    const FieldAccTupleT& update_fields,
+    long comm_tag ,
+    bool gpu_buffer_pack ,
+    bool async_buffer_pack ,
+    bool staging_buffer ,
+    bool serialize_pack_send ,
+    bool wait_all ,
+    std::integral_constant<bool,CreateParticles> create_particles)
+  {
+    grid_update_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_stream,
+                       update_fields,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,create_particles);
   }
 
 }

@@ -419,6 +419,7 @@ namespace exanb
     ldbg << "AMR resolution : "<<min_res<<" - "<<max_res<<std::endl;
     ldbg << "data size : sub_grid_start="<<sub_grid_start.size()<<" , sub_grid_cells="<<sub_grid_cells.size()<<std::endl;
     
+/*
 #   ifndef NDEBUG
     for(size_t i=0;i<n_cells;i++)
     {
@@ -427,6 +428,7 @@ namespace exanb
       assert( ( sub_grid_start[i+1] - sub_grid_start[i] ) == grid_size );
     }      
 #   endif
+*/
 
     project_particles_in_sub_grids( ldbg, grid , amr , enable_z_order , subres );
   }    

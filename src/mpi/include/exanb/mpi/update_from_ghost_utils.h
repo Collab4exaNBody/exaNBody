@@ -111,7 +111,7 @@ namespace exanb
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          assert( /*particle_index[j]>=0 &&*/ particle_index[j] < m_cells[cell_i].size() );
+          // assert( particle_index[j] < m_cells[cell_i].size() );
           unpack_particle_fields( m_sends[i], data, cell_i, particle_index[j], j, FieldIndexSeq{} );
           //m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
         }

@@ -29,6 +29,7 @@ under the License.
 #include <onika/thread.h>
 #include <exanb/core/particle_type_id.h>
 #include <exanb/grid_cell_particles/particle_localized_filter.h>
+#include <exanb/grid_cell_particles/lattice_collection.h>
 
 #include <mpi.h>
 #include <string>
@@ -69,10 +70,8 @@ namespace exanb
     , const double* grid_cell_mask_value
     , const ScalarSourceTermInstance user_function
     , double user_threshold
-    , const std::string& structure
-    , const std::vector<std::string>& types
+    , LatticeCollection lattice  
     , double sigma_noise
-    , const Vec3d& size
     , double noise_cutoff
     , const Vec3d& position_shift
     , const std::string& void_mode
@@ -93,7 +92,7 @@ namespace exanb
                                               , onika::soatl::FieldTuple<field::_rx, field::_ry, field::_rz, field::_id>
                                               >;
 
-    Vec3d lattice_size = size;
+    Vec3d lattice_size = lattice.m_size;
     double noise_upper_bound = std::numeric_limits<double>::max();
     if( noise_cutoff >= 0.0 ) noise_upper_bound = noise_cutoff;
     else noise_upper_bound = std::min(lattice_size.x,std::min(lattice_size.y,lattice_size.z)) * 0.5;
@@ -103,240 +102,16 @@ namespace exanb
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &np);
 
-    // uint64_t n_particles = 0;
-
-    // Verification du nombre de types d'atomes en fonction du type de maille cubique voulu
-    // ***choix**  **nb_types**
-    //         SC   1  
-    //        BCC   2
-    //        FCC   4
-    //        HCP   4
-    //    DIAMOND   8
-    //   ROCKSALT   8
-    //   FLUORITE  12
-    //        C15  24
-    // PEROVSKITE   5
-    //         ST   1
-    //        BCT   2
-    //        FCT   4
-    //       2BCT   4
-
     lout << std::defaultfloat
          << "======= Lattice generator ======="<< std::endl
-         << "structure         = " << structure << std::endl
+         << "structure         = " << lattice.m_structure << std::endl
          << "types             =";
-    for(const auto& s:types) lout <<" "<<s;
+    for(const auto& s:lattice.m_types) lout <<" "<<s;
     lout << std::endl
          << "lattice cell size = "<< lattice_size << std::endl
          << "position shift    = "<< position_shift <<std::endl
          << "noise sigma       = "<< sigma_noise <<std::endl
          << "noise cutoff      = "<< noise_cutoff <<std::endl;
-    
-    uint64_t n_particles_cell = 0.;
-    std::vector<Vec3d> positions;
-    if (structure == "SC" ) {
-      n_particles_cell = 1;
-      if( types.size() != n_particles_cell )
-      {
-        lerr << "Parameter types for simple cubic lattice must contain exactly 1 name" << std::endl;
-        std::abort();
-      }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.25, .25, .25} };
-    } else if (structure == "BCC" ) {
-      n_particles_cell = 2;
-      if( types.size() != n_particles_cell )
-      {
-        lerr << "Parameter types for body centered cubic lattice must contain exactly 2 names" << std::endl;
-        std::abort();
-      }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.25, .25, .25} ,
-        {.75, .75, .75} };          
-    } else if (structure == "FCC" ) {
-      n_particles_cell = 4;
-      if( types.size() != n_particles_cell )
-      {
-        lerr << "Parameter types for face centered cubic lattice must contain exactly 4 names" << std::endl;
-        std::abort();
-      }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.25, .25, .25} ,
-        {.25, .75, .75} ,
-        {.75, .25, .75} ,
-        {.75, .75, .25} };
-    } else if (structure == "HCP" ) {
-      n_particles_cell = 4;
-      if( types.size() != n_particles_cell )
-      {
-        lerr << "Parameter types for hexagonal compact lattice must contain exactly 4 names" << std::endl;
-        std::abort();
-      }
-      positions.resize(n_particles_cell);
-      positions = {
-        {0.25000000,    0.25000000,    0.25000000} ,
-        {0.75000000,    0.75000000,    0.25000000} ,
-        {0.25000000,    0.58333333,    0.75000000} ,
-        {0.75000000,    0.08333333,    0.75000000} };
-
-    	lattice_size.y = 2. * lattice_size.y * sin(120. * M_PI / 180.);
-  	  ldbg << "hcp cell = " << lattice_size << std::endl;
-    } else if (structure == "DIAMOND" ) {
-      n_particles_cell = 8;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for diamond lattice must contain exactly 8 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.00, .00, .00} ,
-        {.50, .50, .00} ,
-        {.00, .50, .50} ,
-        {.50, .00, .50} ,
-        {.25, .25, .25} ,
-        {.75, .75, .25} ,          
-        {.75, .25, .75} ,
-        {.25, .75, .75} };
-    } else if (structure == "ROCKSALT" ) {
-      n_particles_cell = 8;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for rocksalt lattice must contain exactly 8 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.00, .00, .00} ,
-        {.50, .50, .00} ,
-        {.00, .50, .50} ,
-        {.50, .00, .50} ,
-        {.50, .00, .00} ,
-        {.00, .50, .00} ,          
-        {.00, .00, .50} ,
-        {.50, .50, .50} };
-    } else if (structure == "FLUORITE" ) {
-      n_particles_cell = 12;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for fluorite lattice must contain exactly 12 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.00, .00, .00} ,
-        {.00, .50, .50} ,
-        {.50, .00, .50} ,
-        {.50, .50, .00} ,
-        {.25, .25, .25} ,
-        {.75, .25, .25} ,
-        {.25, .75, .25} ,
-        {.75, .75, .25} ,
-        {.25, .25, .75} ,
-        {.75, .25, .75} ,
-        {.25, .75, .75} ,
-        {.75, .75, .75} };
-    } else if (structure == "C15" ) {
-      n_particles_cell = 24;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for C15 (lava) lattice must contain exactly 24 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        // We consider here the Cu2Mg structure
-        // Cu atoms
-        {.50, .50, .50} ,
-        {.50, .75, .75} ,
-        {.75, .50, .75} ,
-        {.75, .75, .50} ,
-        {.25, .50, .25} ,
-        {.50, .25, .25} ,
-        {.25, .25, .50} ,
-        {.25, .75, .00} ,
-        {.50, .00, .00} ,
-        {.25, .00, .75} ,
-        {.00, .50, .00} ,
-        {.75, .25, .00} ,
-        {.00, .25, .75} ,
-        {.00, .75, .25} ,
-        {.75, .00, .25} ,
-        {.00, .00, .50} ,
-        // Mg atoms are at positions of the diamond lattice
-        {.125, .125, .125} ,
-        {.875, .875, .875} ,
-        {.875, .375, .375} ,
-        {.375, .875, .375} ,
-        {.625, .125, .625} ,
-        {.375, .375, .875} ,
-        {.125, .625, .625} ,          
-        {.625, .625, .125} };
-    } else if (structure == "PEROVSKITE" ) {
-      n_particles_cell = 5;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for perovskite lattice must contain exactly 5 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.50, .50, .50} ,
-        {.00, .00, .00} ,
-        {.50, .00, .00} ,
-        {.00, .50, .00} ,
-        {.00, .00, .50} };
-    } else if (structure == "ST" ) {
-      n_particles_cell = 1;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for simple tetragonal lattice must contain exactly 1 name" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.25, .25, .25} };
-    } else if (structure == "BCT" ) {
-      n_particles_cell = 2;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for body centered tetragonal  lattice must contain exactly 2 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-      {.25, .25, .25},
-      {.75, .75, .75} };          
-    } else if (structure == "FCT" ) {
-      n_particles_cell = 4;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for face centered tetragonal lattice must contain exactly 4 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.25, .25, .25} ,
-        {.25, .75, .75} ,
-        {.75, .25, .75} ,
-        {.75, .75, .25} };	
-    }  else if (structure == "2BCT" ) {
-      n_particles_cell = 4;
-      if( types.size() != n_particles_cell )
-        {
-          lerr << "Parameter types for double body centered tetragonal lattice must contain exactly 4 names" << std::endl;
-          std::abort();
-        }
-      positions.resize(n_particles_cell);
-      positions = {
-        {.00, .00, .00} ,
-        {.00, .50, .25} ,
-        {.50, .50, .50} ,
-        {.50, .00, .75} };	
-    }           
 
     ParticleTypeMap typeMap;
     if( ! particle_type_map.empty() )
@@ -345,7 +120,7 @@ namespace exanb
     }
     else
     {
-      for(const auto & type_name : types)
+      for(const auto & type_name : lattice.m_types)
       {
         const auto type_id = typeMap.size();
         typeMap[ type_name ] = type_id;
@@ -438,8 +213,9 @@ namespace exanb
     // =============== Generate particles into grid ========================
 
     //std::vector<unsigned long> particle_type_count( n_particles_cell , 0 );
+    size_t n_particles_cell = lattice.m_np;
     std::vector<unsigned int> particle_type_id(n_particles_cell);
-    for(size_t i=0;i<n_particles_cell;i++) { particle_type_id[i] = typeMap.at( types.at(i) ); }
+    for(size_t i=0;i<n_particles_cell;i++) { particle_type_id[i] = typeMap.at( lattice.m_types.at(i) ); }
     if( typeMap.size()>1 && !has_field_type )
     {
       lerr<<"Warning: particle type is ignored"<<std::endl;
@@ -496,11 +272,11 @@ namespace exanb
       		{
 	          for (size_t l=0; l<n_particles_cell;l++)
     		    {
-              Vec3d lab_pos = ( Vec3d{ i + positions[l].x , j + positions[l].y , k + positions[l].z } * lattice_size ) + position_shift;
+              Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
               Vec3d grid_pos = inv_xform * lab_pos;
 	            const IJK loc = grid.locate_cell(grid_pos); //domain_periodic_location( domain , pos );
 
-	            if( is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
+	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
         			{          			
                 Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
                 const double noiselen = norm(noise);
@@ -510,7 +286,6 @@ namespace exanb
 
                 if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
 	              {
-	              	assert( grid.contains(loc) );
 	              	assert( min_distance_between( grid_pos, grid.cell_bounds(loc) ) <= grid.cell_size()/2.0 );
 	              	size_t cell_i = grid_ijk_to_index(local_grid_dim, loc);
                   ++ local_generated_count;

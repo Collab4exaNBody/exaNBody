@@ -79,7 +79,7 @@ namespace exanb
       auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
       static_assert( !CreateParticles || grid_contains_field_set_v<GridT,FieldSetT> , "Creation of ghost particle is not supported for optional fields yet");
       auto update_fields = grid->field_accessors_from_field_set( AddDefaultFields<FieldSetT> {} ); 
-      grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, *domain, grid_cell_values.get_pointer(),
+      grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
                           *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
                           *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
                           *serialize_pack_send, *wait_all, std::integral_constant<bool,CreateParticles>{} );
