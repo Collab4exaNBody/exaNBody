@@ -16,11 +16,12 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #pragma once
 
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
 #include <onika/math/basic_types_def.h>
-//#include <exanb/core/grid_fields.h>
+#include <exanb/core/grid_fields.h>
 
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda.h>

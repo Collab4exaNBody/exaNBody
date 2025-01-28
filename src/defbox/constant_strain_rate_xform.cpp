@@ -54,10 +54,10 @@ namespace exanb
     inline void execute ()  override final
     {
 
-      double dt_sec = EXANB_QUANTITY( (*dt) / s ); //UnityConverterHelper::convert(*dt, "1/s");
+      double dt_sec = ONIKA_QUANTITY( (*dt) / s ); //UnityConverterHelper::convert(*dt, "1/s");
       double prectime = dt_sec * (*timestep - 1);      
       double curtime = dt_sec * (*timestep);
-      double starttime = EXANB_QUANTITY( (*time_start) / s ); //UnityConverterHelper::convert(*time_start, "1/s");
+      double starttime = ONIKA_QUANTITY( (*time_start) / s ); //UnityConverterHelper::convert(*time_start, "1/s");
       Mat3d Id33 = make_identity_matrix();
       std::string mode = *(this->mode);
       Mat3d xform = domain->xform();
