@@ -30,7 +30,7 @@ namespace exanb
     and safe concurent finds and accesses IF AND ONLY IF no insertion happen concurrently with finds/accesses (find/access is lock free)
     Nevertheless, one can render concurent insert() and safe_at() calls 
   */
-  template<class MapType , size_t _NbMetaBuckets = ::exanb::max_threads_hint*2 > // NbMetaBuckets may not exceed 65536
+  template<class MapType , size_t _NbMetaBuckets = onika::max_threads_hint*2 > // NbMetaBuckets may not exceed 65536
   struct MultiThreadedConcurrentMap
   {
     using key_type = typename MapType::key_type;
@@ -116,7 +116,7 @@ namespace exanb
 
     //inline void set_safe_concurrent_insert_at(bool yn) { m_safe_concurent_insertion_get = yn; }
 
-    spin_mutex_array m_meta_bucket_locks { NbMetaBuckets };
+    onika::spin_mutex_array m_meta_bucket_locks { NbMetaBuckets };
     std::vector< MapType > m_meta_bucket { NbMetaBuckets };
   };
 
