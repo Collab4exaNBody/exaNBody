@@ -27,7 +27,6 @@ under the License.
 #include <string>
 #include <math.h>
 
-
 using namespace std;
 
 namespace exanb
@@ -54,10 +53,10 @@ namespace exanb
     inline void execute ()  override final
     {
 
-      double dt_sec = ONIKA_QUANTITY( (*dt) / s ); //UnityConverterHelper::convert(*dt, "1/s");
-      double prectime = dt_sec * (*timestep - 1);      
-      double curtime = dt_sec * (*timestep);
-      double starttime = ONIKA_QUANTITY( (*time_start) / s ); //UnityConverterHelper::convert(*time_start, "1/s");
+      const double dt_sec = ONIKA_QUANTITY( (*dt) / s ).convert(); //UnityConverterHelper::convert(*dt, "1/s");
+      const double prectime = dt_sec * (*timestep - 1);      
+      const double curtime = dt_sec * (*timestep);
+      const double starttime = ONIKA_QUANTITY( (*time_start) / s ).convert(); //UnityConverterHelper::convert(*time_start, "1/s");
       Mat3d Id33 = make_identity_matrix();
       std::string mode = *(this->mode);
       Mat3d xform = domain->xform();
