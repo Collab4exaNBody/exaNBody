@@ -1,4 +1,4 @@
-#include <md/potential/snap/snap_force.h>
+#include <md/snap/snap_force.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <onika/cpp_utils.h>
 
