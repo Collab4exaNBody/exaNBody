@@ -27,4 +27,5 @@ namespace exanb
 {
   // defines mapping between particle type (or category, or class, etc.) name to type id
    using ParticleTypeMap = std::map< std::string , int64_t >;
+   static inline constexpr size_t MAX_PARTICLE_TYPES = 256;
 }
