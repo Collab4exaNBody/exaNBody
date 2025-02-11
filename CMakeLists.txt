@@ -75,6 +75,8 @@ function(xnb_add_plugin PluginName dirname)
 
   if(GVFILES OR ${PluginName}_SHARED_LIB)
     file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Configuration of exaNBody's ${PluginName} component\n")
+    file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_BUILD_${PluginName} ON)\n")
+
     if(${PluginName}_INCLUDE_DIRS)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_INCLUDE_DIRS ${${PluginName}_INCLUDE_DIRS})\n")
     endif()
@@ -131,6 +133,11 @@ function(xnb_add_plugin PluginName dirname)
       file(APPEND ${XNB_CMAKE_PACKAGE} "target_link_libraries(${${PluginName}_SHARED_LIB} INTERFACE \${ONIKA_LIBRARIES} \${${PluginName}_LINK_LIBRARIES})\n")
     endif()
     file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_SHARED_LIB ${${PluginName}_SHARED_LIB})\n")
+    set(${PluginName}_SHARED_LIB ${${PluginName}_SHARED_LIB} PARENT_SCOPE)
+  endif()
+
+  if(${PluginName}_PLUGIN_LIB)
+    set(${PluginName}_PLUGIN_LIB ${${PluginName}_PLUGIN_LIB} PARENT_SCOPE)
   endif()
 
   if(GVFILES)
