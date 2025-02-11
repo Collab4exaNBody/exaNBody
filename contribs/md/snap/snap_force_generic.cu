@@ -8,9 +8,9 @@ namespace md
   template<class GridT> using SnapNewForceTmpl = SnapNewForce<GridT>;
 
   // === register factories ===  
-  ONIKA_AUTORUN_INIT(snap_force)
+  ONIKA_AUTORUN_INIT(snap_force_generic)
   {
-    OperatorNodeFactory::instance()->register_factory( "snap_force" ,make_grid_variant_operator< SnapNewForceTmpl > );
+    OperatorNodeFactory::instance()->register_factory( "snap_force_generic" ,make_grid_variant_operator< SnapNewForceTmpl > );
   }
 
 }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <md/potential/snap/snap_material.h>
+#include <md/snap/snap_material.h>
 #include <vector>
 
 namespace SnapExt

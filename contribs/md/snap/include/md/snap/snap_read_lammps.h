@@ -1,6 +1,6 @@
 #pragma once
 
-#include <md/potential/snap/snap_config.h>
+#include <md/snap/snap_config.h>
 #include <string>
 
 namespace SnapExt

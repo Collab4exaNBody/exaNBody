@@ -3,7 +3,7 @@
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_math.h>
 #include <cmath>
-#include "snap_compute_ui.h"
+#include <md/snap/snap_compute_ui.h>
 
 namespace md
 {

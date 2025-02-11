@@ -11,10 +11,10 @@
 
 #include <onika/file_utils.h>
 
-#include <md/potential/snap/snap_params.h>
-#include <md/potential/snap/snap_read_lammps.h>
-#include <md/potential/snap/snap_config.h>
-#include <md/potential/snap/snap_check_bispectrum.h>
+#include <md/snap/snap_params.h>
+#include <md/snap/snap_read_lammps.h>
+#include <md/snap/snap_config.h>
+#include <md/snap/snap_check_bispectrum.h>
 
 #include <exanb/particle_neighbors/chunk_neighbors.h>
 
@@ -24,9 +24,9 @@
 
 #include <mpi.h>
 
-#include <md/potential/snap/snap_context.h>
-#include <md/potential/snap/snap_force_op.h>
-#include <md/potential/snap/snap_bispectrum_op.h>
+#include <md/snap/snap_context.h>
+#include <md/snap/snap_force_op.h>
+#include <md/snap/snap_bispectrum_op.h>
 
 namespace md
 {
@@ -37,8 +37,8 @@ namespace md
 
   template<
       class GridT
-    , class EpFieldT = unused_field_id_t //field::_ep
-    , class VirialFieldT = unused_field_id_t //field::_ep
+    , class EpFieldT = unused_field_id_t 
+    , class VirialFieldT = unused_field_id_t 
     , class = AssertGridHasFields< GridT, field::_fx ,field::_fy ,field::_fz >
     >
   class SnapNewForce : public OperatorNode
@@ -63,17 +63,17 @@ namespace md
     ADD_SLOT( SnapXSContext        , snap_ctx          , PRIVATE );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_cell_particle_pairs
-    static inline constexpr bool UseWeights = false;
-    static inline constexpr bool UseNeighbors = true;
+    static inline constexpr bool SnapUseWeights = false;
+    static inline constexpr bool SnapUseNeighbors = true;
 
     template<class SnapConfParamT>
-    using ComputeBuffer = ComputePairBuffer2< UseWeights, UseNeighbors
+    using ComputeBuffer = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
                                             , SnapXSForceExtStorage<SnapConfParamT>, DefaultComputePairBufferAppendFunc
                                             , exanb::MAX_PARTICLE_NEIGHBORS, ComputePairBuffer2Weights
                                             , FieldSet<field::_type> >;
 
     template<class SnapConfParamT>
-    using ComputeBufferBS = ComputePairBuffer2< UseWeights, UseNeighbors
+    using ComputeBufferBS = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
                                             , SnapBSExtStorage<SnapConfParamT>, DefaultComputePairBufferAppendFunc
                                             , exanb::MAX_PARTICLE_NEIGHBORS, ComputePairBuffer2Weights
                                             , FieldSet<field::_type> >;
@@ -229,8 +229,7 @@ namespace md
         int ncoeffq = (ncoeff*(ncoeff+1))/2;
         int ntmp = 1+ncoeff+ncoeffq;
         if (ntmp != ncoeffall) {
-          lerr << "Incorrect SNAP coeff file" << std::endl;
-          std::abort();
+          fatal_error() << "Incorrect SNAP coeff file" << std::endl;
         }
       }
 
@@ -274,7 +273,10 @@ namespace md
           }
         }
         
-        SnapXSForceOp<SnapConfParamsT> force_op {
+        std::true_type use_cells_accessor = {};
+        using CellsAccessorT = std::remove_cv_t<std::remove_reference_t<decltype(grid->cells_accessor())> >;
+        using CPBufT = ComputeBuffer<SnapConfParamsT>;
+        SnapXSForceOp<SnapConfParamsT,CPBufT,CellsAccessorT> force_op {
                            snapconf,
                            grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
                            snap_ctx->m_coefs.data(), static_cast<unsigned int>(snap_ctx->m_coefs.size()), static_cast<unsigned int>(ncoeff),
@@ -284,10 +286,11 @@ namespace md
                            ! (*conv_coef_units) // if coefficients were not converted, then output energy/force must be converted
                            };
                            
-        auto force_buf = make_compute_pair_buffer< ComputeBuffer<SnapConfParamsT> >();
+        auto force_buf = make_compute_pair_buffer<CPBufT>();
         auto cp_fields = grid->field_accessors_from_field_set( compute_force_field_set );
+
         compute_cell_particle_pairs2( *grid, snap_ctx->m_rcut, *ghost, optional, force_buf, force_op , cp_fields
-                                    , DefaultPositionFields{}, parallel_execution_context() );
+                                    , DefaultPositionFields{}, parallel_execution_context(), use_cells_accessor );
       };
       
       bool fallback_to_generic = false;

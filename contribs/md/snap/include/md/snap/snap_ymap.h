@@ -2,9 +2,9 @@
 
 namespace md
 {
-# include "ymap_jmax2.hxx"
-# include "ymap_jmax3.hxx"
-# include "ymap_jmax4.hxx"
+# include <md/snap/ymap_jmax2.hxx>
+# include <md/snap/ymap_jmax3.hxx>
+# include <md/snap/ymap_jmax4.hxx>
 
   static inline constexpr int snap_force_Y_count(int twojmax, int idxu_max)
   {

@@ -10,14 +10,14 @@
 // tells if we use Complex arithmetic classes or unroll all to scalar expressions
 //#define SNAP_AUTOGEN_COMPLEX_MATH 1
 
-#include "snap_compute_buffer.h"
-#include "snap_compute_ui.h"
-#include "snap_compute_yi.h"
-#include "snap_compute_duidrj.h"
-#include "snap_compute_deidrj.h"
+#include <md/snap/snap_compute_buffer.h>
+#include <md/snap/snap_compute_ui.h>
+#include <md/snap/snap_compute_yi.h>
+#include <md/snap/snap_compute_duidrj.h>
+#include <md/snap/snap_compute_deidrj.h>
 
 #ifdef SNAP_AUTOGEN_COMPLEX_MATH
-#include "snap_math.h"
+#include <md/snap/snap_math.h>
 #endif
 
 namespace md
@@ -271,18 +271,18 @@ namespace md
 #   define SNAP_AUTOGEN_NO_UNDEF 1
     if constexpr ( jmax == 2 )
     {
-#     include "compute_ui_jmax2.hxx"
+#     include <md/snap/compute_ui_jmax2.hxx>
     }
 
     if constexpr ( jmax == 3 )
     {
-#     include "compute_ui_jmax3.hxx"
+#     include <md/snap/compute_ui_jmax3.hxx>
     }
 
 #   undef SNAP_AUTOGEN_NO_UNDEF
     if constexpr ( jmax == 4 )
     {
-#     include "compute_ui_jmax4.hxx"
+#     include <md/snap/compute_ui_jmax4.hxx>
     }
 
     fij[0] *= 2.;
@@ -291,7 +291,7 @@ namespace md
   }
 
   // Force operator
-  template<class SnapConfParamT>
+  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT>
   struct SnapXSForceOp 
   {
     const SnapConfParamT snaconf;
@@ -316,7 +316,6 @@ namespace md
     const bool conv_energy_units = true;
     const double conv_energy_factor = ONIKA_CONST_QUANTITY( 1. * eV ).convert();
 
-    template<class ComputeBufferT, class CellParticlesT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -336,7 +335,6 @@ namespace md
       this->operator () ( n,buf,en,fx,fy,fz,type,virial,cells,locks,lock_a);
     }
 
-    template<class ComputeBufferT, class CellParticlesT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -356,7 +354,6 @@ namespace md
       this->operator () ( n,buf,en,fx,fy,fz,type,virial,cells,locks,lock_a);
     }
 
-    template<class ComputeBufferT, class CellParticlesT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -376,7 +373,6 @@ namespace md
       this->operator () ( n,buf,en,fx,fy,fz,type,virial,cells,locks,lock_a);
     }
 
-    template<class ComputeBufferT, class CellParticlesT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -396,7 +392,7 @@ namespace md
       this->operator () ( n,buf,en,fx,fy,fz,type,virial,cells,locks,lock_a);
     }
 
-    template<class ComputeBufferT, class CellParticlesT, class GridCellLocksT, class ParticleLockT>
+    template<class GridCellLocksT, class ParticleLockT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -416,7 +412,7 @@ namespace md
       this->operator () ( n,buf,en,fx,fy,fz,type,virial,cells,locks,lock_a);
     }
 
-    template<class ComputeBufferT, class CellParticlesT, class GridCellLocksT, class ParticleLockT>
+    template<class GridCellLocksT, class ParticleLockT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -436,7 +432,7 @@ namespace md
       this->operator () ( n,buf,en,fx,fy,fz,type,virial,cells,locks,lock_a);
     }
 
-    template<class ComputeBufferT, class CellParticlesT, class Mat3dT,class GridCellLocksT, class ParticleLockT>
+    template<class Mat3dT,class GridCellLocksT, class ParticleLockT>
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -708,8 +704,8 @@ namespace md
 
 namespace exanb
 {
-  template<class SnapConfParamT>
-  struct ComputePairTraits< md::SnapXSForceOp<SnapConfParamT> >
+  template<class SnapConfParamT, class CPBufT, class CellParticlesT >
+  struct ComputePairTraits< md::SnapXSForceOp<SnapConfParamT,CPBufT,CellParticlesT> >
   {
     static inline constexpr bool RequiresBlockSynchronousCall = false;
     static inline constexpr bool ComputeBufferCompatible      = true;

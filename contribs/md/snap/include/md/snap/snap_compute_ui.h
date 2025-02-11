@@ -1,13 +1,13 @@
 #pragma once
 
-#include "snap_compute_buffer.h"
+#include <md/snap/snap_compute_buffer.h>
 
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_math.h>
 #include <cmath>
 
 #ifdef SNAP_AUTOGEN_COMPLEX_MATH
-#include "snap_math.h"
+#include <md/snap/snap_math.h>
 #endif
 
 namespace md
@@ -276,18 +276,18 @@ namespace md
 #   define SNAP_AUTOGEN_NO_UNDEF 1
     if constexpr ( jmax == 2 )
     {
-#     include "compute_ui_jmax2.hxx"
+#     include <md/snap/compute_ui_jmax2.hxx>
     }
 
     if constexpr ( jmax == 3 )
     {
-#     include "compute_ui_jmax3.hxx"
+#     include <md/snap/compute_ui_jmax3.hxx>
     }
 
 #   undef SNAP_AUTOGEN_NO_UNDEF
     if constexpr ( jmax == 4 )
     {
-#     include "compute_ui_jmax4.hxx"
+#     include <md/snap/compute_ui_jmax4.hxx>
     }
 
   }

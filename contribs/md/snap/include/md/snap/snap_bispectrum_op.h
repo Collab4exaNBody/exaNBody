@@ -1,8 +1,8 @@
 #pragma once
 
-#include "snap_compute_ui.h"
-#include "snap_compute_zi.h"
-#include "snap_compute_bi.h"
+#include <md/snap/snap_compute_ui.h>
+#include <md/snap/snap_compute_zi.h>
+#include <md/snap/snap_compute_bi.h>
 
 namespace md
 {

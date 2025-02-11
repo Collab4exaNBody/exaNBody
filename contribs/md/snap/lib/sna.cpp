@@ -16,7 +16,7 @@
    Contributing authors: Aidan Thompson, Christian Trott, SNL
 ------------------------------------------------------------------------- */
 
-#include "sna.h"
+#include <md/snap/sna.h>
 
 #include <cmath>
 #include <iostream>

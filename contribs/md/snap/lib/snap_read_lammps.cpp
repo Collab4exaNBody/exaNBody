@@ -1,5 +1,5 @@
-#include <md/potential/snap/snap_config.h>
-#include <md/potential/snap/snap_read_lammps.h>
+#include <md/snap/snap_config.h>
+#include <md/snap/snap_read_lammps.h>
 
 #include <iostream>
 #include <fstream>

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <onika/memory/allocator.h>
-#include "sna.h"
+#include <md/snap/sna.h>
 
 namespace md
 {
