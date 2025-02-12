@@ -17,3 +17,5 @@
 #
 
 add_subdirectory(snap)
+add_subdirectory(lennard_jones)
+

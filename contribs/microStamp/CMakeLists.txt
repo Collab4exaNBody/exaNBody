@@ -16,14 +16,8 @@
 # under the License.
 #
 
-# ==========================================
-# === build application plugins and libs ===
-# ==========================================
-set(ONIKA_BUILD_microStamp_FORCED ON)
-set(microStamp_LINK_LIBRARIES exanbGridCellParticles exanbCompute exanbParticleNeighbors exanbIO exanbMPI exanbCore)
-onika_add_plugin(microStamp ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
 # ============================
 # === Add some basic tests ===
 # ============================
 AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/regression)
+

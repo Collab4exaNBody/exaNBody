@@ -16,9 +16,13 @@
 # under the License.
 #
 
-add_subdirectory(miniapps)
-
 option(EXANB_BUILD_CONTRIB_MD "Build Molecular Dynamics contribs " OFF)
 if(EXANB_BUILD_CONTRIB_MD)
   add_subdirectory(md)
 endif()
+
+option(EXANB_BUILD_MICROSTAMP "Build microStamp (MD) miniapp" OFF)
+if(EXANB_BUILD_MICROSTAMP)
+  add_subdirectory(microStamp)
+endif()
+

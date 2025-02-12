@@ -16,7 +16,12 @@
 # under the License.
 #
 
-option(EXANB_BUILD_MICROSTAMP "Build microStamp (MD) miniapp" OFF)
-if(EXANB_BUILD_MICROSTAMP)
-  add_subdirectory(microStamp)
-endif()
+set(mdLennardJones_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
+set(ONIKA_BUILD_mdLennardJones_DEFAULT ON)
+set(ONIKA_BUILD_mdLennardJones_FORCED ON)
+
+# xnb_add_plugin is a wrapper for onika_add_plugin to enabled redistribution of sour souce templates
+# this is not usefull for this toy lennard_jones implementation
+#xnb_add_plugin(mdLennardJones ${CMAKE_CURRENT_SOURCE_DIR})
+onika_add_plugin(mdLennardJones ${CMAKE_CURRENT_SOURCE_DIR})
+

@@ -39,6 +39,7 @@ set(mdSnap_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
 set(mdSnap_INCLUDE_DIRS ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR})
 set(ONIKA_BUILD_mdSnap_DEFAULT ON)
 set(ONIKA_BUILD_mdSnap_FORCED ON)
-xnb_add_plugin(mdSnap ${CMAKE_CURRENT_SOURCE_DIR})
+onika_add_plugin(mdSnap ${CMAKE_CURRENT_SOURCE_DIR})
 add_dependencies(${mdSnap_PLUGIN_LIB} SnapAutoGen)
 install(DIRECTORY ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR}/md TYPE INCLUDE)
+

@@ -32,7 +32,7 @@ under the License.
 #include <exanb/particle_neighbors/chunk_neighbors.h> // for MAX_PARTICLE_NEIGHBORS constant
 
 // this allows for parallel compilation of templated operator for each available field set
-namespace microStamp
+namespace md
 {
   using namespace exanb;
 
@@ -46,11 +46,13 @@ namespace microStamp
   ONIKA_HOST_DEVICE_FUNC inline void lj_compute_energy(const LennardJonesParms& p, double r, double& e, double& de)
   {
     assert( r > 0. );
-    double ratio = p.sigma / r;
-    double ratio6 = pow(ratio,6);    // attractive
-    double ratio12 = pow(ratio,12);  // repulsive
+    const double inv_r = 1.0 / r;
+    const double ratio = p.sigma * inv_r;
+    const double ratio2 = ratio * ratio;
+    const double ratio6 = ratio2 * ratio2 * ratio2;   // attractive
+    const double ratio12 = ratio6 * ratio6;  // repulsive
     e = 4. * p.epsilon * (ratio12-ratio6) ;
-    de = ( -24. * p.epsilon * (2.*ratio12-ratio6) ) / r;
+    de = ( -24. * p.epsilon * (2.*ratio12-ratio6) ) * inv_r;
   }
 
   // interaction potential compute functor
@@ -124,7 +126,7 @@ namespace exanb
 
   // specialize functor traits to allow Cuda execution space
   template<>
-  struct ComputePairTraits< microStamp::LennardJonesForceFunctor >
+  struct ComputePairTraits< md::LennardJonesForceFunctor >
   {
     static inline constexpr bool RequiresBlockSynchronousCall = false;
     static inline constexpr bool ComputeBufferCompatible = true;
@@ -138,11 +140,11 @@ namespace exanb
 namespace YAML
 {
 
-  template<> struct convert< microStamp::LennardJonesParms >
+  template<> struct convert< md::LennardJonesParms >
   {
-    static bool decode(const Node& node, microStamp::LennardJonesParms & v)
+    static bool decode(const Node& node, md::LennardJonesParms & v)
     {
-      v = microStamp::LennardJonesParms {};
+      v = md::LennardJonesParms {};
       if( !node.IsMap() ) { return false; }
       v.epsilon = node["epsilon"].as<onika::physics::Quantity>().convert();
       v.sigma   = node["sigma"]  .as<onika::physics::Quantity>().convert();
@@ -152,7 +154,7 @@ namespace YAML
 
 }
 
-namespace microStamp
+namespace md
 {
   using namespace exanb;
 
