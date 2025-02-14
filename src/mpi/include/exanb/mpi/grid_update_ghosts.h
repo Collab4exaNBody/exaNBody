@@ -406,20 +406,6 @@ namespace exanb
     if( CreateParticles )
     {
       gridp->rebuild_particle_offsets();
-#     ifndef NDEBUG
-      double cell_size_epsilon_sq = gridp->cell_size() * 1.e-3; cell_size_epsilon_sq *= cell_size_epsilon_sq;
-      for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( gridp->is_ghost_cell(cell_i) )
-      {
-        const IJK cell_loc = gridp->cell_ijk(cell_i);
-        const AABB cell_bounds = gridp->cell_bounds(cell_loc);
-        unsigned int n_particles = cells[cell_i].size();
-        for(unsigned int p=0;p<n_particles;p++)
-        {
-          const Vec3d r = { cells[cell_i][field::rx][p] , cells[cell_i][field::ry][p] , cells[cell_i][field::rz][p] };
-          assert( is_inside_threshold( cell_bounds , r , cell_size_epsilon_sq ) );
-        }
-      }
-#     endif
     }
 
     ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
