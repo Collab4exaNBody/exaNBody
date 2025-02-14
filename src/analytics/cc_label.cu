@@ -49,7 +49,6 @@ namespace exanb
 
     ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
     ADD_SLOT( long                    , cc_count_threshold  , INPUT , 1 ); // CC that have less or equal cells than this value, are ignored
-    ADD_SLOT( bool                    , cc_ordered  , INPUT , false , DocString{"When false, ccc ranks may change from run to run, but each process will have information about CCs it 'owns'. if true, output is fully deterministic and ordered according to CC unique ids"} );
 
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
@@ -216,13 +215,17 @@ namespace exanb
       // 2. final (stripped) unique ids will be deterministic and independant from parallel settings
       auto encode_unique_id = [&](uint64_t domain_cell_index, uint64_t grid_cell_index, uint64_t subcell_index) -> uint64_t
       {
-        if( *cc_ordered ) return domain_cell_index * subdiv3 + subcell_index;
-        else return ( grid_cell_index * subdiv3 + subcell_index ) * nprocs + rank;
+        assert(rank>=0 && rank<nprocs);
+        return ( domain_cell_index * subdiv3 + subcell_index ) * nprocs + rank;
       };
+      // now we can build a function to determine final destination (process rank) for each CC based on its label
+      auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
+      {
+        return unique_id % nprocs;
+      };      
       auto strip_unique_id = [&](uint64_t unique_id) -> uint64_t 
       {
-        if( *cc_ordered ) return unique_id;
-        else return unique_id / nprocs;
+        return unique_id / nprocs;
       };
 
       // create a unique label id for each cell satisfying selection criteria
@@ -232,26 +235,39 @@ namespace exanb
       for( ssize_t i=0 ; i < grid_dims.i ; i++)
       {
         const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl)) || (j<gl) || (j>=(grid_dims.j-gl)) || (k<gl) || (k>=(grid_dims.k-gl));
-        const ssize_t grid_cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
-        const ssize_t domain_cell_index = grid_ijk_to_index( domain_dims , IJK{i,j,k} - grid_offset );
+        const ssize_t grid_cell_index = is_ghost ? 0 : grid_ijk_to_index( grid_dims , IJK{i,j,k} );
+        const ssize_t domain_cell_index = is_ghost ? 0 : grid_ijk_to_index( domain_dims , IJK{i,j,k} - grid_offset );
         for( ssize_t sk=0 ; sk<subdiv ; sk++)
         for( ssize_t sj=0 ; sj<subdiv ; sj++)
         for( ssize_t si=0 ; si<subdiv ; si++)
         {
           const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
-          const uint64_t unique_id = encode_unique_id( domain_cell_index, grid_cell_index, subcell_index );
-          double label = static_cast<double>(unique_id);
-          assert( label == unique_id ); // ensures lossless conversion to double
           const ssize_t value_index = grid_cell_index * stride + subcell_index;
-          assert( value_index >= 0 );
-          if( is_ghost ) label = ghost_no_label;
-          else if( density_ptr[value_index] < threshold ) label = no_label;
-          cc_label_ptr[value_index] = label;
+          assert( value_index >= 0 );          
+          if( is_ghost )
+          {
+            cc_label_ptr[value_index] = ghost_no_label;
+          }
+          else
+          {
+            if( density_ptr[value_index] < threshold )
+            {
+              cc_label_ptr[value_index] = no_label;
+            }
+            else
+            {
+              const uint64_t unique_id = encode_unique_id( domain_cell_index, grid_cell_index, subcell_index );
+              const double label = static_cast<double>(unique_id);
+              assert( label == unique_id ); // ensures lossless conversion to double
+              cc_label_ptr[value_index] = label;
+              assert( owner_from_unique_id(unique_id) == rank );
+            }
+          }
         }
       }
 
       /****************************************************
-       * >>> propagate_minimum_label <<<
+       * === propagate_minimum_label ===
        * Propagates minimum CC label id from nearby cells.
        * When done, all MPI processes assigned the same
        * globaly known unique label ids to connected cells.
@@ -311,7 +327,7 @@ namespace exanb
                     const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
                     assert( nbh_value_index >= 0 );
-                    //assert( cc_label_ptr[nbh_value_index] != ghost_no_label );
+                    // assert( cc_label_ptr[ nbh_value_index ] != ghost_no_label );
                     if( cc_label_ptr[nbh_value_index] >= 0.0 && cc_label_ptr[nbh_value_index] < cc_label_ptr[value_index] )
                     {
                       cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
@@ -377,47 +393,6 @@ namespace exanb
           }
         }
       }
-
-      // compute unique ids dispatch accross processes
-      // such that we can deterministically order CCs
-      unsigned long long min_unique_id = 0;
-      unsigned long long max_unique_id = 0;
-      if( *cc_ordered )
-      {
-        bool range_init = true;
-        for(const auto & cc : cc_map)
-        {
-          assert( cc.second.m_label >= 0.0 );
-          unsigned long long unique_id = static_cast<unsigned long long>( cc.second.m_label );
-          if( range_init )
-          {
-            min_unique_id = max_unique_id = unique_id;
-            range_init = false;
-          }
-          else
-          {
-            min_unique_id = std::min( min_unique_id , unique_id );
-            max_unique_id = std::max( max_unique_id , unique_id );
-          }
-        }
-        MPI_Allreduce(MPI_IN_PLACE,&min_unique_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
-        MPI_Allreduce(MPI_IN_PLACE,&max_unique_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
-        ++ max_unique_id; // it has to be the first value that is never reached
-        ldbg << "min_unique_id="<<min_unique_id<<" , max_unique_id="<<max_unique_id<<std::endl;
-      }
-
-      // now we can build a function to determine final destination (process rank) for each CC based on its label
-      auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
-      {
-        if( *cc_ordered )
-        {
-          return ( ( unique_id - min_unique_id ) * nprocs ) / ( max_unique_id - min_unique_id );
-        }
-        else
-        {
-          return unique_id % nprocs;
-        }
-      };      
 
       // update map assigning correct destination process in m_rank field
       for(auto & cc : cc_map)

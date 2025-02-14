@@ -85,7 +85,7 @@ namespace exanb
         const double cz = cc_table->at(i).m_center.z;
         sample_buffer.assign( csv_sample_size+2 , '\0' );
         [[maybe_unused]] int bufsize = std::snprintf( sample_buffer.data(), csv_sample_size+1, csv_sample_format, cell_label, cell_count, cx, cy, cz );
-        assert( bufsize == csv_sample_size );
+        assert( size_t(bufsize) == csv_sample_size );
         sample_buffer[csv_sample_size-1] = '\n';
         sample_buffer[csv_sample_size  ] = '\0';
         MPI_File_write_at( fileh , header_size + ( global_id * csv_sample_size ) , sample_buffer.data() , csv_sample_size , MPI_CHAR , MPI_STATUSES_IGNORE );
