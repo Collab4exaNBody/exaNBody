@@ -26,3 +26,6 @@ if(EXANB_BUILD_MICROSTAMP)
   add_subdirectory(microStamp)
 endif()
 
+# export variable indicating that contribs have been built into exaNBody
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(EXANB_BUILD_CONTRIB_MD ON)\n")
+

@@ -39,7 +39,13 @@ set(mdSnap_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
 set(mdSnap_INCLUDE_DIRS ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR})
 set(ONIKA_BUILD_mdSnap_DEFAULT ON)
 set(ONIKA_BUILD_mdSnap_FORCED ON)
-onika_add_plugin(mdSnap ${CMAKE_CURRENT_SOURCE_DIR})
+
+# it's none sense to specialize this version of the template on an end-user application's grid fields,
+# because it's missing energy and virial field. end-user app should instead configure it's own template version
+# instanciate it
+set(mdSnap_DISABLE_GRID_SPECIALIZATION ON)
+
+xnb_add_plugin(mdSnap ${CMAKE_CURRENT_SOURCE_DIR})
 add_dependencies(${mdSnap_PLUGIN_LIB} SnapAutoGen)
 install(DIRECTORY ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR}/md TYPE INCLUDE)
 
