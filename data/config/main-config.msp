@@ -38,6 +38,7 @@ default_simulation:
   - print_domain
   - first_iteration
   - compute_loop
+  - final_dump
   - memory_stats: { musage_threshold: 16 }
   - finalize_cuda
 

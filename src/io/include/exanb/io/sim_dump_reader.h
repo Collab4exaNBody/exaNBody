@@ -442,8 +442,8 @@ namespace exanb
     ADD_SLOT( std::string , filename      , INPUT , REQUIRED );
     ADD_SLOT( long        , timestep      , INPUT , DocString{"Iteration number"} );
     ADD_SLOT( double      , physical_time , INPUT , DocString{"Physical time"} );
-    ADD_SLOT( GridT       , grid          , INPUT_OUTPUT , REQUIRED );
-    ADD_SLOT( Domain      , domain        , INPUT_OUTPUT , REQUIRED );
+    ADD_SLOT( GridT       , grid          , INPUT_OUTPUT );
+    ADD_SLOT( Domain      , domain        , INPUT_OUTPUT );
 
   public:
     inline void execute () override final

@@ -18,8 +18,18 @@ dump_data_paraview:
         - message: { endl: true }
   - write_paraview_generic
 
+dump_data_particles:
+  - timestep_file: "particles_%09d.dump"
+  - message: { mesg: "Write " , endl: false }
+  - print_dump_file:
+      rebind: { mesg: filename }
+      body:
+        - message: { endl: true }
+  - write_dump
+
 dump_data: dump_data_paraview
 
-final_dump: dump_data
+final_dump: dump_data_particles
+
 
 
