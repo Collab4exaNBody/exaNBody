@@ -80,7 +80,7 @@ void uarray_code_gen(int jmax , bool verbose = false )
   std::vector< std::vector<UExpr> > ulist( twojmax+1 );
   std::vector<UExpr> prog;
 
-  char rpqvar[256];
+  char rpqvar[224];
   std::map<std::string,double> rpq_map;
   auto rootpq = [&rpqvar,&rpq_map](int p, int q) -> const char*
   {
@@ -91,14 +91,13 @@ void uarray_code_gen(int jmax , bool verbose = false )
     }
     p /= maxdiv;
     q /= maxdiv;
-
     const double rpq = std::sqrt(static_cast<double>(p)/q);
     if( rpq==1.0 ) return "1.0";
     else if ( rpq==0.5 ) return "0.5";
     else if ( rpq==2.0 ) return "2.0";
     else
     {
-      snprintf(rpqvar,256,"rpq_%d_%d",p,q);
+      snprintf(rpqvar,224,"rpq_%d_%d",p,q);
       rpq_map[rpqvar] = rpq;
       return rpqvar;
     }

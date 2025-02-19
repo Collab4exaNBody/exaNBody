@@ -47,5 +47,6 @@ set(mdSnap_DISABLE_GRID_SPECIALIZATION ON)
 
 xnb_add_plugin(mdSnap ${CMAKE_CURRENT_SOURCE_DIR})
 add_dependencies(${mdSnap_PLUGIN_LIB} SnapAutoGen)
+add_dependencies(${mdSnap_SHARED_LIB} SnapAutoGen)
 install(DIRECTORY ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR}/md TYPE INCLUDE)
 
