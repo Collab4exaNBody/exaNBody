@@ -28,17 +28,34 @@ under the License.
 
 #ifndef SNA_NO_ARRAY_ACCESSOR_MACROS
 
-#define SNA_ARRAY(a,i)    a [i]
+#define SNA_ARRAY(a,i)      a [i]
+#define SNA_ARRAY_C_R(a,i)  a [(i)*2+0]
+#define SNA_ARRAY_C_I(a,i)  a [(i)*2+1]
 
+//#define ULIST_R_JJ(i)   SNA_ARRAY_C_R( ulist_r_ij_jj , (i) )
+//#define ULIST_I_JJ(i)   SNA_ARRAY_C_I( ulist_r_ij_jj , (i) )
 #define ULIST_R_JJ(i)   SNA_ARRAY( ulist_r_ij_jj , (i) )
 #define ULIST_I_JJ(i)   SNA_ARRAY( ulist_i_ij_jj , (i) )
-#define ULISTTOT_R(i)   SNA_ARRAY(ulisttot_r,i)
-#define ULISTTOT_I(i)   SNA_ARRAY(ulisttot_i,i)
+
+#define ULISTTOT_R(i)   SNA_ARRAY_C_R(ulisttot_r,(i))
+#define ULISTTOT_I(i)   SNA_ARRAY_C_I(ulisttot_r,(i))
+//#define ULISTTOT_R(i)   SNA_ARRAY(ulisttot_r,i)
+//#define ULISTTOT_I(i)   SNA_ARRAY(ulisttot_i,i)
+
+//#define DULIST_R(j,i)   SNA_ARRAY_C_R(dulist_r, (j) * DULIST_IDIM + (i) )
+//#define DULIST_I(j,i)   SNA_ARRAY_C_I(dulist_r, (j) * DULIST_IDIM + (i) )
 #define DULIST_R(j,i)   SNA_ARRAY(dulist_r, (j) * DULIST_IDIM + (i) )
 #define DULIST_I(j,i)   SNA_ARRAY(dulist_i, (j) * DULIST_IDIM + (i) )
+
+//#define ZLIST_R(i)      SNA_ARRAY_C_R(zlist_r,(i))
+//#define ZLIST_I(i)      SNA_ARRAY_C_I(zlist_r,(i))
 #define ZLIST_R(i)      SNA_ARRAY(zlist_r,i)
 #define ZLIST_I(i)      SNA_ARRAY(zlist_i,i)
-#define BLIST(i)        SNA_ARRAY(blist,i)
+
+#define BLIST(i)        SNA_ARRAY(blist,(i))
+
+//#define YLIST_R(i)      SNA_ARRAY_C_R(ylist_r,(i))
+//#define YLIST_I(i)      SNA_ARRAY_C_I(ylist_r,(i))
 #define YLIST_R(i)      SNA_ARRAY(ylist_r,i)
 #define YLIST_I(i)      SNA_ARRAY(ylist_i,i)
 

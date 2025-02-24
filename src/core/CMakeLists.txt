@@ -19,5 +19,8 @@
 # ==============================
 # === exaNBody core library  ===
 # ==============================
+
+set(XNB_PARTICLE_TYPE_INT "uint8_t" CACHE STRING "Integer type to sore particle type")
+set(exanbCore_COMPILE_DEFINITIONS XNB_PARTICLE_TYPE_INT=${XNB_PARTICLE_TYPE_INT})
 xnb_add_plugin(exanbCore ${CMAKE_CURRENT_SOURCE_DIR})
 

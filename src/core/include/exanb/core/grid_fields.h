@@ -22,10 +22,16 @@ under the License.
 #include <onika/soatl/field_id.h>
 #include <cstdint>
 
+#ifndef XNB_PARTICLE_TYPE_INT
+#define XNB_PARTICLE_TYPE_INT uint8_t
+#endif
+
 namespace exanb
 {
   template<typename... field_ids> using FieldSet = onika::soatl::FieldIds< field_ids... > ;
   template<typename... field_sets> struct FieldSets {};
+
+  using ParticleTypeInt = XNB_PARTICLE_TYPE_INT;
 }
 
 #define XNB_DECLARE_FIELD(__type,__name,__desc) \
@@ -42,17 +48,17 @@ namespace exanb { namespace field { static constexpr ::onika::soatl::FieldId<_##
 
 // default particle fields that are defined in namespace 'field'
 // for rx field descriptor instance, use field::rx, for its type, use field::_rx
-XNB_DECLARE_FIELD(uint64_t        ,id                ,"particle id");
-XNB_DECLARE_FIELD(uint8_t         ,type              ,"particle type");
-XNB_DECLARE_FIELD(double          ,rx                ,"particle position X");
-XNB_DECLARE_FIELD(double          ,ry                ,"particle position Y");
-XNB_DECLARE_FIELD(double          ,rz                ,"particle position Z");
-XNB_DECLARE_FIELD(double          ,vx                ,"particle velocity X");
-XNB_DECLARE_FIELD(double          ,vy                ,"particle velocity Y");
-XNB_DECLARE_FIELD(double          ,vz                ,"particle velocity Z");
-XNB_DECLARE_FIELD(double          ,ax                ,"particle acceleration X");
-XNB_DECLARE_FIELD(double          ,ay                ,"particle acceleration Y");
-XNB_DECLARE_FIELD(double          ,az                ,"particle acceleration Z");
+XNB_DECLARE_FIELD(uint64_t                 ,id   ,"particle id");
+XNB_DECLARE_FIELD(::exanb::ParticleTypeInt ,type ,"particle type");
+XNB_DECLARE_FIELD(double                   ,rx   ,"particle position X");
+XNB_DECLARE_FIELD(double                   ,ry   ,"particle position Y");
+XNB_DECLARE_FIELD(double                   ,rz   ,"particle position Z");
+XNB_DECLARE_FIELD(double                   ,vx   ,"particle velocity X");
+XNB_DECLARE_FIELD(double                   ,vy   ,"particle velocity Y");
+XNB_DECLARE_FIELD(double                   ,vz   ,"particle velocity Z");
+XNB_DECLARE_FIELD(double                   ,ax   ,"particle acceleration X");
+XNB_DECLARE_FIELD(double                   ,ay   ,"particle acceleration Y");
+XNB_DECLARE_FIELD(double                   ,az   ,"particle acceleration Z");
 
 // usefull aliases, often acceleration and force use the same fields,
 // acceleration is 'just' divided by mass at some point to turn it to force, or vice-versa

@@ -98,7 +98,7 @@ namespace md
   {  
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > > m_UTot_array = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max_alt * SnapConfT{}.nelements ) > > > m_Y_array    = {};
-    SnapXSTemporaryComplexArray<int> m_U_array    = {}; // dynamically allocated only if needed for non specific cases (spedcialized implementations do not use these arrays)
+    SnapXSTemporaryComplexArray<int> m_U_array    = {}; // dynamically allocated only if needed for non specific cases (specialized implementations do not use these arrays)
     SnapXSTemporaryComplexArray<int> m_DU_array   = {};
 
     ONIKA_HOST_DEVICE_FUNC

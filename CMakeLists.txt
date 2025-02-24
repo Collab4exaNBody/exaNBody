@@ -44,6 +44,11 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "list(APPEND ONIKA_COMPILE_DEFINITIONS \${XNB_C
 file(APPEND ${XNB_CMAKE_PACKAGE} "list(APPEND ONIKA_INCLUDE_DIRS \${XNB_INCLUDE_DIRECTORIES})\n")
 
 
+# configure optional DATA search directories
+set(XNB_DATA_DIRS "${ONIKA_DEFAULT_DATA_DIRS}" CACHE STRING "Set of paths to search data files without relative paths")
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_DATA_DIRS \"${XNB_DATA_DIRS}\")\n")
+
+
 # setup thirdparty base-n encoding lib and export it to cmake package
 add_library(basen INTERFACE)
 target_include_directories(basen INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty)
@@ -83,9 +88,6 @@ function(xnb_add_plugin PluginName dirname)
     
     file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_COMPILE_DEFINITIONS ONIKA_PACKAGE_OVERRIDE=\${XNB_APP_NAME})\n")
     foreach(DEF ${${PluginName}_COMPILE_DEFINITIONS})
-#      string(REPLACE "=" "=\"" DEFQ1 "${DEF}")
-#      set(DEFQ2 "${DEFQ1}\"")
-#      file(APPEND ${XNB_CMAKE_PACKAGE} "list(APPEND ${PluginName}_COMPILE_DEFINITIONS ${DEFQ2})\n")
       file(APPEND ${XNB_CMAKE_PACKAGE} "list(APPEND ${PluginName}_COMPILE_DEFINITIONS \"${DEF}\")\n")
     endforeach()
 
@@ -158,6 +160,12 @@ endfunction()
 add_subdirectory(src)
 add_subdirectory(contribs)
 
+# optional search path configuration is per end user application
+file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Optional search directories for data files\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "set(\${XNB_APP_NAME}_DATA_DIRS \"${XNB_DATA_DIRS}\" CACHE STRING \"Set of paths to search data files without relative paths\")\n")
+
+# the following macro generates 2 distinct application specific launcher scripts,
+# one target for runs from the build directory without installation, and one to be installed in final install directory
 file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Optionall generate an executable wrapper named after end user's application name\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "macro(GenerateEndUserExecEnv)\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(MAKE_DIRECTORY \${CMAKE_CURRENT_BINARY_DIR}/bin)\n")
@@ -165,7 +173,7 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "  file(WRITE  \${CMAKE_CURRENT_BINARY_DIR}/bin
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export LD_LIBRARY_PATH=\${CMAKE_INSTALL_PREFIX}/lib:\\\$LD_LIBRARY_PATH\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_CONFIG_PATH=\${CMAKE_INSTALL_PREFIX}/data/config\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_PLUGIN_PATH=\${onika_DIR}/plugins:\${exaNBody_DIR}/plugins:\${CMAKE_INSTALL_PREFIX}/plugins\\n\")\n")
-file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_DATA_PATH=\${CMAKE_INSTALL_PREFIX}/data/tests\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_DATA_PATH=\${\${XNB_APP_NAME}_DATA_DIRS}\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"[ \\\$ONIKA_DEBUG ] && echo \\\"\${XNB_APP_NAME} environment : LD_LIBRARY_PATH=\\\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\\\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\\\$ONIKA_PLUGIN_PATH , ONIKA_DATA_PATH=\\\$ONIKA_DATA_PATH\\\"\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  install(PROGRAMS \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)\n")
 
@@ -182,7 +190,7 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"export LD_LIBRARY_PATH=\${PROJECT_BINARY_DIR}/lib:\\\$LD_LIBRARY_PATH\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"export ONIKA_CONFIG_PATH=\${CMAKE_CURRENT_SOURCE_DIR}/data/config\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"export ONIKA_PLUGIN_PATH=\${onika_DIR}/plugins:\${exaNBody_DIR}/plugins:\${PROJECT_BINARY_DIR}/plugins\\n\")\n")
-file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"export ONIKA_DATA_PATH=./data/tests\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"export ONIKA_DATA_PATH=\${\${XNB_APP_NAME}_DATA_DIRS}\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"[ \\\$ONIKA_DEBUG ] && echo \\\"\${XNB_APP_NAME} pre-install environment : LD_LIBRARY_PATH=\\\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\\\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\\\$ONIKA_PLUGIN_PATH , ONIKA_DATA_PATH=\\\$ONIKA_DATA_PATH\\\"\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} \"\${ONIKA_EXEC} \\\$*\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(CHMOD  \${CMAKE_CURRENT_BINARY_DIR}/\${XNB_APP_NAME} FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)\n")

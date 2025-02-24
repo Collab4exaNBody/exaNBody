@@ -190,14 +190,14 @@ namespace md
 #   define dU_DECLARE(var) SnapMath::Complex3d d##var
 #   define dU_ASSIGN(var,expr) d##var = expr
 #   define dU_STORE_FSKIP(var,xxx,jju_map) /**/
-#   define dU_STORE(var,xxx,jju_map)       do{ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map==cjjumap);*/ \
+#   define dU_STORE(var,xxx,jju_map)       /*do{*/ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map==cjjumap);*/ \
       fij[0] +=      d##var.x.r * Y_r[jju_map] + d##var.x.i * Y_i[jju_map];  \
       fij[1] +=      d##var.y.r * Y_r[jju_map] + d##var.y.i * Y_i[jju_map];  \
-      fij[2] +=      d##var.z.r * Y_r[jju_map] + d##var.z.i * Y_i[jju_map]; }while(0)
-#   define dU_STORE_FHALF(var,xxx,jju_map) do{ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map==cjjumap);*/ \
+      fij[2] +=      d##var.z.r * Y_r[jju_map] + d##var.z.i * Y_i[jju_map] //; }while(0)
+#   define dU_STORE_FHALF(var,xxx,jju_map) /*do{*/ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map==cjjumap);*/ \
       fij[0] += 0.5*(d##var.x.r * Y_r[jju_map] + d##var.x.i * Y_i[jju_map]); \
       fij[1] += 0.5*(d##var.y.r * Y_r[jju_map] + d##var.y.i * Y_i[jju_map]); \
-      fij[2] += 0.5*(d##var.z.r * Y_r[jju_map] + d##var.z.i * Y_i[jju_map]); }while(0)
+      fij[2] += 0.5*(d##var.z.r * Y_r[jju_map] + d##var.z.i * Y_i[jju_map]) //; }while(0)
 
 #   else
 
@@ -273,14 +273,14 @@ namespace md
 #   define dU_ASSIGN_Z_I(var,expr) d##var##_z##_i = expr
 
 #   define dU_STORE_FSKIP(var,xxx,jju_map) /**/
-#   define dU_STORE(var,xxx,jju_map) do{ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map!=-1);*/ \
+#   define dU_STORE(var,xxx,jju_map) /*do{*/ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map!=-1);*/ \
       fij[0] +=      d##var##_x##_r * Y_r[jju_map] + d##var##_x##_i * Y_i[jju_map];  \
       fij[1] +=      d##var##_y##_r * Y_r[jju_map] + d##var##_y##_i * Y_i[jju_map];  \
-      fij[2] +=      d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map]; }while(0)
-#   define dU_STORE_FHALF(var,xxx,jju_map) do{ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map!=-1);*/ \
+      fij[2] +=      d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map] //; }while(0)
+#   define dU_STORE_FHALF(var,xxx,jju_map) /*do{*/ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map!=-1);*/ \
       fij[0] += 0.5*(d##var##_x##_r * Y_r[jju_map] + d##var##_x##_i * Y_i[jju_map]); \
       fij[1] += 0.5*(d##var##_y##_r * Y_r[jju_map] + d##var##_y##_i * Y_i[jju_map]); \
-      fij[2] += 0.5*(d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map]); }while(0)
+      fij[2] += 0.5*(d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map]) //; }while(0)
 
 #   endif
 
@@ -634,8 +634,11 @@ namespace md
 	      fij[1] *= conv_energy_factor;
 	      fij[2] *= conv_energy_factor;
 
-	      Mat3d v_contrib = tensor( Vec3d{ fij[0] , fij[1] , fij[2] }, Vec3d{ buf.drx[jj],buf.dry[jj],buf.drz[jj] } );
-        if constexpr ( compute_virial ) { _vir += v_contrib * -1.0; }
+        if constexpr ( compute_virial )
+        {
+          const Mat3d v_contrib = tensor( Vec3d{ fij[0] , fij[1] , fij[2] }, Vec3d{ buf.drx[jj],buf.dry[jj],buf.drz[jj] } );
+          _vir += v_contrib * -1.0;
+        }
 
         _fx += fij[0];
         _fy += fij[1];
