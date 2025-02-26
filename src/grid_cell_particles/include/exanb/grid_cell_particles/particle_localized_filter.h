@@ -22,7 +22,7 @@ under the License.
 
 #include <exanb/grid_cell_particles/particle_region.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
-#include <exanb/grid_cell_particles/particle_cell_projection.h>
+#include <exanb/grid_cell_particles/grid_cell_values_utils.h>
 #include <exanb/core/xform.h>
 #include <exanb/core/source_term.h>
 
@@ -102,7 +102,7 @@ namespace exanb
     */
     ONIKA_HOST_DEVICE_FUNC inline bool operator () ( const Vec3d& r , uint64_t id ) const
     {
-      using namespace ParticleCellProjectionTools;
+      using namespace GridCellValuesUtils;
       
       bool keep_particle = prcsg.contains(xform.transformCoord(r),id);
       if( keep_particle && cell_value_ptr!=nullptr )

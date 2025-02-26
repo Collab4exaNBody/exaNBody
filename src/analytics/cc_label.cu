@@ -49,7 +49,7 @@ namespace exanb
 
     ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
     ADD_SLOT( long                    , cc_count_threshold  , INPUT , 1 ); // CC that have less or equal cells than this value, are ignored
-
+    
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
     
@@ -235,8 +235,10 @@ namespace exanb
       for( ssize_t i=0 ; i < grid_dims.i ; i++)
       {
         const bool is_ghost = (i<gl) || (i>=(grid_dims.i-gl)) || (j<gl) || (j>=(grid_dims.j-gl)) || (k<gl) || (k>=(grid_dims.k-gl));
-        const ssize_t grid_cell_index = is_ghost ? 0 : grid_ijk_to_index( grid_dims , IJK{i,j,k} );
-        const ssize_t domain_cell_index = is_ghost ? 0 : grid_ijk_to_index( domain_dims , IJK{i,j,k} - grid_offset );
+        const IJK grid_cell_loc = {i,j,k};
+        const IJK domain_cell_loc = grid_cell_loc + grid_offset;
+        const ssize_t grid_cell_index = grid_ijk_to_index( grid_dims , grid_cell_loc );
+        const ssize_t domain_cell_index = grid_ijk_to_index( domain_dims , domain_cell_loc );
         for( ssize_t sk=0 ; sk<subdiv ; sk++)
         for( ssize_t sj=0 ; sj<subdiv ; sj++)
         for( ssize_t si=0 ; si<subdiv ; si++)
@@ -348,7 +350,6 @@ namespace exanb
       } while( label_update_passes > 0 );
 
       ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
-
 
       /*******************************************************************
        * count number of local ids and identify their respective owner process

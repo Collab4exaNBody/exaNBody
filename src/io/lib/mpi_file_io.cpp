@@ -32,6 +32,46 @@ under the License.
 namespace exanb
 {
 
+
+  // *********** Simple parallel ASCII output file writer ****************
+  
+  bool MpioIOText::open(MPI_Comm comm, const std::string& filename)
+  {
+    if( m_sample_size > MAX_SAMPLE_SIZE ) return false;
+
+    MPI_File_open(comm,filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR , MPI_INFO_NULL, & m_file);
+    int rank=0;
+    MPI_Comm_rank(comm,&rank);
+    if( rank == 0 )
+    {
+      MPI_Status status;
+      MPI_File_write_at( m_file, 0, m_header, m_header_size, MPI_CHAR, &status);
+      int count = 0;
+      MPI_Get_count(&status, MPI_UNSIGNED_CHAR, &count);
+      if( size_t(count) != m_header_size ) return false;
+    }
+    return true;
+  }
+  
+  bool MpioIOText::close()
+  {
+    MPI_File_close( & m_file );
+    return true;
+  }
+  
+  bool MpioIOText::write_sample_buf(size_t idx , const char* buf )
+  {
+    MPI_Status status;
+    int count = 0;
+    MPI_File_write_at( m_file , m_header_size + ( idx * m_sample_size ) , buf , m_sample_size , MPI_CHAR , &status );
+    MPI_Get_count(&status, MPI_UNSIGNED_CHAR, &count);
+    return size_t(count) == m_sample_size ;
+  }
+
+
+
+  // *********** Parallel dump file writer with multithreaded compression ****************
+  
   void MpiIO::handle_error(int errcode)
   {
     char msg[MPI_MAX_ERROR_STRING];

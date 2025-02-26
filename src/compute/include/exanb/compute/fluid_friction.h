@@ -33,7 +33,8 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/compute/compute_cell_particles.h>
 #include <exanb/grid_cell_particles/particle_region.h>
-#include <exanb/grid_cell_particles/particle_cell_projection.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
+#include <exanb/grid_cell_particles/grid_cell_values_utils.h>
 
 namespace exanb
 {
@@ -68,7 +69,7 @@ namespace exanb
       double vx, double vy, double vz,
       double& fx, double& fy, double& fz , const AdditionalArgs& ... args ) const
     {
-      using namespace ParticleCellProjectionTools;
+      using namespace GridCellValuesUtils;
 
       assert( cell_value_stride >= subdiv*subdiv*subdiv * 4 ); // we only accept 4 components vector fields
       const Vec3d r = {rx,ry,rz};

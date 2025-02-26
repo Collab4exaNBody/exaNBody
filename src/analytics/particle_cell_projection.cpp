@@ -22,10 +22,10 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <exanb/core/grid.h>
 #include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/grid_cell_particles/grid_cell_values.h>
-
-#include <exanb/grid_cell_particles/particle_cell_projection.h>
 #include <exanb/core/grid_particle_field_accessor.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
+#include <exanb/compute/field_combiners.h>
+#include <exanb/analytics/particle_cell_projection.h>
 
 #include <regex>
 
@@ -55,7 +55,8 @@ namespace exanb
       using namespace ParticleCellProjectionTools;
       if( grid->number_of_cells() == 0 ) return;
 
-      auto proj_fields = make_field_tuple_from_field_set( grid->field_set );
+      ParticleCountCombiner count = {};
+      auto proj_fields = make_field_tuple_from_field_set( grid->field_set , count );
       auto field_selector = [flist = *fields] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
       project_particle_fields_to_grid( ldbg, *grid, *grid_cell_values, *grid_subdiv, *splat_size, field_selector, proj_fields );
     }

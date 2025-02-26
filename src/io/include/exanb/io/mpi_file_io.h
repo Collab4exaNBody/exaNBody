@@ -21,7 +21,7 @@ under the License.
 #include <mpi.h>
 #include <string>
 #include <cstdlib>
-
+#include <cassert>
 #include <vector>
 #include <map>
 #include <utility>
@@ -33,6 +33,31 @@ under the License.
 
 namespace exanb
 {
+
+  struct MpioIOText
+  {
+    static inline constexpr size_t MAX_SAMPLE_SIZE = 1024-2;
+    const char* const m_header = nullptr;
+    const size_t m_header_size = 0;
+    const char* const m_sample_format = nullptr;
+    const size_t m_sample_size = 0;
+    MPI_File m_file = ( MPI_File ) nullptr;
+
+    bool open(MPI_Comm comm, const std::string& filename);
+    bool close();   
+    bool write_sample_buf( size_t idx , const char* buf );
+
+    template<class... ArgsT>
+    inline bool write_sample(size_t idx , const ArgsT& ... args )
+    {
+      char buf[MAX_SAMPLE_SIZE+2];
+      [[maybe_unused]] int bufsize = std::snprintf( buf, m_sample_size+1, m_sample_format, args ... );
+      assert( size_t(bufsize) == m_sample_size );
+      buf[m_sample_size-1] = '\n';
+      buf[m_sample_size  ] = '\0';
+      return write_sample_buf( idx , buf );
+    }
+  };
 
   class MpiIO
   {
