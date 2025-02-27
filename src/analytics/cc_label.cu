@@ -336,9 +336,9 @@ namespace exanb
               assert( value_index >= 0 );
               if( cc_label_ptr[ value_index ] >= 0.0 )
               {
-                constexpr IJK stencil[6] = { {-1,0,0} , {1,0,0} , {0,-1,0} , {0,1,0} , {0,0,-1} , {0,0,1} };
                 auto fetch_nbh_and_update = [&](auto stencil_idx)
                 {
+                  constexpr IJK stencil[6] = { {-1,0,0} , {1,0,0} , {0,-1,0} , {0,1,0} , {0,0,-1} , {0,0,1} };
                   constexpr IJK nbh_ijk = stencil[stencil_idx];
                   IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
                   gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, nbh_ijk, nbh_cell_loc, nbh_subcell_loc );
@@ -346,15 +346,10 @@ namespace exanb
                    && nbh_cell_loc.j>=0 && nbh_cell_loc.j<grid_dims.j
                    && nbh_cell_loc.k>=0 && nbh_cell_loc.k<grid_dims.k )
                   {
-                    // is neighbor in the ghost cell area ?
-                    /* const bool nbh_is_ghost = (nbh_cell_loc.i<gl) || (nbh_cell_loc.i>=(grid_dims.i-gl))
-                                           || (nbh_cell_loc.j<gl) || (nbh_cell_loc.j>=(grid_dims.j-gl))
-                                           || (nbh_cell_loc.k<gl) || (nbh_cell_loc.k>=(grid_dims.k-gl)); */
                     const ssize_t nbh_cell_index = grid_ijk_to_index( grid_dims , nbh_cell_loc );
                     const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
                     assert( nbh_value_index >= 0 );
-                    // assert( cc_label_ptr[ nbh_value_index ] != ghost_no_label );
                     const double nbh_cc_label = cc_label_ptr[nbh_value_index];
                     if( nbh_cc_label >= 0.0 && nbh_cc_label < cc_label_ptr[value_index] )
                     {

@@ -47,7 +47,7 @@ namespace exanb
     {
       ldbg << "CC table size = "<< cc_table->size() << std::endl;
 
-      const char* csv_header = "label ; count ; center_x ; center_y ; center_z\n";
+      const char* csv_header = "label ; rank ; count ; center_x ; center_y ; center_z\n";
       const size_t csv_header_size = std::strlen(csv_header);
       const char* csv_sample_format = "% 012llu ; % 06llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
       const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0ull, 0., 0., 0. );
