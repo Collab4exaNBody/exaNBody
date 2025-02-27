@@ -30,6 +30,7 @@ under the License.
 #include <exanb/mpi/grid_update_from_ghosts.h>
 
 #include <mpi.h>
+#include <bit>
 
 namespace exanb
 {
@@ -210,22 +211,42 @@ namespace exanb
       static constexpr double ghost_no_label = -2.0;
       static constexpr double no_label = -1.0;
       
+      assert( domain_dims.i>=0 && domain_dims.j>=0 && domain_dims.k>=0 );
+      const unsigned int unique_id_i_bits = std::bit_width( size_t(domain_dims.i) );
+      const unsigned int unique_id_j_bits = std::bit_width( size_t(domain_dims.j) );
+      const unsigned int unique_id_k_bits = std::bit_width( size_t(domain_dims.k) );
+      const unsigned int unique_id_total_bits = unique_id_i_bits + unique_id_j_bits + unique_id_k_bits;
+      const uint64_t unique_id_count = ( 1ull << unique_id_total_bits ) * subdiv3;
+
       // these 3 funcions define how we build unique ids such a way that :
       // 1. owner rank can be guessed from the unique_id
       // 2. final (stripped) unique ids will be deterministic and independant from parallel settings
-      auto encode_unique_id = [&](uint64_t domain_cell_index, uint64_t grid_cell_index, uint64_t subcell_index) -> uint64_t
+      auto encode_unique_id = [&](const IJK& domain_cell_loc, uint64_t subcell_index) -> uint64_t
       {
         assert(rank>=0 && rank<nprocs);
-        return ( domain_cell_index * subdiv3 + subcell_index ) * nprocs + rank;
+        unsigned int i_bits = unique_id_i_bits;
+        unsigned int j_bits = unique_id_j_bits;
+        unsigned int k_bits = unique_id_k_bits;
+        unsigned int total_bits = unique_id_total_bits;
+        uint64_t domain_cell_z_index = 0;
+        while( total_bits > 0 )
+        {
+          unsigned int max_coord_bits = std::max( std::max( i_bits , j_bits ) , k_bits );
+          assert( max_coord_bits > 0 );
+          if( i_bits == max_coord_bits ) { assert(total_bits>0 && i_bits>0); --i_bits; --total_bits; domain_cell_z_index |= ( ( domain_cell_loc.i >> i_bits ) & 1ull ) << total_bits; }
+          if( j_bits == max_coord_bits ) { assert(total_bits>0 && j_bits>0); --j_bits; --total_bits; domain_cell_z_index |= ( ( domain_cell_loc.j >> j_bits ) & 1ull ) << total_bits; }
+          if( k_bits == max_coord_bits ) { assert(total_bits>0 && k_bits>0); --k_bits; --total_bits; domain_cell_z_index |= ( ( domain_cell_loc.k >> k_bits ) & 1ull ) << total_bits; }
+        }
+        assert( total_bits==0 && i_bits==0 && j_bits==0 && k_bits==0 );
+        //uint64_t domain_cell_index = grid_ijk_to_index( domain_dims , domain_cell_loc );
+        return ( domain_cell_z_index * subdiv3 + subcell_index ) ; //* nprocs + rank;
       };
+            
       // now we can build a function to determine final destination (process rank) for each CC based on its label
       auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
       {
-        return unique_id % nprocs;
-      };      
-      auto strip_unique_id = [&](uint64_t unique_id) -> uint64_t 
-      {
-        return unique_id / nprocs;
+        int p = ( unique_id * nprocs ) / unique_id_count;
+        return std::clamp( p , 0 , nprocs-1 );
       };
 
       // create a unique label id for each cell satisfying selection criteria
@@ -238,7 +259,6 @@ namespace exanb
         const IJK grid_cell_loc = {i,j,k};
         const IJK domain_cell_loc = grid_cell_loc + grid_offset;
         const ssize_t grid_cell_index = grid_ijk_to_index( grid_dims , grid_cell_loc );
-        const ssize_t domain_cell_index = grid_ijk_to_index( domain_dims , domain_cell_loc );
         for( ssize_t sk=0 ; sk<subdiv ; sk++)
         for( ssize_t sj=0 ; sj<subdiv ; sj++)
         for( ssize_t si=0 ; si<subdiv ; si++)
@@ -258,11 +278,10 @@ namespace exanb
             }
             else
             {
-              const uint64_t unique_id = encode_unique_id( domain_cell_index, grid_cell_index, subcell_index );
+              const uint64_t unique_id = encode_unique_id( domain_cell_loc, subcell_index );
               const double label = static_cast<double>(unique_id);
               assert( label == unique_id ); // ensures lossless conversion to double
               cc_label_ptr[value_index] = label;
-              assert( owner_from_unique_id(unique_id) == rank );
             }
           }
         }
@@ -395,6 +414,7 @@ namespace exanb
         }
       }
 
+      ldbg << "*** exchange_cc_map_contributions ***"<<std::endl;
       // update map assigning correct destination process in m_rank field
       for(auto & cc : cc_map)
       {
@@ -433,8 +453,7 @@ namespace exanb
       }
       assert( cc_total_send == cc_map.size() );
       ldbg << "cc_total_send="<<cc_total_send<<" , cc_total_recv="<<cc_total_recv<<std::endl; 
-      
-      
+            
       std::vector<ConnectedComponentInfo> cc_recv_data( cc_total_recv , ConnectedComponentInfo{} );
       std::vector<ConnectedComponentInfo> cc_send_data( cc_total_send , ConnectedComponentInfo{} );      
       // fill send buffer from map ith respect to process rank order
@@ -460,8 +479,6 @@ namespace exanb
         cc_recv_counts[i] *= sizeof(ConnectedComponentInfo);
         cc_send_displs[i] *= sizeof(ConnectedComponentInfo);
         cc_recv_displs[i] *= sizeof(ConnectedComponentInfo);
-        // ldbg << "* SEND["<<i<<"] : c="<<cc_send_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_send_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
-        // ldbg << "* RECV["<<i<<"] : c="<<cc_recv_counts[i]/sizeof(ConnectedComponentInfo)<<" d="<<cc_recv_displs[i]/sizeof(ConnectedComponentInfo)<<std::endl;
       }
       MPI_Alltoallv( cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
                    , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
@@ -472,7 +489,6 @@ namespace exanb
       cc_send_displs.clear(); cc_send_displs.shrink_to_fit();
       cc_recv_displs.clear(); cc_recv_displs.shrink_to_fit();
       cc_send_data.clear(); cc_send_data.shrink_to_fit();
-
       
       /*************************************************************************
        * finalize CC information statistics and filter out some of the CCs
@@ -499,7 +515,7 @@ namespace exanb
         cc_info.m_cell_count += cc.m_cell_count;
         cc_info.m_center += cc.m_center;
         cc_info.m_gyration += cc.m_gyration;
-      }
+      }      
 
       cc_table->m_table.clear();
       for(const auto & ccp : cc_map)
@@ -512,6 +528,7 @@ namespace exanb
         }
       }
       cc_map.clear();
+
       std::sort( cc_table->m_table.begin() , cc_table->m_table.end() , []( const ConnectedComponentInfo& cc_a , const ConnectedComponentInfo& cc_b ) -> bool { return cc_a.m_label < cc_b.m_label; } );
 
       unsigned long long global_label_idx_start = 0;
@@ -527,28 +544,6 @@ namespace exanb
       {
         cc_table->at(i).m_rank = i + global_label_idx_start;
         assert( cc_table->at(i).m_label >= 0.0 );
-        const uint64_t unique_id = strip_unique_id( static_cast<uint64_t>( cc_table->at(i).m_label ) );
-        cc_table->at(i).m_label = unique_id;
-        assert( unique_id == cc_table->at(i).m_label );
-        // ldbg << "CC["<<cc_table->at(i).m_rank<<"] : id="<<unique_id<<", count="<<cc_table->at(i).m_cell_count<<std::endl;
-      }
-
-      // also strip unique_id (cc_label) stored in cell values
-#     pragma omp parallel for collapse(3) schedule(static)
-      for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
-      for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
-      for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
-      {        
-        const ssize_t cell_index = grid_ijk_to_index( grid_dims , IJK{i,j,k} );
-        for( ssize_t sk=0 ; sk<subdiv ; sk++)
-        for( ssize_t sj=0 ; sj<subdiv ; sj++)
-        for( ssize_t si=0 ; si<subdiv ; si++)
-        {
-          const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , IJK{si,sj,sk} );
-          const ssize_t value_index = cell_index * stride + subcell_index;
-          assert( value_index >= 0 );
-          if( cc_label_ptr[value_index] >= 0.0 ) cc_label_ptr[value_index] = strip_unique_id( static_cast<uint64_t>( cc_label_ptr[value_index] ) );              
-        }
       }
 
       ldbg << "cc_label : owned_label_count="<<cc_table->size()<<", global_label_count="<<global_label_count<<", global_label_idx_start="<<global_label_idx_start << std::endl;
