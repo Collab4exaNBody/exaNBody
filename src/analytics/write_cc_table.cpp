@@ -63,13 +63,13 @@ namespace exanb
 
       for(size_t i=0;i<cc_table->size();i++)
       {
-        const unsigned long long cell_label = static_cast<ssize_t>(cc_table->at(i).m_label);
+        const unsigned long long cc_label = static_cast<ssize_t>(cc_table->at(i).m_label);
         const unsigned long long global_id = cc_table->at(i).m_rank;
         const unsigned long long cell_count = cc_table->at(i).m_cell_count;
         const double cx = cc_table->at(i).m_center.x;
         const double cy = cc_table->at(i).m_center.y;
         const double cz = cc_table->at(i).m_center.z;
-        outfile.write_sample( global_id , cell_label, cell_count, cx, cy, cz );
+        outfile.write_sample( global_id, cc_label, cell_count, cx, cy, cz );
       }
       
       outfile.close();
@@ -81,31 +81,6 @@ namespace exanb
     {
       return R"EOF(
 Connected components table writer, outputs a CSV file containing CC properties
-This file can be used from Paraview's programmable filter to transform cc_label property on a grid
-to CC properties, such as volume (sub cell count), using a python script as follows :
-# Paraview programmable filter script
-import numpy as np
-input0 = inputs[0]
-cc_id = input0.PointData["cc_label"]
-ts = 600010
-fp = "."
-cc_table = np.genfromtxt("%s/cc_%09d_table.csv" % (fp,ts) , dtype=None, names=True, delimiter=';', autostrip=True)
-cc_count = cc_table["count"]
-cc_label = input0.PointData["cc_label"]
-output.PointData.append( cc_label , "cc_label" )
-N = cc_label.size
-cc_volume = np.array( [] , dtype=np.uint32 )
-cc_volume.resize(N)
-cc_volume.reshape([N])
-for i in range(N):
-    assert i < cc_volume.size , "index %d out of cc_volume bounds (%d)" % (i,cc_volume.size)
-    label_idx = int(cc_label[i])
-    if label_idx >= 0:
-      assert label_idx < cc_count.size , "%d out of cc_count bounds (%d)" % (label_idx,cc_count.size)
-      cc_volume[i] = cc_count[label_idx]
-    else:
-      cc_volume[i] = 0
-output.PointData.append( cc_volume , "cc_volume" )
 )EOF";
     }
 
