@@ -49,8 +49,8 @@ namespace exanb
 
       const char* csv_header = "label ; count ; center_x ; center_y ; center_z\n";
       const size_t csv_header_size = std::strlen(csv_header);
-      const char* csv_sample_format = "% 012llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
-      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0., 0., 0. );
+      const char* csv_sample_format = "% 012llu ; % 06llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
+      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0ull, 0., 0., 0. );
       const std::string csv_filename = (*filename) + "_table.csv";
       ldbg <<"write_cc_table : header = "<<csv_header ;
       ldbg <<"write_cc_table : format = "<<csv_sample_format ;
@@ -63,13 +63,13 @@ namespace exanb
 
       for(size_t i=0;i<cc_table->size();i++)
       {
-        const unsigned long long cc_label = static_cast<ssize_t>(cc_table->at(i).m_label);
-        const unsigned long long global_id = cc_table->at(i).m_rank;
+        const unsigned long long global_id = static_cast<ssize_t>(cc_table->at(i).m_label);
+        const unsigned long long rank = cc_table->at(i).m_rank;
         const unsigned long long cell_count = cc_table->at(i).m_cell_count;
         const double cx = cc_table->at(i).m_center.x;
         const double cy = cc_table->at(i).m_center.y;
         const double cz = cc_table->at(i).m_center.z;
-        outfile.write_sample( global_id, cc_label, cell_count, cx, cy, cz );
+        outfile.write_sample( global_id, global_id, rank, cell_count, cx, cy, cz );
       }
       
       outfile.close();

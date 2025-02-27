@@ -243,9 +243,15 @@ namespace exanb
       };
             
       // now we can build a function to determine final destination (process rank) for each CC based on its label
+      unsigned long long unique_id_min = unique_id_count;
+      unsigned long long unique_id_max = 0;
       auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
       {
-        int p = ( unique_id * nprocs ) / unique_id_count;
+        assert( unique_id_min < unique_id_max );
+        const unsigned long long range_count = ( unique_id_max - unique_id_min ) / subdiv3;
+        const unsigned long long id_balance_offset = ( range_count / nprocs ) / 2;
+        const unsigned long long id = ( ( unique_id - unique_id_min ) / subdiv3 ) + id_balance_offset;
+        int p = ( range_count > 0 ) ? ( ( id * nprocs ) / range_count ) : 0 ;
         return std::clamp( p , 0 , nprocs-1 );
       };
 
@@ -401,6 +407,8 @@ namespace exanb
           if( label >= 0.0 )
           {
             const ssize_t unique_id = static_cast<size_t>( label );
+            unique_id_min = std::min( unique_id_min , static_cast<unsigned long long>( unique_id ) );
+            unique_id_max = std::max( unique_id_max , static_cast<unsigned long long>( unique_id+1 ) );
             auto & cc_info = cc_map[unique_id];
             if( cc_info.m_label == -1.0 )
             {
@@ -421,7 +429,10 @@ namespace exanb
         }
       }
 
-      ldbg << "*** exchange_cc_map_contributions ***"<<std::endl;
+      MPI_Allreduce(MPI_IN_PLACE,&unique_id_min,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
+      MPI_Allreduce(MPI_IN_PLACE,&unique_id_max,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
+      ldbg << "id min = "<<unique_id_min<<" , id max = "<<unique_id_max <<std::endl;
+
       // update map assigning correct destination process in m_rank field
       for(auto & cc : cc_map)
       {
@@ -533,11 +544,8 @@ namespace exanb
 
       unsigned long long global_label_idx_end = global_label_idx_start;
       std::unordered_map<int64_t,int64_t> final_label_id_map;
-      int64_t last_unique_id = -1;
       for(const auto unique_id : ordered_label_ids)
       {
-        assert( unique_id > last_unique_id );
-        last_unique_id = unique_id;
         auto & cc = cc_map[unique_id];
         if( cc.m_cell_count > 0 )
         {
@@ -578,6 +586,7 @@ namespace exanb
           assert( cc.m_rank>=global_label_idx_start && cc.m_rank<global_label_idx_end );
           assert( ( cc.m_rank - global_label_idx_start ) == cc_table->m_table.size() );
           cc.m_label = cc.m_rank;
+          cc.m_rank = rank;
           cc_table->m_table.push_back( cc );
         }
       }
