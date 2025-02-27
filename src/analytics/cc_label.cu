@@ -330,12 +330,12 @@ namespace exanb
               assert( value_index >= 0 );
               if( cc_label_ptr[ value_index ] >= 0.0 )
               {
-                for( ssize_t nk=-1 ; nk<=1 ; nk++)
-                for( ssize_t nj=-1 ; nj<=1 ; nj++)
-                for( ssize_t ni=-1 ; ni<=1 ; ni++) if(ni!=0 || nj!=0 || nk!=0)
+                constexpr IJK stencil[6] = { {-1,0,0} , {1,0,0} , {0,-1,0} , {0,1,0} , {0,0,-1} , {0,0,1} };
+                auto fetch_nbh_and_update = [&](auto stencil_idx)
                 {
+                  constexpr IJK nbh_ijk = stencil[stencil_idx];
                   IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
-                  gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, IJK{ni,nj,nk}, nbh_cell_loc, nbh_subcell_loc );
+                  gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, nbh_ijk, nbh_cell_loc, nbh_subcell_loc );
                   if( nbh_cell_loc.i>=0 && nbh_cell_loc.i<grid_dims.i
                    && nbh_cell_loc.j>=0 && nbh_cell_loc.j<grid_dims.j
                    && nbh_cell_loc.k>=0 && nbh_cell_loc.k<grid_dims.k )
@@ -349,13 +349,20 @@ namespace exanb
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
                     assert( nbh_value_index >= 0 );
                     // assert( cc_label_ptr[ nbh_value_index ] != ghost_no_label );
-                    if( cc_label_ptr[nbh_value_index] >= 0.0 && cc_label_ptr[nbh_value_index] < cc_label_ptr[value_index] )
+                    const double nbh_cc_label = cc_label_ptr[nbh_value_index];
+                    if( nbh_cc_label >= 0.0 && nbh_cc_label < cc_label_ptr[value_index] )
                     {
-                      cc_label_ptr[ value_index ] = cc_label_ptr[ nbh_value_index ];
+                      cc_label_ptr[ value_index ] = nbh_cc_label;
                       ++ label_update_count;
                     }
                   }
-                }
+                };
+                fetch_nbh_and_update( std::integral_constant<size_t,0>{} );
+                fetch_nbh_and_update( std::integral_constant<size_t,1>{} );
+                fetch_nbh_and_update( std::integral_constant<size_t,2>{} );
+                fetch_nbh_and_update( std::integral_constant<size_t,3>{} );
+                fetch_nbh_and_update( std::integral_constant<size_t,4>{} );
+                fetch_nbh_and_update( std::integral_constant<size_t,5>{} );
               }
             }
           }
