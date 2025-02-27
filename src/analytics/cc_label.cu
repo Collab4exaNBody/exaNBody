@@ -490,12 +490,6 @@ namespace exanb
       MPI_Alltoallv( cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
                    , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
                    , *mpi );
-
-      cc_send_counts.clear(); cc_send_counts.shrink_to_fit();
-      cc_recv_counts.clear(); cc_recv_counts.shrink_to_fit();
-      cc_send_displs.clear(); cc_send_displs.shrink_to_fit();
-      cc_recv_displs.clear(); cc_recv_displs.shrink_to_fit();
-      cc_send_data.clear(); cc_send_data.shrink_to_fit();
       
       /*************************************************************************
        * finalize CC information statistics and filter out some of the CCs
@@ -524,36 +518,99 @@ namespace exanb
         cc_info.m_gyration += cc.m_gyration;
       }      
 
-      cc_table->m_table.clear();
-      for(const auto & ccp : cc_map)
+      unsigned long long global_label_count = 0;
+      std::set<int64_t> ordered_label_ids;
+      for(auto & ccp : cc_map)
       {
-        if( ccp.second.m_cell_count >= (*cc_count_threshold) )
+        ordered_label_ids.insert( ccp.first );
+        if( ccp.second.m_cell_count < (*cc_count_threshold) ) ccp.second.m_cell_count = 0;
+        else ++ global_label_count;
+      }
+
+      unsigned long long global_label_idx_start = 0;
+      MPI_Exscan( &global_label_count , &global_label_idx_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+      MPI_Allreduce( MPI_IN_PLACE , &global_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+
+      unsigned long long global_label_idx_end = global_label_idx_start;
+      std::unordered_map<int64_t,int64_t> final_label_id_map;
+      int64_t last_unique_id = -1;
+      for(const auto unique_id : ordered_label_ids)
+      {
+        assert( unique_id > last_unique_id );
+        last_unique_id = unique_id;
+        auto & cc = cc_map[unique_id];
+        if( cc.m_cell_count > 0 )
         {
-          cc_table->m_table.push_back( ccp.second );
-          assert( cc_table->m_table.back().m_rank == rank );
-          cc_table->m_table.back().m_rank = -1;
+          cc.m_rank = global_label_idx_end ++;
+        }
+        else
+        {
+          cc.m_rank = -1;
+        }
+        final_label_id_map[unique_id] = cc.m_rank;
+      }
+
+      // fill back recv_data with updated data so sender can now have complete information
+      // about CCs it does not own
+      for(auto & cc : cc_recv_data)
+      {
+        const ssize_t unique_id = static_cast<size_t>( cc.m_label );
+        cc = cc_map[unique_id];
+      }
+      
+      // reverse communication to send back cc info update
+      MPI_Alltoallv( cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
+                   , cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
+                   , *mpi );
+
+      for(const auto & cc : cc_send_data)
+      {
+        const ssize_t unique_id = static_cast<size_t>( cc.m_label );
+        final_label_id_map[unique_id] = cc.m_rank;
+      }
+
+      cc_table->m_table.clear();
+      for(const auto unique_id : ordered_label_ids)
+      {
+        auto & cc = cc_map[unique_id];
+        if( cc.m_cell_count > 0 )
+        {
+          assert( cc.m_rank>=global_label_idx_start && cc.m_rank<global_label_idx_end );
+          assert( ( cc.m_rank - global_label_idx_start ) == cc_table->m_table.size() );
+          cc.m_label = cc.m_rank;
+          cc_table->m_table.push_back( cc );
         }
       }
       cc_map.clear();
 
-      std::sort( cc_table->m_table.begin() , cc_table->m_table.end() , []( const ConnectedComponentInfo& cc_a , const ConnectedComponentInfo& cc_b ) -> bool { return cc_a.m_label < cc_b.m_label; } );
-
-      unsigned long long global_label_idx_start = 0;
-      unsigned long long global_label_count = cc_table->m_table.size();
-      MPI_Exscan( &global_label_count , &global_label_idx_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
-      MPI_Allreduce( MPI_IN_PLACE , &global_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
-      cc_table->m_global_label_count = global_label_count;
-      cc_table->m_local_label_start = global_label_idx_start;
-
-      // (!) starting from here, m_rank field is not the rank of owning processor any more,
-      // but the global label index, in [0;number_of_ccs[, of CC
-      for(size_t i=0;i<cc_table->size();i++)
-      {
-        cc_table->at(i).m_rank = i + global_label_idx_start;
-        assert( cc_table->at(i).m_label >= 0.0 );
+      // update cc_label grid cell values with final label ids
+      for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+      for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+      for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
+      {        
+        const IJK cell_loc = {i,j,k};
+        const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+        for( ssize_t sk=0 ; sk<subdiv ; sk++)
+        for( ssize_t sj=0 ; sj<subdiv ; sj++)
+        for( ssize_t si=0 ; si<subdiv ; si++)
+        {
+          const IJK subcell_loc = {si,sj,sk};
+          const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+          const ssize_t value_index = cell_index * stride + subcell_index;
+          assert( value_index >= 0 );
+          const double label = cc_label_ptr[ value_index ];
+          if( label >= 0.0 )
+          {
+            const ssize_t unique_id = static_cast<size_t>( label );
+            auto it = final_label_id_map.find( unique_id );
+            assert( it != final_label_id_map.end() );
+            cc_label_ptr[ value_index ] = it->second;
+          }
+        }
       }
 
-      ldbg << "cc_label : owned_label_count="<<cc_table->size()<<", global_label_count="<<global_label_count<<", global_label_idx_start="<<global_label_idx_start << std::endl;
+      ldbg << "cc_label : owned_label_count="<<cc_table->size()<<", global_label_count="<<global_label_count
+           <<", global_label_idx_start="<<global_label_idx_start <<", global_label_idx_end="<<global_label_idx_end << std::endl;
     }
 
     // -----------------------------------------------
