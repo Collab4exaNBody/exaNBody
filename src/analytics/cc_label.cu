@@ -303,18 +303,15 @@ namespace exanb
       std::unordered_map<uint64_t,uint64_t> id_fast_remap(4096);
       do
       {
-        ++ total_comm_passes;
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
                             *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
                             0, false, false, false,
                             true, false , std::integral_constant<bool,false>{} );
 
-        unsigned long long local_propagate_pass = 0;
         unsigned long long label_update_count = 0;
         label_update_passes = 0;
         do
         {
-          ++ local_propagate_pass;
           ++ total_local_passes;
 
           label_update_count = 0;
@@ -374,12 +371,12 @@ namespace exanb
                     if( nbh_cc_label >= 0.0 && nbh_cc_label < new_value )
                     {
                       new_value = nbh_cc_label;
-                      ++ label_update_count;
                     }
                   }
                 }
                 if( new_value < old_value )
                 {
+                  ++ label_update_count;
                   if( new_value < remap_label )
                   {
 #                   pragma omp atomic write
@@ -429,6 +426,7 @@ namespace exanb
           }
         }
         
+        ++ total_comm_passes;
       } while( label_update_passes > 0 );
 
       ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
