@@ -297,10 +297,13 @@ namespace exanb
        * When done, all MPI processes assigned the same
        * globaly known unique label ids to connected cells.
        ****************************************************/
+      const size_t MAX_NT = omp_get_max_threads();
       unsigned long long label_update_passes = 0;
       unsigned long long total_local_passes = 0;
       unsigned long long total_comm_passes = 0;
-      std::unordered_map<uint64_t,uint64_t> id_fast_remap(4096);
+      std::unordered_map<uint64_t,uint64_t> id_fast_remap;
+      std::vector< std::unordered_map<uint64_t,uint64_t> > id_fast_remap_mt( MAX_NT );
+
       do
       {
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
@@ -350,20 +353,20 @@ namespace exanb
                 }
 
                 // *** full stencil ***
-                //for(int ni=-1;ni<=1;ni++)
-                //for(int nj=-1;nj<=1;nj++)
-                //for(int nk=-1;nk<=1;nk++)
-                //if(ni!=0||nj!=0||nk!=0)
-                //{
-                //  const IJK nbh_ijk = {ni,nj,nk};
+                for(int ni=-1;ni<=1;ni++)
+                for(int nj=-1;nj<=1;nj++)
+                for(int nk=-1;nk<=1;nk++)
+                if(ni!=0||nj!=0||nk!=0)
+                {
+                  const IJK nbh_ijk = {ni,nj,nk};
                 
                 // *** cross stencil ***
-                for(int dim=0;dim<3;dim++)
-                for(int side=-1;side<=1;side+=2)
-                {
-                  int disp[3] = { 0 , 0 , 0 };
-                  disp[dim] = side;
-                  const IJK nbh_ijk = {disp[0],disp[1],disp[2]};
+                //for(int dim=0;dim<3;dim++)
+                //for(int side=-1;side<=1;side+=2)
+                //{
+                //  int disp[3] = { 0 , 0 , 0 };
+                //  disp[dim] = side;
+                //  const IJK nbh_ijk = {disp[0],disp[1],disp[2]};
 
                   IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
                   gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, nbh_ijk, nbh_cell_loc, nbh_subcell_loc );
@@ -409,30 +412,41 @@ namespace exanb
         if( label_update_passes > 0 )
         {
           id_fast_remap.clear();
-          for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
-          for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
-          for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
-          {        
-            const IJK cell_loc = {i,j,k};
-            const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
-            for( ssize_t sk=0 ; sk<subdiv ; sk++)
-            for( ssize_t sj=0 ; sj<subdiv ; sj++)
-            for( ssize_t si=0 ; si<subdiv ; si++)
-            {
-              const IJK subcell_loc = {si,sj,sk};
-              ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
-              ssize_t value_index = cell_index * stride + subcell_index;
-              assert( value_index >= 0 );
-              const double label = cc_label_ptr[ value_index ];
-              if( label >= 0.0 )
+#         pragma omp parallel
+          {
+            const size_t tid = omp_get_thread_num();
+            assert( tid < MAX_NT );
+            id_fast_remap_mt[tid].clear();
+#           pragma omp for collapse(3) schedule(static)
+            for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+            for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+            for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
+            {        
+              const IJK cell_loc = {i,j,k};
+              const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+              for( ssize_t sk=0 ; sk<subdiv ; sk++)
+              for( ssize_t sj=0 ; sj<subdiv ; sj++)
+              for( ssize_t si=0 ; si<subdiv ; si++)
               {
-                const uint64_t unique_id = static_cast<uint64_t>( label );
-                if( id_fast_remap.find(unique_id) == id_fast_remap.end() )
+                const IJK subcell_loc = {si,sj,sk};
+                ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+                ssize_t value_index = cell_index * stride + subcell_index;
+                assert( value_index >= 0 );
+                const double label = cc_label_ptr[ value_index ];
+                if( label >= 0.0 )
                 {
-                  id_fast_remap.insert( {unique_id,unique_id} );
+                  const uint64_t unique_id = static_cast<uint64_t>( label );
+                  if( id_fast_remap_mt[tid].find(unique_id) == id_fast_remap_mt[tid].end() )
+                  {
+                    id_fast_remap_mt[tid].insert( {unique_id,unique_id} );
+                  }
                 }
               }
             }
+          }
+          for(size_t tid=0;tid<MAX_NT;tid++)
+          {
+            id_fast_remap.insert( id_fast_remap_mt[tid].begin() , id_fast_remap_mt[tid].end() );
           }
         }
         
@@ -441,51 +455,81 @@ namespace exanb
 
       ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
 
+      id_fast_remap.clear();
+      id_fast_remap_mt.clear();
+
       /*******************************************************************
        * count number of local ids and identify their respective owner process
        *******************************************************************/
       std::unordered_map<size_t,ConnectedComponentInfo> cc_map;
-      // const size_t own_label_count = 0;
-      for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
-      for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
-      for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
-      {        
-        const IJK cell_loc = {i,j,k};
-        const IJK domain_cell_loc = cell_loc + grid_offset ;
-        const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
-        for( ssize_t sk=0 ; sk<subdiv ; sk++)
-        for( ssize_t sj=0 ; sj<subdiv ; sj++)
-        for( ssize_t si=0 ; si<subdiv ; si++)
-        {
-          const IJK subcell_loc = {si,sj,sk};
-          const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
-          const ssize_t value_index = cell_index * stride + subcell_index;
-          assert( value_index >= 0 );
-          const double label = cc_label_ptr[ value_index ];
-          if( label >= 0.0 )
+      std::vector< std::unordered_map<size_t,ConnectedComponentInfo> > cc_map_mt( MAX_NT );
+
+#     pragma omp parallel
+      {
+        const size_t tid = omp_get_thread_num();
+        assert( tid < MAX_NT );
+#       pragma omp for collapse(3) schedule(static)
+        for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+        for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+        for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
+        {        
+          const IJK cell_loc = {i,j,k};
+          const IJK domain_cell_loc = cell_loc + grid_offset ;
+          const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+          for( ssize_t sk=0 ; sk<subdiv ; sk++)
+          for( ssize_t sj=0 ; sj<subdiv ; sj++)
+          for( ssize_t si=0 ; si<subdiv ; si++)
           {
-            const ssize_t unique_id = static_cast<size_t>( label );
-            unique_id_min = std::min( unique_id_min , static_cast<unsigned long long>( unique_id ) );
-            unique_id_max = std::max( unique_id_max , static_cast<unsigned long long>( unique_id+1 ) );
-            auto & cc_info = cc_map[unique_id];
-            if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
+            const IJK subcell_loc = {si,sj,sk};
+            const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+            const ssize_t value_index = cell_index * stride + subcell_index;
+            assert( value_index >= 0 );
+            const double label = cc_label_ptr[ value_index ];
+            if( label >= 0.0 )
             {
-              cc_info.m_label = label;
-              cc_info.m_rank = -1; // not known yet
-              cc_info.m_cell_count = 0;
-              cc_info.m_center = Vec3d{0.,0.,0.};
-              cc_info.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
+              const ssize_t unique_id = static_cast<size_t>( label );
+              unique_id_min = std::min( unique_id_min , static_cast<unsigned long long>( unique_id ) );
+              unique_id_max = std::max( unique_id_max , static_cast<unsigned long long>( unique_id+1 ) );
+              auto & cc_info = cc_map_mt[tid][unique_id];
+              if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
+              {
+                cc_info.m_label = label;
+                cc_info.m_rank = -1; // not known yet
+                cc_info.m_cell_count = 0;
+                cc_info.m_center = Vec3d{0.,0.,0.};
+                cc_info.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
+              }
+              else
+              {
+                assert( cc_info.m_label == label );
+              }
+              cc_info.m_cell_count += 1;
+              cc_info.m_center += make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc );
+              // cc_info.m_gyration += ... ;
             }
-            else
-            {
-              assert( cc_info.m_label == label );
-            }
-            cc_info.m_cell_count += 1;
-            cc_info.m_center += make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc );
-            // cc_info.m_gyration += ... ;
           }
         }
       }
+      for(size_t tid=0;tid<MAX_NT;tid++)
+      {
+        for(const auto & kv : cc_map_mt[tid])
+        {
+          const auto unique_id = kv.first;
+          const auto & cc_info_in = kv.second;
+          auto & cc_info = cc_map[unique_id];
+          if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
+          {
+            cc_info = cc_info_in;
+          }
+          else
+          {
+            assert( cc_info.m_label == cc_info_in.m_label );
+            cc_info.m_cell_count += cc_info_in.m_cell_count;
+            cc_info.m_center += cc_info_in.m_center;
+          }
+        }
+      }
+      cc_map_mt.clear();
 
       MPI_Allreduce(MPI_IN_PLACE,&unique_id_min,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
       MPI_Allreduce(MPI_IN_PLACE,&unique_id_max,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
