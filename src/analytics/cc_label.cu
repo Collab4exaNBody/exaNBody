@@ -208,8 +208,6 @@ namespace exanb
       const double threshold = *grid_cell_threshold ;
       // other usefull values
       const size_t subdiv3 = subdiv * subdiv * subdiv;
-      static constexpr double ghost_no_label = -2.0;
-      static constexpr double no_label = -1.0;
       
       assert( domain_dims.i>=0 && domain_dims.j>=0 && domain_dims.k>=0 );
       const unsigned int unique_id_i_bits = std::bit_width( size_t(domain_dims.i) );
@@ -274,13 +272,13 @@ namespace exanb
           assert( value_index >= 0 );          
           if( is_ghost )
           {
-            cc_label_ptr[value_index] = ghost_no_label;
+            cc_label_ptr[value_index] = ConnectedComponentInfo::GHOST_NO_LABEL;
           }
           else
           {
             if( density_ptr[value_index] < threshold )
             {
-              cc_label_ptr[value_index] = no_label;
+              cc_label_ptr[value_index] = ConnectedComponentInfo::NO_LABEL;
             }
             else
             {
@@ -302,6 +300,7 @@ namespace exanb
       unsigned long long label_update_passes = 0;
       unsigned long long total_local_passes = 0;
       unsigned long long total_comm_passes = 0;
+      std::unordered_map<uint64_t,uint64_t> id_fast_remap(4096);
       do
       {
         ++ total_comm_passes;
@@ -334,12 +333,31 @@ namespace exanb
               ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
               ssize_t value_index = cell_index * stride + subcell_index;
               assert( value_index >= 0 );
-              if( cc_label_ptr[ value_index ] >= 0.0 )
+              double old_value = ConnectedComponentInfo::NO_LABEL;
+#             pragma omp atomic read
+              old_value = cc_label_ptr[ value_index ];
+              if( old_value >= 0.0 )
               {
-                auto fetch_nbh_and_update = [&](auto stencil_idx)
+                double new_value = old_value;
+                const uint64_t old_unique_id = static_cast<uint64_t>( old_value );
+                auto remap_it = id_fast_remap.find(old_unique_id);
+                double remap_label = ConnectedComponentInfo::NO_LABEL;
+                if( remap_it != id_fast_remap.end() )
                 {
-                  constexpr IJK stencil[6] = { {-1,0,0} , {1,0,0} , {0,-1,0} , {0,1,0} , {0,0,-1} , {0,0,1} };
-                  constexpr IJK nbh_ijk = stencil[stencil_idx];
+#                 pragma omp atomic read
+                  remap_label = remap_it->second;
+                }
+                if( remap_label != ConnectedComponentInfo::NO_LABEL && remap_label < new_value )
+                {
+                  new_value = remap_label;
+                }
+
+                for(int ni=-1;ni<=1;ni++)
+                for(int nj=-1;nj<=1;nj++)
+                for(int nk=-1;nk<=1;nk++)
+                if(ni!=0||nj!=0||nk!=0)
+                {
+                  const IJK nbh_ijk = {ni,nj,nk};
                   IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
                   gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, nbh_ijk, nbh_cell_loc, nbh_subcell_loc );
                   if( nbh_cell_loc.i>=0 && nbh_cell_loc.i<grid_dims.i
@@ -350,30 +368,67 @@ namespace exanb
                     const ssize_t nbh_subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , nbh_subcell_loc );
                     const ssize_t nbh_value_index = nbh_cell_index * stride + nbh_subcell_index;
                     assert( nbh_value_index >= 0 );
-                    const double nbh_cc_label = cc_label_ptr[nbh_value_index];
-                    if( nbh_cc_label >= 0.0 && nbh_cc_label < cc_label_ptr[value_index] )
+                    double nbh_cc_label = ConnectedComponentInfo::NO_LABEL;
+#                   pragma omp atomic read
+                    nbh_cc_label = cc_label_ptr[nbh_value_index];
+                    if( nbh_cc_label >= 0.0 && nbh_cc_label < new_value )
                     {
-                      cc_label_ptr[ value_index ] = nbh_cc_label;
+                      new_value = nbh_cc_label;
                       ++ label_update_count;
                     }
                   }
-                };
-                fetch_nbh_and_update( std::integral_constant<size_t,0>{} );
-                fetch_nbh_and_update( std::integral_constant<size_t,1>{} );
-                fetch_nbh_and_update( std::integral_constant<size_t,2>{} );
-                fetch_nbh_and_update( std::integral_constant<size_t,3>{} );
-                fetch_nbh_and_update( std::integral_constant<size_t,4>{} );
-                fetch_nbh_and_update( std::integral_constant<size_t,5>{} );
+                }
+                if( new_value < old_value )
+                {
+                  if( new_value < remap_label )
+                  {
+#                   pragma omp atomic write
+                    remap_it->second = new_value;
+                  }
+#                 pragma omp atomic write
+                  cc_label_ptr[value_index] = new_value;
+                }
               }
             }
           }
         
           if( label_update_count > 0 ) ++ label_update_passes;
+
         } while( label_update_count > 0 );
 
         MPI_Allreduce(MPI_IN_PLACE,&label_update_passes,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
-        
         ldbg << "Max local label update passes = "<<label_update_passes<<std::endl;
+        
+        if( label_update_passes > 0 )
+        {
+          id_fast_remap.clear();
+          for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+          for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+          for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
+          {        
+            const IJK cell_loc = {i,j,k};
+            const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+            for( ssize_t sk=0 ; sk<subdiv ; sk++)
+            for( ssize_t sj=0 ; sj<subdiv ; sj++)
+            for( ssize_t si=0 ; si<subdiv ; si++)
+            {
+              const IJK subcell_loc = {si,sj,sk};
+              ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+              ssize_t value_index = cell_index * stride + subcell_index;
+              assert( value_index >= 0 );
+              const double label = cc_label_ptr[ value_index ];
+              if( label >= 0.0 )
+              {
+                const uint64_t unique_id = static_cast<uint64_t>( label );
+                if( id_fast_remap.find(unique_id) == id_fast_remap.end() )
+                {
+                  id_fast_remap.insert( {unique_id,unique_id} );
+                }
+              }
+            }
+          }
+        }
+        
       } while( label_update_passes > 0 );
 
       ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
@@ -405,7 +460,7 @@ namespace exanb
             unique_id_min = std::min( unique_id_min , static_cast<unsigned long long>( unique_id ) );
             unique_id_max = std::max( unique_id_max , static_cast<unsigned long long>( unique_id+1 ) );
             auto & cc_info = cc_map[unique_id];
-            if( cc_info.m_label == -1.0 )
+            if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
             {
               cc_info.m_label = label;
               cc_info.m_rank = -1; // not known yet
@@ -475,7 +530,7 @@ namespace exanb
       {
         const int dest_proc = cc.second.m_rank;
         assert( dest_proc>=0 && dest_proc<nprocs);
-        assert( cc_send_data[cc_send_displs[dest_proc]].m_label == -1.0 );
+        assert( cc_send_data[cc_send_displs[dest_proc]].m_label == ConnectedComponentInfo::NO_LABEL );
         cc_send_data[ cc_send_displs[dest_proc] ++ ] = cc.second;
       }
       cc_map.clear();
@@ -505,7 +560,7 @@ namespace exanb
       {
         const ssize_t unique_id = static_cast<size_t>( cc.m_label );
         auto & cc_info = cc_map[unique_id];
-        if( cc_info.m_label == -1.0 )
+        if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
         {
           cc_info.m_label = cc.m_label;
           cc_info.m_rank = cc.m_rank;
@@ -609,6 +664,10 @@ namespace exanb
             auto it = final_label_id_map.find( unique_id );
             assert( it != final_label_id_map.end() );
             cc_label_ptr[ value_index ] = it->second;
+          }
+          else
+          {
+            cc_label_ptr[ value_index ] = ConnectedComponentInfo::NO_CC_LABEL;
           }
         }
       }

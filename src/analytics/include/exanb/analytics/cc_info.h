@@ -26,9 +26,16 @@ namespace exanb
 {
   struct ConnectedComponentInfo
   {
+    // the value we use during the labelling process, so that negative values, starting from -1, can be used to store laternative information
+    static inline constexpr double NO_LABEL = -0.25;
+    static inline constexpr double GHOST_NO_LABEL = -0.5;
+    
+    // the value we write finally in empty areas, easier to process
+    static inline constexpr double NO_CC_LABEL = -1.0;
+    
     ssize_t m_rank = -1;
     ssize_t m_cell_count = 0;
-    double m_label = -1.0;
+    double m_label = NO_LABEL;
     Vec3d m_center = {0.,0.,0.};
     Mat3d m_gyration = { 0.,0.,0., 0.,0.,0., 0.,0.,0. };
   };
