@@ -349,12 +349,22 @@ namespace exanb
                   new_value = remap_label;
                 }
 
-                for(int ni=-1;ni<=1;ni++)
-                for(int nj=-1;nj<=1;nj++)
-                for(int nk=-1;nk<=1;nk++)
-                if(ni!=0||nj!=0||nk!=0)
+                // *** full stencil ***
+                //for(int ni=-1;ni<=1;ni++)
+                //for(int nj=-1;nj<=1;nj++)
+                //for(int nk=-1;nk<=1;nk++)
+                //if(ni!=0||nj!=0||nk!=0)
+                //{
+                //  const IJK nbh_ijk = {ni,nj,nk};
+                
+                // *** cross stencil ***
+                for(int dim=0;dim<3;dim++)
+                for(int side=-1;side<=1;side+=2)
                 {
-                  const IJK nbh_ijk = {ni,nj,nk};
+                  int disp[3] = { 0 , 0 , 0 };
+                  disp[dim] = side;
+                  const IJK nbh_ijk = {disp[0],disp[1],disp[2]};
+
                   IJK nbh_cell_loc={0,0,0}, nbh_subcell_loc={0,0,0};
                   gcv_subcell_neighbor( cell_loc, subcell_loc, subdiv, nbh_ijk, nbh_cell_loc, nbh_subcell_loc );
                   if( nbh_cell_loc.i>=0 && nbh_cell_loc.i<grid_dims.i
