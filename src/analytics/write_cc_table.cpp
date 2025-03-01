@@ -38,6 +38,7 @@ namespace exanb
     ADD_SLOT( Domain                  , domain   , INPUT , OPTIONAL , DocString{"MPI communicator"} );
     ADD_SLOT( ConnectedComponentTable , cc_table , INPUT , REQUIRED );
     ADD_SLOT( std::string             , filename , INPUT , "cc" );
+    ADD_SLOT( bool                    , write_stats , INPUT , false );
     
   public:
 
@@ -60,12 +61,14 @@ namespace exanb
                              csv_sample_format, csv_sample_size };
 
       outfile.open( *mpi , csv_filename );
-
+      
+      unsigned long long total_cell_count = 0;
       for(size_t i=0;i<cc_table->size();i++)
       {
         const unsigned long long global_id = static_cast<ssize_t>(cc_table->at(i).m_label);
         const unsigned long long rank = cc_table->at(i).m_rank;
         const unsigned long long cell_count = cc_table->at(i).m_cell_count;
+        total_cell_count += cell_count;
         const double cx = cc_table->at(i).m_center.x;
         const double cy = cc_table->at(i).m_center.y;
         const double cz = cc_table->at(i).m_center.z;
@@ -73,6 +76,40 @@ namespace exanb
       }
       
       outfile.close();
+
+      unsigned long long total_n_cc = cc_table->size();
+      unsigned long long rank_cc_count_scan = 0;
+      MPI_Exscan( &total_n_cc , &rank_cc_count_scan , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+      MPI_Allreduce( MPI_IN_PLACE , &total_n_cc , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+      MPI_Allreduce( MPI_IN_PLACE , &total_cell_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
+
+      ldbg << "total_n_cc="<<total_n_cc<<" , total_cell_count="<<total_cell_count<<" , avg_cell_count="<<total_cell_count/total_n_cc<<" , rank_cc_count_scan="<<rank_cc_count_scan<<std::endl;
+
+      if( *write_stats )
+      {
+        int rank=0, nprocs=1;
+        MPI_Comm_rank( *mpi , &rank );
+        MPI_Comm_size( *mpi , &nprocs );
+        assert( rank < nprocs );
+        std::vector<unsigned long long> count_sum;
+        if( rank == 0 ) count_sum.assign( nprocs , 0 );
+        MPI_Gather(&rank_cc_count_scan, 1, MPI_UNSIGNED_LONG_LONG, count_sum.data(), 1, MPI_UNSIGNED_LONG_LONG, 0, *mpi);
+        if( rank == 0 )
+        {
+          std::ofstream fout( (*filename)+"_stats.csv" );
+          fout << "Ncc ; " << total_n_cc << std::endl;
+          fout << "Tcount ; " << total_cell_count << std::endl;
+          fout << "AVGcount ; " << std::setprecision(5) << total_cell_count*1.0/total_n_cc << std::endl;          
+          fout << "Nmpi ; " << nprocs << std::endl;
+          for(int i=0;i<nprocs;i++)
+          {
+            fout << "NccSum_"<<i<<" ; " << count_sum[i] << std::endl;
+          }
+          fout.flush();
+          fout.close();
+        }
+      }
+            
     }
 
     // -----------------------------------------------
