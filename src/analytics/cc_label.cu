@@ -153,7 +153,8 @@ namespace exanb
 
       // does the projected cell value has values in the ghost area ?
       // create a unique label id for each cell satisfying selection criteria
-      unsigned long long nonzero_ghost_subcells = 0;
+      using ULongLong = unsigned long long;
+      ULongLong nonzero_ghost_subcells = 0;
 #     pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
       for( ssize_t k=0 ; k < grid_dims.k ; k++)
       for( ssize_t j=0 ; j < grid_dims.j ; j++)
@@ -219,14 +220,14 @@ namespace exanb
       // these 3 funcions define how we build unique ids such a way that :
       // 1. owner rank can be guessed from the unique_id
       // 2. final (stripped) unique ids will be deterministic and independant from parallel settings
-      auto encode_unique_id = [&](const IJK& domain_cell_loc, uint64_t subcell_index) -> uint64_t
+      auto encode_unique_id = [&](const IJK& domain_cell_loc, uint64_t subcell_index) -> ULongLong
       {
         assert(rank>=0 && rank<nprocs);
         unsigned int i_bits = unique_id_i_bits;
         unsigned int j_bits = unique_id_j_bits;
         unsigned int k_bits = unique_id_k_bits;
         unsigned int total_bits = unique_id_total_bits;
-        uint64_t domain_cell_z_index = 0;
+        ULongLong domain_cell_z_index = 0;
         while( total_bits > 0 )
         {
           unsigned int max_coord_bits = std::max( std::max( i_bits , j_bits ) , k_bits );
@@ -241,14 +242,14 @@ namespace exanb
       };
             
       // now we can build a function to determine final destination (process rank) for each CC based on its label
-      unsigned long long unique_id_min = unique_id_count;
-      unsigned long long unique_id_max = 0;
-      auto owner_from_unique_id = [&](uint64_t unique_id) -> int 
+      ULongLong unique_id_min = unique_id_count;
+      ULongLong unique_id_max = 0;
+      auto owner_from_unique_id = [&](ULongLong unique_id) -> int 
       {
         assert( unique_id_min < unique_id_max );
-        const unsigned long long range_count = ( unique_id_max - unique_id_min ) / subdiv3;
-        const unsigned long long id_balance_offset = ( range_count / nprocs ) / 2;
-        const unsigned long long id = ( ( unique_id - unique_id_min ) / subdiv3 ) + id_balance_offset;
+        const ULongLong range_count = ( unique_id_max - unique_id_min ) / subdiv3;
+        const ULongLong id_balance_offset = ( range_count / nprocs ) / 2;
+        const ULongLong id = ( ( unique_id - unique_id_min ) / subdiv3 ) + id_balance_offset;
         int p = ( range_count > 0 ) ? ( ( id * nprocs ) / range_count ) : 0 ;
         return std::clamp( p , 0 , nprocs-1 );
       };
@@ -282,7 +283,7 @@ namespace exanb
             }
             else
             {
-              const uint64_t unique_id = encode_unique_id( domain_cell_loc, subcell_index );
+              const ULongLong unique_id = encode_unique_id( domain_cell_loc, subcell_index );
               const double label = static_cast<double>(unique_id);
               assert( label == unique_id ); // ensures lossless conversion to double
               cc_label_ptr[value_index] = label;
@@ -298,11 +299,11 @@ namespace exanb
        * globaly known unique label ids to connected cells.
        ****************************************************/
       const size_t MAX_NT = omp_get_max_threads();
-      unsigned long long label_update_passes = 0;
-      unsigned long long total_local_passes = 0;
-      unsigned long long total_comm_passes = 0;
-      std::unordered_map<uint64_t,uint64_t> id_fast_remap;
-      std::vector< std::unordered_map<uint64_t,uint64_t> > id_fast_remap_mt( MAX_NT );
+      ULongLong label_update_passes = 0;
+      ULongLong total_local_passes = 0;
+      ULongLong total_comm_passes = 0;
+      std::unordered_map<ULongLong,ULongLong> id_fast_remap;
+      std::vector< std::unordered_map<ULongLong,ULongLong> > id_fast_remap_mt( MAX_NT );
 
       do
       {
@@ -311,7 +312,7 @@ namespace exanb
                             0, false, false, false,
                             true, false , std::integral_constant<bool,false>{} );
 
-        unsigned long long label_update_count = 0;
+        ULongLong label_update_count = 0;
         label_update_passes = 0;
         do
         {
@@ -339,7 +340,7 @@ namespace exanb
               if( old_value >= 0.0 )
               {
                 double new_value = old_value;
-                const uint64_t old_unique_id = static_cast<uint64_t>( old_value );
+                const ULongLong old_unique_id = static_cast<ULongLong>( old_value );
                 auto remap_it = id_fast_remap.find(old_unique_id);
                 double remap_label = ConnectedComponentInfo::NO_LABEL;
                 if( remap_it != id_fast_remap.end() )
@@ -435,7 +436,7 @@ namespace exanb
                 const double label = cc_label_ptr[ value_index ];
                 if( label >= 0.0 )
                 {
-                  const uint64_t unique_id = static_cast<uint64_t>( label );
+                  const ULongLong unique_id = static_cast<ULongLong>( label );
                   if( id_fast_remap_mt[tid].find(unique_id) == id_fast_remap_mt[tid].end() )
                   {
                     id_fast_remap_mt[tid].insert( {unique_id,unique_id} );
@@ -461,8 +462,9 @@ namespace exanb
       /*******************************************************************
        * count number of local ids and identify their respective owner process
        *******************************************************************/
-      std::unordered_map<size_t,ConnectedComponentInfo> cc_map;
-      std::vector< std::unordered_map<size_t,ConnectedComponentInfo> > cc_map_mt( MAX_NT );
+      std::unordered_map<ULongLong,ConnectedComponentInfo> cc_map;
+      std::vector< std::unordered_map<ULongLong,ConnectedComponentInfo> > cc_map_mt( MAX_NT );
+      const Mat3d dom_xform = domain->xform();
 
 #     pragma omp parallel
       {
@@ -487,9 +489,9 @@ namespace exanb
             const double label = cc_label_ptr[ value_index ];
             if( label >= 0.0 )
             {
-              const ssize_t unique_id = static_cast<size_t>( label );
-              unique_id_min = std::min( unique_id_min , static_cast<unsigned long long>( unique_id ) );
-              unique_id_max = std::max( unique_id_max , static_cast<unsigned long long>( unique_id+1 ) );
+              const ULongLong unique_id = static_cast<ULongLong>( label );
+              unique_id_min = std::min( unique_id_min , static_cast<ULongLong>( unique_id ) );
+              unique_id_max = std::max( unique_id_max , static_cast<ULongLong>( unique_id+1 ) );
               auto & cc_info = cc_map_mt[tid][unique_id];
               if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
               {
@@ -504,7 +506,7 @@ namespace exanb
                 assert( cc_info.m_label == label );
               }
               cc_info.m_cell_count += 1;
-              cc_info.m_center += make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc );
+              cc_info.m_center += dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) + ( subcell_size * 0.5 ) );
               // cc_info.m_gyration += ... ;
             }
           }
@@ -539,7 +541,7 @@ namespace exanb
       for(auto & cc : cc_map)
       {
         assert( cc.second.m_label >= 0.0 );
-        unsigned long long unique_id = static_cast<unsigned long long>( cc.second.m_label );
+        ULongLong unique_id = static_cast<ULongLong>( cc.second.m_label );
         cc.second.m_rank = owner_from_unique_id( unique_id );
         assert( cc.second.m_rank >= 0 && cc.second.m_rank < nprocs );
       }
@@ -610,7 +612,8 @@ namespace exanb
        *************************************************************************/
       for(const auto & cc : cc_recv_data)
       {
-        const ssize_t unique_id = static_cast<size_t>( cc.m_label );
+        const ULongLong unique_id = static_cast<ULongLong>( cc.m_label );
+        assert( owner_from_unique_id( unique_id ) == rank );
         auto & cc_info = cc_map[unique_id];
         if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
         {
@@ -628,10 +631,12 @@ namespace exanb
         }
         cc_info.m_cell_count += cc.m_cell_count;
         cc_info.m_center += cc.m_center;
-        cc_info.m_gyration += cc.m_gyration;
       }      
 
-      unsigned long long global_label_count = 0;
+      ULongLong global_label_count = 0;
+      // ordered_label_ids has 2 distinct purposes :
+      // 1. order owned CC label ids, so that global rank is fully deterministics, regardless of MPI decomposition
+      // 2. keep track of label ids corresponding to locally owed CCs (discriminate with foreign CCs also present in local table)
       std::set<int64_t> ordered_label_ids;
       for(auto & ccp : cc_map)
       {
@@ -640,12 +645,12 @@ namespace exanb
         else ++ global_label_count;
       }
 
-      unsigned long long global_label_idx_start = 0;
+      ULongLong global_label_idx_start = 0;
       MPI_Exscan( &global_label_count , &global_label_idx_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
       MPI_Allreduce( MPI_IN_PLACE , &global_label_count , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , *mpi );
 
-      unsigned long long global_label_idx_end = global_label_idx_start;
-      std::unordered_map<int64_t,int64_t> final_label_id_map;
+      ULongLong global_label_idx_end = global_label_idx_start;
+      //std::unordered_map<int64_t,int64_t> final_label_id_map;
       for(const auto unique_id : ordered_label_ids)
       {
         auto & cc = cc_map[unique_id];
@@ -657,14 +662,14 @@ namespace exanb
         {
           cc.m_rank = -1;
         }
-        final_label_id_map[unique_id] = cc.m_rank;
+        //final_label_id_map[unique_id] = cc.m_rank;
       }
 
       // fill back recv_data with updated data so sender can now have complete information
       // about CCs it does not own
       for(auto & cc : cc_recv_data)
       {
-        const ssize_t unique_id = static_cast<size_t>( cc.m_label );
+        const ULongLong unique_id = static_cast<ULongLong>( cc.m_label );
         cc = cc_map[unique_id];
       }
       
@@ -675,24 +680,113 @@ namespace exanb
 
       for(const auto & cc : cc_send_data)
       {
-        const ssize_t unique_id = static_cast<size_t>( cc.m_label );
-        final_label_id_map[unique_id] = cc.m_rank;
+        const ULongLong unique_id = static_cast<ULongLong>( cc.m_label );
+        if( cc_map.find(unique_id) != cc_map.end() )
+        {
+          if( owner_from_unique_id( unique_id ) != rank )
+          {
+            fatal_error() << "Internal error: conflicting CC from foreign MPI process" << std::endl;
+          }
+        }
+        cc_map[unique_id] = cc;
+        //final_label_id_map[unique_id] = cc.m_rank;
       }
 
-      cc_table->m_table.clear();
-      for(const auto unique_id : ordered_label_ids)
+      // finalize CC center computation, dividing by correct cell count
+      for(auto & ccp : cc_map)
       {
-        auto & cc = cc_map[unique_id];
-        if( cc.m_cell_count > 0 )
-        {
-          assert( cc.m_rank>=global_label_idx_start && cc.m_rank<global_label_idx_end );
-          assert( ( cc.m_rank - global_label_idx_start ) == cc_table->m_table.size() );
-          cc.m_label = cc.m_rank;
-          cc.m_rank = rank;
-          cc_table->m_table.push_back( cc );
+        ccp.second.m_center = ccp.second.m_center / ccp.second.m_cell_count;
+      }
+
+      // ********************************
+      // compute gyration contribution with the help of CC center that is now available
+      cc_map_mt.clear();
+      cc_map_mt.resize( MAX_NT );
+#     pragma omp parallel
+      {
+        const size_t tid = omp_get_thread_num();
+        assert( tid < MAX_NT );
+#       pragma omp for collapse(3) schedule(static)
+        for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
+        for( ssize_t j=gl ; j < (grid_dims.j-gl) ; j++)
+        for( ssize_t i=gl ; i < (grid_dims.i-gl) ; i++)
+        {        
+          const IJK cell_loc = {i,j,k};
+          const IJK domain_cell_loc = cell_loc + grid_offset ;
+          const ssize_t cell_index = grid_ijk_to_index( grid_dims , cell_loc );
+          for( ssize_t sk=0 ; sk<subdiv ; sk++)
+          for( ssize_t sj=0 ; sj<subdiv ; sj++)
+          for( ssize_t si=0 ; si<subdiv ; si++)
+          {
+            const IJK subcell_loc = {si,sj,sk};
+            const ssize_t subcell_index = grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , subcell_loc );
+            const ssize_t value_index = cell_index * stride + subcell_index;
+            assert( value_index >= 0 );
+            const double label = cc_label_ptr[ value_index ];
+            if( label >= 0.0 )
+            {
+              const ULongLong unique_id = static_cast<ULongLong>( label );
+              auto & cc_info = cc_map_mt[tid][unique_id];
+              if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
+              {
+                assert( cc_map.find(unique_id) != cc_map.end() );
+                cc_info = cc_map[unique_id];
+                cc_info.m_gyration =  Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
+              }
+              Vec3d r = ( dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) + ( subcell_size * 0.5 ) ) ) - cc_info.m_center;
+              cc_info.m_gyration.m11 += r.x * r.x;
+              cc_info.m_gyration.m12 += r.x * r.y;
+              cc_info.m_gyration.m13 += r.x * r.z;
+              cc_info.m_gyration.m21 += r.y * r.x;
+              cc_info.m_gyration.m22 += r.y * r.y;
+              cc_info.m_gyration.m23 += r.y * r.z;
+              cc_info.m_gyration.m31 += r.z * r.x;
+              cc_info.m_gyration.m32 += r.z * r.y;
+              cc_info.m_gyration.m33 += r.z * r.z;
+            }
+          }
         }
       }
-      cc_map.clear();
+      for(auto & ccp : cc_map)
+      {
+        ccp.second.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
+      }
+      for(size_t tid=0;tid<MAX_NT;tid++)
+      {
+        for(const auto & kv : cc_map_mt[tid])
+        {
+          const auto unique_id = kv.first;
+          assert( cc_map.find(unique_id) != cc_map.end() );
+          cc_map[unique_id].m_gyration += kv.second.m_gyration;
+        }
+      }
+      cc_map_mt.clear();
+      
+      // update send data with correct gyration
+      for(auto & cc : cc_send_data)
+      {
+        const ULongLong unique_id = static_cast<ULongLong>( cc.m_label );
+        assert( cc_map.find(unique_id) != cc_map.end() );
+        cc = cc_map[unique_id];
+      }
+
+      // forward communication again to propagate correct gyration to CC owners
+      MPI_Alltoallv( cc_send_data.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
+                   , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
+                   , *mpi );
+
+      for(auto & ccp : cc_map)
+      {
+        ccp.second.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
+      }
+      for(const auto & cc : cc_recv_data)
+      {
+        const ULongLong unique_id = static_cast<ULongLong>( cc.m_label );
+        assert( cc_map.find(unique_id) != cc_map.end() );
+        cc_map[unique_id].m_gyration += cc.m_gyration;
+      }
+
+      // ********************************
 
       // update cc_label grid cell values with final label ids
       for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
@@ -710,19 +804,39 @@ namespace exanb
           const ssize_t value_index = cell_index * stride + subcell_index;
           assert( value_index >= 0 );
           const double label = cc_label_ptr[ value_index ];
+          double final_label = ConnectedComponentInfo::NO_CC_LABEL;
           if( label >= 0.0 )
           {
-            const ssize_t unique_id = static_cast<size_t>( label );
-            auto it = final_label_id_map.find( unique_id );
-            assert( it != final_label_id_map.end() );
-            cc_label_ptr[ value_index ] = it->second;
+            const ULongLong unique_id = static_cast<ULongLong>( label );
+            assert( cc_map.find(unique_id) != cc_map.end() );
+            const auto & cc_info = cc_map[unique_id];
+            if( cc_info.m_cell_count > 0 )
+            {
+              assert( cc_info.m_rank != -1 );
+              final_label = cc_info.m_rank;
+            }
+            else { assert( cc_info.m_rank == -1 ); }
           }
-          else
-          {
-            cc_label_ptr[ value_index ] = ConnectedComponentInfo::NO_CC_LABEL;
-          }
+          cc_label_ptr[ value_index ] = final_label;
         }
       }
+
+      // finally, write everything to CC table
+      cc_table->m_table.clear();
+      for(const auto unique_id : ordered_label_ids)
+      {
+        auto & cc = cc_map[unique_id];
+        if( cc.m_cell_count > 0 )
+        {
+          assert( cc.m_rank>=global_label_idx_start && cc.m_rank<global_label_idx_end );
+          assert( ( cc.m_rank - global_label_idx_start ) == cc_table->m_table.size() );
+          cc.m_gyration = cc.m_gyration / cc.m_cell_count;
+          cc.m_label = cc.m_rank;
+          cc.m_rank = rank;
+          cc_table->m_table.push_back( cc );
+        }
+      }
+      //cc_map.clear();
 
       ldbg << "cc_label : owned_label_count="<<cc_table->size()<<", global_label_count="<<global_label_count
            <<", global_label_idx_start="<<global_label_idx_start <<", global_label_idx_end="<<global_label_idx_end << std::endl;

@@ -48,10 +48,10 @@ namespace exanb
     {
       ldbg << "CC table size = "<< cc_table->size() << std::endl;
 
-      const char* csv_header = "label ; rank ; count ; center_x ; center_y ; center_z\n";
+      const char* csv_header = "label ; rank ; count ; center_x ; center_y ; center_z ; Gxx ; Gxy ; Gxz ; Gyx ; Gyy ; Gyz ; Gzx ; Gzy ; Gzz\n";
       const size_t csv_header_size = std::strlen(csv_header);
-      const char* csv_sample_format = "% 012llu ; % 06llu ; % 012llu ; % .9e ; % .9e ; % .9e \n";
-      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0ull, 0., 0., 0. );
+      const char* csv_sample_format = "% 012llu ; % 06llu ; % 012llu ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e ; % .9e\n";
+      const size_t csv_sample_size = std::snprintf( nullptr, 0, csv_sample_format, 0ull, 0ull, 0ull, 0., 0., 0. , 0., 0., 0. , 0., 0., 0. , 0., 0., 0. );
       const std::string csv_filename = (*filename) + "_table.csv";
       ldbg <<"write_cc_table : header = "<<csv_header ;
       ldbg <<"write_cc_table : format = "<<csv_sample_format ;
@@ -69,10 +69,9 @@ namespace exanb
         const unsigned long long rank = cc_table->at(i).m_rank;
         const unsigned long long cell_count = cc_table->at(i).m_cell_count;
         total_cell_count += cell_count;
-        const double cx = cc_table->at(i).m_center.x;
-        const double cy = cc_table->at(i).m_center.y;
-        const double cz = cc_table->at(i).m_center.z;
-        outfile.write_sample( global_id, global_id, rank, cell_count, cx, cy, cz );
+        const auto& c = cc_table->at(i).m_center;
+        const auto& g = cc_table->at(i).m_gyration;
+        outfile.write_sample( global_id, global_id, rank, cell_count, c.x, c.y, c.z, g.m11, g.m12, g.m13, g.m21, g.m22, g.m23, g.m31, g.m32, g.m33 );
       }
       
       outfile.close();
