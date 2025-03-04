@@ -37,8 +37,6 @@ namespace exanb
   
   bool MpioIOText::open(MPI_Comm comm, const std::string& filename)
   {
-    if( m_sample_size > MAX_SAMPLE_SIZE ) return false;
-
     MPI_File_open(comm,filename.c_str(), MPI_MODE_CREATE | MPI_MODE_RDWR , MPI_INFO_NULL, & m_file);
     int rank=0;
     MPI_Comm_rank(comm,&rank);

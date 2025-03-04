@@ -36,7 +36,6 @@ namespace exanb
 
   struct MpioIOText
   {
-    static inline constexpr size_t MAX_SAMPLE_SIZE = 1024-2;
     const char* const m_header = nullptr;
     const size_t m_header_size = 0;
     const char* const m_sample_format = nullptr;
@@ -50,12 +49,12 @@ namespace exanb
     template<class... ArgsT>
     inline bool write_sample(size_t idx , const ArgsT& ... args )
     {
-      char buf[MAX_SAMPLE_SIZE+2];
-      [[maybe_unused]] int bufsize = std::snprintf( buf, m_sample_size+1, m_sample_format, args ... );
+      std::vector<char> buf( m_sample_size + 2 , '\0' );
+      [[maybe_unused]] int bufsize = std::snprintf( buf.data(), m_sample_size+1, m_sample_format, args ... );
       assert( size_t(bufsize) == m_sample_size );
       buf[m_sample_size-1] = '\n';
       buf[m_sample_size  ] = '\0';
-      return write_sample_buf( idx , buf );
+      return write_sample_buf( idx , buf.data() );
     }
   };
 

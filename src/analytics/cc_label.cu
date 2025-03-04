@@ -512,6 +512,11 @@ namespace exanb
       std::vector< std::unordered_map<ULongLong,ConnectedComponentInfo> > cc_map_mt( MAX_NT );
       const Mat3d dom_xform = domain->xform();
 
+      auto subcell_center = [subdiv,subcell_size,dom_xform]( const IJK& domain_cell_loc, const IJK& subcell_loc ) -> Vec3d
+      {
+        return dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) /* + ( subcell_size * 0.5 ) */ );
+      };
+
 #     pragma omp parallel
       {
         const size_t tid = omp_get_thread_num();
@@ -552,7 +557,7 @@ namespace exanb
                 assert( cc_info.m_label == label );
               }
               cc_info.m_cell_count += 1;
-              cc_info.m_center += dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) + ( subcell_size * 0.5 ) );
+              cc_info.m_center += subcell_center(domain_cell_loc,subcell_loc);
               // cc_info.m_gyration += ... ;
             }
           }
@@ -786,7 +791,7 @@ namespace exanb
                 assert( custom_fields_vec.empty() );
                 custom_fields_vec.assign( custom_fields_value_count , 0.0 );
               }
-              Vec3d r = ( dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) + ( subcell_size * 0.5 ) ) ) - cc_info.m_center;
+              const Vec3d r = subcell_center(domain_cell_loc,subcell_loc) - cc_info.m_center;
               cc_info.m_gyration.m11 += r.x * r.x;
               cc_info.m_gyration.m12 += r.x * r.y;
               cc_info.m_gyration.m13 += r.x * r.z;
