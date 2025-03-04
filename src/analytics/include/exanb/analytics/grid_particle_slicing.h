@@ -37,12 +37,13 @@ namespace exanb
     struct DirectionalMinMaxDistanceFunctor
     {
       const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
+      const Vec3d m_origin = { 0.0 , 0.0 , 0.0 };
       const Vec3d m_direction = {1.0 , 0.0 , 0.0 };
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( onika::cuda::pair<double,double> & pos_min_max , double rx, double ry, double rz , reduce_thread_local_t={} ) const
       {
         using onika::cuda::min;
         using onika::cuda::max;
-        double pos = dot( m_xform * Vec3d{rx,ry,rz} , m_direction );
+        double pos = dot( m_xform * ( Vec3d{rx,ry,rz} - m_origin ) , m_direction );
         pos_min_max.first = min( pos_min_max.first , pos );
         pos_min_max.second = max( pos_min_max.second , pos );
       }
@@ -65,18 +66,35 @@ namespace exanb
       const FieldT m_field;
       const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
       const Vec3d m_direction = { 1.0 , 0.0 , 0.0 };
+      const Vec3d m_origin = { 0.0 , 0.0 , 0.0 };
+      const Vec3d m_domain_size = { 0.0 , 0.0 , 0.0 };
       const double m_thickness = 1.0;
       const double m_start = 0.0;
+      const double m_disk_radius_sq = 1.0;
       const long m_resolution = 1;
+      const int m_rep_i = 0;
+      const int m_rep_j = 0;
+      const int m_rep_k = 0;
       onika::cuda::pair<double,double> * __restrict__ m_slice_data = nullptr;
       ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t c, unsigned int p, double rx, double ry, double rz ) const
       {
         using onika::cuda::clamp;
-        const double pos = dot( m_xform * Vec3d{rx,ry,rz} , m_direction );
-        const long slice = clamp( static_cast<long>( ( pos - m_start ) / m_thickness ) , 0l , m_resolution-1l );
         const double value = m_pacc[c][m_field][p]; // .get(c,p,m_field);
-        ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].first , 1.0 );
-        ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].second , value );
+        for(int i = -m_rep_i ; i <= m_rep_i ; i++)
+        for(int j = -m_rep_j ; i <= m_rep_j ; j++)
+        for(int k = -m_rep_k ; i <= m_rep_k ; k++)
+        {
+          const Vec3d dom_shift = { m_domain_size.x*i , m_domain_size.y*j , m_domain_size.z*k };
+          const Vec3d r = Vec3d{rx,ry,rz} - m_origin + dom_shift;
+          const double pos = dot( m_xform * r , m_direction );
+          const double line_dist_sq = onika::math::norm2( ( m_direction * pos ) - r );
+          if( line_dist_sq <= m_disk_radius_sq )
+          {
+            const long slice = clamp( static_cast<long>( ( pos - m_start ) / m_thickness ) , 0l , m_resolution-1l );
+            ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].first , 1.0 );
+            ONIKA_CU_ATOMIC_ADD( m_slice_data[slice].second , value );
+          }
+        }
       }
     };
 
@@ -86,9 +104,15 @@ namespace exanb
       const ParticleFieldAccessorT m_pacc;
       const Mat3d m_xform = { 1.0 , 0.0 , 0.0 , 0.0 , 1.0 , 0.0 , 0.0 , 0.0 , 1.0 };
       const Vec3d m_direction = {1.0 , 0.0 , 0.0 };
+      const Vec3d m_origin = { 0.0 , 0.0 , 0.0 };
+      const Vec3d m_domain_size = { 0.0 , 0.0 , 0.0 };
       const double m_thickness = 1.0;
       const double m_start = 0.0;
+      const double m_disk_radius_sq = 1.0;
       const long m_resolution = 1024;
+      const int m_rep_i = 0;
+      const int m_rep_j = 0;
+      const int m_rep_k = 0;
 
       MPI_Comm m_comm;
       ParallelExecutionFuncT& parallel_execution_context;
@@ -111,7 +135,8 @@ namespace exanb
             std::cout << "Slice field "<<name<<std::endl;
             auto & plot_data = m_plot_set.m_plots[ name ];
             plot_data.assign( m_resolution , { 0.0 , 0.0 } );
-            SliceAccumulatorFunctor<ParticleFieldAccessorT,FidT> func = { m_pacc, proj_field, m_xform,  m_direction, m_thickness, m_start, m_resolution, plot_data.data() };
+            SliceAccumulatorFunctor<ParticleFieldAccessorT,FidT> func = { m_pacc, proj_field, m_xform,  m_direction, m_origin, m_domain_size, m_thickness, m_start, m_disk_radius_sq
+                                                                        , m_resolution, m_rep_i, m_rep_j, m_rep_k, plot_data.data() };
             compute_cell_particles( grid , false , func , slice_field_set , parallel_execution_context() );
             MPI_Allreduce( MPI_IN_PLACE, plot_data.data() , m_resolution * 2 , MPI_DOUBLE , MPI_SUM , m_comm );
             const bool avg = m_field_average(name);
@@ -156,7 +181,7 @@ namespace exanb
   static inline void slice_grid_particles(
     MPI_Comm comm,
     const GridT& grid,
-    const Mat3d& xform,
+    const Domain& domain,
     const Vec3d& direction,
     double thickness,
     onika::Plot1DSet& plots,
@@ -168,9 +193,20 @@ namespace exanb
   {
     using namespace SliceParticleFieldTools;
   
+    // project particle quantities to cells
+    int rep_i = 0;
+    int rep_j = 0;
+    int rep_k = 0;
+    const Vec3d dom_size = domain.bounds_size();
+    const double disk_radius_sq = onika::math::norm2( domain.xform() * dom_size );
+    if( domain.periodic_boundary_x() ) rep_i = 2;
+    if( domain.periodic_boundary_y() ) rep_j = 2;
+    if( domain.periodic_boundary_z() ) rep_k = 2;
+    const Vec3d dom_origin = domain.origin() + ( dom_size * 0.5 );
+
     const Vec3d dir = direction / norm(direction);
     onika::cuda::pair<double,double> pos_min_max = { std::numeric_limits<double>::max() , std::numeric_limits<double>::lowest() };
-    DirectionalMinMaxDistanceFunctor func = { xform , dir };
+    DirectionalMinMaxDistanceFunctor func = { domain.xform() , dom_origin , dir };
     reduce_cell_particles( grid , false , func , pos_min_max , FieldSet<field::_rx,field::_ry,field::_rz>{} , parallel_execution_context() );
     {
       double tmp[2] = { - pos_min_max.first , pos_min_max.second };
@@ -181,10 +217,10 @@ namespace exanb
 
     long resolution = std::ceil( ( pos_min_max.second - pos_min_max.first ) / thickness );
     std::cout << "min="<< pos_min_max.first << " , max=" << pos_min_max.second << " , resolution = "<< resolution << std::endl;
-    
-    // project particle quantities to cells
+        
     using GridParticleSlicer = SliceParticleField<ParticleAcessorT,ParallelExecutionFuncT>;
-    GridParticleSlicer slicer = { pacc, xform, dir, thickness, pos_min_max.first, resolution, comm, parallel_execution_context , plots, field_selector, field_average };
+    GridParticleSlicer slicer = { pacc, domain.xform(), dir, dom_origin, dom_size, thickness, pos_min_max.first, disk_radius_sq, resolution, rep_i, rep_j, rep_k
+                                , comm, parallel_execution_context , plots, field_selector, field_average };
     apply_grid_fields( grid, slicer , fc ... );
   }
 
