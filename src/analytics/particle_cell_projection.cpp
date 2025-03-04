@@ -56,7 +56,9 @@ namespace exanb
       if( grid->number_of_cells() == 0 ) return;
 
       ParticleCountCombiner count = {};
-      auto proj_fields = make_field_tuple_from_field_set( grid->field_set , count );
+      VelocityVec3Combiner velocity = {};
+      ForceVec3Combiner force = {};
+      auto proj_fields = make_field_tuple_from_field_set( grid->field_set , count, velocity, force );
       auto field_selector = [flist = *fields] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
       project_particle_fields_to_grid( ldbg, *grid, *grid_cell_values, *grid_subdiv, *splat_size, field_selector, proj_fields );
     }

@@ -41,6 +41,15 @@ namespace exanb
   class ConnectedComponentLabel : public OperatorNode
   {
     using UpdateGhostsScratch = typename UpdateGhostsUtils::UpdateGhostsScratch;
+    using StringVector = std::vector< std::string >;
+    using FieldAccessorT = decltype( GridCellValues{}.field_data("") );
+    struct CustomFieldInfo
+    {
+      FieldAccessorT m_accessor;
+      size_t m_position = 0;
+      unsigned int m_vecsize = 1;
+      bool m_avg = false;
+    };
 
     ADD_SLOT( MPI_Comm       , mpi                 , INPUT , MPI_COMM_WORLD , DocString{"MPI communicator"} );
     ADD_SLOT( Domain         , domain              , INPUT , REQUIRED );
@@ -51,9 +60,12 @@ namespace exanb
     ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
     ADD_SLOT( long                    , cc_count_threshold  , INPUT , 1 ); // CC that have less or equal cells than this value, are ignored
     
+    ADD_SLOT( StringVector            , cc_custom_fields  , INPUT , StringVector{} ); 
+    ADD_SLOT( StringVector            , cc_avg_fields  , INPUT , StringVector{} ); 
+
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
-    
+        
   public:
 
     // -----------------------------------------------
@@ -106,6 +118,9 @@ namespace exanb
       // number of subdivisions, in each directions, applied on cells
       const ssize_t subdiv = grid_cell_values->field( *grid_cell_field ).m_subdiv;
       
+      // number of subcells in a cell
+      const size_t subdiv3 = subdiv * subdiv * subdiv;
+
       // side size of a sub-cell
       const double subcell_size = cell_size / subdiv;
       
@@ -126,15 +141,48 @@ namespace exanb
       }
       
       // cc_label field data accessor.
-      const auto cc_label_accessor = grid_cell_values->field_data("cc_label");
+      const FieldAccessorT cc_label_accessor = grid_cell_values->field_data("cc_label");
       double * __restrict__ cc_label_ptr = cc_label_accessor.m_data_ptr;
       [[maybe_unused]] const size_t cc_label_stride = cc_label_accessor.m_stride;
 
       // density field data accessor.
-      const auto density_accessor = grid_cell_values->field_data( *grid_cell_field );
+      const FieldAccessorT density_accessor = grid_cell_values->field_data( *grid_cell_field );
       double  * __restrict__ density_ptr = density_accessor.m_data_ptr;
       const size_t density_stride = density_accessor.m_stride;
-      
+  
+      // build array of accessors for user defined custom fields to aggregate over CCs
+      std::set< std::string > avg_fields;
+      for(const auto & name : *cc_avg_fields)
+      {
+        avg_fields.insert(name);
+      }
+      std::map< std::string , CustomFieldInfo > custom_fields;
+      size_t custom_fields_value_count = 0;
+      for(const auto & name : *cc_custom_fields)
+      {
+        if( ! grid_cell_values->has_field(name) )
+        {
+          auto ferr = fatal_error();
+          ferr << "Available fields for cell values are :";
+          for(const auto & p : grid_cell_values->m_fields)
+          {
+            ferr << " " << p.first;
+          }
+          ferr << std::endl << "field '"<<name<<"' does not exist" << std::endl;
+        }
+        auto & f = custom_fields[name];
+        const auto& field_info = grid_cell_values->field(name);
+        f.m_accessor =  grid_cell_values->field_data(name);
+        f.m_position = custom_fields_value_count;
+        if( ssize_t(field_info.m_subdiv) != subdiv )
+        {
+          fatal_error() << "Cannot aggregate field '"<<name<<"' because cell subdivision is different from cc_label"<<std::endl;
+        }
+        f.m_avg = ( avg_fields.find(name) != avg_fields.end() );
+        f.m_vecsize = field_info.m_components / subdiv3;
+        custom_fields_value_count += f.m_vecsize;
+      }
+  
       // sanity check
       assert( cc_label_stride == density_stride );
       const size_t stride = density_stride; // for simplicity
@@ -207,8 +255,6 @@ namespace exanb
 
       // density threshold to select cells
       const double threshold = *grid_cell_threshold ;
-      // other usefull values
-      const size_t subdiv3 = subdiv * subdiv * subdiv;
       
       assert( domain_dims.i>=0 && domain_dims.j>=0 && domain_dims.k>=0 );
       const unsigned int unique_id_i_bits = std::bit_width( size_t(domain_dims.i) );
@@ -700,6 +746,10 @@ namespace exanb
 
       // ********************************
       // compute gyration contribution with the help of CC center that is now available
+      // also compute user defined aggegated fields here
+      std::unordered_map<ULongLong,std::vector<double> > cc_custom_fields;
+      std::vector< std::unordered_map<ULongLong,std::vector<double> > > cc_custom_fields_mt( MAX_NT );
+
       cc_map_mt.clear();
       cc_map_mt.resize( MAX_NT );
 #     pragma omp parallel
@@ -727,11 +777,14 @@ namespace exanb
             {
               const ULongLong unique_id = static_cast<ULongLong>( label );
               auto & cc_info = cc_map_mt[tid][unique_id];
+              auto & custom_fields_vec = cc_custom_fields_mt[tid][unique_id];
               if( cc_info.m_label == ConnectedComponentInfo::NO_LABEL )
               {
                 assert( cc_map.find(unique_id) != cc_map.end() );
                 cc_info = cc_map[unique_id];
                 cc_info.m_gyration =  Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
+                assert( custom_fields_vec.empty() );
+                custom_fields_vec.assign( custom_fields_value_count , 0.0 );
               }
               Vec3d r = ( dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) + ( subcell_size * 0.5 ) ) ) - cc_info.m_center;
               cc_info.m_gyration.m11 += r.x * r.x;
@@ -743,6 +796,15 @@ namespace exanb
               cc_info.m_gyration.m31 += r.z * r.x;
               cc_info.m_gyration.m32 += r.z * r.y;
               cc_info.m_gyration.m33 += r.z * r.z;
+              for(const auto & cfp : custom_fields)
+              {
+                const auto & cf = cfp.second;
+                const unsigned int vecsize = cf.m_vecsize;
+                for(unsigned int vi=0;vi<vecsize;vi++)
+                {
+                  custom_fields_vec[cf.m_position+vi] += cf.m_accessor.m_data_ptr[ ( cell_index * cf.m_accessor.m_stride ) + ( subcell_index * vecsize ) + vi ];
+                }
+              }
             }
           }
         }
@@ -759,8 +821,19 @@ namespace exanb
           assert( cc_map.find(unique_id) != cc_map.end() );
           cc_map[unique_id].m_gyration += kv.second.m_gyration;
         }
+        for(const auto & kv : cc_custom_fields_mt[tid])
+        {
+          const auto unique_id = kv.first;
+          auto & vec = cc_custom_fields[unique_id];
+          if( vec.empty() ) vec.assign( custom_fields_value_count , 0.0 );
+          for(size_t i=0;i<custom_fields_value_count;i++)
+          {
+            vec[i] += kv.second[i];
+          }
+        }
       }
       cc_map_mt.clear();
+      cc_custom_fields_mt.clear();
       
       // update send data with correct gyration
       for(auto & cc : cc_send_data)
@@ -775,10 +848,9 @@ namespace exanb
                    , cc_recv_data.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
                    , *mpi );
 
-      for(auto & ccp : cc_map)
-      {
-        ccp.second.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. };
-      }
+      // reset gyration tensor before summing up
+      for(auto & ccp : cc_map) { ccp.second.m_gyration = Mat3d{ 0.,0.,0., 0.,0.,0., 0.,0.,0. }; }
+      // sum gyration tensor contributions from every contributing MPI process
       for(const auto & cc : cc_recv_data)
       {
         const ULongLong unique_id = static_cast<ULongLong>( cc.m_label );
@@ -786,7 +858,42 @@ namespace exanb
         cc_map[unique_id].m_gyration += cc.m_gyration;
       }
 
-      // ********************************
+      for(auto & sc : cc_send_counts) sc = ( sc / sizeof(ConnectedComponentInfo) ) * sizeof(double) * custom_fields_value_count;
+      for(auto & sd : cc_send_displs) sd = ( sd / sizeof(ConnectedComponentInfo) ) * sizeof(double) * custom_fields_value_count;
+      for(auto & rc : cc_recv_counts) rc = ( rc / sizeof(ConnectedComponentInfo) ) * sizeof(double) * custom_fields_value_count;
+      for(auto & rd : cc_recv_displs) rd = ( rd / sizeof(ConnectedComponentInfo) ) * sizeof(double) * custom_fields_value_count;
+      
+      std::vector<double> cc_send_custom( cc_send_data.size() * custom_fields_value_count , 0.0 );
+      std::vector<double> cc_recv_custom( cc_recv_data.size() * custom_fields_value_count , 0.0 );
+      for(size_t i=0;i<cc_send_data.size();i++)
+      {
+        const ULongLong unique_id = static_cast<ULongLong>( cc_send_data[i].m_label );
+        assert( cc_custom_fields.find(unique_id) != cc_custom_fields.end() );
+        const auto & vec = cc_custom_fields[unique_id];
+        for(size_t j=0;j<custom_fields_value_count;j++)
+        {
+          cc_send_custom[ i * custom_fields_value_count + j ] = vec[ j ];
+        }
+      }
+      cc_custom_fields.clear();
+
+      // forward communication again to propagate user defined fields
+      MPI_Alltoallv( cc_send_custom.data() , cc_send_counts.data() , cc_send_displs.data() , MPI_BYTE
+                   , cc_recv_custom.data() , cc_recv_counts.data() , cc_recv_displs.data() , MPI_BYTE
+                   , *mpi );
+
+      for(size_t i=0;i<cc_recv_data.size();i++)
+      {
+        const ULongLong unique_id = static_cast<ULongLong>( cc_recv_data[i].m_label );
+        auto & vec = cc_custom_fields[unique_id];
+        if( vec.empty() ) vec.assign( custom_fields_value_count , 0.0 );
+        for(size_t j=0;j<custom_fields_value_count;j++)
+        {
+          vec[ j ] += cc_recv_custom[ i * custom_fields_value_count + j ];
+        }
+      }
+
+      // ********** end of gyration tensor compute **************
 
       // update cc_label grid cell values with final label ids
       for( ssize_t k=gl ; k < (grid_dims.k-gl) ; k++)
@@ -821,7 +928,7 @@ namespace exanb
         }
       }
 
-      // finally, write everything to CC table
+      // finally, adjust CC quantities to final results and build table of locally owned CCs
       cc_table->m_table.clear();
       for(const auto unique_id : ordered_label_ids)
       {
@@ -831,12 +938,43 @@ namespace exanb
           assert( cc.m_rank>=global_label_idx_start && cc.m_rank<global_label_idx_end );
           assert( ( cc.m_rank - global_label_idx_start ) == cc_table->m_table.size() );
           cc.m_gyration = cc.m_gyration / cc.m_cell_count;
-          cc.m_label = cc.m_rank;
-          cc.m_rank = rank;
           cc_table->m_table.push_back( cc );
         }
       }
-      //cc_map.clear();
+      cc_map.clear();
+
+      cc_table->m_custom_field_name.clear();
+      cc_table->m_custom_field_vecsize.clear();
+      cc_table->m_custom_field_position.clear();
+      cc_table->m_custom_field_values = custom_fields_value_count;
+      cc_table->m_custom_field_data.assign( custom_fields_value_count * cc_table->m_table.size() , 0.0 );
+      for(const auto & cfp : custom_fields)
+      {
+        cc_table->m_custom_field_name.push_back( cfp.first );
+        cc_table->m_custom_field_vecsize.push_back( cfp.second.m_vecsize );
+        cc_table->m_custom_field_position.push_back( cfp.second.m_position );
+      }
+      for(size_t ti=0;ti<cc_table->m_table.size();ti++)
+      {
+        const ULongLong unique_id = static_cast<ULongLong>( cc_table->m_table[ti].m_label );
+        const auto & custom_fields_vec = cc_custom_fields[unique_id];
+        assert( custom_fields_vec.size() == custom_fields_value_count );
+        for(const auto & cfp : custom_fields)
+        {
+          const auto & cf = cfp.second;
+          const unsigned int vecsize = cf.m_vecsize;
+          double avg_factor = 1.0;
+          if( cf.m_avg ) avg_factor = cc_table->m_table[ti].m_cell_count;
+          for(unsigned int vi=0;vi<vecsize;vi++)
+          {
+            cc_table->m_custom_field_data[ ti * custom_fields_value_count + cf.m_position + vi ] = custom_fields_vec[cf.m_position+vi] / avg_factor;
+          }
+        }
+        // until now we had to keep old label ids, because maps are still indexed by original label ids
+        // now we can finally change it to the final CC global index
+        cc_table->m_table[ti].m_label = cc_table->m_table[ti].m_rank;
+        cc_table->m_table[ti].m_rank = rank;
+      }      
 
       ldbg << "cc_label : owned_label_count="<<cc_table->size()<<", global_label_count="<<global_label_count
            <<", global_label_idx_start="<<global_label_idx_start <<", global_label_idx_end="<<global_label_idx_end << std::endl;

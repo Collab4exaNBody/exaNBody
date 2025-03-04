@@ -45,6 +45,12 @@ namespace exanb
     std::vector< ConnectedComponentInfo > m_table;
     size_t m_global_label_count = 0;
     size_t m_local_label_start = 0;
+    
+    std::vector<std::string> m_custom_field_name;
+    std::vector<size_t> m_custom_field_vecsize;
+    std::vector<size_t> m_custom_field_position;
+    size_t m_custom_field_values = 0;
+    std::vector<double> m_custom_field_data;
 
     inline auto begin() { return m_table.begin(); }
     inline auto begin() const { return m_table.begin(); }
