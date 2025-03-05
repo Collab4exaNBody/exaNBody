@@ -40,6 +40,14 @@ namespace exanb
     Mat3d m_gyration = { 0.,0.,0., 0.,0.,0., 0.,0.,0. };
   };
 
+  struct CCLabelStatistics
+  {
+    size_t m_mpi_passes = 0;
+    size_t m_omp_passes = 0;
+    size_t m_omp_passes_min = 0;
+    size_t m_omp_passes_max = 0;
+  };
+
   struct ConnectedComponentTable
   {
     std::vector< ConnectedComponentInfo > m_table;
@@ -51,6 +59,8 @@ namespace exanb
     std::vector<size_t> m_custom_field_position;
     size_t m_custom_field_values = 0;
     std::vector<double> m_custom_field_data;
+
+    CCLabelStatistics m_stats;
 
     inline auto begin() { return m_table.begin(); }
     inline auto begin() const { return m_table.begin(); }

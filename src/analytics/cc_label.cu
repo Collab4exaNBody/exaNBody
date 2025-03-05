@@ -57,11 +57,12 @@ namespace exanb
     ADD_SLOT( double         , grid_cell_threshold , INPUT , 1. , DocString{"Treshold to determine wheter a cell is selected or not as part of a connected component"} );
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT_OUTPUT );
 
-    ADD_SLOT( ConnectedComponentTable , cc_table   , INPUT_OUTPUT );
+    ADD_SLOT( ConnectedComponentTable , cc_table            , INPUT_OUTPUT );
     ADD_SLOT( long                    , cc_count_threshold  , INPUT , 1 ); // CC that have less or equal cells than this value, are ignored
+    ADD_SLOT( bool                    , cc_enable_stats     , INPUT , false ); // additional communications to gather statistics
     
-    ADD_SLOT( StringVector            , cc_custom_fields  , INPUT , StringVector{} ); 
-    ADD_SLOT( StringVector            , cc_avg_fields  , INPUT , StringVector{} ); 
+    ADD_SLOT( StringVector            , cc_custom_fields    , INPUT , StringVector{} ); 
+    ADD_SLOT( StringVector            , cc_avg_fields       , INPUT , StringVector{} ); 
 
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
@@ -459,6 +460,7 @@ namespace exanb
         if( label_update_passes > 0 )
         {
           id_fast_remap.clear();
+          
 #         pragma omp parallel
           {
             const size_t tid = omp_get_thread_num();
@@ -494,13 +496,26 @@ namespace exanb
           for(size_t tid=0;tid<MAX_NT;tid++)
           {
             id_fast_remap.insert( id_fast_remap_mt[tid].begin() , id_fast_remap_mt[tid].end() );
-          }
+          }          
         }
         
         ++ total_comm_passes;
       } while( label_update_passes > 0 );
 
-      ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
+      if( *cc_enable_stats )
+      {
+        ldbg << "total_local_passes="<<total_local_passes<<" , total_comm_passes="<<total_comm_passes<<std::endl;
+        unsigned long long total_local_passes_avg = 0;
+        unsigned long long total_local_passes_min = 0;
+        unsigned long long total_local_passes_max = 0;
+        MPI_Allreduce(&total_local_passes,&total_local_passes_avg,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,*mpi);
+        MPI_Allreduce(&total_local_passes,&total_local_passes_min,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,*mpi);
+        MPI_Allreduce(&total_local_passes,&total_local_passes_max,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,*mpi);
+        cc_table->m_stats.m_mpi_passes = total_comm_passes;
+        cc_table->m_stats.m_omp_passes = total_local_passes_avg / nprocs;
+        cc_table->m_stats.m_omp_passes_min = total_local_passes_min;
+        cc_table->m_stats.m_omp_passes_max = total_local_passes_max;
+      }
 
       id_fast_remap.clear();
       id_fast_remap_mt.clear();

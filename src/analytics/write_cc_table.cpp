@@ -42,7 +42,7 @@ namespace exanb
     ADD_SLOT( std::string             , filename , INPUT , "cc" );
 
     ADD_SLOT( StringVector            , write_custom_fields  , INPUT , StringVector{} ); 
-    ADD_SLOT( bool                    , write_stats , INPUT , false );
+    ADD_SLOT( bool                    , cc_enable_stats , INPUT , false );
     ADD_SLOT( bool                    , write_rank , INPUT , true );
     ADD_SLOT( bool                    , write_gyration , INPUT , true );
     
@@ -195,7 +195,7 @@ namespace exanb
 
       ldbg << "total_n_cc="<<total_n_cc<<" , total_cell_count="<<total_cell_count<<" , avg_cell_count="<<total_cell_count/total_n_cc<<" , rank_cc_count_scan="<<rank_cc_count_scan<<std::endl;
 
-      if( *write_stats )
+      if( *cc_enable_stats )
       {
         std::vector<unsigned long long> count_sum;
         if( rank == 0 ) count_sum.assign( nprocs , 0 );
@@ -207,6 +207,10 @@ namespace exanb
           fout << "Tcount ; " << total_cell_count << std::endl;
           fout << "AVGcount ; " << std::setprecision(5) << total_cell_count*1.0/total_n_cc << std::endl;          
           fout << "Nmpi ; " << nprocs << std::endl;
+          fout << "Ndpass ; " << cc_table->m_stats.m_mpi_passes << std::endl;
+          fout << "Nspass ; " << cc_table->m_stats.m_omp_passes << std::endl;
+          fout << "Nspassmin ; " << cc_table->m_stats.m_omp_passes_min << std::endl;
+          fout << "Nspassmax ; " << cc_table->m_stats.m_omp_passes_max << std::endl;
           for(int i=0;i<nprocs;i++)
           {
             fout << "NccSum_"<<i<<" ; " << count_sum[i] << std::endl;
