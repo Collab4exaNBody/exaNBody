@@ -529,7 +529,7 @@ namespace exanb
 
       auto subcell_center = [subdiv,subcell_size,dom_xform]( const IJK& domain_cell_loc, const IJK& subcell_loc ) -> Vec3d
       {
-        return dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) /* + ( subcell_size * 0.5 ) */ );
+        return dom_xform * ( make_vec3d( ( domain_cell_loc * subdiv ) + subcell_loc ) + ( subcell_size * 0.5 ) );
       };
 
 #     pragma omp parallel
