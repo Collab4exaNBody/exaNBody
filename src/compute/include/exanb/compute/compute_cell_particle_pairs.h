@@ -59,12 +59,15 @@ namespace exanb
     const PosFieldsT m_posfields;
     const CSizeT m_cs;
     
-    ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( /*ssize_t i */ const onikaInt3_t& coord ) const
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
       static constexpr bool gpu_exec = gpu_device_execution() ;
       static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
 
+      const IJK cell_a_loc = { coord.x , coord.y , coord.z };
+      const size_t cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
+      /*
       size_t cell_a = i;
       IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
       cell_a_loc = cell_a_loc + m_ghost_layers;
@@ -72,6 +75,8 @@ namespace exanb
       {
         cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
+      */
+      
       m_cell_profiler.start_cell_profiling(cell_a);
       compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2
                                       , m_cpbuf_factory, m_optional, m_func
@@ -79,6 +84,7 @@ namespace exanb
                                       , prefer_compute_buffer, std::index_sequence<FieldIndex...>{} );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
+    
   };
 
 }
@@ -151,8 +157,10 @@ namespace exanb
     const IJK dims = grid.dimension();
     int gl = grid.ghost_layers();
     if( enable_ghosts ) { gl = 0; }
-    const IJK block_dims = dims - (2*gl);
-    const size_t N = block_dims.i * block_dims.j * block_dims.k;
+//    const IJK block_dims = dims - (2*gl);
+//    const size_t N = block_dims.i * block_dims.j * block_dims.k;
+    
+    onika::parallel::ParallelExecutionSpace<3> parallel_range = { { gl , gl , gl } , { dims.i-gl , dims.j-gl , dims.k-gl } };
 
     // for debugging purposes
     ComputePairDebugTraits<FuncT>::print_func( func );
@@ -185,7 +193,7 @@ namespace exanb
 #   define _XNB_CHUNK_NEIGHBORS_CCPP(CS) \
     { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
       if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
-        return block_parallel_for( N, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
+        return block_parallel_for( parallel_range, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
     }
     XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )
 #   undef _XNB_CHUNK_NEIGHBORS_CCPP
