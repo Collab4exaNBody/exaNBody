@@ -1,0 +1,22 @@
+compute_force: nop
+
+# usually at then end of this block you divide force by mass to use it as acceleration
+# in the simplest case, we'll assume a uniform mass of 1.0, thus we have f=m.a <=> f=a
+compute_all_forces_energy:
+  - zero_particle_force
+  - compute_force
+
+verlet_first_half:
+  - push_f_v_r: { dt_scale: 1.0 , xform_mode: INV_XFORM }
+  - push_f_v: { dt_scale: 0.5  , xform_mode: IDENTITY }  
+
+verlet_second_half:
+  - push_f_v: { dt_scale: 0.5 , xform_mode: IDENTITY }
+
+# define the verlet numerical scheme
+numerical_scheme:
+    - verlet_first_half
+    - check_and_update_particles
+    - compute_all_forces_energy
+    - verlet_second_half
+

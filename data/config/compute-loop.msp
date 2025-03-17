@@ -1,0 +1,32 @@
+first_iteration:
+  - init_particles
+  - compute_all_forces_energy
+  - simulation_stats
+  - print_simulation_stats
+  - next_time_step
+
+compute_loop_stop:
+  profiling: false
+  rebind: { end_at: simulation_end_iteration , result: compute_loop_continue }
+  body:
+    - sim_continue
+
+begin_iteration:
+  - trigger_dump_data
+  - trigger_print_log
+
+end_iteration:
+  - dump_data_if_triggered
+  - print_log_if_triggered
+
+compute_loop:
+  loop: true
+  name: loop
+  condition: compute_loop_continue
+  body:
+    - begin_iteration
+    - numerical_scheme
+    - end_iteration
+    - next_time_step
+    - compute_loop_stop
+

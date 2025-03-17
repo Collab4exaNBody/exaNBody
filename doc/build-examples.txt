@@ -1,0 +1,49 @@
+#
+# Ubuntu 22.04 g++-11.4.0 X Cuda 12
+# Ubuntu 22.04 g++-12.3.0 (no Cuda)
+# Ubuntu 22.04 g++-11.4.0 (no Cuda)
+#
+ONIKA_INSTALL_DIR=${HOME}/local/onika
+XNB_INSTALL_DIR=${HOME}/local/exaNBody
+XNB_SRC_DIR=${HOME}/dev/exaNBody
+source ${ONIKA_INSTALL_DIR}/bin/setup-env.sh
+cmake -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=${XNB_INSTALL_DIR} \
+  -Donika_DIR=${ONIKA_INSTALL_DIR} \
+	${XNB_SRC_DIR}
+
+
+#
+# Rhel_8__x86_64 X Intel-24.2.0 X gcc-11.2.0 X Cuda 12.4
+#
+ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
+XNB_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/exaNBody
+XNB_SRC_DIR=${HOME}/dev/exaNBody
+source ${ONIKA_INSTALL_DIR}/bin/setup-env.sh
+CXX_COMPILER=`which icpx`
+C_COMPILER=`which icx`
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${XNB_INSTALL_DIR} \
+      -DCMAKE_C_COMPILER=${C_COMPILER} \
+      -DCMAKE_CXX_COMPILER=${CXX_COMPILER} \
+      -DCMAKE_CXX_FLAGS=-diag-disable=15518,15552 \
+      -Donika_DIR=${ONIKA_INSTALL_DIR} \
+	    ${XNB_SRC_DIR}
+
+#
+# Rhel_8__x86_64 X gcc-12.3.0 X Cuda 12.4
+# Rhel_8__x86_64 X gcc-11.2.0 X Cuda 12.4
+#
+ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
+XNB_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/exaNBody
+XNB_SRC_DIR=${HOME}/dev/exaNBody
+source ${ONIKA_INSTALL_DIR}/bin/setup-env.sh
+cmake -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=${XNB_INSTALL_DIR} \
+      -Donika_DIR=${ONIKA_INSTALL_DIR} \
+      ${XNB_SRC_DIR}
+
+
+# common build and cleanup
+make -j4 install
+

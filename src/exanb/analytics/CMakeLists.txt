@@ -1,3 +1,0 @@
-set(exanbAnalytics_LINK_LIBRARIES exanbGridCellParticles exanbMPI)
-xstamp_add_plugin(exanbAnalytics ${CMAKE_CURRENT_SOURCE_DIR})
-
