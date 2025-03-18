@@ -200,11 +200,8 @@ namespace exanb
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    using PES = onika::parallel::ParallelExecutionSpace<1,1>;
-    using ParticleElementCoord = typename PES::element_t ;
-    static_assert( sizeof(ParticleElementCoord) == sizeof(size_t) );
-    
-    PES parallel_range = { {0} , {number_cell_indices} , ( const ParticleElementCoord * ) cell_indices }; 
+    using PES = onika::parallel::ParallelExecutionSpace<1,1, const size_t * >;
+    PES parallel_range = { {0} , {number_cell_indices} , cell_indices }; 
     PForFuncT pfor_func = { cells , dims , func , cpfields };
     return block_parallel_for( parallel_range, pfor_func, exec_ctx );
   }
@@ -222,7 +219,7 @@ namespace exanb
     const FuncT& func,
     FieldSet<field_ids...> cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
-    const size_t * __restrict__ cell_indices,
+    const size_t * cell_indices,
     ssize_t number_cell_indices)
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
