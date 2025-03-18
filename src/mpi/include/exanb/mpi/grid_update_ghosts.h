@@ -191,7 +191,7 @@ namespace exanb
 
     for(int p=0;p<nprocs;p++)
     {
-      send_pack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
+      send_pack_async[p] = onika::parallel::ParallelExecutionQueue{};
       if( ghost_comm_buffers.sendbuf_size(p) > 0 )
       {
         assert( ghost_comm_buffers.send_buffer_offsets[p] + ghost_comm_buffers.sendbuf_size(p) <= ghost_comm_buffers.sendbuf_total_size() );
@@ -274,7 +274,7 @@ namespace exanb
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
-      recv_unpack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
+      recv_unpack_async[p] = onika::parallel::ParallelExecutionQueue{};
       const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();        
       // re-allocate cells before they receive particles
       if( CreateParticles )
