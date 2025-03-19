@@ -175,7 +175,7 @@ namespace exanb
     const onika::FlatTuple<FieldAccT...>& cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
     const size_t * cell_indices,
-    ssize_t number_cell_indices )
+    size_t number_cell_indices )
   {
     using onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;   
@@ -185,10 +185,6 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
     
-    if( number_cell_indices < 0 )
-    {
-      fatal_error() << "compute_cell_particles: number_cell_indices must be >= 0" << std::endl;
-    }
     if( number_cell_indices>0 && cell_indices==nullptr )
     {
       fatal_error() << "compute_cell_particles: cell_indices cannot be NULL if number_cell_indices > 0" << std::endl;
@@ -200,8 +196,8 @@ namespace exanb
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    using PES = onika::parallel::ParallelExecutionSpace<1,1, const size_t * >;
-    PES parallel_range = { {0} , {number_cell_indices} , cell_indices }; 
+    using PES = onika::parallel::ParallelExecutionSpace<1,1>;
+    PES parallel_range = { {0} , {number_cell_indices} , {cell_indices,number_cell_indices} }; 
     PForFuncT pfor_func = { cells , dims , func , cpfields };
     return block_parallel_for( parallel_range, pfor_func, exec_ctx );
   }
@@ -220,7 +216,7 @@ namespace exanb
     FieldSet<field_ids...> cpfields ,
     onika::parallel::ParallelExecutionContext * exec_ctx,
     const size_t * cell_indices,
-    ssize_t number_cell_indices)
+    size_t number_cell_indices)
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
