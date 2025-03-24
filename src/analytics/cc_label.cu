@@ -196,7 +196,7 @@ namespace exanb
 
       // null grid and functors needed for ghost updates
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
-      auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); };
+      auto peqfunc = [self=this](int i) { return self->parallel_execution_custom_queue(i); };
       Grid< FieldSet<> > * null_grid_ptr = nullptr;
       onika::FlatTuple<> update_fields = {};
 
@@ -230,7 +230,7 @@ namespace exanb
       {
         ldbg << "nonzero_ghost_subcells="<<nonzero_ghost_subcells<<", grid_update_from_ghosts with UpdateValueAdd merge functor"<<std::endl;
         grid_update_from_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                          *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                          *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
                           0, false, false, false,
                           true, false, UpdateValueAdd{} );
 #       pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
@@ -355,7 +355,7 @@ namespace exanb
       do
       {
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                            *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                            *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
                             0, false, false, false,
                             true, false , std::integral_constant<bool,false>{} );
 

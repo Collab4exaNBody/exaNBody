@@ -94,11 +94,11 @@ namespace exanb
       }
     
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
-      auto pesfunc = [self=this](unsigned int i) { return self->parallel_execution_stream(i); }; 
+      auto peqfunc = [self=this](int i) { return self->parallel_execution_custom_queue(i); }; 
       auto update_fields = grid->field_accessors_from_field_set( FieldSetT{} );
 
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, *domain, grid_cell_values.get_pointer(),
-                        *ghost_comm_buffers, pecfunc,pesfunc, update_fields,
+                        *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
                         *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
                         *serialize_pack_send, *wait_all, UpdateFuncT{} );
     }

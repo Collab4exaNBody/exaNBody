@@ -56,10 +56,16 @@ namespace tutorial
       // we finally create a third parallel operation we want to execute concurrently with the two others
       auto addition3 = block_parallel_for( array2->rows(), array2_add_func, parallel_execution_context("add_kernel") );
 
-      // addition1 and addition2 are scheduled asyncronously and sequentially one after the other, int the stream queue #0
-      auto stream_0_control = parallel_execution_stream(0) << std::move(addition1) << std::move(addition2) ;
+      // we create 2 custom queues with different default execution lane
+      auto stream_0_control = parallel_execution_custom_queue(0);
+      auto stream_1_control = parallel_execution_custom_queue(1);
+      
+      // addition1 and addition2 are scheduled asyncronously and sequentially one after the other, in the stream queue #0
+      stream_0_control << std::move(addition1) << std::move(addition2);
+      
       // addition3 is scheduled asynchrounsly in stream queue #1, thus it may run concurrently with operations in stream quaue #0
-      auto stream_1_control = parallel_execution_stream(1) << std::move(addition3) ;
+      stream_1_control << std::move(addition3) ;
+      
       lout << "Parallel operations are executing..." << std::endl;
       stream_0_control.wait(); // wait for all operations in stream queue #0 to complete
       stream_1_control.wait(); // wait for all operations in stream queue #1 to complete

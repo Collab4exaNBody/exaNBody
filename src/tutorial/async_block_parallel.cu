@@ -38,9 +38,9 @@ namespace tutorial
                                            , parallel_execution_context("my_add_kernel") // execution environment inherited from this OperatorNode
                                            ); // optionally, we may tag here ^^^ parallel operation for debugging/profiling purposes
       // my_addition is scheduled here, transfering its content/ownership (see std::move) to the default stream queue
-      auto stream_control = parallel_execution_stream() << std::move(my_addition) ;
+      parallel_execution_queue() << std::move(my_addition) ;
       lout << "Parallel operation is executing..." << std::endl;
-      stream_control.wait();                               // wait for the operation to complete and results to be ready to read
+      parallel_execution_queue().wait();    // wait for the operation to complete and results to be ready to read
       lout << "Parallel operation has completed !" << std::endl;
     }
   };
