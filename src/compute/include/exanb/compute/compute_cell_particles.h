@@ -196,8 +196,9 @@ namespace exanb
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    using PES = onika::parallel::ParallelExecutionSpace<1,1>;
-    PES parallel_range = { {0} , {number_cell_indices} , {cell_indices,number_cell_indices} }; 
+    using CellListT = std::span<const size_t>; // default span definition would use ssize_t and prevent constructor match with size_t* pointer
+    using PES = onika::parallel::ParallelExecutionSpace<1,1,CellListT>;
+    PES parallel_range = { {0} , {number_cell_indices} , CellListT{cell_indices,number_cell_indices} }; 
     PForFuncT pfor_func = { cells , dims , func , cpfields };
     return block_parallel_for( parallel_range, pfor_func, exec_ctx );
   }
