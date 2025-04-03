@@ -70,7 +70,7 @@ namespace exanb
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
-    const PEQFuncT& parallel_execution_custom_queue,
+    const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
     long comm_tag ,
     bool gpu_buffer_pack ,
@@ -210,14 +210,15 @@ namespace exanb
 
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
+
         if( async_buffer_pack )
         {
-          send_pack_async[p] = parallel_execution_custom_queue( parallel_concurrent_lane++ );
-          send_pack_async[p] << std::move(parallel_op);
+          send_pack_async[p] = parallel_concurrent_lane++;
+          parallel_execution_queue() << onika::parallel::set_lane(send_pack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
         }
         else
         {
-          send_pack_async[p] = onika::parallel::ParallelExecutionQueue{};
+          send_pack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;;
         }
       }
     }
@@ -250,7 +251,7 @@ namespace exanb
     // ***************** initiate buffer sends ******************
     if( serialize_pack_send )
     {
-      for(int p=0;p<nprocs;p++) { send_pack_async[p].wait(); }
+      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( send_pack_async[p] ); }
     }
     std::vector<bool> message_sent( nprocs , false );
     while( active_sends < active_send_packs )
@@ -260,7 +261,7 @@ namespace exanb
         if( p!=rank && !message_sent[p] && ghost_comm_buffers.sendbuf_size(p) > 0 )
         {
           bool ready = true;
-          if( ! serialize_pack_send ) { ready = send_pack_async[p].query_status(); }
+          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( send_pack_async[p] ); }
           if( ready )
           {
             ++ active_sends;
@@ -320,14 +321,15 @@ namespace exanb
                                         
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
       auto parallel_op = block_parallel_for( cells_to_receive, m_unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
+
       if( async_buffer_pack )
       {
-        recv_unpack_async[p] = parallel_execution_custom_queue( parallel_concurrent_lane++ );
-        recv_unpack_async[p] << std::move(parallel_op);
+        recv_unpack_async[p] = parallel_concurrent_lane++;
+        parallel_execution_queue() << onika::parallel::set_lane(recv_unpack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
       }
       else
       {
-        recv_unpack_async[p] = onika::parallel::ParallelExecutionQueue{};
+        recv_unpack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;
       }
     };
     // *** end of packet decoding lamda ***
@@ -340,7 +342,7 @@ namespace exanb
         fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers.sendbuf_size(rank)<<" receive="<<ghost_comm_buffers.recvbuf_size(rank)<<std::endl;
       }
       ldbg << "UpdateGhosts: loopback buffer size="<<ghost_comm_buffers.sendbuf_size(rank)<<std::endl;
-      if( ! serialize_pack_send ) { send_pack_async[rank].wait(); }
+      if( ! serialize_pack_send ) { parallel_execution_queue().wait( send_pack_async[rank] ); }
       process_receive_buffer(rank);
     }
 
@@ -415,7 +417,7 @@ namespace exanb
 
     for(int p=0;p<nprocs;p++)
     {
-      recv_unpack_async[p].wait();
+      parallel_execution_queue().wait( recv_unpack_async[p] );
     }
 
     if( CreateParticles )

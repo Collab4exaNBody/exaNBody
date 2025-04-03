@@ -76,7 +76,7 @@ namespace exanb
     inline void execute() override final
     {
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
-      auto peqfunc = [self=this](int i) { return self->parallel_execution_custom_queue(i); }; 
+      auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); }; 
       static_assert( !CreateParticles || grid_contains_field_set_v<GridT,FieldSetT> , "Creation of ghost particle is not supported for optional fields yet");
       auto update_fields = grid->field_accessors_from_field_set( AddDefaultFields<FieldSetT> {} ); 
       grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),

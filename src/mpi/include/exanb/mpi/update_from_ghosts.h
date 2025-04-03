@@ -94,7 +94,7 @@ namespace exanb
       }
     
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
-      auto peqfunc = [self=this](int i) { return self->parallel_execution_custom_queue(i); }; 
+      auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); };
       auto update_fields = grid->field_accessors_from_field_set( FieldSetT{} );
 
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, *domain, grid_cell_values.get_pointer(),

@@ -196,7 +196,7 @@ namespace exanb
 
       // null grid and functors needed for ghost updates
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
-      auto peqfunc = [self=this](int i) { return self->parallel_execution_custom_queue(i); };
+      auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); };
       Grid< FieldSet<> > * null_grid_ptr = nullptr;
       onika::FlatTuple<> update_fields = {};
 
