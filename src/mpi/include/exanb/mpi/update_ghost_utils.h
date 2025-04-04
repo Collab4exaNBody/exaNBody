@@ -92,8 +92,8 @@ namespace exanb
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       std::vector<size_t> send_buffer_offsets;
       std::vector<size_t> recv_buffer_offsets;
-      std::vector< onika::parallel::ParallelExecutionStreamQueue > send_pack_async;
-      std::vector< onika::parallel::ParallelExecutionStreamQueue > recv_unpack_async;    
+      std::vector< int > send_pack_async;
+      std::vector< int > recv_unpack_async;    
       onika::memory::CudaMMVector<uint8_t> send_buffer;
       onika::memory::CudaMMVector<uint8_t> recv_buffer;
             

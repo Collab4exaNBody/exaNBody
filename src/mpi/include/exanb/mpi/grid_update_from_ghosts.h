@@ -60,7 +60,7 @@ namespace exanb
   serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
   gpu_packing allows pack/unpack operations to execute on the GPU
   */
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT>
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT, class FieldAccTupleT, class UpdateFuncT>
   static inline void grid_update_from_ghosts(
     LDBGT& ldbg,
     MPI_Comm comm,
@@ -70,7 +70,7 @@ namespace exanb
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
-    const PESFuncT& parallel_execution_stream,
+    const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
     long comm_tag ,
     bool gpu_buffer_pack ,
@@ -150,6 +150,7 @@ namespace exanb
 
     assert( send_pack_async.size() == size_t(nprocs) );
     assert( recv_unpack_async.size() == size_t(nprocs) );
+    int parallel_concurrent_lane = 0;
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs );
@@ -163,7 +164,6 @@ namespace exanb
     }
     for(int p=0;p<nprocs;p++)
     {
-      send_pack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
       if( ghost_comm_buffers.recvbuf_size(p) > 0 )
       {
         if( p != rank ) { ++ active_send_packs; }
@@ -180,7 +180,15 @@ namespace exanb
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
-        if( async_buffer_pack ) send_pack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
+        if( async_buffer_pack )
+        {
+          send_pack_async[p] = parallel_concurrent_lane++;
+          parallel_execution_queue() << onika::parallel::set_lane(send_pack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
+        }
+        else
+        {
+          send_pack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;
+        }
       }
     }
 
@@ -211,7 +219,7 @@ namespace exanb
     /*** optional synchronization : wait for all send buffers to be packed before moving on ***/
     if( serialize_pack_send )
     {
-      for(int p=0;p<nprocs;p++) { send_pack_async[p].wait(); }
+      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( send_pack_async[p] ); }
     }
 
     // ***************** initiate buffer sends ******************
@@ -223,7 +231,7 @@ namespace exanb
         if( p!=rank && !message_sent[p] && ghost_comm_buffers.recvbuf_size(p)>0 )
         {
           bool ready = true;
-          if( ! serialize_pack_send ) { ready = send_pack_async[p].query_status(); }
+          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( send_pack_async[p] ); }
           if( ready )
           {
             ++ active_sends;
@@ -245,7 +253,6 @@ namespace exanb
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
-      recv_unpack_async[p] = onika::parallel::ParallelExecutionStreamQueue{};
       const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
       ghost_cells_recv += cells_to_receive;
       unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
@@ -261,7 +268,15 @@ namespace exanb
       // = parallel_execution_context(p);
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
       auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts ); 
-      if( async_buffer_pack ) recv_unpack_async[p] = ( parallel_execution_stream(p) << std::move(parallel_op) );
+      if( async_buffer_pack )
+      {
+        recv_unpack_async[p] = parallel_concurrent_lane ++;
+        parallel_execution_queue() << onika::parallel::set_lane(recv_unpack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
+      }
+      else
+      {
+        recv_unpack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;
+      }
     };
     // *** end of packet decoding lamda ***
 
@@ -274,7 +289,7 @@ namespace exanb
         fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers.recvbuf_size(rank)<<" receive="<<ghost_comm_buffers.sendbuf_size(rank)<<std::endl;
       }
       ldbg << "UpdateFromGhosts: loopback buffer size="<<ghost_comm_buffers.sendbuf_size(rank)<<std::endl;
-      if( ! serialize_pack_send ) { send_pack_async[rank].wait(); }
+      if( ! serialize_pack_send ) { parallel_execution_queue().wait( send_pack_async[rank] ); }
       process_receive_buffer(rank);
     }
 
@@ -348,7 +363,7 @@ namespace exanb
 
     for(int p=0;p<nprocs;p++)
     {
-      recv_unpack_async[p].wait();
+      parallel_execution_queue().wait( recv_unpack_async[p] );
     }
     
     ldbg << "--- end update_from_ghosts : received "<< ghost_cells_recv<<" ghost cells" << std::endl;
