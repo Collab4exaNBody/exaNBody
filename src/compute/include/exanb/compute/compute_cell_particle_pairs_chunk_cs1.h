@@ -44,14 +44,15 @@ namespace exanb
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
-    onika::UIntConst<1> CS,
-    onika::BoolConst<Symmetric> ,
-    PosFieldsT pos_fields,
-    onika::BoolConst<PreferComputeBuffer> ,
+    onika::UIntConst<1> CS ,
+    ComputeParticlePairOpts< Symmetric, PreferComputeBuffer> ,
+//    onika::BoolConst<Symmetric> ,
+//    onika::BoolConst<PreferComputeBuffer> ,
+    PosFieldsT pos_fields ,
     std::index_sequence<FieldIndex...>
     )
   {
-    static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
+    // static constexpr bool requires_block_synchronous_call = false; //compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
     using exanb::chunknbh_stream_info;
       
@@ -61,7 +62,7 @@ namespace exanb
     static constexpr bool has_particle_ctx   = compute_pair_traits::has_particle_context_v<FuncT>;
     
     static constexpr bool use_compute_buffer = PreferComputeBuffer && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
-    static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
+    // static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
     static constexpr size_t nbh_fields_count = onika::tuple_size_const_v< NbhFields >;
