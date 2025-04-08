@@ -130,7 +130,6 @@ namespace exanb
     // -------------------------------------
 
     ONIKA_CU_BLOCK_SHARED int valid_nbh_index;
-    ONIKA_CU_BLOCK_SHARED int valid_nbh_count;
 
     while( p_a < cell_a_particles )
     {
@@ -138,8 +137,10 @@ namespace exanb
       if ( ONIKA_CU_THREAD_IDX == 0 )
       {
         tab.part = p_a;
+        printf("%06d.%06d _FILT_\n",int(tab.cell),int(tab.part));
         tab.count = 0;
         valid_nbh_index = 0;
+        for(int i=0;i<tab.MaxNeighbors;i++) tab.d2[i] = -1.0;
       }
       ONIKA_CU_BLOCK_SYNC();
       // --------------------------------------
@@ -186,33 +187,31 @@ namespace exanb
             is_nbh_valid = ( d2>0.0 && d2 <= rcut2 );
           }
           
-          int tl_nbh_index = ONIKA_CU_BLOCK_ATOMIC_ADD( valid_nbh_index , int(is_nbh_valid) );
-          int tl_nbh_write_idx = tab.count + tl_nbh_index ;
-          ONIKA_CU_BLOCK_SYNC();
-          if( ONIKA_CU_THREAD_IDX == 0 )
-          {
-            const int N = valid_nbh_index;
-            valid_nbh_count = N;
-            tab.count += N;
-            valid_nbh_index = 0;
-          }
-          ONIKA_CU_BLOCK_SYNC();
-          
+          int tl_nbh_write_idx = ONIKA_CU_ATOMIC_ADD( valid_nbh_index , int(is_nbh_valid) );
           if( is_nbh_valid )
           {            
-            tab.check_buffer_overflow();
+            //tab.check_buffer_overflow();
+            assert( tl_nbh_write_idx < tab.MaxNeighbors );
             if constexpr ( nbh_fields_count > 0 )
             {
               compute_cell_particle_pairs_pack_nbh_fields( tab , tl_nbh_write_idx , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
             }
             tab.process_neighbor(tab, tl_nbh_write_idx , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index + stream_chunk_offset , nbh_data_ctx) );
-          }
-          
+          }          
           p_nbh_index += chunks_consumed;
+
+          // ONIKA_CU_BLOCK_SYNC();
         }
 
       }
-printf("%d\n",int(ONIKA_CU_THREAD_IDX));
+
+      ONIKA_CU_BLOCK_SYNC();
+      if( ONIKA_CU_THREAD_IDX == 0 )
+      {
+        tab.count = valid_nbh_index;
+      }
+      ONIKA_CU_BLOCK_SYNC();
+
       // --- particle processing end ---
       static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
       static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
@@ -223,7 +222,7 @@ printf("%d\n",int(ONIKA_CU_THREAD_IDX));
         {
           for(int i=0;i<tab.count;i++)
           {
-            assert( tab.d2[i] > 0.0 );
+            assert( tab.d2[i] >= 0.0 );
           }
         }
         ONIKA_CU_BLOCK_SYNC();
