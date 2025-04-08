@@ -19,35 +19,15 @@ under the License.
 
 #pragma once
 
-#include <onika/physics/units.h>
-#include <onika/physics/constants.h>
-#include <exanb/core/concurent_add_contributions.h>
-#include <onika/cuda/cuda.h>
-
-#include <cmath>
-
-// tells if we use Complex arithmetic classes or unroll all to scalar expressions
-//#define SNAP_AUTOGEN_COMPLEX_MATH 1
-
-#include <md/snap/snap_compute_buffer.h>
-#include <md/snap/snap_compute_ui.h>
-#include <md/snap/snap_compute_yi.h>
-#include <md/snap/snap_compute_duidrj.h>
-#include <md/snap/snap_compute_deidrj.h>
-
-#ifdef SNAP_AUTOGEN_COMPLEX_MATH
-#include <md/snap/snap_math.h>
-#endif
-
-#include <md/snap/snap_force_contrib.h>
+#include <md/snap/snap_force_op.h>
 
 namespace md
 {
   using namespace exanb;
 
   // Force operator
-  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
-  struct SnapXSForceOp 
+  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT>
+  struct SnapXSForceOp<SnapConfParamT,ComputeBufferT,CellParticlesT,true>
   {
     const SnapConfParamT snaconf;
     
@@ -460,17 +440,3 @@ namespace md
 
 }
 
-#include <md/snap/snap_force_op_coop.h>
-
-namespace exanb
-{
-  template<class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute >
-  struct ComputePairTraits< md::SnapXSForceOp<SnapConfParamT,CPBufT,CellParticlesT,CoopCompute> >
-  {
-    static inline constexpr bool ComputeBufferCompatible      = true;
-    static inline constexpr bool BlockSharedComputeBuffer     = CoopCompute;
-    static inline constexpr bool BufferLessCompatible         = false;
-    static inline constexpr bool CudaCompatible               = true;
-  };
-
-}
