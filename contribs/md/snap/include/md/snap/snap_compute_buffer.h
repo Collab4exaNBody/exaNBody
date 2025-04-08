@@ -33,6 +33,13 @@ namespace md
     double * __restrict__ m_ptr = nullptr;
     
     ONIKA_HOST_DEVICE_FUNC
+    inline void reset()
+    {
+      m_array_size = SizeT{};
+      m_ptr = nullptr;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
     inline void init( SizeT sz )
     {
       m_array_size = sz;
@@ -57,6 +64,21 @@ namespace md
       alloc_array();
       return m_ptr + m_array_size;
     }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline const double * __restrict__ r() const
+    {
+      assert( m_ptr != nullptr );
+      return m_ptr;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline const double * __restrict__ i() const
+    {
+      assert( m_ptr != nullptr );
+      return m_ptr + m_array_size;
+    }
+
     
     ONIKA_HOST_DEVICE_FUNC
     inline ~SnapXSTemporaryComplexArray()
@@ -70,6 +92,11 @@ namespace md
   {
     static inline constexpr int Size = _SZ;
     double m_storage[ Size * 2 ];
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline void reset()
+    {
+    }
 
     ONIKA_HOST_DEVICE_FUNC
     inline void init( int sz )
@@ -91,6 +118,19 @@ namespace md
     {
       return m_storage + Size;
     }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline const double * __restrict__ r() const
+    {
+      return m_storage;
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline const double * __restrict__ i() const
+    {
+      return m_storage + Size;
+    }
+
   };
 
   template<class SnapConfT>
@@ -100,6 +140,15 @@ namespace md
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max_alt * SnapConfT{}.nelements ) > > > m_Y_array    = {};
     SnapXSTemporaryComplexArray<int> m_U_array    = {}; // dynamically allocated only if needed for non specific cases (specialized implementations do not use these arrays)
     SnapXSTemporaryComplexArray<int> m_DU_array   = {};
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline void reset()
+    {
+      m_U_array.reset();
+      m_UTot_array.reset();
+      m_DU_array.reset();
+      m_Y_array.reset();
+    }
 
     ONIKA_HOST_DEVICE_FUNC
     inline void init( const SnapConfT& snaconf )
@@ -117,6 +166,14 @@ namespace md
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max                         ) > > > m_U_array    = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > > m_UTot_array = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxz_max * SnapConfT{}.ndoubles  ) > > > m_Z_array    = {};
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline void reset()
+    {
+      m_U_array.reset();
+      m_UTot_array.reset();
+      m_Z_array.reset();
+    }
 
     ONIKA_HOST_DEVICE_FUNC
     inline void init( const SnapConfT& snaconf )

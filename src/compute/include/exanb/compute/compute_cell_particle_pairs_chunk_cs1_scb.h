@@ -77,7 +77,8 @@ namespace exanb
     [[maybe_unused]] auto nbh_data_ctx = optional.nbh_data.make_ctx();
 
     // create local computation scratch buffer
-    ONIKA_CU_BLOCK_SHARED ComputePairBufferT tab;
+    ONIKA_CU_BLOCK_SHARED onika::cuda::UnitializedPlaceHolder<ComputePairBufferT> tab_place_holder;
+    ComputePairBufferT & tab = tab_place_holder.get_ref();
     if ( ONIKA_CU_THREAD_IDX == 0 )
     {
       cpbuf_factory.init(tab);
@@ -137,10 +138,8 @@ namespace exanb
       if ( ONIKA_CU_THREAD_IDX == 0 )
       {
         tab.part = p_a;
-        printf("%06d.%06d _FILT_\n",int(tab.cell),int(tab.part));
         tab.count = 0;
         valid_nbh_index = 0;
-        for(int i=0;i<tab.MaxNeighbors;i++) tab.d2[i] = -1.0;
       }
       ONIKA_CU_BLOCK_SYNC();
       // --------------------------------------
@@ -218,15 +217,6 @@ namespace exanb
       static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
       if( tab.count > 0 )
       {
-        if( ONIKA_CU_THREAD_IDX == 0 )
-        {
-          for(int i=0;i<tab.count;i++)
-          {
-            assert( tab.d2[i] >= 0.0 );
-          }
-        }
-        ONIKA_CU_BLOCK_SYNC();
-        
         if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
         if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
       }

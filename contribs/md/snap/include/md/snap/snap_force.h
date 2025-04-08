@@ -54,6 +54,15 @@ namespace md
   using onika::memory::DEFAULT_ALIGNMENT;
 //  using namespace SnapExt;
 
+  struct ResetSnapCPBuf
+  {
+    template<class CPBufT>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () (CPBufT & buf) const
+    {
+      buf.ext.reset();
+    }
+  };
+
   template<
       class GridT
     , class EpFieldT = unused_field_id_t 
@@ -254,7 +263,7 @@ namespace md
 
       ldbg << "snap: quadratic="<<quadraticflag<<", eflag="<<eflag<<", ncoeff="<<ncoeff<<", ncoeffall="<<ncoeffall<<std::endl;
 
-      auto snap_compute_specialized_snapconf = [&]( const auto & snapconf )
+      auto snap_compute_specialized_snapconf = [&]( const auto & snapconf , auto c_use_coop_compute )
       {
         using SnapConfParamsT = std::remove_cv_t< std::remove_reference_t< decltype( snapconf ) > >;
         //snapconf.to_stream( ldbg );
@@ -277,7 +286,7 @@ namespace md
                              nullptr, nullptr,
                              snap_ctx->m_rcut, eflag, quadraticflag };
 
-          auto bs_buf = make_compute_pair_buffer< ComputeBufferBS<SnapConfParamsT> >();
+          auto bs_buf = make_compute_pair_buffer< ComputeBufferBS<SnapConfParamsT> , ResetSnapCPBuf >();
           auto cp_fields = grid->field_accessors_from_field_set( compute_bispectrum_field_set );
           compute_cell_particle_pairs2( *grid, snap_ctx->m_rcut, *ghost, optional, bs_buf, bispectrum_op , cp_fields
                                       , DefaultPositionFields{}, parallel_execution_context() );
@@ -295,7 +304,7 @@ namespace md
         std::true_type use_cells_accessor = {};
         using CellsAccessorT = std::remove_cv_t<std::remove_reference_t<decltype(grid->cells_accessor())> >;
         using CPBufT = ComputeBuffer<SnapConfParamsT>;
-        SnapXSForceOp<SnapConfParamsT,CPBufT,CellsAccessorT> force_op {
+        SnapXSForceOp<SnapConfParamsT,CPBufT,CellsAccessorT,c_use_coop_compute.value> force_op {
                            snapconf,
                            grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
                            snap_ctx->m_coefs.data(), static_cast<unsigned int>(snap_ctx->m_coefs.size()), static_cast<unsigned int>(ncoeff),
@@ -305,7 +314,7 @@ namespace md
                            ! (*conv_coef_units) // if coefficients were not converted, then output energy/force must be converted
                            };
                            
-        auto force_buf = make_compute_pair_buffer<CPBufT>();
+        auto force_buf = make_compute_pair_buffer<CPBufT,ResetSnapCPBuf>();
         auto cp_fields = grid->field_accessors_from_field_set( compute_force_field_set );
 
         compute_cell_particle_pairs2( *grid, snap_ctx->m_rcut, *ghost, optional, force_buf, force_op , cp_fields
@@ -316,9 +325,10 @@ namespace md
       const int JMax = snap_ctx->sna->twojmax / 2;
       if( snap_ctx->sna->nelements == 1 )
       {
-             if( JMax == 2 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<2>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) );
-        else if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) );
-        else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) );
+        onika::BoolConst<true> use_coop_compute = {};
+             if( JMax == 2 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<2>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
+        else if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
+        else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
         else fallback_to_generic = true;
       }
       else
@@ -328,7 +338,8 @@ namespace md
       
       if( fallback_to_generic )
       {
-        snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters<int,int,has_energy_field>( snap_ctx->sna ) );
+        onika::BoolConst<false> dont_use_coop_compute = {};
+        snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters<int,int,has_energy_field>( snap_ctx->sna ) , dont_use_coop_compute );
       }
       
       ldbg << "Snap DONE (JMax="<<JMax<<",generic="<<std::boolalpha<<fallback_to_generic<<")"<<std::endl; 

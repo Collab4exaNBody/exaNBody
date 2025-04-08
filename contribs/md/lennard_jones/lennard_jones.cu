@@ -77,20 +77,10 @@ namespace md
       assert( buffer.count == n );
 
       // local energy and force contributions to the particle
-      double tl_fx = 0.;
-      double tl_fy = 0.;
-      double tl_fz = 0.;
-
-      ONIKA_CU_BLOCK_SHARED double blk_fx;
-      ONIKA_CU_BLOCK_SHARED double blk_fy;
-      ONIKA_CU_BLOCK_SHARED double blk_fz;
-      if constexpr ( SharedComputeBuffer ) if ( ONIKA_CU_THREAD_IDX == 0 )
-      {
-        blk_fx = 0.0;
-        blk_fy = 0.0;
-        blk_fz = 0.0;
-      }
-            
+      double tl_fx = 0.0;
+      double tl_fy = 0.0;
+      double tl_fz = 0.0;
+      
       const size_t loop_start = SharedComputeBuffer ? ONIKA_CU_THREAD_IDX : 0;
       const size_t loop_increment = SharedComputeBuffer ? ONIKA_CU_BLOCK_SIZE : 1;
 
@@ -105,20 +95,10 @@ namespace md
         tl_fy += pair_de * buffer.dry[i];
         tl_fz += pair_de * buffer.drz[i];
       }
-      if constexpr ( SharedComputeBuffer )
-      {
-        ONIKA_CU_ATOMIC_ADD( blk_fx , tl_fx );
-        ONIKA_CU_ATOMIC_ADD( blk_fy , tl_fy );
-        ONIKA_CU_ATOMIC_ADD( blk_fz , tl_fz );
-        ONIKA_CU_BLOCK_SYNC();
-        tl_fx = blk_fx;
-        tl_fy = blk_fy;
-        tl_fz = blk_fz;
-      }
-
-      fx += tl_fx;
-      fy += tl_fy;
-      fz += tl_fz;
+      
+      ONIKA_CU_ATOMIC_ADD( fx , tl_fx );
+      ONIKA_CU_ATOMIC_ADD( fy , tl_fy );
+      ONIKA_CU_ATOMIC_ADD( fz , tl_fz );
     }
 
     // ComputeBuffer less computation without virial
@@ -156,7 +136,7 @@ namespace exanb
   {
     static inline constexpr bool ComputeBufferCompatible = true;
     static inline constexpr bool BlockSharedComputeBuffer = SharedComputeBuffer;
-    static inline constexpr bool BufferLessCompatible = false; //! SharedComputeBuffer;
+    static inline constexpr bool BufferLessCompatible = ! SharedComputeBuffer;
     static inline constexpr bool CudaCompatible = true;
   };
 

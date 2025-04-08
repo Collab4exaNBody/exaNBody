@@ -150,10 +150,8 @@ namespace exanb
 
     while( p_a < cell_a_particles )
     {
-      //printf("cell %05d , p %05d , r=%g,%g,%g\n",int(cell_a),int(p_a),rx_a[p_a],ry_a[p_a],rz_a[p_a]);
-
       // --- particle processing start code ---
-      if constexpr ( use_compute_buffer ) { tab.part = p_a; tab.count = 0; printf("%06d.%06d _FILT_\n",int(tab.cell),int(tab.part)); }
+      if constexpr ( use_compute_buffer ) { tab.part = p_a; tab.count = 0; }
       if constexpr ( has_particle_start ) { func(tab,cells,cell_a,p_a,ComputePairParticleContextStart{}); }
       // --------------------------------------
       

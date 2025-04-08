@@ -216,18 +216,11 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void init(ComputePairBuffer& buf) const { m_init_func(buf); }
   };
 
-  template<class CPBufT>
-  static inline ComputePairBufferFactory< CPBufT, CPBufNullInit >
+  template<class CPBufT , class CPBufInitFunc = CPBufNullInit >
+  static inline ComputePairBufferFactory< CPBufT, CPBufInitFunc >
   make_compute_pair_buffer()
   {
-    return ComputePairBufferFactory< CPBufT, CPBufNullInit > { {} };
-  }
-
-  template<class CPBufT>
-  static inline ComputePairBufferFactory< CPBufT, std::function<void(CPBufT&)> >
-  make_compute_pair_buffer( const std::function<void(CPBufT&)> & init_func )
-  {
-    return ComputePairBufferFactory< CPBufT, std::function<void(CPBufT&)> > { init_func };
+    return ComputePairBufferFactory< CPBufT, CPBufInitFunc > { {} };
   }
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
