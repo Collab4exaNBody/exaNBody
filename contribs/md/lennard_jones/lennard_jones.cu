@@ -74,6 +74,8 @@ namespace md
       CellParticlesT* cells              // arrays of all cells, in case we need to chase for additional particle informations
       ) const
     {
+      assert( buffer.count == n );
+
       // local energy and force contributions to the particle
       double tl_fx = 0.;
       double tl_fy = 0.;
@@ -88,9 +90,7 @@ namespace md
         blk_fy = 0.0;
         blk_fz = 0.0;
       }
-      
-      assert( buffer.count == n );
-      
+            
       const size_t loop_start = SharedComputeBuffer ? ONIKA_CU_THREAD_IDX : 0;
       const size_t loop_increment = SharedComputeBuffer ? ONIKA_CU_BLOCK_SIZE : 1;
 
@@ -156,7 +156,7 @@ namespace exanb
   {
     static inline constexpr bool ComputeBufferCompatible = true;
     static inline constexpr bool BlockSharedComputeBuffer = SharedComputeBuffer;
-    static inline constexpr bool BufferLessCompatible = ! SharedComputeBuffer;
+    static inline constexpr bool BufferLessCompatible = false; //! SharedComputeBuffer;
     static inline constexpr bool CudaCompatible = true;
   };
 

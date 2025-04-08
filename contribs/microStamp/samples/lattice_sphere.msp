@@ -12,13 +12,15 @@ configuration:
       energy: joule
   logging:
     debug: false
+  onika:
+    gpu_block_dims: [ 1 , 1 , 1 ]
 
 global:
-  dt: 1.0e-3 ps
+  dt: 1.0e-5 ps
   rcut_max: 8.0 ang
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 1
-  simulation_end_iteration: 10
+  simulation_end_iteration: 1
 
 compute_force:
   - lennard_jones_force:
