@@ -21,18 +21,16 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <onika/lambda_tools.h>
-#include <exanb/compute/compute_cell_particle_pairs_chunk_cs1_scb.h>
 
 namespace exanb
 {
+
   /************************************************
    *** Chunk neighbors traversal implementation ***
    ************************************************/
   template< class CellT
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class FieldAccTupleT, class PosFieldsT
-          , bool PreferComputeBuffer
-          , bool Symmetric
           , size_t ... FieldIndex >
   ONIKA_HOST_DEVICE_FUNC
   static inline void compute_cell_particle_pairs_cell(
@@ -46,36 +44,16 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     onika::UIntConst<1> CS ,
-    ComputeParticlePairOpts< Symmetric, PreferComputeBuffer , false > ,
-//    onika::BoolConst<Symmetric> ,
-//    onika::BoolConst<PreferComputeBuffer> ,
+    ComputeParticlePairOpts< false, true , true > ,
     PosFieldsT pos_fields ,
     std::index_sequence<FieldIndex...>
     )
   {
-    // static constexpr bool requires_block_synchronous_call = false; //compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
-
     using exanb::chunknbh_stream_info;
-      
-    // particle compute context, only for functors not using compute buffer
-    static constexpr bool has_particle_start = compute_pair_traits::has_particle_context_start_v<FuncT>;
-    static constexpr bool has_particle_stop  = compute_pair_traits::has_particle_context_stop_v<FuncT>;
-    static constexpr bool has_particle_ctx   = compute_pair_traits::has_particle_context_v<FuncT>;
-    
-    static constexpr bool use_compute_buffer = PreferComputeBuffer && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
-    // static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
+    using ComputePairBufferT = typename ComputePairBufferFactoryT::ComputePairBuffer;
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
     static constexpr size_t nbh_fields_count = onika::tuple_size_const_v< NbhFields >;
-    static_assert( nbh_fields_count==0 || use_compute_buffer , "Neighbor field auto packaging is only supported when using compute buffer by now." );
-
-    using ComputePairBufferT = std::conditional_t< use_compute_buffer 
-                                                 , typename ComputePairBufferFactoryT::ComputePairBuffer
-                                                 , std::conditional_t< has_particle_ctx || has_particle_start || has_particle_stop
-                                                                     , typename ComputePairBufferFactoryT::ComputePairBuffer::ContextWithoutBuffer
-                                                                     , onika::BoolConst<false>
-                                                                     >
-                                                 >;
         
     const auto RX = pos_fields.e0;
     const auto RY = pos_fields.e1;
@@ -89,6 +67,8 @@ namespace exanb
 
     // number of particles in cell
     const unsigned int cell_a_particles = cells[cell_a].size();
+    if( cell_a_particles == 0 ) return;
+    
     const int dims_i = dims.i;
     const int dims_j = dims.j;
 
@@ -97,14 +77,15 @@ namespace exanb
     [[maybe_unused]] auto nbh_data_ctx = optional.nbh_data.make_ctx();
 
     // create local computation scratch buffer
-    [[maybe_unused]] ComputePairBufferT tab;
-    if constexpr ( use_compute_buffer )
+    ONIKA_CU_BLOCK_SHARED ComputePairBufferT tab;
+    if ( ONIKA_CU_THREAD_IDX == 0 )
     {
       cpbuf_factory.init(tab);
       tab.ta = particle_id_codec::MAX_PARTICLE_TYPE; // not used for single material computations
       tab.tb = particle_id_codec::MAX_PARTICLE_TYPE;
       tab.cell = cell_a;
     }
+    ONIKA_CU_BLOCK_SYNC();
 
     // pointers to central particle's coordinates
     const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX);
@@ -132,13 +113,13 @@ namespace exanb
     size_t cell_b = 0;
 
     // compute next particle index to process
-    unsigned int p_a = ONIKA_CU_THREAD_IDX;
+    unsigned int p_a = 0; //ONIKA_CU_THREAD_IDX;
 
     // initialize number of cell groups for first particle, only if cell is not empty
-    if( cell_a_particles > 0 ) cell_groups = *(stream++);
+    cell_groups = *(stream++);
 
     // -- jump to next particle to process --
-    while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a += ONIKA_CU_BLOCK_SIZE; }
+    while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a ++; }
     while( p_a < cell_a_particles && p_a > stream_last_p_a )
     {
       if( particle_offset != nullptr ) { stream = stream_base + particle_offset[p_a] + poffshift; stream_last_p_a = p_a; }
@@ -148,13 +129,19 @@ namespace exanb
     nchunks = 0; p_nbh_index = 0; cell_b = 0;
     // -------------------------------------
 
+    ONIKA_CU_BLOCK_SHARED int valid_nbh_index;
+    ONIKA_CU_BLOCK_SHARED int valid_nbh_count;
+
     while( p_a < cell_a_particles )
     {
-      //printf("cell %05d , p %05d , r=%g,%g,%g\n",int(cell_a),int(p_a),rx_a[p_a],ry_a[p_a],rz_a[p_a]);
-
       // --- particle processing start code ---
-      if constexpr ( use_compute_buffer ) { tab.part = p_a; tab.count = 0; }
-      if constexpr ( has_particle_start ) { func(tab,cells,cell_a,p_a,ComputePairParticleContextStart{}); }
+      if ( ONIKA_CU_THREAD_IDX == 0 )
+      {
+        tab.part = p_a;
+        tab.count = 0;
+        valid_nbh_index = 0;
+      }
+      ONIKA_CU_BLOCK_SYNC();
       // --------------------------------------
       
       while( cell_groups>0 || nchunks>0 )
@@ -181,58 +168,74 @@ namespace exanb
         
         if( nchunks > 0 )
         {
-          const unsigned int p_b = static_cast<unsigned int>( *(stream++) );
-          -- nchunks;
-          if constexpr ( Symmetric ) if( cell_b > cell_a || ( cell_b == cell_a && p_b > p_a ) ) break;
+          const unsigned int stream_chunk_offset = ONIKA_CU_THREAD_IDX;
+        
+          bool is_nbh_valid = ( stream_chunk_offset < nchunks );
+          const unsigned int p_b = is_nbh_valid ? stream[stream_chunk_offset] : 0 ;
+          const unsigned int chunks_consumed = ( ONIKA_CU_BLOCK_SIZE >= nchunks ) ? nchunks : ONIKA_CU_BLOCK_SIZE ;
+          nchunks -= chunks_consumed;
+          stream += chunks_consumed;
           
-          const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
-          const double d2 = norm2(dr);
-          assert( cell_a!=cell_b || p_a!=p_b );
-          if( d2>0.0 && d2 <= rcut2 )
-          {            
-            if constexpr ( use_compute_buffer )
-            {
-              tab.check_buffer_overflow();
-              if constexpr ( nbh_fields_count > 0 )
-              {
-                compute_cell_particle_pairs_pack_nbh_fields( tab , tab.count , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
-              }
-              tab.process_neighbor(tab, tab.count , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
-              ++ tab.count;
-            }
-            if constexpr ( ! use_compute_buffer )
-            {
-              if constexpr ( has_particle_ctx )
-                func( tab, dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ... 
-                    , cells , cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
-              if constexpr ( !has_particle_ctx )
-                func(      dr, d2, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][p_a] ...
-                    , cells , cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );                
-            }
+          Vec3d dr = { 0., 0., 0. };
+          double d2 = 0.;
+          if( is_nbh_valid )
+          {
+            dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
+            d2 = norm2(dr);
+            assert( cell_a!=cell_b || p_a!=p_b );
+            is_nbh_valid = ( d2>0.0 && d2 <= rcut2 );
           }
-          ++ p_nbh_index;
+          
+          int tl_nbh_index = ONIKA_CU_BLOCK_ATOMIC_ADD( valid_nbh_index , int(is_nbh_valid) );
+          int tl_nbh_write_idx = tab.count + tl_nbh_index ;
+          ONIKA_CU_BLOCK_SYNC();
+          if( ONIKA_CU_THREAD_IDX == 0 )
+          {
+            const int N = valid_nbh_index;
+            valid_nbh_count = N;
+            tab.count += N;
+            valid_nbh_index = 0;
+          }
+          ONIKA_CU_BLOCK_SYNC();
+          
+          if( is_nbh_valid )
+          {            
+            tab.check_buffer_overflow();
+            if constexpr ( nbh_fields_count > 0 )
+            {
+              compute_cell_particle_pairs_pack_nbh_fields( tab , tl_nbh_write_idx , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
+            }
+            tab.process_neighbor(tab, tl_nbh_write_idx , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index + stream_chunk_offset , nbh_data_ctx) );
+          }
+          
+          p_nbh_index += chunks_consumed;
         }
 
       }
-
+printf("%d\n",int(ONIKA_CU_THREAD_IDX));
       // --- particle processing end ---
-      if constexpr ( use_compute_buffer )
+      static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
+      static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
+      static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
+      if( tab.count > 0 )
       {
-        static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
-        static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
-        static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
-        if( tab.count > 0 )
+        if( ONIKA_CU_THREAD_IDX == 0 )
         {
-          if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
-          if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
+          for(int i=0;i<tab.count;i++)
+          {
+            assert( tab.d2[i] > 0.0 );
+          }
         }
+        ONIKA_CU_BLOCK_SYNC();
+        
+        if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
+        if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
       }
-      if constexpr ( has_particle_stop ) { func(tab ,cells,cell_a,p_a,ComputePairParticleContextStop{}); }
       // --------------------------------
       
       // -- jump to next particle to process --
-      p_a += ONIKA_CU_BLOCK_SIZE ;
-      while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a += ONIKA_CU_BLOCK_SIZE; }
+      p_a ++;
+      while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a ++; }
       while( p_a < cell_a_particles && p_a > stream_last_p_a )
       {
         if( particle_offset != nullptr ) { stream = stream_base + particle_offset[p_a] + poffshift; stream_last_p_a = p_a; }

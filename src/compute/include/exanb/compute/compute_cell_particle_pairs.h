@@ -63,8 +63,10 @@ namespace exanb
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
       static constexpr bool gpu_exec = gpu_device_execution() ;
-      static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
-      static constexpr ComputeParticlePairOpts< symmetrical.value , prefer_compute_buffer.value > cp_opts = {};
+      static constexpr bool prefer_shared_buffer = gpu_exec && compute_pair_traits::block_shared_buffer_v<FuncT> ;
+      static constexpr bool prefer_compute_buffer = gpu_exec ? ( prefer_shared_buffer || ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> ;
+
+      static constexpr ComputeParticlePairOpts< symmetrical.value , prefer_compute_buffer , prefer_shared_buffer > cp_opts = {};
 
       const IJK cell_a_loc = { coord.x , coord.y , coord.z };
       const size_t cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );

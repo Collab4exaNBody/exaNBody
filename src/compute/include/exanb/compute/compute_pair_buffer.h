@@ -39,21 +39,21 @@ namespace exanb
   // Compute buffer post processing API
   struct DefaultComputePairBufferAppendFunc
   {  
+
     template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
-    void operator () (ComputeBufferT& tab, const Vec3d& dr, double d2,
+    void operator () (ComputeBufferT& tab, int write_idx, const Vec3d& dr, double d2,
                       FieldArraysT cells, size_t cell_b, size_t p_b,
                       const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
-      assert( static_cast<size_t>(tab.count) < ComputeBufferT::MaxNeighbors );
-      tab.d2[tab.count] = d2;
-      tab.drx[tab.count] = dr.x;
-      tab.dry[tab.count] = dr.y;
-      tab.drz[tab.count] = dr.z;
-      tab.nbh.set( tab.count , cell_b, p_b );
-      tab.nbh_data.set( tab.count , nbh_data );
-      ++ tab.count;
+      assert( static_cast<size_t>(write_idx) < ComputeBufferT::MaxNeighbors );
+      tab.d2[write_idx] = d2;
+      tab.drx[write_idx] = dr.x;
+      tab.dry[write_idx] = dr.y;
+      tab.drz[write_idx] = dr.z;
+      tab.nbh.set( write_idx , cell_b, p_b );
+      tab.nbh_data.set( write_idx , nbh_data );
     }
   };
 

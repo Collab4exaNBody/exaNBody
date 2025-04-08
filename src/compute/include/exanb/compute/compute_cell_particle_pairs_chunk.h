@@ -26,6 +26,29 @@ under the License.
 namespace exanb
 {
 
+  template< class CellT, unsigned int CS
+          , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
+          , class FieldAccTupleT, class PosFieldsT
+          , size_t ... FieldIndex >
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void compute_cell_particle_pairs_cell(
+    CellT cells,
+    IJK dims,
+    IJK loc_a,
+    size_t cell_a,
+    double rcut2,
+    const ComputePairBufferFactoryT& cpbuf_factory,
+    const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
+    const FuncT& func,
+    const FieldAccTupleT& cp_fields ,
+    onika::UIntConst<CS> nbh_chunk_size ,
+    ComputeParticlePairOpts< false, true, true > ,
+    PosFieldsT pos_fields ,
+    std::index_sequence<FieldIndex...> )
+  {
+    ONIKA_CU_ABORT();
+  }
+
   /************************************************
    *** Chunk neighbors traversal implementation ***
    ************************************************/
@@ -45,7 +68,7 @@ namespace exanb
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
     onika::UIntConst<CS> nbh_chunk_size ,
-    ComputeParticlePairOpts< Symmetric, PreferComputeBuffer> ,
+    ComputeParticlePairOpts< Symmetric, PreferComputeBuffer, false > ,
 //    onika::BoolConst<Symmetric> ,
 //    onika::BoolConst<PreferComputeBuffer> ,
     PosFieldsT pos_fields ,
@@ -213,9 +236,9 @@ namespace exanb
                 tab.check_buffer_overflow();
                 if constexpr ( nbh_fields_count > 0 )
                 {
-                  compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
+                  compute_cell_particle_pairs_pack_nbh_fields( tab , tab.count , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
                 }
-                tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
+                tab.process_neighbor(tab, tab.count , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
               }
               if constexpr ( ! use_compute_buffer )
               {

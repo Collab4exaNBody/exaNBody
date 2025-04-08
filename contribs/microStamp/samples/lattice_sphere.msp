@@ -24,6 +24,7 @@ compute_force:
   - lennard_jones_force:
       config: { epsilon: 1.286776984E-21 J , sigma: 0.31589E-09 m }
       rcut: 8.0 ang
+      experimental_ccb: false
 
 input_data:
   - particle_types:
