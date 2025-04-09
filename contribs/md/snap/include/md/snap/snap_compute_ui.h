@@ -221,6 +221,22 @@ namespace md
     }
   }
 
+  struct SimpleAccumFunctor
+  {
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () ( T & x , const T & y ) const { x += y; }
+  };
+
+  struct AtomicAccumFunctor
+  {
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () ( T & x , const T & y ) const { ONIKA_CU_BLOCK_ATOMIC_ADD( x , y ); }
+  };
+
   template<class SnapXSForceExtStorageT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
@@ -236,7 +252,7 @@ namespace md
     snap_add_uarraytot( twojmax, 0, idxu_max, sfac_wj, ext.m_U_array.r(), ext.m_U_array.i(), ulisttot_r, ulisttot_i );
   }
 
-  template<class SnapXSForceExtStorageT,int twojmax>
+  template<class SnapXSForceExtStorageT,int twojmax, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
                                    onika::IntConst<twojmax> _twojmax_
@@ -244,7 +260,8 @@ namespace md
                                  , double const * __restrict__ rootpqarray
                                  , double * __restrict__ ulisttot_r 
                                  , double * __restrict__ ulisttot_i
-                                 , SnapXSForceExtStorageT& ext )
+                                 , SnapXSForceExtStorageT& ext
+                                 , AccumFuncT merge_func = {} )
   {  
     const double r0inv = 1.0 / sqrt(r * r + z0 * z0);
     const double a_r = r0inv * z0;
@@ -266,7 +283,7 @@ namespace md
 #   define BAKE_U_BLEND(c,var) const auto c##_##var = ( conj(c) * var )
 #   define U_BLEND(c,var) c##_##var
 #   define U_ASSIGN(var,expr) var = expr
-#   define U_STORE(var,jju) ULISTTOT_R(jju) += sfac_wj * var.r ; ULISTTOT_I(jju) += sfac_wj * var.i
+#   define U_STORE(var,jju) merge_func( ULISTTOT_R(jju) , sfac_wj * var.r ) ; merge_func( ULISTTOT_I(jju) , sfac_wj * var.i )
 
 #   else
 
@@ -285,7 +302,7 @@ namespace md
 #   define CONJ_U_I(var) -var##_i
 #   define U_ASSIGN_R(var,expr) var##_r = expr
 #   define U_ASSIGN_I(var,expr) var##_i = expr
-#   define U_STORE(var,jju) ULISTTOT_R(jju) += sfac_wj * var##_r ; ULISTTOT_I(jju) += sfac_wj * var##_i
+#   define U_STORE(var,jju) merge_func( ULISTTOT_R(jju) , sfac_wj * var##_r ) ; merge_func( ULISTTOT_I(jju) , sfac_wj * var##_i )
 
 #   endif
 
