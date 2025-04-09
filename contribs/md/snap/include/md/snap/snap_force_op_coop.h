@@ -230,7 +230,9 @@ namespace md
       }
       ONIKA_CU_BLOCK_SYNC();
 
-      for (int jj = 0; jj < ninside; jj++)
+
+      //for (int jj = 0; jj < ninside; jj++)
+      ONIKA_CU_BLOCK_SIMD_FOR(int,jj,0,ninside)
       {
         const int jtype = buf.nbh_pt[jj][field::type];
         const int jelem = snaconf.chem_flag ? jtype : 0 ;
@@ -257,11 +259,10 @@ namespace md
         const double wj_jj = wjelem[jtype];
         const double sfac_jj = snap_compute_sfac( snaconf.rmin0, snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
-        //snap_add_uarraytot( snaconf.twojmax, jelem, snaconf.idxu_max, sfac_jj*wj_jj, Ui_array_r, Ui_array_i, UiTot_array_r /*snabuf.ulisttot_r*/, UiTot_array_i /*snabuf.ulisttot_i*/ );
-        if( ONIKA_CU_THREAD_IDX == 0 )
-        {
+        //if( ONIKA_CU_THREAD_IDX == 0 )
+        //{
           snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext , AtomicAccumFunctor{} );
-        }
+        //}
       }
       ONIKA_CU_BLOCK_SYNC();
       /****************** end of Ui sum computation **********************/
@@ -283,7 +284,8 @@ namespace md
       /******************* end of Yi computation ********************/
 
 
-      for (int jj = 0; jj < ninside; jj++)
+      //for (int jj = 0; jj < ninside; jj++)
+      ONIKA_CU_BLOCK_SIMD_FOR(int,jj,0,ninside)
       {
         const int jtype = buf.nbh_pt[jj][field::type];
         const int jelem = snaconf.chem_flag ? jtype : 0 ;
@@ -310,82 +312,76 @@ namespace md
 	      fij[1]=0.;
 	      fij[2]=0.;
 
-        if( ONIKA_CU_THREAD_IDX == 0 )
-        {
-          add_nbh_contrib_to_force( snaconf.twojmax, snaconf.idxu_max, jelem , wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj , x, y, z, z0, r, rsq
-                                  , snaconf.rootpqarray, snaconf.y_jju_map, snaconf.idxu_max_alt
-                                  , snaconf.rmin0, snaconf.rfac0, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.chem_flag
-                                  , fij, buf.ext );
+        add_nbh_contrib_to_force( snaconf.twojmax, snaconf.idxu_max, jelem , wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj , x, y, z, z0, r, rsq
+                                , snaconf.rootpqarray, snaconf.y_jju_map, snaconf.idxu_max_alt
+                                , snaconf.rmin0, snaconf.rfac0, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.chem_flag
+                                , fij, buf.ext );
 
-	        fij[0] *= conv_energy_factor;
-	        fij[1] *= conv_energy_factor;
-	        fij[2] *= conv_energy_factor;
+        fij[0] *= conv_energy_factor;
+        fij[1] *= conv_energy_factor;
+        fij[2] *= conv_energy_factor;
 
-          if constexpr ( compute_virial )
-          {
-            const Mat3d v_contrib = tensor( Vec3d{ fij[0] , fij[1] , fij[2] }, Vec3d{ buf.drx[jj],buf.dry[jj],buf.drz[jj] } );
-            _vir += v_contrib * -1.0;
-          }
-
-          _fx += fij[0];
-          _fy += fij[1];
-          _fz += fij[2];
-          
-          size_t cell_b=0, p_b=0;
-          buf.nbh.get(jj, cell_b, p_b);
-          concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> (
-              locks[cell_b][p_b]
-            , cells[cell_b][field::fx][p_b], cells[cell_b][field::fy][p_b], cells[cell_b][field::fz][p_b]
-            , -fij[0]                      , -fij[1]                      , -fij[2] );
-        }
-      }
-      ONIKA_CU_BLOCK_SYNC();
-
-
-      if( ONIKA_CU_THREAD_IDX == 0 )
-      {
         if constexpr ( compute_virial )
-          concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double,Mat3d> ( lock_a, fx, fy, fz, virial, _fx, _fy, _fz, _vir );
-        else
-          concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> ( lock_a, fx, fy, fz, _fx, _fy, _fz );
+        {
+          const Mat3d v_contrib = tensor( Vec3d{ fij[0] , fij[1] , fij[2] }, Vec3d{ buf.drx[jj],buf.dry[jj],buf.drz[jj] } );
+          _vir += v_contrib * -1.0;
+        }
+
+        _fx += fij[0];
+        _fy += fij[1];
+        _fz += fij[2];
+        
+        size_t cell_b=0, p_b=0;
+        buf.nbh.get(jj, cell_b, p_b);
+        concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> (
+            locks[cell_b][p_b]
+          , cells[cell_b][field::fx][p_b], cells[cell_b][field::fy][p_b], cells[cell_b][field::fz][p_b]
+          , -fij[0]                      , -fij[1]                      , -fij[2] );
       }
+      // ONIKA_CU_BLOCK_SYNC();
+
+      if constexpr ( compute_virial )
+        concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double,Mat3d> ( lock_a, fx, fy, fz, virial, _fx, _fy, _fz, _vir );
+      else
+        concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> ( lock_a, fx, fy, fz, _fx, _fy, _fz );
+      
       ONIKA_CU_BLOCK_SYNC();
 
       if constexpr ( SnapConfParamT::HasEneryField ) if (eflag)
       {
-        double _en = 0.;
-        const long bispectrum_ii_offset = snaconf.ncoeff * ( cell_particle_offset[buf.cell] + buf.part );
-        const double * const coeffi = coeffelem /*[itype]*/;
-	      double evdwl = coeffi[itype * (snaconf.ncoeff + 1)];
-
-        for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++)
-        {
-          evdwl += betaloc[icoeff] * bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
-        }
-        // quadratic contributions
-        if (quadraticflag)
-        {
-          int k = snaconf.ncoeff+1;
-          for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++) 
-          {
-            double bveci = bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
-            evdwl += 0.5*coeffi[k++]*bveci*bveci;
-            for (int jcoeff = icoeff+1; jcoeff < snaconf.ncoeff; jcoeff++) 
-            {
-              double bvecj = bispectrum[ bispectrum_ii_offset + jcoeff ] /*bispectrum[ii][jcoeff]*/ ;
-              evdwl += coeffi[k++]*bveci*bvecj;
-            }
-          }
-        }
-        evdwl *= 1.;//scale[itype][itype];
-        _en = evdwl; // ev_tally_full(i,2.0*evdwl,0.0,0.0,0.0,0.0,0.0);
-        if( conv_energy_units )
-        {
-          _en *= conv_energy_factor;
-        }
-
         if( ONIKA_CU_THREAD_IDX == 0 )
         {
+          double _en = 0.;
+          const long bispectrum_ii_offset = snaconf.ncoeff * ( cell_particle_offset[buf.cell] + buf.part );
+          const double * const coeffi = coeffelem /*[itype]*/;
+	        double evdwl = coeffi[itype * (snaconf.ncoeff + 1)];
+
+          for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++)
+          {
+            evdwl += betaloc[icoeff] * bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
+          }
+          // quadratic contributions
+          if (quadraticflag)
+          {
+            int k = snaconf.ncoeff+1;
+            for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++) 
+            {
+              double bveci = bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
+              evdwl += 0.5*coeffi[k++]*bveci*bveci;
+              for (int jcoeff = icoeff+1; jcoeff < snaconf.ncoeff; jcoeff++) 
+              {
+                double bvecj = bispectrum[ bispectrum_ii_offset + jcoeff ] /*bispectrum[ii][jcoeff]*/ ;
+                evdwl += coeffi[k++]*bveci*bvecj;
+              }
+            }
+          }
+          evdwl *= 1.;//scale[itype][itype];
+          _en = evdwl; // ev_tally_full(i,2.0*evdwl,0.0,0.0,0.0,0.0,0.0);
+          if( conv_energy_units )
+          {
+            _en *= conv_energy_factor;
+          }
+          
           en += _en;
         }
       }
