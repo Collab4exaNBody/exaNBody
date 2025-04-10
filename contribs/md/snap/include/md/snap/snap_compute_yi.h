@@ -175,7 +175,7 @@ namespace md
             assert( jju_map < idxu_max_alt );
             YLIST_R(elem3 * idxu_max_alt + jju_map) += betaj * ztmp_r;
             YLIST_I(elem3 * idxu_max_alt + jju_map) += betaj * ztmp_i;
-          }      
+          }
           
         } // end loop over jjz
       }
