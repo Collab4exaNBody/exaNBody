@@ -51,7 +51,7 @@ namespace exanb
 
 
   // === register factories ===
-  ONIKA_AUTORUN_INIT(lattice)
+  ONIKA_AUTORUN_INIT(particle_types)
   {
     OperatorNodeFactory::instance()->register_factory("particle_types", make_simple_operator< ParticleTypes >);
   }
