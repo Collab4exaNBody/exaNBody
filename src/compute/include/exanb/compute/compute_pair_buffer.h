@@ -55,6 +55,17 @@ namespace exanb
       tab.nbh.set( write_idx , cell_b, p_b );
       tab.nbh_data.set( write_idx , nbh_data );
     }
+
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () (ComputeBufferT& tab, const Vec3d& dr, double d2,
+                      FieldArraysT cells, size_t cell_b, size_t p_b,
+                      const NbhDataT& nbh_data = 1.0 ) const noexcept
+    {
+      this->operator () ( tab, tab.count, dr, d2, cells, cell_b, p_b, nbh_data );
+    }
+
   };
 
   struct NullComputePairBufferAppendFunc
