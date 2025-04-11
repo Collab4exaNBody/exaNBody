@@ -304,6 +304,7 @@ namespace md
         std::true_type use_cells_accessor = {};
         using CellsAccessorT = std::remove_cv_t<std::remove_reference_t<decltype(grid->cells_accessor())> >;
         using CPBufT = ComputeBuffer<SnapConfParamsT>;
+        ldbg << "max neighbors = " << CPBufT::MaxNeighbors << std::endl;
         SnapXSForceOp<SnapConfParamsT,CPBufT,CellsAccessorT,c_use_coop_compute.value> force_op {
                            snapconf,
                            grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
@@ -325,7 +326,7 @@ namespace md
       const int JMax = snap_ctx->sna->twojmax / 2;
       if( snap_ctx->sna->nelements == 1 )
       {
-        onika::BoolConst</*true*/false> use_coop_compute = {};
+        onika::BoolConst<true> use_coop_compute = {};
              if( JMax == 2 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<2>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
         else if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
         else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
