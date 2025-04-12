@@ -34,11 +34,11 @@ under the License.
 namespace exanb
 {
 
-  struct NoExtraStorage{};  
+  struct NoExtraStorage{};
 
   // Compute buffer post processing API
   struct DefaultComputePairBufferAppendFunc
-  {  
+  {
 
     template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
     ONIKA_HOST_DEVICE_FUNC
@@ -69,7 +69,7 @@ namespace exanb
   };
 
   struct NullComputePairBufferAppendFunc
-  {  
+  {
     template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
@@ -168,12 +168,12 @@ namespace exanb
     using CPBufNbhFields = ComputePairBuffer2NbhFields<MaxNeighbors,NbhFieldSet>;
     using NbhFieldTuple = typename CPBufNbhFields::FieldTupleT;
     using ContextWithoutBuffer = ComputeContextNoBuffer<ExtendedStorage>;
-  
+
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drx[MaxNeighbors];     // neighbor's relative position x to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double dry[MaxNeighbors];     // neighbor's relative position y to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drz[MaxNeighbors];     // neighbor's relative position z to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double d2[MaxNeighbors];      // squared distance between reference particle and neighbor
-    ExtendedStorage ext;    
+    ExtendedStorage ext;
     UserNeighborDataBufferTmpl<UserNbhData,MaxNeighbors> nbh_data;
     ComputePairBuffer2Nbh<UseNeighbors,MaxNeighbors> nbh;
     CPBufNbhFields nbh_pt;
@@ -183,7 +183,7 @@ namespace exanb
     uint32_t ta; // type of particle A (current particle)
     uint32_t tb; // type of particle B (neighbor particles type)
     BufferProcessFunc process_neighbor;
-    
+
     ONIKA_HOST_DEVICE_FUNC inline void copy(size_t src, size_t dst) noexcept
     {
       drx[dst] = drx[src];
@@ -229,9 +229,9 @@ namespace exanb
 
   template<class CPBufT , class CPBufInitFunc = CPBufNullInit >
   static inline ComputePairBufferFactory< CPBufT, CPBufInitFunc >
-  make_compute_pair_buffer()
+  make_compute_pair_buffer( const CPBufInitFunc & init_func = {} )
   {
-    return ComputePairBufferFactory< CPBufT, CPBufInitFunc > { {} };
+    return ComputePairBufferFactory< CPBufT, CPBufInitFunc > { init_func };
   }
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
