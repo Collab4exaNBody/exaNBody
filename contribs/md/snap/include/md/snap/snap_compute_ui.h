@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <md/snap/snap_compute_buffer.h>
+#include <md/snap/snap_add_functors.h>
 
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_math.h>
@@ -220,22 +221,6 @@ namespace md
       ULISTTOT_I(jelem*idxu_max+jju) += sfac_wj * ULIST_I_JJ(jju);
     }
   }
-
-  struct SimpleAccumFunctor
-  {
-    template<class T>
-    ONIKA_HOST_DEVICE_FUNC
-    ONIKA_ALWAYS_INLINE
-    void operator () ( T & x , const T & y ) const { x += y; }
-  };
-
-  struct AtomicAccumFunctor
-  {
-    template<class T>
-    ONIKA_HOST_DEVICE_FUNC
-    ONIKA_ALWAYS_INLINE
-    void operator () ( T & x , const T & y ) const { ONIKA_CU_BLOCK_ATOMIC_ADD( x , y ); }
-  };
 
   template<class SnapXSForceExtStorageT>
   ONIKA_HOST_DEVICE_FUNC

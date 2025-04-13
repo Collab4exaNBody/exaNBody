@@ -282,17 +282,18 @@ namespace md
       }
       ONIKA_CU_BLOCK_SYNC();
 
-      if( ONIKA_CU_THREAD_IDX == 0 )
-      {
-
+//      if( ONIKA_CU_THREAD_IDX == 0 )
+//      {
         snap_add_yi_contribution_alt( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.idxz_max_alt
                                 , snaconf.idxz_alt, snaconf.idxcg_block, snaconf.cglist
                                 , snaconf.y_jju_map, snaconf.idxu_max_alt
                                 , buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i()
                                 , snaconf.idxb_max, snaconf.idxb_block, snaconf.bnorm_flag
                                 , buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i()
-                                , betaloc );
-      }
+                                , betaloc 
+                                , ONIKA_CU_THREAD_IDX , ONIKA_CU_BLOCK_SIZE , AtomicAccumFunctor{}
+                                );
+//      }
       ONIKA_CU_BLOCK_SYNC();
       /******************* end of Yi computation ********************/
 
