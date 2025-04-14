@@ -35,15 +35,23 @@ namespace md
   using namespace exanb;
 
   ONIKA_HOST_DEVICE_FUNC
-  static inline void snap_uarraytot_zero( int nelements, int idxu_max, double * __restrict__ ulisttot_r, double * __restrict__ ulisttot_i )
+  static inline void snap_uarraytot_zero( int nelements
+                                        , int idxu_max
+                                        , double * __restrict__ ulisttot_r
+                                        , double * __restrict__ ulisttot_i
+                                          // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
+                                        , int THREAD_IDX = 0
+                                        , int BLOCK_SIZE = 1
+                                        )
   {
     const int N = idxu_max * nelements;
-    for(int i=0;i<N;++i)
+    for(int i=THREAD_IDX ; i<N ; i+=BLOCK_SIZE)
     {
       ULISTTOT_R(i) = 0.0;
       ULISTTOT_I(i) = 0.0;
     }
   }
+
 
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_uarraytot_init_wself( // READ ONLY
@@ -56,11 +64,15 @@ namespace md
                                         , double * __restrict__ ulisttot_r
                                         , double * __restrict__ ulisttot_i
                                           // ORIGINAL PARAMETERS
-                                        , int ielem ) 
+                                        , int ielem
+                                          // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
+                                        , int THREAD_IDX = 0
+                                        , int BLOCK_SIZE = 1
+                                        ) 
   {
     for (int jelem = 0; jelem < nelements; jelem++)
     {
-      for (int j = 0; j <= twojmax; j++)
+      for (int j=THREAD_IDX; j<=twojmax; j+=BLOCK_SIZE )
       {
         int jju = IDXU_BLOCK(j);
         for (int mb = 0; mb <= j; mb++)

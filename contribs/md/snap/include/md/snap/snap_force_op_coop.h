@@ -219,17 +219,13 @@ namespace md
         const int tl_ninside = ONIKA_CU_ATOMIC_ADD( ninside , int(is_nbh_valid) );
         if( is_nbh_valid ) inside_idx[tl_ninside] = jj;
       }
-      ONIKA_CU_BLOCK_SYNC();
+//      ONIKA_CU_BLOCK_SYNC();
 
       const double* __restrict__ betaloc = coeffelem + itype * (snaconf.ncoeff + 1 ) + 1;
       //const int idxu_max = snaconf.idxu_max; // used by macro ULIST_J_A
       
-      if( ONIKA_CU_THREAD_IDX == 0 )
-      {
-        snap_uarraytot_zero( snaconf.nelements, snaconf.idxu_max, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i() );
-        snap_uarraytot_init_wself( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.wself, snaconf.wselfall_flag, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i(), snaconf.chem_flag ? itype : 0 );
-        //printf("jnum=%d , ninside=%dn",int(jnum),int(ninside));
-      }
+      snap_uarraytot_zero( snaconf.nelements, snaconf.idxu_max, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i() , ONIKA_CU_THREAD_IDX, ONIKA_CU_BLOCK_SIZE );
+      snap_uarraytot_init_wself( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.wself, snaconf.wselfall_flag, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i(), snaconf.chem_flag ? itype : 0 , ONIKA_CU_THREAD_IDX, ONIKA_CU_BLOCK_SIZE );
       ONIKA_CU_BLOCK_SYNC();
 
       //for (int jj = 0; jj < ninside; jj++)
@@ -248,10 +244,6 @@ namespace md
         const double rcutij_jj = ( radi + radelem[jtype] ) * rcutfac;
         const double theta0 = (r - snaconf.rmin0) * snaconf.rfac0 * M_PI / (rcutij_jj - snaconf.rmin0);
         const double z0 = r / tan(theta0);
-
-        //double Ui_array_r[snaconf.idxu_max];
-        //double Ui_array_i[snaconf.idxu_max];
-        //snap_compute_uarray( snaconf.twojmax, snaconf.rootpqarray, Ui_array_r, Ui_array_i, x, y, z, z0, r );
 
         double sinnerij_jj = 0.0;
         double dinnerij_jj = 0.0;
@@ -282,18 +274,15 @@ namespace md
       }
       ONIKA_CU_BLOCK_SYNC();
 
-//      if( ONIKA_CU_THREAD_IDX == 0 )
-//      {
-        snap_add_yi_contribution_alt( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.idxz_max_alt
-                                , snaconf.idxz_alt, snaconf.idxcg_block, snaconf.cglist
-                                , snaconf.y_jju_map, snaconf.idxu_max_alt
-                                , buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i()
-                                , snaconf.idxb_max, snaconf.idxb_block, snaconf.bnorm_flag
-                                , buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i()
-                                , betaloc 
-                                , ONIKA_CU_THREAD_IDX , ONIKA_CU_BLOCK_SIZE , AtomicAccumFunctor{}
-                                );
-//      }
+      snap_add_yi_contribution_alt( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.idxz_max_alt
+                              , snaconf.idxz_alt, snaconf.idxcg_block, snaconf.cglist
+                              , snaconf.y_jju_map, snaconf.idxu_max_alt
+                              , buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i()
+                              , snaconf.idxb_max, snaconf.idxb_block, snaconf.bnorm_flag
+                              , buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i()
+                              , betaloc 
+                              , ONIKA_CU_THREAD_IDX , ONIKA_CU_BLOCK_SIZE , AtomicAccumFunctor{}
+                              );
       ONIKA_CU_BLOCK_SYNC();
       /******************* end of Yi computation ********************/
 
