@@ -531,12 +531,12 @@ namespace exanb
 
     // ***************** optional flat arrays *****************
     template<class fid>
-    inline typename onika::soatl::FieldId<fid>::value_type * flat_array_data( onika::soatl::FieldId<fid> )
+    inline typename onika::soatl::FieldId<fid>::value_type * flat_array_data( const onika::soatl::FieldId<fid>& f )
     {
-      auto it = m_flat_arrays.find( onika::soatl::FieldId<fid>::short_name() );
+      auto it = m_flat_arrays.find( f.short_name() );
       if( it == m_flat_arrays.end() )
       {        
-        it = m_flat_arrays.insert( { onika::soatl::FieldId<fid>::short_name() , std::make_shared< FlatArrayAdapter<fid> >() } ).first;
+        it = m_flat_arrays.insert( { f.short_name() , std::make_shared< FlatArrayAdapter<fid> >(f) } ).first;
       }
       assert( it != m_flat_arrays.end() );
       FlatArrayAdapter<fid> * fa = reinterpret_cast< FlatArrayAdapter<fid> * >( it->second.get() );
@@ -546,13 +546,13 @@ namespace exanb
       return fa->data();
     }
     template<class fid>
-    inline auto flat_array_accessor( onika::soatl::FieldId<fid> f )
+    inline auto flat_array_accessor( const onika::soatl::FieldId<fid>& f )
     {
       using details::OptionalCellParticleFieldAccessor;
       return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , false > { flat_array_data(f) };
     }
     template<class fid>
-    inline auto flat_array_const_accessor( onika::soatl::FieldId<fid> f )
+    inline auto flat_array_const_accessor( const onika::soatl::FieldId<fid>& f )
     {
       using details::OptionalCellParticleFieldAccessor;
       return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , true >{ flat_array_data(f) };
@@ -577,7 +577,7 @@ namespace exanb
     // *** unification of per cell arrays dans flat arrays ***
     template<class fid>
     inline auto
-    field_accessor( onika::soatl::FieldId<fid> f )
+    field_accessor( const onika::soatl::FieldId<fid>& f )
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_accessor(f);
       if constexpr (   HasField<fid>::value ) return f;
@@ -585,7 +585,7 @@ namespace exanb
       return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_accessor(f)) >{} ;
     }
     template<class fid>
-    inline auto field_const_accessor( onika::soatl::FieldId<fid> f )
+    inline auto field_const_accessor( const onika::soatl::FieldId<fid>& f )
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_const_accessor(f);
       if constexpr (   HasField<fid>::value ) return f;
@@ -598,9 +598,9 @@ namespace exanb
       return onika::make_flat_tuple( field_accessor( onika::soatl::FieldId<fids>{} ) ... );
     }
     template<class fid>
-    inline bool has_allocated_field( onika::soatl::FieldId<fid> f )
+    inline bool has_allocated_field( const onika::soatl::FieldId<fid>& f )
     {
-      return HasField<fid>::value || m_flat_arrays.find( onika::soatl::FieldId<fid>::short_name() ) != m_flat_arrays.end() ;
+      return HasField<fid>::value || m_flat_arrays.find( f.short_name() ) != m_flat_arrays.end() ;
     }    
     template<class... fids>
     inline auto has_allocated_fields( FieldSet<fids...> )

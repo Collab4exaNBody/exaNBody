@@ -22,6 +22,7 @@ under the License.
 #include <onika/soatl/field_id.h>
 #include <onika/math/basic_types_def.h>
 #include <cstdint>
+#include <yaml-cpp/yaml.h>
 
 #ifndef XNB_PARTICLE_TYPE_INT
 #define XNB_PARTICLE_TYPE_INT uint8_t
@@ -42,6 +43,7 @@ namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_#
     using Id = ::exanb::field::_##__name; \
     static inline const char* short_name() { return #__name ; } \
     static inline const char* name() { return __desc ; } \
+    static inline void set_name(const std::string& s) { assert( s == short_name() ); };\
   }; } } \
 namespace exanb { namespace field { static constexpr ::onika::soatl::FieldId<_##__name> __name; } }
 
@@ -53,11 +55,27 @@ namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_#
     using value_type = __type; \
     using Id = ::exanb::field::_##__name; \
     static inline constexpr size_t NAME_MAX_LEN = 16; \
-    const char m_name[NAME_MAX_LEN] = #__name ; \
+    char m_name[NAME_MAX_LEN] = #__name ; \
+    inline void set_name(const std::string& s) { strncpy(m_name,s.c_str(),NAME_MAX_LEN); m_name[NAME_MAX_LEN-1]='\0'; };\
     inline const char* short_name() const { return m_name ; } \
     static inline const char* name() { return __desc ; } \
   }; } } \
 namespace exanb { namespace field { using __name = ::onika::soatl::FieldId<_##__name> ; } }
+
+// for dynamic fields, allows field name to be read from YAML conversion
+namespace YAML
+{
+  template<class fid> struct convert< onika::soatl::FieldId<fid> >
+  {
+    static inline bool decode(const Node& node, onika::soatl::FieldId<fid>& v )
+    {
+      if( ! node.IsScalar() ) return false;
+      std::string s = node.as<std::string>();
+      v.set_name( s );
+      return true;
+    }
+  };  
+}
 
 
 // default particle fields that are defined in namespace 'field'
