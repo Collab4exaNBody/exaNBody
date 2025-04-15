@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <onika/soatl/field_id.h>
+#include <onika/math/basic_types_def.h>
 #include <cstdint>
 
 #ifndef XNB_PARTICLE_TYPE_INT
@@ -46,25 +47,43 @@ namespace exanb { namespace field { static constexpr ::onika::soatl::FieldId<_##
 
 #define XNB_DECLARE_ALIAS(A,F) namespace exanb { namespace field { using _##A=_##F; static constexpr ::onika::soatl::FieldId<_##A> A; } }
 
+#define XNB_DECLARE_DYNAMIC_FIELD(__type,__name,__desc) \
+namespace exanb { namespace field { struct _##__name {}; } } \
+namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_##__name> { \
+    using value_type = __type; \
+    using Id = ::exanb::field::_##__name; \
+    static inline constexpr size_t NAME_MAX_LEN = 16; \
+    const char m_name[NAME_MAX_LEN] = #__name ; \
+    inline const char* short_name() const { return m_name ; } \
+    static inline const char* name() { return __desc ; } \
+  }; } } \
+namespace exanb { namespace field { using __name = ::onika::soatl::FieldId<_##__name> ; } }
+
+
 // default particle fields that are defined in namespace 'field'
 // for rx field descriptor instance, use field::rx, for its type, use field::_rx
-XNB_DECLARE_FIELD(uint64_t                 ,id   ,"particle id");
-XNB_DECLARE_FIELD(::exanb::ParticleTypeInt ,type ,"particle type");
-XNB_DECLARE_FIELD(double                   ,rx   ,"particle position X");
-XNB_DECLARE_FIELD(double                   ,ry   ,"particle position Y");
-XNB_DECLARE_FIELD(double                   ,rz   ,"particle position Z");
-XNB_DECLARE_FIELD(double                   ,vx   ,"particle velocity X");
-XNB_DECLARE_FIELD(double                   ,vy   ,"particle velocity Y");
-XNB_DECLARE_FIELD(double                   ,vz   ,"particle velocity Z");
-XNB_DECLARE_FIELD(double                   ,ax   ,"particle acceleration X");
-XNB_DECLARE_FIELD(double                   ,ay   ,"particle acceleration Y");
-XNB_DECLARE_FIELD(double                   ,az   ,"particle acceleration Z");
+XNB_DECLARE_FIELD(uint64_t                 ,id   ,"particle id")
+XNB_DECLARE_FIELD(::exanb::ParticleTypeInt ,type ,"particle type")
+XNB_DECLARE_FIELD(double                   ,rx   ,"particle position X")
+XNB_DECLARE_FIELD(double                   ,ry   ,"particle position Y")
+XNB_DECLARE_FIELD(double                   ,rz   ,"particle position Z")
+XNB_DECLARE_FIELD(double                   ,vx   ,"particle velocity X")
+XNB_DECLARE_FIELD(double                   ,vy   ,"particle velocity Y")
+XNB_DECLARE_FIELD(double                   ,vz   ,"particle velocity Z")
+XNB_DECLARE_FIELD(double                   ,ax   ,"particle acceleration X")
+XNB_DECLARE_FIELD(double                   ,ay   ,"particle acceleration Y")
+XNB_DECLARE_FIELD(double                   ,az   ,"particle acceleration Z")
 
 // usefull aliases, often acceleration and force use the same fields,
 // acceleration is 'just' divided by mass at some point to turn it to force, or vice-versa
 XNB_DECLARE_ALIAS( fx, ax )
 XNB_DECLARE_ALIAS( fy, ay )
 XNB_DECLARE_ALIAS( fz, az )
+
+// Generic fields, several can be instanciated with different names
+XNB_DECLARE_DYNAMIC_FIELD(double               , generic_real , "Generic scalar field" )
+XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Vec3d , generic_vec3 , "Generic Vec3d field" )
+XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Mat3d , generic_mat3 , "Generic Mat3d field" )
 
 // unused fields, for compatibility only
 struct unused_field_type {};
