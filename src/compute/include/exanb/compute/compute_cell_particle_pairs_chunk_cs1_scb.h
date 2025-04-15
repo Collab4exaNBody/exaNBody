@@ -28,7 +28,7 @@ namespace exanb
   /************************************************
    *** Chunk neighbors traversal implementation ***
    ************************************************/
-  template< class CellT
+  template< class CellT, unsigned int CS
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class FieldAccTupleT, class PosFieldsT
           , size_t ... FieldIndex >
@@ -43,13 +43,14 @@ namespace exanb
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
-    onika::UIntConst<1> CS ,
+    onika::UIntConst<CS> nbh_chunk_size ,
     ComputeParticlePairOpts< false, true , true > ,
     PosFieldsT pos_fields ,
     std::index_sequence<FieldIndex...>
     )
   {
     using exanb::chunknbh_stream_info;
+    using onika::cuda::min;
 
     using ComputePairBufferT = typename ComputePairBufferFactoryT::ComputePairBuffer;
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
@@ -112,6 +113,7 @@ namespace exanb
 
     unsigned int p_nbh_index = 0;
     size_t cell_b = 0;
+    int cell_b_particles = 0;
 
     // compute next particle index to process
     unsigned int p_a = 0; //ONIKA_CU_THREAD_IDX;
@@ -158,7 +160,8 @@ namespace exanb
             const int rel_i = int( cell_b_enc & 31 ) - 16;
             const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
             const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
-            cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );              
+            cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
+            cell_b_particles = cells[cell_b].size();         
             rx_b = cells[cell_b].field_pointer_or_null(RX);
             ry_b = cells[cell_b].field_pointer_or_null(RY);
             rz_b = cells[cell_b].field_pointer_or_null(RZ);
@@ -169,37 +172,33 @@ namespace exanb
         if( nchunks > 0 )
         {
           const unsigned int stream_chunk_offset = ONIKA_CU_THREAD_IDX;
-        
-          bool is_nbh_valid = ( stream_chunk_offset < nchunks );
-          const unsigned int p_b = is_nbh_valid ? stream[stream_chunk_offset] : 0 ;
+          const bool is_nbh_chunk_valid = ( stream_chunk_offset < nchunks );
+          const unsigned int chunk_b = is_nbh_chunk_valid ? stream[stream_chunk_offset] : 0 ;
           const unsigned int chunks_consumed = ( ONIKA_CU_BLOCK_SIZE >= nchunks ) ? nchunks : ONIKA_CU_BLOCK_SIZE ;
           nchunks -= chunks_consumed;
           stream += chunks_consumed;
-          
-          Vec3d dr = { 0., 0., 0. };
-          double d2 = 0.;
-          if( is_nbh_valid )
+          if( is_nbh_chunk_valid )
           {
-            dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
-            d2 = norm2(dr);
-            assert( cell_a!=cell_b || p_a!=p_b );
-            is_nbh_valid = ( d2>0.0 && d2 <= rcut2 );
+            const int p_b_start = chunk_b * CS;
+            const int p_b_end = min( int( (chunk_b+1) * CS ) , int(cell_b_particles) );
+            for( int p_b=p_b_start, tl_nbh_index=0 ; p_b<p_b_end ; p_b++, tl_nbh_index++ )
+            {
+              const Vec3d dr = optional.xform.transformCoord( Vec3d{ rx_b[p_b] - rx_a[p_a] , ry_b[p_b] - ry_a[p_a] , rz_b[p_b] - rz_a[p_a] } );
+              const double d2 = norm2(dr);          
+              if( d2>0.0 && d2 <= rcut2 )
+              {            
+                int tl_nbh_write_idx = ONIKA_CU_ATOMIC_ADD( valid_nbh_index , 1 );
+                assert( tl_nbh_write_idx < tab.MaxNeighbors );
+                if constexpr ( nbh_fields_count > 0 )
+                {
+                  compute_cell_particle_pairs_pack_nbh_fields( tab , tl_nbh_write_idx , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
+                }
+                tab.process_neighbor(tab, tl_nbh_write_idx , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index + ( stream_chunk_offset * CS ) + tl_nbh_index , nbh_data_ctx) );
+              }
+            }
+            p_nbh_index += chunks_consumed * CS;            
           }
           
-          int tl_nbh_write_idx = ONIKA_CU_ATOMIC_ADD( valid_nbh_index , int(is_nbh_valid) );
-          if( is_nbh_valid )
-          {            
-            //tab.check_buffer_overflow();
-            assert( tl_nbh_write_idx < tab.MaxNeighbors );
-            if constexpr ( nbh_fields_count > 0 )
-            {
-              compute_cell_particle_pairs_pack_nbh_fields( tab , tl_nbh_write_idx , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
-            }
-            tab.process_neighbor(tab, tl_nbh_write_idx , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index + stream_chunk_offset , nbh_data_ctx) );
-          }          
-          p_nbh_index += chunks_consumed;
-
-          // ONIKA_CU_BLOCK_SYNC();
         }
 
       }

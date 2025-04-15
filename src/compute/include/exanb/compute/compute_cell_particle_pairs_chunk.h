@@ -26,29 +26,6 @@ under the License.
 namespace exanb
 {
 
-  template< class CellT, unsigned int CS
-          , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
-          , class FieldAccTupleT, class PosFieldsT
-          , size_t ... FieldIndex >
-  ONIKA_HOST_DEVICE_FUNC
-  static inline void compute_cell_particle_pairs_cell(
-    CellT cells,
-    IJK dims,
-    IJK loc_a,
-    size_t cell_a,
-    double rcut2,
-    const ComputePairBufferFactoryT& cpbuf_factory,
-    const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
-    const FuncT& func,
-    const FieldAccTupleT& cp_fields ,
-    onika::UIntConst<CS> nbh_chunk_size ,
-    ComputeParticlePairOpts< false, true, true > ,
-    PosFieldsT pos_fields ,
-    std::index_sequence<FieldIndex...> )
-  {
-    ONIKA_CU_ABORT();
-  }
-
   /************************************************
    *** Chunk neighbors traversal implementation ***
    ************************************************/
