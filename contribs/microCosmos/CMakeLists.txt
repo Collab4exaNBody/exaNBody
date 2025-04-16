@@ -15,27 +15,3 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-
-option(EXANB_BUILD_CONTRIB_MD "Build Molecular Dynamics contribs " OFF)
-if(EXANB_BUILD_CONTRIB_MD)
-  add_subdirectory(md)
-endif()
-
-option(EXANB_BUILD_CONTRIB_PI "Build Planetary Interaction contribs " OFF)
-if(EXANB_BUILD_CONTRIB_PI)
-  add_subdirectory(pi)
-endif()
-
-option(EXANB_BUILD_MICROSTAMP "Build microStamp (MD) miniapp" OFF)
-if(EXANB_BUILD_MICROSTAMP)
-  add_subdirectory(microStamp)
-endif()
-
-option(EXANB_BUILD_MICROCOSMOS "Build microCosmos (Planets) miniapp" OFF)
-if(EXANB_BUILD_MICROCOSMOS)
-  add_subdirectory(microCosmos)
-endif()
-
-# export variable indicating that contribs have been built into exaNBody
-file(APPEND ${XNB_CMAKE_PACKAGE} "set(EXANB_BUILD_CONTRIB_MD ON)\n")
-

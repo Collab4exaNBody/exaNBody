@@ -1,0 +1,55 @@
+configuration:
+  physics:
+    units:
+      length: meter
+      mass: kilogram
+      time: hour
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+
+global:
+  dt: 1.0 h
+  rcut_max: 1e3 m
+  rcut_inc: 0 m
+  simulation_log_frequency: 1
+  simulation_end_iteration: 1
+
+compute_force:
+  - gravitational_force:
+      config: { G: 6.67e-11 m^3/kg/s^2 }
+      rcut: 8.0 ang
+
+input_data:
+  - particle_types:
+      particle_type_map: { A: 0 }
+  - domain:
+      cell_size: 1e3 m
+      grid_dims: [ 10 , 10 , 10 ]
+      bounds: [ [ 0.0 , 0.0, 0.0] , [ 10000 m  , 10000 m  , 10000 m ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: CUSTOM
+      np: 1
+      types: [ A ]
+      positions: [ [0.5, 0.5, 0.5] ]
+      size: [1000. m , 1000. m , 1000. m ]
+      noise: 0.1 m
+  # - lattice:
+  #     structure: BCC
+  #     types: [ B , C ]
+  #     size: [ 15 ang , 15 ang , 15 ang ]
+  #     noise: 0.1 ang
+  #     noise_cutoff: 0.4 ang
+  # - gaussian_noise_v
+
+simulation: default_simulation
+
