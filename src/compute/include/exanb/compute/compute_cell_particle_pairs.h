@@ -25,6 +25,8 @@ under the License.
 #include <exanb/compute/compute_cell_particle_pairs_chunk_cs1.h>
 #endif
 
+#include <exanb/compute/compute_cell_particle_pairs_chunk_scb.h>
+
 #include <exanb/compute/compute_pair_traits.h>
 #include <onika/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>

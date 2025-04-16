@@ -21,7 +21,6 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <onika/lambda_tools.h>
-#include <exanb/compute/compute_cell_particle_pairs_chunk_cs1_scb.h>
 
 namespace exanb
 {
