@@ -87,6 +87,7 @@ namespace md
 
     ADD_SLOT( long                  , timestep          , INPUT , REQUIRED , DocString{"Iteration number"} );
     ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );
+    ADD_SLOT( bool                  , scb_mode          , INPUT , false , DocString{"if true, enables block-wide collaborative computation of atom forces"} );
     
     ADD_SLOT( SnapXSContext        , snap_ctx          , PRIVATE );
 
@@ -324,13 +325,23 @@ namespace md
       
       bool fallback_to_generic = false;
       const int JMax = snap_ctx->sna->twojmax / 2;
+      static constexpr onika::BoolConst<true> use_coop_compute = {};
+      static constexpr onika::BoolConst<false> dont_use_coop_compute = {};
+
       if( snap_ctx->sna->nelements == 1 )
       {
-        onika::BoolConst<true> use_coop_compute = {};
-             if( JMax == 2 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<2>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
-        else if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
-        else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
-        else fallback_to_generic = true;
+        if( *scb_mode )
+        {
+               if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
+          else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
+          else fallback_to_generic = true;
+        }
+        else
+        {
+               if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , dont_use_coop_compute );
+          else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , dont_use_coop_compute );
+          else fallback_to_generic = true;
+        }
       }
       else
       {
@@ -339,7 +350,6 @@ namespace md
       
       if( fallback_to_generic )
       {
-        onika::BoolConst<false> dont_use_coop_compute = {};
         snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters<int,int,has_energy_field>( snap_ctx->sna ) , dont_use_coop_compute );
       }
       
