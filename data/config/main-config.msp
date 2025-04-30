@@ -21,6 +21,8 @@ input_data:
 unit_system:
   verbose: true
 
+user_test: nop
+
 # pretty logo banner
 logo_banner:
   - message: "\n                _   _ ______           _                _____  _____\n               | \\ | || ___ \\         | |              / __  \\|  _  |\n  _____  ____ _|  \\| || |_/ / ___   __| |_   _  __   __`' / /'| |/' |\n / _ \\ \\/ / _` | . ` || ___ \\/ _ \\ / _` | | | | \\ \\ / /  / /  |  /| |\n|  __/>  < (_| | |\\  || |_/ / (_) | (_| | |_| |  \\ V / ./ /___\\ |_/ /\n \\___/_/\\_\\__,_\\_| \\_/\\____/ \\___/ \\__,_|\\__, |   \\_/  \\_____(_)___/\n                                          __/ |\n                                         |___/\n"
@@ -51,6 +53,7 @@ test_simulation:
   - global
   - unit_system
   - memory_stats: { musage_threshold: 16 }
+  - user_test
   - finalize_cuda
 
 simulation: test_simulation

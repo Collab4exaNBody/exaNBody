@@ -58,7 +58,7 @@ namespace exanb
     return AABB{ {b.bmin.x*s+o.x, b.bmin.y*s+o.y, b.bmin.z*s+o.z} , {b.bmax.x*s+o.x, b.bmax.y*s+o.y, b.bmax.z*s+o.z} };
   }
 
-  inline AABB intersection(AABB b1, AABB b2)
+  inline AABB intersection(const AABB& b1, const AABB& b2)
   {
     // first compute intersection of b1 and b2;
     double xmin = std::max( b1.bmin.x, b2.bmin.x );
@@ -74,12 +74,12 @@ namespace exanb
 
 
   // return true if b is the intersection of 2 disjoints areas, e.g. min > max for one of the components
-  ONIKA_HOST_DEVICE_FUNC inline bool is_nil(AABB b)
+  ONIKA_HOST_DEVICE_FUNC inline bool is_empty(const AABB& b)
   {    
-    return b.bmin.x>b.bmax.x || b.bmin.y>b.bmax.y || b.bmin.z>b.bmax.z;
+    return b.bmin.x>=b.bmax.x || b.bmin.y>=b.bmax.y || b.bmin.z>=b.bmax.z;
   }
 
-  inline double max_distance_inside(AABB b)
+  inline double max_distance_inside(const AABB& b)
   {
     double x = b.bmax.x - b.bmin.x;
     double y = b.bmax.y - b.bmin.y;

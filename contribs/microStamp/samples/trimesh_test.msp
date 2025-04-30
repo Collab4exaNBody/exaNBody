@@ -1,0 +1,100 @@
+includes:
+  - sphere.msp
+
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: true
+  debug:
+    filter: [ ".*grid_triangle_intersections" ]
+
+global:
+  dt: 1.0e-3 ps
+  rcut_max: 8.0 ang
+  rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
+  simulation_log_frequency: 1
+  simulation_end_iteration: 10
+
+compute_force:
+  - lennard_jones_force:
+      config: { epsilon: 1.286776984E-21 J , sigma: 0.31589E-09 m }
+      rcut: 8.0 ang
+
+input_data:
+  - particle_types:
+      particle_type_map: { A: 0 , B: 1 , C: 2 }
+  - particle_regions:
+      - PLANE1:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - zrot: pi/4
+              - translate: [ 20 ang , 150 ang , 0 ]
+      - PLANE2:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - zrot: -pi/4
+              - translate: [ 20 ang , 150 ang , 0 ]
+      - BOX:
+          bounds: [ [ 250 ang , 0 ang , 0 ang ] , [ 300 ang , 300 ang , 300 ang ] ]
+      - SPHERE:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 20 ang , 20 ang , 20 ang ] 
+              - translate: [ 150 ang , 150 ang , 150 ang ]
+  - domain:
+      cell_size: 30.0 ang
+      grid_dims: [ 10 , 10 , 10 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 300.0 ang , 300.0 ang , 300.0 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: SC
+      types: [ A ]
+      size: [ 3. ang , 3. ang , 3. ang ]
+      noise: 0.1 ang
+      noise_cutoff: 0.4 ang
+      region: PLANE1 or PLANE2 or BOX or SPHERE
+  - lattice:
+      structure: BCC
+      types: [ B , C ]
+      size: [ 15 ang , 15 ang , 15 ang ]
+      noise: 0.1 ang
+      noise_cutoff: 0.4 ang
+      region: not ( PLANE1 or PLANE2 or BOX or SPHERE )
+  - gaussian_noise_v
+  - scale_v: 1000 m/s
+  - shift_v:
+      value: [ -1000 m/s , 0 , 0 ]
+      region: SPHERE
+
+trimesh_init:
+  verbose: true
+
++first_iteration:
+  - trimesh_init
+  - grid_triangle_intersections:
+      bounding_box: [ [ -1.25 , -1.25 , -1.25 ] , [ 1.25 , 1.25 , 1.25 ] ]
+      resolution: 100
+      distance: 0.02
+
+# pretty logo banner
+logo_banner:
+  - message: "           _               ____  _\n _ __ ___ (_) ___ _ __ ___/ ___|| |_ __ _ _ __ ___  _ __\n| '_ ` _ \\| |/ __| '__/ _ \\___ \\| __/ _` | '_ ` _ \\| '_ \\\n| | | | | | | (__| | | (_) |__) | || (_| | | | | | | |_) |\n|_| |_| |_|_|\\___|_|  \\___/____/ \\__\\__,_|_| |_| |_| .__/\n                                                   |_|\n"
+
+simulation: default_simulation
+
