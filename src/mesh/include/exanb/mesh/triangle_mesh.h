@@ -33,6 +33,7 @@ namespace exanb
 
   using VertexAray = onika::memory::CudaMMVector< onika::math::Vec3d >;
   using TriangleConnectivityArray = onika::memory::CudaMMVector< onika::oarray_t<long,3> >;
+  using VertexTriangleCountArray = onika::memory::CudaMMVector<unsigned int>;
 
   template<class _VertexArayT = VertexAray , class _TriangleArrayT = TriangleConnectivityArray >
   struct TriangleMesh
@@ -82,15 +83,26 @@ namespace exanb
         out << "  "<<(nt++)<<" : "<< onika::format_array(t) <<std::endl;
       }
       return out;
-    }
-
+    }    
   };
+
+  template<class VertexArayT , class TriangleArrayT >
+  inline void count_vertex_triangles(const TriangleMesh<VertexArayT,TriangleArrayT>& trimesh, VertexTriangleCountArray & vtricount)
+  {
+    const size_t N = trimesh.vertex_count();
+    vtricount.assign( N , 0 );
+    for(size_t i=0;i<N;i++)
+    {
+      const auto tricon = trimesh.triangle_connectivity(i);
+      for(size_t j=0;j<3;j++) vtricount[tricon[j]] ++ ;
+    }
+  }
 
   struct GridTriangleIntersectionList
   {
     onika::math::IJK m_grid_dims;
     double m_cell_size;
-    onika::math::AABB m_origin;
+    onika::math::Vec3d m_origin;
     onika::memory::CudaMMVector<size_t> m_cell_triangles;
   };
 
@@ -110,10 +122,7 @@ namespace exanb
     inline GridTriangleIntersectionListRO(const GridTriangleIntersectionList& other)
       : m_grid_dims(other.m_grid_dims)
       , m_cell_size(other.m_cell_size)
-      , m_grid_bounds(other.m_grid_bounds)
-      , m_triangle_indices( other.m_triangle_indices.data(), other.m_triangle_indices.size() )
-      , m_cell_triangles_start( other.m_cell_triangles_start.data() , other.m_cell_triangles_start.size() )
-      , m_cell_triangles_count( other.m_cell_triangles_count.data() , other.m_cell_triangles_start.size() )
+      , m_cell_triangles( other.m_cell_triangles.data(), other.m_cell_triangles.size() )
       {}
 
     inline size_t cell_triangle_count(size_t cell_idx)

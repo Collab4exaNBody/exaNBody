@@ -22,6 +22,7 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_math.h>
 #include <exanb/mesh/triangle.h>
+#include <exanb/mesh/edge.h>
 #include <onika/math/basic_types_operators.h>
 #include <exanb/core/geometry.h>
 
@@ -63,11 +64,36 @@ namespace exanb
   {
       Vec3d m_proj;     // projected point
       double m_dist;         // point's signed ditance to triangle's plane
-      double u_bary, v_bary, w_bary;            // coordonnées barycentriques
-      Vec3d normal;          // triangle's unit normal vector
+      double m_u, m_v, m_w;            // coordonnées barycentriques
+      Vec3d m_normal;          // triangle's unit normal vector
       bool m_behind;         // is point behind triangle ?
       bool m_inside;         // is projected point contained inside triangle ?
   };
+
+  ONIKA_HOST_DEVICE_FUNC
+  inline onika::math::Vec3d triangle_point_barycentric_coords(const Triangle& t, const Vec3d& p)
+  {
+    using onika::math::dot;
+
+    const auto& a = t[0];
+    const auto& b = t[1];
+    const auto& c = t[2];
+    
+    const auto v0 = b - a;
+    const auto v1 = c - a;
+    const auto v2 = p - a;
+    
+    const auto d00 = dot(v0, v0);
+    const auto d01 = dot(v0, v1);
+    const auto d11 = dot(v1, v1);
+    const auto d20 = dot(v2, v0);
+    const auto d21 = dot(v2, v1);
+    const auto denom = d00 * d11 - d01 * d01;
+    const auto v = (d11 * d20 - d01 * d21) / denom;
+    const auto w = (d00 * d21 - d01 * d20) / denom;
+    const auto u = 1 - v - w;
+    return { u , v , w };
+  }
 
   ONIKA_HOST_DEVICE_FUNC
   inline TrianglePointProjection project_triangle_point( const Triangle & t , const Vec3d & p )
@@ -77,28 +103,16 @@ namespace exanb
     using onika::math::dot;
     
     // triangle unit normal vector
-    const auto AB = t[1] - t[0];
-    const auto AC = t[2] - t[0];
     const auto N = normal( t );
     
     // prejected point onto triangle's plane
-    const auto v = p - t[0];
-    const auto d = dot(v,N);
-    const auto pv = v - ( d * N );
-
-    // compute barycentric coordinates
-    const auto d00 = dot(AB,AB);
-    const auto d01 = dot(AB,AC);
-    const auto d11 = dot(AC,AC);
-    const auto d20 = dot(pv,AB);
-    const auto d21 = dot(pv,AC);
-
-    const auto denom = d00 * d11 - d01 * d01;
-    const auto v_bary = (d11 * d20 - d01 * d21) / denom;
-    const auto w_bary = (d00 * d21 - d01 * d20) / denom;
-    const auto u_bary = 1.0 - v_bary - w_bary;
-
-    return { pv, d, u_bary, v_bary, w_bary, N , d < 0 , ( u_bary >= 0.0 && v_bary >= 0.0 && w_bary >= 0.0 && u_bary <= 1.0 && v_bary <= 1.0 && w_bary <= 1.0 ) };
+    const auto rel_p = p - t[0];
+    const auto d = dot( rel_p , N );
+    const auto proj_p = p - ( d * N );
+    
+    const auto [ u , v , w ] = triangle_point_barycentric_coords( t , proj_p );
+    
+    return { proj_p, d, u, v, w, N , d < 0 , ( u>=0 && u<=1 && v>=0 && v<=1 && w>=0 && w<=1 ) };
   }
 
   ONIKA_HOST_DEVICE_FUNC
@@ -190,6 +204,98 @@ namespace exanb
 	  return true;
   }
 
+  struct TriangleEdgeIntersection
+  {
+    Vec3d m_intersection;
+    double m_tri_u, m_tri_v, m_tri_w;
+    double m_edge_u;
+    bool m_intersect;
+  };
+
+  ONIKA_HOST_DEVICE_FUNC
+  inline TriangleEdgeIntersection triangle_edge_intersection( const Triangle & t , const Edge & e )
+  {
+    using onika::math::norm;
+    using onika::math::cross;
+    using onika::math::dot;
+    
+    // triangle unit normal vector
+    const auto plane_n = normal( t );
+    const auto plane_d = - dot( plane_n , t[0] );
+    
+    // compute triangle's plane / edge intersection
+    const auto d0 = dot( plane_n , e[0] ) + plane_d;
+    const auto d1 = dot( plane_n , e[1] ) + plane_d;
+    const auto delta_d = d1 - d0;
+    const auto edge_u = std::abs(delta_d)>1e-12 ? -d0 / delta_d : 0;
+    
+    const auto plane_intersection = e[0] + edge_u * ( e[1] - e[0] ); 
+    const auto plane_intersection_dist = dot( plane_n , plane_intersection ) + plane_d;        
+    const auto [ u , v , w ] = triangle_point_barycentric_coords( t , plane_intersection );
+    return { plane_intersection , u,v,w, edge_u , std::abs(plane_intersection_dist)<1e-9 && edge_u>=0 && edge_u<=1 && u>=0 && u<=1 && v>=0 && v<=1 && w>=0 && w<=1 };
+  }
+
 }
 
 
+/*****************
+ *** unit test ***
+ *****************/ 
+#include <random>
+#include <onika/test/unit_test.h>
+
+ONIKA_UNIT_TEST(triangle_math)
+{
+  using namespace onika;
+  using namespace onika::math;
+  using namespace exanb;
+
+  std::random_device rd;  //Will be used to obtain a seed for the random number engine
+  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+  std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
+
+  for(int i=0;i<1000000;i++)
+  {
+    const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)}  , Vec3d{ud(gen),ud(gen),ud(gen)} };
+    const Vec3d p = {ud(gen),ud(gen),ud(gen)};
+
+    const auto proj = project_triangle_point( t, p );
+    const auto plane_d = - dot( proj.m_normal , t[0] );
+    const auto plane_dist = dot( proj.m_normal , p ) + plane_d;
+    const auto plane_proj_dist = dot( proj.m_normal , proj.m_proj ) + plane_d;
+
+    ONIKA_TEST_ASSERT( std::abs( proj.m_u + proj.m_v + proj.m_w - 1 ) < 1e-12 );
+    ONIKA_TEST_ASSERT( std::abs( plane_dist - proj.m_dist )  < 1.e-12 );
+    ONIKA_TEST_ASSERT( std::abs( plane_proj_dist )  < 1.e-12 );
+    ONIKA_TEST_ASSERT( proj.m_inside == ( proj.m_u>=0 && proj.m_u<=1 && proj.m_v>=0 && proj.m_v<=1 && proj.m_w>=0 && proj.m_w<=1 ) );
+
+    if( proj.m_inside )
+    {
+      const auto bary = proj.m_u * t[0] + proj.m_v * t[1] + proj.m_w * t[2];
+      ONIKA_TEST_ASSERT( norm(bary - proj.m_proj) < 1.e-9 );
+      ONIKA_TEST_ASSERT( std::abs( norm( p - bary ) - std::abs(proj.m_dist) ) < 1.e-9 );
+      ONIKA_TEST_ASSERT( std::abs( dot( p - bary , proj.m_normal ) - proj.m_dist ) < 1.e-9 );
+    }
+  }
+
+  for(int i=0;i<1000000;i++)
+  {
+    const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
+    const Edge e = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
+    const auto inter = triangle_edge_intersection( t, e );
+    const auto edge_bary = e[0] + ( inter.m_edge_u * (e[1] - e[0]) );
+    const auto tri_bary = inter.m_tri_u * t[0] + inter.m_tri_v * t[1] + inter.m_tri_w * t[2];
+    const auto plane_n = normal( t );
+    const auto plane_d = - dot( t[0] , plane_n );
+
+    if( inter.m_intersect )
+    {
+      ONIKA_TEST_ASSERT( (inter.m_tri_u+inter.m_tri_v+inter.m_tri_w-1) < 1e-12 );
+      ONIKA_TEST_ASSERT( norm( inter.m_intersection - edge_bary ) < 1e-9 );
+      ONIKA_TEST_ASSERT( norm( inter.m_intersection - tri_bary ) < 1e-9 );
+      ONIKA_TEST_ASSERT( dot( plane_n , inter.m_intersection ) + plane_d < 1e-9 );
+    }
+
+  }
+
+}

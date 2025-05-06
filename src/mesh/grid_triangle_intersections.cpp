@@ -25,6 +25,7 @@ under the License.
 
 #include <exanb/mesh/triangle_mesh.h>
 #include <exanb/mesh/triangle_math.h>
+#include <exanb/mesh/edge_math.h>
 #include <onika/math/basic_types.h>
 
 namespace exanb
@@ -131,4 +132,3 @@ namespace exanb
   }
 
 }
-
