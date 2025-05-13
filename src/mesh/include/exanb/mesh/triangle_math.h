@@ -245,32 +245,35 @@ ONIKA_UNIT_TEST(project_triangle_point)
   using namespace onika::math;
   using namespace exanb;
 
-  std::random_device rd;  //Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
-
-# pragma omp parallel for schedule(static)
-  for(int i=0;i<1000000;i++)
+# pragma omp parallel
   {
-    const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)}  , Vec3d{ud(gen),ud(gen),ud(gen)} };
-    const Vec3d p = {ud(gen),ud(gen),ud(gen)};
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
 
-    const auto proj = project_triangle_point( t, p );
-    const auto plane_d = - dot( proj.m_normal , t[0] );
-    const auto plane_dist = dot( proj.m_normal , p ) + plane_d;
-    const auto plane_proj_dist = dot( proj.m_normal , proj.m_proj ) + plane_d;
-
-    ONIKA_TEST_ASSERT( std::abs( proj.m_u + proj.m_v + proj.m_w - 1 ) < 1e-12 );
-    ONIKA_TEST_ASSERT( std::abs( plane_dist - proj.m_dist )  < 1.e-12 );
-    ONIKA_TEST_ASSERT( std::abs( plane_proj_dist )  < 1.e-12 );
-    ONIKA_TEST_ASSERT( proj.m_inside == ( proj.m_u>=0 && proj.m_u<=1 && proj.m_v>=0 && proj.m_v<=1 && proj.m_w>=0 && proj.m_w<=1 ) );
-
-    if( proj.m_inside )
+#   pragma omp for schedule(static)
+    for(int i=0;i<1000000;i++)
     {
-      const auto bary = proj.m_u * t[0] + proj.m_v * t[1] + proj.m_w * t[2];
-      ONIKA_TEST_ASSERT( norm(bary - proj.m_proj) < 1.e-9 );
-      ONIKA_TEST_ASSERT( std::abs( norm( p - bary ) - std::abs(proj.m_dist) ) < 1.e-9 );
-      ONIKA_TEST_ASSERT( std::abs( dot( p - bary , proj.m_normal ) - proj.m_dist ) < 1.e-9 );
+      const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)}  , Vec3d{ud(gen),ud(gen),ud(gen)} };
+      const Vec3d p = {ud(gen),ud(gen),ud(gen)};
+
+      const auto proj = project_triangle_point( t, p );
+      const auto plane_d = - dot( proj.m_normal , t[0] );
+      const auto plane_dist = dot( proj.m_normal , p ) + plane_d;
+      const auto plane_proj_dist = dot( proj.m_normal , proj.m_proj ) + plane_d;
+
+      ONIKA_TEST_ASSERT( std::abs( proj.m_u + proj.m_v + proj.m_w - 1 ) < 1e-12 );
+      ONIKA_TEST_ASSERT( std::abs( plane_dist - proj.m_dist )  < 1.e-12 );
+      ONIKA_TEST_ASSERT( std::abs( plane_proj_dist )  < 1.e-12 );
+      ONIKA_TEST_ASSERT( proj.m_inside == ( proj.m_u>=0 && proj.m_u<=1 && proj.m_v>=0 && proj.m_v<=1 && proj.m_w>=0 && proj.m_w<=1 ) );
+
+      if( proj.m_inside )
+      {
+        const auto bary = proj.m_u * t[0] + proj.m_v * t[1] + proj.m_w * t[2];
+        ONIKA_TEST_ASSERT( norm(bary - proj.m_proj) < 1.e-9 );
+        ONIKA_TEST_ASSERT( std::abs( norm( p - bary ) - std::abs(proj.m_dist) ) < 1.e-9 );
+        ONIKA_TEST_ASSERT( std::abs( dot( p - bary , proj.m_normal ) - proj.m_dist ) < 1.e-9 );
+      }
     }
   }
 }
@@ -281,38 +284,41 @@ ONIKA_UNIT_TEST(triangle_edge_intersection)
   using namespace onika::math;
   using namespace exanb;
 
-  std::random_device rd;  //Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
-
-# pragma omp parallel for schedule(static)
-  for(int i=0;i<1000000;i++)
+# pragma omp parallel
   {
-    const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
-    const Edge e = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
-    const auto inter = triangle_edge_intersection( t, e );    
-    const auto plane_n = normal( t );
-    const auto plane_d = - dot( t[0] , plane_n );
-    if( inter.m_intersect )
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
+
+#   pragma omp for schedule(static)
+    for(int i=0;i<1000000;i++)
     {
-      const auto edge_bary = e[0] + ( inter.m_edge_u * (e[1] - e[0]) );
-      const auto tri_bary = inter.m_tri_u * t[0] + inter.m_tri_v * t[1] + inter.m_tri_w * t[2];
-      ONIKA_TEST_ASSERT( inter.m_plane_edge_intersect && inter.m_inside_trianle );
-      ONIKA_TEST_ASSERT( (inter.m_tri_u+inter.m_tri_v+inter.m_tri_w-1) < 1e-12 );
-      ONIKA_TEST_ASSERT( norm( inter.m_intersection - edge_bary ) < 1e-9 );
-      ONIKA_TEST_ASSERT( norm( inter.m_intersection - tri_bary ) < 1e-9 );
-      ONIKA_TEST_ASSERT( dot( plane_n , inter.m_intersection ) + plane_d < 1e-9 );
-    }
-    else
-    {
-      ONIKA_TEST_ASSERT( ! inter.m_plane_edge_intersect || ! inter.m_inside_trianle );      
-      if( inter.m_plane_edge_intersect )
+      const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
+      const Edge e = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
+      const auto inter = triangle_edge_intersection( t, e );    
+      const auto plane_n = normal( t );
+      const auto plane_d = - dot( t[0] , plane_n );
+      if( inter.m_intersect )
       {
-        ONIKA_TEST_ASSERT( inter.m_tri_u<0 || inter.m_tri_u>1 || inter.m_tri_v<0 || inter.m_tri_v>1 || inter.m_tri_w<0 || inter.m_tri_w>1 );
+        const auto edge_bary = e[0] + ( inter.m_edge_u * (e[1] - e[0]) );
+        const auto tri_bary = inter.m_tri_u * t[0] + inter.m_tri_v * t[1] + inter.m_tri_w * t[2];
+        ONIKA_TEST_ASSERT( inter.m_plane_edge_intersect && inter.m_inside_trianle );
+        ONIKA_TEST_ASSERT( (inter.m_tri_u+inter.m_tri_v+inter.m_tri_w-1) < 1e-12 );
+        ONIKA_TEST_ASSERT( norm( inter.m_intersection - edge_bary ) < 1e-9 );
+        ONIKA_TEST_ASSERT( norm( inter.m_intersection - tri_bary ) < 1e-9 );
+        ONIKA_TEST_ASSERT( dot( plane_n , inter.m_intersection ) + plane_d < 1e-9 );
       }
-      if( inter.m_inside_trianle )
+      else
       {
-        ONIKA_TEST_ASSERT( inter.m_edge_u<0 || inter.m_edge_u>1 || ( ( dot( plane_n , inter.m_intersection ) + plane_d ) / inter.m_typical_length ) > 1e-9 );
+        ONIKA_TEST_ASSERT( ! inter.m_plane_edge_intersect || ! inter.m_inside_trianle );      
+        if( inter.m_plane_edge_intersect )
+        {
+          ONIKA_TEST_ASSERT( inter.m_tri_u<0 || inter.m_tri_u>1 || inter.m_tri_v<0 || inter.m_tri_v>1 || inter.m_tri_w<0 || inter.m_tri_w>1 );
+        }
+        if( inter.m_inside_trianle )
+        {
+          ONIKA_TEST_ASSERT( inter.m_edge_u<0 || inter.m_edge_u>1 || ( ( dot( plane_n , inter.m_intersection ) + plane_d ) / inter.m_typical_length ) > 1e-9 );
+        }
       }
     }
   }
@@ -324,37 +330,40 @@ ONIKA_UNIT_TEST(triangle_box_intersection)
   using namespace onika::math;
   using namespace exanb;
 
-  std::random_device rd;  //Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
-
-# pragma omp parallel for schedule(static)
-  for(int i=0;i<100000;i++)
+# pragma omp parallel
   {
-    const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
-    const Vec3d p1 = {ud(gen),ud(gen),ud(gen)};
-    const Vec3d p2 = {ud(gen),ud(gen),ud(gen)};
-    const AABB box = { Vec3d{ std::min(p1.x,p2.x) , std::min(p1.y,p2.y) , std::min(p1.z,p2.z) } , Vec3d{ std::max(p1.x,p2.x) , std::max(p1.y,p2.y) , std::max(p1.z,p2.z) } };
-    
-    const AABB all_bounds = extend(box,bounds(t));
-    const auto bounds_length = norm( all_bounds.bmax - all_bounds.bmin );
-    ONIKA_TEST_ASSERT( bounds_length > 0 );
-        
-    double min_dist = 999999.0;
-    for(double u = 0.0 ;  u   <= 1.0 ; u += 0.001 )
-    for(double v = 0.0 ; (u+v)<= 1.0 ; v += 0.001 )
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
+
+#   pragma omp for schedule(static)
+    for(int i=0;i<100000;i++)
     {
-      const double w = 1.0 - u - v ;
-      //ONIKA_TEST_ASSERT( std::abs( u+v+w - 1 ) < 1e-12 );
-      const auto p = t[0]*u + t[1]*v + t[2]*w;
-      const auto dist = min_distance_between(p,box);
-      if( dist < min_dist )
+      const Triangle t = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
+      const Vec3d p1 = {ud(gen),ud(gen),ud(gen)};
+      const Vec3d p2 = {ud(gen),ud(gen),ud(gen)};
+      const AABB box = { Vec3d{ std::min(p1.x,p2.x) , std::min(p1.y,p2.y) , std::min(p1.z,p2.z) } , Vec3d{ std::max(p1.x,p2.x) , std::max(p1.y,p2.y) , std::max(p1.z,p2.z) } };
+      
+      const AABB all_bounds = extend(box,bounds(t));
+      const auto bounds_length = norm( all_bounds.bmax - all_bounds.bmin );
+      ONIKA_TEST_ASSERT( bounds_length > 0 );
+          
+      double min_dist = 999999.0;
+      for(double u = 0.0 ;  u   <= 1.0 ; u += 0.001 )
+      for(double v = 0.0 ; (u+v)<= 1.0 ; v += 0.001 )
       {
-        min_dist = dist;
+        const double w = 1.0 - u - v ;
+        //ONIKA_TEST_ASSERT( std::abs( u+v+w - 1 ) < 1e-12 );
+        const auto p = t[0]*u + t[1]*v + t[2]*w;
+        const auto dist = min_distance_between(p,box);
+        if( dist < min_dist )
+        {
+          min_dist = dist;
+        }
       }
+      
+      const bool inter = intersect(box,t);
+      ONIKA_TEST_ASSERT( ( inter && (min_dist/bounds_length<1e-3) ) || ( !inter && (min_dist>0) ) );
     }
-    
-    const bool inter = intersect(box,t);
-    ONIKA_TEST_ASSERT( ( inter && (min_dist/bounds_length<1e-3) ) || ( !inter && (min_dist>0) ) );
   }
 }

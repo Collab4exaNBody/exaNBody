@@ -26,17 +26,21 @@ under the License.
 #include <onika/oarray.h>
 #include <exanb/mesh/triangle.h>
 #include <onika/cuda/ro_shallow_copy.h>
+#include <onika/cuda/cuda_math.h>
 #include <onika/oarray_stream.h>
+
+#include <span>
 
 namespace exanb
 {
 
   using VertexAray = onika::memory::CudaMMVector< onika::math::Vec3d >;
-  using TriangleConnectivityArray = onika::memory::CudaMMVector< onika::oarray_t<long,3> >;
+  using TriangleConnectivity = onika::oarray_t<uint64_t,3>;
+  using TriangleConnectivityArray = onika::memory::CudaMMVector< TriangleConnectivity >;
   using VertexTriangleCountArray = onika::memory::CudaMMVector<unsigned int>;
 
   template<class _VertexArayT = VertexAray , class _TriangleArrayT = TriangleConnectivityArray >
-  struct TriangleMesh
+  struct TriangleMeshTmpl
   {
     using VertexArayT = _VertexArayT;
     using TriangleArrayT = _TriangleArrayT;
@@ -86,8 +90,16 @@ namespace exanb
     }    
   };
 
+  using TriangleMesh = TriangleMeshTmpl<>;
+  using TriangleMeshRO = TriangleMeshTmpl< onika::cuda::ro_shallow_copy_t<TriangleMesh::VertexArayT> , onika::cuda::ro_shallow_copy_t<TriangleMesh::TriangleArrayT> >;
+
+  inline TriangleMeshRO read_only_view( const TriangleMesh& other )
+  {
+    return { other.m_vertices , other.m_triangles };
+  }
+
   template<class VertexArayT , class TriangleArrayT >
-  inline void count_vertex_triangles(const TriangleMesh<VertexArayT,TriangleArrayT>& trimesh, VertexTriangleCountArray & vtricount)
+  inline void count_vertex_triangles(const TriangleMeshTmpl<VertexArayT,TriangleArrayT>& trimesh, VertexTriangleCountArray & vtricount)
   {
     const size_t N = trimesh.vertex_count();
     vtricount.assign( N , 0 );
@@ -97,64 +109,69 @@ namespace exanb
       for(size_t j=0;j<3;j++) vtricount[tricon[j]] ++ ;
     }
   }
-
-  struct GridTriangleIntersectionList
+  
+  template<class _CellTriangleArrayT = onika::memory::CudaMMVector<size_t> >
+  struct GridTriangleIntersectionListTmpl
   {
+    using CellTriangleArray = _CellTriangleArrayT;
     onika::math::IJK m_grid_dims;
     double m_cell_size;
     onika::math::Vec3d m_origin;
-    onika::memory::CudaMMVector<size_t> m_cell_triangles;
-  };
-
-  struct GridTriangleIntersectionListRO
-  {
-    onika::math::IJK m_grid_dims;
-    double m_cell_size;
-    onika::math::Vec3d m_origin; 
-    onika::cuda::VectorShallowCopy<const size_t> m_cell_triangles;
+    CellTriangleArray m_cell_triangles;
     
-    GridTriangleIntersectionListRO() = default;
-    GridTriangleIntersectionListRO(const GridTriangleIntersectionListRO&) = default;
-    GridTriangleIntersectionListRO(GridTriangleIntersectionListRO &&) = default;
-    GridTriangleIntersectionListRO& operator = (const GridTriangleIntersectionListRO&) = default;
-    GridTriangleIntersectionListRO& operator = (GridTriangleIntersectionListRO &&) = default;
+    ONIKA_HOST_DEVICE_FUNC
+    inline size_t cell_idx_from_coord(const onika::math::Vec3d& r) const
+    {
+      using namespace onika::math;
+      using namespace onika::cuda;
+      const auto cell_loc = vclamp( make_ijk( ( ( r - m_origin ) / m_cell_size ) + 0.5 ) , IJK{0,0,0} , m_grid_dims-1 );
+      return clamp( grid_ijk_to_index( m_grid_dims , cell_loc ) , ssize_t(0) , grid_cell_count(m_grid_dims)-1 );
+    }
 
-    inline GridTriangleIntersectionListRO(const GridTriangleIntersectionList& other)
-      : m_grid_dims(other.m_grid_dims)
-      , m_cell_size(other.m_cell_size)
-      , m_cell_triangles( other.m_cell_triangles.data(), other.m_cell_triangles.size() )
-      {}
-
-    inline size_t cell_triangle_count(size_t cell_idx)
+    ONIKA_HOST_DEVICE_FUNC
+    inline size_t cell_triangle_count(size_t cell_idx) const
     {
       return m_cell_triangles[cell_idx+1] -  m_cell_triangles[cell_idx];
     }
 
-    inline const size_t * cell_triangles(size_t cell_idx) const
+    ONIKA_HOST_DEVICE_FUNC
+    inline const size_t * cell_triangles_begin(size_t cell_idx) const
     {
       return m_cell_triangles.data() + m_cell_triangles[cell_idx];
     }
-    
-  };
 
+    ONIKA_HOST_DEVICE_FUNC
+    inline auto cell_triangles(size_t cell_idx) const
+    {
+      return std::span<const size_t>( cell_triangles_begin(cell_idx) , cell_triangle_count(cell_idx) );
+    }
+  };
+  
+  using GridTriangleIntersectionList = GridTriangleIntersectionListTmpl<>;
+  using GridTriangleIntersectionListRO = GridTriangleIntersectionListTmpl< onika::cuda::ro_shallow_copy_t<GridTriangleIntersectionList::CellTriangleArray> >;
+  
+  inline GridTriangleIntersectionListRO read_only_view( const GridTriangleIntersectionList& other )
+  {
+    return { other.m_grid_dims , other.m_cell_size , other.m_origin , other.m_cell_triangles };
+  }
 }
 
 namespace onika
 {
   namespace cuda
   {
-    template<> struct ReadOnlyShallowCopyType< exanb::GridTriangleIntersectionList > { using type = exanb::GridTriangleIntersectionListRO; };
+    template<class CellTriangleArrayT> struct ReadOnlyShallowCopyType< exanb::GridTriangleIntersectionListTmpl<CellTriangleArrayT> > { using type = exanb::GridTriangleIntersectionListTmpl< onika::cuda::ro_shallow_copy_t<CellTriangleArrayT> >; };
+    template<class VertexArayT , class TriangleArrayT> struct ReadOnlyShallowCopyType< exanb::TriangleMeshTmpl<VertexArayT,TriangleArrayT> > { using type = exanb::TriangleMeshTmpl< onika::cuda::ro_shallow_copy_t<VertexArayT> , onika::cuda::ro_shallow_copy_t<TriangleArrayT> >; };
   }
 }
-
 
 namespace YAML
 { 
 
   template<class VertexArayT , class TriangleArrayT>
-  struct convert< exanb::TriangleMesh<VertexArayT,TriangleArrayT> >
+  struct convert< exanb::TriangleMeshTmpl<VertexArayT,TriangleArrayT> >
   {
-    static inline bool decode(const Node& node, exanb::TriangleMesh<VertexArayT,TriangleArrayT>& v)
+    static inline bool decode(const Node& node, exanb::TriangleMeshTmpl<VertexArayT,TriangleArrayT>& v)
     {
       if( ! node.IsMap() ) { return false; }
       v.m_vertices.clear();
@@ -166,10 +183,10 @@ namespace YAML
       }
       if( node["triangles"] )
       {
-        const auto triangles = node["triangles"].as< std::vector< onika::math::IJK > >();
+        const auto triangles = node["triangles"].as< std::vector< std::array<size_t,3> > >();
         for(const auto& t : triangles)
         {
-          v.m_triangles.push_back( { t.i , t.j , t.k } );
+          v.m_triangles.push_back( { t[0] , t[1] , t[2] } );
         }
       }
       return true;

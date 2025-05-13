@@ -75,19 +75,23 @@ ONIKA_UNIT_TEST(edge_math)
   using namespace onika::math;
   using namespace exanb;
 
-  std::random_device rd;  //Will be used to obtain a seed for the random number engine
-  std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-  std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
-
-  for(int i=0;i<1000000;i++)
+# pragma omp parallel
   {
-    const Edge e = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
-    const Vec3d p = {ud(gen),ud(gen),ud(gen)};
-    const auto proj = project_edge_point( e, p );
-    // std::cout << "edge=("<< e[0]<<","<<e[1]<<") , p="<<p<<" , proj="<<proj.m_proj<<" , dist="<<proj.m_dist<<std::endl;
-    ONIKA_TEST_ASSERT( norm( proj.m_proj + proj.m_dist * proj.m_normal - p ) < 1e-12 );
-    ONIKA_TEST_ASSERT( std::abs( norm( p - proj.m_proj ) - proj.m_dist ) < 1e-12 );
-    ONIKA_TEST_ASSERT( std::abs( dot( p - proj.m_proj , e[1] - e[0] ) ) < 1e-12 );
+    std::random_device rd;  //Will be used to obtain a seed for the random number engine
+    std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
+    std::uniform_real_distribution<double> ud( -10.0 , 10.0 );
+
+#   pragma omp for schedule(static)
+    for(int i=0;i<1000000;i++)
+    {
+      const Edge e = { Vec3d{ud(gen),ud(gen),ud(gen)} , Vec3d{ud(gen),ud(gen),ud(gen)} };
+      const Vec3d p = {ud(gen),ud(gen),ud(gen)};
+      const auto proj = project_edge_point( e, p );
+      // std::cout << "edge=("<< e[0]<<","<<e[1]<<") , p="<<p<<" , proj="<<proj.m_proj<<" , dist="<<proj.m_dist<<std::endl;
+      ONIKA_TEST_ASSERT( norm( proj.m_proj + proj.m_dist * proj.m_normal - p ) < 1e-12 );
+      ONIKA_TEST_ASSERT( std::abs( norm( p - proj.m_proj ) - proj.m_dist ) < 1e-12 );
+      ONIKA_TEST_ASSERT( std::abs( dot( p - proj.m_proj , e[1] - e[0] ) ) < 1e-12 );
+    }
   }
 
 }

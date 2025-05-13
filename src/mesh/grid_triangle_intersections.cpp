@@ -33,12 +33,10 @@ namespace exanb
   
   class GridTriangleIntersections : public OperatorNode
   {
-    using Mesh = TriangleMesh<>;
-  
     ADD_SLOT( onika::math::AABB            , bounding_box      , INPUT , REQUIRED );
     ADD_SLOT( long                         , resolution        , INPUT , REQUIRED , 128 );
     ADD_SLOT( double                       , distance          , INPUT , REQUIRED , 0.0 );
-    ADD_SLOT( Mesh                         , mesh              , INPUT , Mesh{} );
+    ADD_SLOT( TriangleMesh                 , mesh              , INPUT , TriangleMesh{} );
     ADD_SLOT( GridTriangleIntersectionList , grid_to_triangles , INPUT_OUTPUT );
 
   public:
@@ -65,7 +63,7 @@ namespace exanb
       grid_to_triangles->m_grid_dims = dims;
       grid_to_triangles->m_cell_size = cell_size;
       grid_to_triangles->m_origin = grid_origin;
-      
+      //grid_to_triangles->m_max_dist = max_dist;      
       
       ldbg << "grid_origin = " << grid_origin << std::endl;
       ldbg << "grid_size = " << grid_size << std::endl;
@@ -77,7 +75,7 @@ namespace exanb
       ldbg << "n_cells = " << n_cells << std::endl;
       ldbg << "n_triangles = " << n_triangles << std::endl;
 
-      std::vector< std::vector<size_t> > cell_tri_indices;
+      std::vector< std::vector<size_t> > cell_tri_indices( n_cells );
       size_t total_tri_indices = 0;
 
       for(size_t t=0;t<n_triangles;t++)
@@ -99,7 +97,7 @@ namespace exanb
           if( intersect( box , tri ) )
           {
             const auto cell_idx = grid_ijk_to_index( dims , {i,j,k} );
-            assert( cell_idx >= 0 && cell_idx < n_cells );
+            assert( cell_idx >= 0 && cell_idx < ssize_t(n_cells) );
             cell_tri_indices[cell_idx].push_back(t);
             ++ total_tri_indices;
           }
@@ -122,6 +120,34 @@ namespace exanb
       }
       assert( next_tri_idx == ( n_cells + 1 + total_tri_indices ) );
       cell_triangles[n_cells] = next_tri_idx;
+      
+#     if 0
+      onika::cuda::ro_shallow_copy_t<GridTriangleIntersectionList> grid_cell_triangles = *grid_to_triangles;
+      for(int k=0;k<dims.k;k++)
+      for(int j=0;j<dims.j;j++)
+      for(int i=0;i<dims.i;i++)
+      {
+        const onika::math::AABB box = { grid_origin + Vec3d{i+0.,j+0.,k+0.} * cell_size - max_dist
+                                      , grid_origin + Vec3d{i+1.,j+1.,k+1.} * cell_size + max_dist };
+        const auto cell_idx = grid_ijk_to_index( dims , {i,j,k} );
+        std::set<size_t> tla;
+        for(const auto t : grid_cell_triangles.cell_triangles(cell_idx))
+        {
+          if( intersect( box , mesh->triangle(t) ) ) tla.insert( t );
+        }
+        std::set<size_t> tlb;
+        for(size_t t=0;t<n_triangles;t++)
+        {
+          if( intersect( box , mesh->triangle(t) ) ) tlb.insert( t );
+        }
+        if( tla != tlb )
+        {
+          fatal_error() << "cell #"<<cell_idx<<" @"<<IJK{i,j,k}<<" : triangle list mismatch, tla="<<tla.size()<<" , tlb="<<tlb.size()<<std::endl;
+        }
+        //if( ! tla.empty() ) ldbg << "cell #"<<cell_idx<<" @"<<IJK{i,j,k}<<" with "<<tla.size()<<" triangles : OK"<<std::endl;
+      }
+#     endif
+
     }
   };
 

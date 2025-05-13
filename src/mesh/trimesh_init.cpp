@@ -32,10 +32,8 @@ namespace exanb
   
   class TriangleMeshInit : public OperatorNode
   {
-    using Mesh = TriangleMesh<>;
-
-    ADD_SLOT( Mesh , mesh    , INPUT_OUTPUT , Mesh{} );
-    ADD_SLOT( bool , verbose , INPUT , false );
+    ADD_SLOT( TriangleMesh , mesh    , INPUT_OUTPUT , TriangleMesh{} );
+    ADD_SLOT( bool         , verbose , INPUT , false );
 
   public:
     inline void execute() override final
