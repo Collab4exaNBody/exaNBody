@@ -39,33 +39,26 @@ namespace exanb
   using TriangleConnectivityArray = onika::memory::CudaMMVector< TriangleConnectivity >;
   using VertexTriangleCountArray = onika::memory::CudaMMVector<unsigned int>;
 
-  template<class _VertexArayT = VertexAray , class _TriangleArrayT = TriangleConnectivityArray >
-  struct TriangleMeshTmpl
+  struct TriangleMesh
   {
-    using VertexArayT = _VertexArayT;
-    using TriangleArrayT = _TriangleArrayT;
-    VertexArayT m_vertices;
-    TriangleArrayT m_triangles;
+    VertexAray m_vertices;
+    TriangleConnectivityArray m_triangles;
 
-    ONIKA_HOST_DEVICE_FUNC
     inline size_t triangle_count() const
     {
       return m_triangles.size();
     }
 
-    ONIKA_HOST_DEVICE_FUNC
     inline size_t vertex_count() const
     {
       return m_vertices.size();
     }
     
-    ONIKA_HOST_DEVICE_FUNC
     inline Triangle triangle(size_t i) const
     {
       return { m_vertices[m_triangles[i][0]] , m_vertices[m_triangles[i][1]] , m_vertices[m_triangles[i][2]] };
     }
 
-    ONIKA_HOST_DEVICE_FUNC
     inline TriangleConnectivity triangle_connectivity(size_t i) const
     {
       return { m_triangles[i][0] , m_triangles[i][1] , m_triangles[i][2] };
@@ -90,16 +83,42 @@ namespace exanb
     }    
   };
 
-  using TriangleMesh = TriangleMeshTmpl<>;
-  using TriangleMeshRO = TriangleMeshTmpl< onika::cuda::ro_shallow_copy_t<TriangleMesh::VertexArayT> , onika::cuda::ro_shallow_copy_t<TriangleMesh::TriangleArrayT> >;
+  struct TriangleMeshRO
+  {
+    onika::cuda::ro_shallow_copy_t<VertexAray> m_vertices;
+    onika::cuda::ro_shallow_copy_t<TriangleConnectivityArray> m_triangles;
+    
+    ONIKA_HOST_DEVICE_FUNC
+    inline size_t triangle_count() const
+    {
+      return m_triangles.size();
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline size_t vertex_count() const
+    {
+      return m_vertices.size();
+    }
+    
+    ONIKA_HOST_DEVICE_FUNC
+    inline Triangle triangle(size_t i) const
+    {
+      return { m_vertices[m_triangles[i][0]] , m_vertices[m_triangles[i][1]] , m_vertices[m_triangles[i][2]] };
+    }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline TriangleConnectivity triangle_connectivity(size_t i) const
+    {
+      return { m_triangles[i][0] , m_triangles[i][1] , m_triangles[i][2] };
+    }
+  };
 
   inline TriangleMeshRO read_only_view( const TriangleMesh& other )
   {
     return { other.m_vertices , other.m_triangles };
   }
 
-  template<class VertexArayT , class TriangleArrayT >
-  inline void count_vertex_triangles(const TriangleMeshTmpl<VertexArayT,TriangleArrayT>& trimesh, VertexTriangleCountArray & vtricount)
+  inline void count_vertex_triangles(const TriangleMesh& trimesh, VertexTriangleCountArray & vtricount)
   {
     const size_t N = trimesh.vertex_count();
     vtricount.assign( N , 0 );
@@ -161,17 +180,16 @@ namespace onika
   namespace cuda
   {
     template<class CellTriangleArrayT> struct ReadOnlyShallowCopyType< exanb::GridTriangleIntersectionListTmpl<CellTriangleArrayT> > { using type = exanb::GridTriangleIntersectionListTmpl< onika::cuda::ro_shallow_copy_t<CellTriangleArrayT> >; };
-    template<class VertexArayT , class TriangleArrayT> struct ReadOnlyShallowCopyType< exanb::TriangleMeshTmpl<VertexArayT,TriangleArrayT> > { using type = exanb::TriangleMeshTmpl< onika::cuda::ro_shallow_copy_t<VertexArayT> , onika::cuda::ro_shallow_copy_t<TriangleArrayT> >; };
+    template<> struct ReadOnlyShallowCopyType<exanb::TriangleMesh> { using type = exanb::TriangleMeshRO; };
   }
 }
 
 namespace YAML
 { 
-
-  template<class VertexArayT , class TriangleArrayT>
-  struct convert< exanb::TriangleMeshTmpl<VertexArayT,TriangleArrayT> >
+  template<>
+  struct convert< exanb::TriangleMesh >
   {
-    static inline bool decode(const Node& node, exanb::TriangleMeshTmpl<VertexArayT,TriangleArrayT>& v)
+    static inline bool decode(const Node& node, exanb::TriangleMesh& v)
     {
       if( ! node.IsMap() ) { return false; }
       v.m_vertices.clear();
