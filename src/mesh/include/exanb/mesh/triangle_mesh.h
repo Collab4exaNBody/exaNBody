@@ -180,15 +180,16 @@ namespace exanb
   };
 
   template<class TriangleSpanT = IntegerSequenceSpan<> >
-  struct TrivialTriangleLocator
+  struct TrivialTriangleLocatorTmpl
   {
     TriangleSpanT m_triangle_index_list;
     ONIKA_HOST_DEVICE_FUNC
     inline const TriangleSpanT& triangles_nearby(const onika::math::Vec3d& r) const
     {
-      return m_triangle_index_list
+      return m_triangle_index_list;
     }
   };
+  using TrivialTriangleLocator = TrivialTriangleLocatorTmpl<>;
 
   inline GridTriangleIntersectionListRO read_only_view( const GridTriangleIntersectionList& other )
   {

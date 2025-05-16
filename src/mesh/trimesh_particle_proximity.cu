@@ -78,7 +78,7 @@ namespace exanb
       }
       else
       {
-        const TrivialTriangleLocator<> all_triangles = { { 0 , mesh->triangle_count() } };
+        TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
         ParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { all_triangles , read_only_view(*mesh) , max_dist };
         compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
       }
