@@ -25,7 +25,7 @@ under the License.
 
 #include <exanb/mesh/triangle_mesh.h>
 #include <exanb/mesh/triangle_math.h>
-#include <exanb/mesh/particle_mesh_proximty_functor.h>
+#include <exanb/mesh/particle_mesh_proximty.h>
 #include <exanb/mesh/edge_math.h>
 #include <onika/math/basic_types.h>
 #include <exanb/core/make_grid_variant_operator.h>
@@ -71,8 +71,18 @@ namespace exanb
       auto ry = grid->field_accessor( field::ry );
       auto rz = grid->field_accessor( field::rz );
       
-      ParticleMeshProximityFunctor<TestMeshProximityFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , max_dist };
-      compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
+      if( grid_to_triangles.has_value() )
+      {
+        GridParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , max_dist };
+        compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
+      }
+      else
+      {
+        const TrivialTriangleLocator<> all_triangles = { { 0 , mesh->triangle_count() } };
+        ParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { all_triangles , read_only_view(*mesh) , max_dist };
+        compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
+      }
+
     }
   };
 

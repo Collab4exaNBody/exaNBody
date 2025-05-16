@@ -29,20 +29,20 @@ under the License.
 namespace exanb
 {
 
-  template<class ProximityFuncT, bool EnableEdge=true, bool EnableVertex=true>
+  template<class GridTriangleLocator, class ProximityFuncT, bool EnableEdge=true, bool EnableVertex=true>
   struct ParticleMeshProximityFunctor
   {
-    GridTriangleIntersectionListRO m_grid_triangles;
+    GridTriangleLocator m_grid_triangles;
     TriangleMeshRO m_triangle_mesh;
     double m_max_dist;
     ProximityFuncT m_func;
     
-    ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz ) const
+    ONIKA_HOST_DEVICE_FUNC
+    inline void operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz ) const
     {
       const Vec3d r = {rx,ry,rz};
-      const auto trigrid_cell_idx = m_grid_triangles.cell_idx_from_coord( r );
-      const auto * cell_triangles = m_grid_triangles.cell_triangles_begin( trigrid_cell_idx );
-      const int n_triangles =  m_grid_triangles.cell_triangle_count( trigrid_cell_idx );
+      const auto triangles_list = m_grid_triangles.triangles_nearby( r );
+      const int n_triangles = triangles_list.size(); //m_grid_triangles.cell_triangle_count( trigrid_cell_idx );
 
       // either nearest_v0,nearest_v1 and nearest_v2 are valid (!=-1), in which case there is a valid nearest triangle (with inside==true)
       // either only nearest_v0 and nearest_v1 are valid, in which case there is a valid nearest edge (with inside==true)
@@ -55,7 +55,7 @@ namespace exanb
       
       for(int i=0;i<n_triangles;i++)
       {
-        const auto tri_idx = cell_triangles[i];
+        const auto tri_idx = triangles_list[i];
         const auto v = m_triangle_mesh.triangle_connectivity( tri_idx );
         const Triangle tri = { m_triangle_mesh.m_vertices[v[0]] , m_triangle_mesh.m_vertices[v[1]] , m_triangle_mesh.m_vertices[v[2]] };
         const auto tri_proj = project_triangle_point( tri , r );
@@ -123,7 +123,10 @@ namespace exanb
     }
   };
 
-  template<class FuncT, bool EnableEdge, bool EnableVertex> struct ComputeCellParticlesTraits< ParticleMeshProximityFunctor<FuncT,EnableEdge,EnableVertex> >
+  template<class FuncT, bool EnableEdge, bool EnableVertex> using GridParticleTriangleProximity = ParticleMeshProximityFunctor<GridTriangleIntersectionListRO,FuncT,EnableEdge,EnableVertex>;
+  template<class FuncT, bool EnableEdge, bool EnableVertex> using ParticleTriangleProximity = ParticleMeshProximityFunctor<TrivialTriangleLocator,FuncT,EnableEdge,EnableVertex>;
+
+  template<class LocatorT, class FuncT, bool EnableEdge, bool EnableVertex> struct ComputeCellParticlesTraits< ParticleMeshProximityFunctor<LocatorT,FuncT,EnableEdge,EnableVertex> >
   {
     static inline constexpr bool CudaCompatible = true;
   };

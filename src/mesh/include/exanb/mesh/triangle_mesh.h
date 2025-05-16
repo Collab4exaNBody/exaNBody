@@ -28,8 +28,7 @@ under the License.
 #include <onika/cuda/ro_shallow_copy.h>
 #include <onika/cuda/cuda_math.h>
 #include <onika/oarray_stream.h>
-
-#include <span>
+#include <onika/cuda/stl_adaptors.h>
 
 namespace exanb
 {
@@ -129,24 +128,23 @@ namespace exanb
     }
   }
   
-  template<class _CellTriangleArrayT = onika::memory::CudaMMVector<size_t> >
-  struct GridTriangleIntersectionListTmpl
+  struct GridTriangleIntersectionList
   {
-    using CellTriangleArray = _CellTriangleArrayT;
+    using CellTriangleArray = onika::memory::CudaMMVector<size_t>;
+    onika::math::IJK m_grid_dims;
+    double m_cell_size;
+    onika::math::Vec3d m_origin;
+    CellTriangleArray m_cell_triangles;
+  };
+
+  struct GridTriangleIntersectionListRO
+  {
+    using CellTriangleArray = onika::cuda::ro_shallow_copy_t< onika::memory::CudaMMVector<size_t> >;
     onika::math::IJK m_grid_dims;
     double m_cell_size;
     onika::math::Vec3d m_origin;
     CellTriangleArray m_cell_triangles;
     
-    ONIKA_HOST_DEVICE_FUNC
-    inline size_t cell_idx_from_coord(const onika::math::Vec3d& r) const
-    {
-      using namespace onika::math;
-      using namespace onika::cuda;
-      const auto cell_loc = vclamp( make_ijk( ( ( r - m_origin ) / m_cell_size ) + 0.5 ) , IJK{0,0,0} , m_grid_dims-1 );
-      return clamp( grid_ijk_to_index( m_grid_dims , cell_loc ) , ssize_t(0) , grid_cell_count(m_grid_dims)-1 );
-    }
-
     ONIKA_HOST_DEVICE_FUNC
     inline size_t cell_triangle_count(size_t cell_idx) const
     {
@@ -154,21 +152,44 @@ namespace exanb
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline const size_t * cell_triangles_begin(size_t cell_idx) const
+    inline auto cell_triangles(size_t cell_idx) const
     {
-      return m_cell_triangles.data() + m_cell_triangles[cell_idx];
+      return onika::cuda::span<const size_t>{ m_cell_triangles.data() + m_cell_triangles[cell_idx] , cell_triangle_count(cell_idx) };
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline auto cell_triangles(size_t cell_idx) const
+    inline auto triangles_nearby(const onika::math::Vec3d& r) const
     {
-      return std::span<const size_t>( cell_triangles_begin(cell_idx) , cell_triangle_count(cell_idx) );
+      using namespace onika::math;
+      using namespace onika::cuda;
+      const auto cell_loc = vclamp( make_ijk( ( ( r - m_origin ) / m_cell_size ) + 0.5 ) , IJK{0,0,0} , m_grid_dims-1 );
+      const auto cell_idx = clamp( grid_ijk_to_index( m_grid_dims , cell_loc ) , ssize_t(0) , grid_cell_count(m_grid_dims)-1 );
+      return cell_triangles( cell_idx );
     }
   };
-  
-  using GridTriangleIntersectionList = GridTriangleIntersectionListTmpl<>;
-  using GridTriangleIntersectionListRO = GridTriangleIntersectionListTmpl< onika::cuda::ro_shallow_copy_t<GridTriangleIntersectionList::CellTriangleArray> >;
-  
+
+  template<class IntegerT = size_t>
+  struct IntegerSequenceSpan
+  {
+    IntegerT m_start;
+    IntegerT m_size;
+    ONIKA_HOST_DEVICE_FUNC inline IntegerT operator [] (size_t i) const { return m_start+i; }
+    ONIKA_HOST_DEVICE_FUNC inline size_t size() const { return m_size; }
+    ONIKA_HOST_DEVICE_FUNC inline auto begin() const { return m_start; }
+    ONIKA_HOST_DEVICE_FUNC inline auto end() const { return m_start + m_size; }
+  };
+
+  template<class TriangleSpanT = IntegerSequenceSpan<> >
+  struct TrivialTriangleLocator
+  {
+    TriangleSpanT m_triangle_index_list;
+    ONIKA_HOST_DEVICE_FUNC
+    inline const TriangleSpanT& triangles_nearby(const onika::math::Vec3d& r) const
+    {
+      return m_triangle_index_list
+    }
+  };
+
   inline GridTriangleIntersectionListRO read_only_view( const GridTriangleIntersectionList& other )
   {
     return { other.m_grid_dims , other.m_cell_size , other.m_origin , other.m_cell_triangles };
@@ -179,7 +200,7 @@ namespace onika
 {
   namespace cuda
   {
-    template<class CellTriangleArrayT> struct ReadOnlyShallowCopyType< exanb::GridTriangleIntersectionListTmpl<CellTriangleArrayT> > { using type = exanb::GridTriangleIntersectionListTmpl< onika::cuda::ro_shallow_copy_t<CellTriangleArrayT> >; };
+    template<> struct ReadOnlyShallowCopyType<exanb::GridTriangleIntersectionList> { using type = exanb::GridTriangleIntersectionListRO; };
     template<> struct ReadOnlyShallowCopyType<exanb::TriangleMesh> { using type = exanb::TriangleMeshRO; };
   }
 }
