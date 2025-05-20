@@ -32,15 +32,17 @@ namespace exanb
   
   class TriangleMeshInit : public OperatorNode
   {
-    ADD_SLOT( TriangleMesh , mesh    , INPUT_OUTPUT , TriangleMesh{} );
-    ADD_SLOT( bool         , verbose , INPUT , false );
+    ADD_SLOT( TriangleMesh , mesh    , INPUT_OUTPUT , OPTIONAL , DocString{"placeholder to initialize a mesh from user input"} );
+    ADD_SLOT( long         , verbosity , INPUT , 0 );
 
   public:
     inline void execute() override final
     {
-      if( *verbose )
+      ldbg << "mesh init : mesh has_value = "<<mesh.has_value()<<std::endl;
+      if( *verbosity && mesh.has_value() )
       {
-        mesh->to_stream( lout );
+        if( *verbosity >= 2 ) mesh->to_stream( lout );
+        else lout << "mesh has "<< mesh->vertex_count() << " vertices , "<<mesh->triangle_count() << " triangles"<<std::endl;
       }
     }
   };

@@ -21,26 +21,26 @@ under the License.
 
 #include <onika/cuda/cuda.h>
 #include <onika/memory/allocator.h>
-#include <onika/math/basic_types_def.h>
-#include <onika/math/basic_types_yaml.h>
+#include <onika/math/basic_types.h>
 #include <onika/oarray.h>
-#include <exanb/mesh/triangle.h>
 #include <onika/cuda/ro_shallow_copy.h>
 #include <onika/cuda/cuda_math.h>
 #include <onika/oarray_stream.h>
 #include <onika/cuda/stl_adaptors.h>
+#include <exanb/mesh/triangle.h>
+#include <exanb/core/grid_algorithm.h>
 
 namespace exanb
 {
 
-  using VertexAray = onika::memory::CudaMMVector< onika::math::Vec3d >;
+  using VertexArray = onika::memory::CudaMMVector< onika::math::Vec3d >;
   using TriangleConnectivity = onika::oarray_t<uint64_t,3>;
   using TriangleConnectivityArray = onika::memory::CudaMMVector< TriangleConnectivity >;
   using VertexTriangleCountArray = onika::memory::CudaMMVector<unsigned int>;
 
   struct TriangleMesh
   {
-    VertexAray m_vertices;
+    VertexArray m_vertices;
     TriangleConnectivityArray m_triangles;
 
     inline size_t triangle_count() const
@@ -53,6 +53,11 @@ namespace exanb
       return m_vertices.size();
     }
     
+    inline onika::math::Vec3d vertex(size_t i) const
+    {
+      return m_vertices[i];
+    }
+
     inline Triangle triangle(size_t i) const
     {
       return { m_vertices[m_triangles[i][0]] , m_vertices[m_triangles[i][1]] , m_vertices[m_triangles[i][2]] };
@@ -84,7 +89,7 @@ namespace exanb
 
   struct TriangleMeshRO
   {
-    onika::cuda::ro_shallow_copy_t<VertexAray> m_vertices;
+    onika::cuda::ro_shallow_copy_t<VertexArray> m_vertices;
     onika::cuda::ro_shallow_copy_t<TriangleConnectivityArray> m_triangles;
     
     ONIKA_HOST_DEVICE_FUNC
