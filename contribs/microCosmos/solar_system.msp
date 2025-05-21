@@ -15,19 +15,19 @@ configuration:
 
 global:
   dt: 1.0 h
-  rcut_max: 1e3 m
-  rcut_inc: 0 m
+  rcut_max: 200.0e6 m
+  rcut_inc: 10.0e6 m
   simulation_log_frequency: 1
   simulation_end_iteration: 1
 
 compute_force:
   - gravitational_force:
       config: { G: 6.67e-11 m^3/kg/s^2 }
-      rcut: 8.0 ang
+      rcut: 200.0e6 m
 
 input_data:
   - particle_types:
-      particle_type_map: { A: 0 }
+      particle_type_map: { Soleil: 0, Mercure: 1, Venus: 2, Terre: 3, Mars: 4, Jupiter: 5, Saturne: 6, Uranus: 7, Neptune: 8 }
   - domain:
       cell_size: 1e3 m
       grid_dims: [ 10 , 10 , 10 ]
@@ -39,17 +39,10 @@ input_data:
   - lattice:
       structure: CUSTOM
       np: 1
-      types: [ A ]
-      positions: [ [0.5, 0.5, 0.5] ]
-      size: [1000. m , 1000. m , 1000. m ]
-      noise: 0.1 m
-  # - lattice:
-  #     structure: BCC
-  #     types: [ B , C ]
-  #     size: [ 15 ang , 15 ang , 15 ang ]
-  #     noise: 0.1 ang
-  #     noise_cutoff: 0.4 ang
-  # - gaussian_noise_v
+      types: [ Soleil, Mercure, Venus, Terre, Mars, Jupiter, Saturne, Uranus, Neptune ]
+      positions: [ [0.5, 0.5, 0.5], [0.0, -0.6, 0.6] ... ]
+      size: [10e9 m , 10e9 m , 10e9 m ]
+      noise: 1e6 m
 
 simulation: default_simulation
 
