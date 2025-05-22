@@ -23,7 +23,6 @@ under the License.
 #include <exanb/mesh/triangle_math.h>
 #include <exanb/mesh/edge_math.h>
 #include <onika/math/basic_types.h>
-#include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/compute/compute_cell_particles.h>
 
 namespace exanb
@@ -118,8 +117,7 @@ namespace exanb
         }
       }
       
-      m_func( r, pv, nearest_dist , cell_idx , p_idx , nearest_v0, nearest_v1, nearest_v2, w0,w1,w2, behind );
-      
+      if( nearest_v0 != -1 && nearest_dist <= m_max_dist ) m_func( r, pv, nearest_dist , cell_idx , p_idx , nearest_v0, nearest_v1, nearest_v2, w0,w1,w2, behind );
     }
   };
 

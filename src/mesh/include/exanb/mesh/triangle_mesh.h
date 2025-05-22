@@ -138,8 +138,33 @@ namespace exanb
     using CellTriangleArray = onika::memory::CudaMMVector<size_t>;
     onika::math::IJK m_grid_dims;
     double m_cell_size;
+    double m_max_dist;
     onika::math::Vec3d m_origin;
     CellTriangleArray m_cell_triangles;
+
+    inline size_t cell_triangle_count(size_t cell_idx) const
+    {
+      return m_cell_triangles[cell_idx+1] -  m_cell_triangles[cell_idx];
+    }
+
+    inline auto cell_triangles(size_t cell_idx) const
+    {
+      return onika::cuda::span<const size_t>{ m_cell_triangles.data() + m_cell_triangles[cell_idx] , cell_triangle_count(cell_idx) };
+    }
+
+    inline auto triangles_nearby(const onika::math::Vec3d& r) const
+    {
+      using namespace onika::math;
+      using namespace onika::cuda;
+      const auto cell_loc = vclamp( make_ijk( ( ( r - m_origin ) / m_cell_size ) + 0.5 ) , IJK{0,0,0} , m_grid_dims-1 );
+      const auto cell_idx = clamp( grid_ijk_to_index( m_grid_dims , cell_loc ) , ssize_t(0) , grid_cell_count(m_grid_dims)-1 );
+      return cell_triangles( cell_idx );
+    }
+
+    inline bool exceeds_maximum_distance(double d) const
+    {
+      return d > m_max_dist;
+    }
   };
 
   struct GridTriangleIntersectionListRO
@@ -147,6 +172,7 @@ namespace exanb
     using CellTriangleArray = onika::cuda::ro_shallow_copy_t< onika::memory::CudaMMVector<size_t> >;
     onika::math::IJK m_grid_dims;
     double m_cell_size;
+    double m_max_dist;
     onika::math::Vec3d m_origin;
     CellTriangleArray m_cell_triangles;
     
@@ -171,6 +197,12 @@ namespace exanb
       const auto cell_idx = clamp( grid_ijk_to_index( m_grid_dims , cell_loc ) , ssize_t(0) , grid_cell_count(m_grid_dims)-1 );
       return cell_triangles( cell_idx );
     }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline bool exceeds_maximum_distance(double d) const
+    {
+      return d > m_max_dist;
+    }
   };
 
   template<class IntegerT = size_t>
@@ -188,17 +220,24 @@ namespace exanb
   struct TrivialTriangleLocatorTmpl
   {
     TriangleSpanT m_triangle_index_list;
+    
     ONIKA_HOST_DEVICE_FUNC
     inline const TriangleSpanT& triangles_nearby(const onika::math::Vec3d& r) const
     {
       return m_triangle_index_list;
+    }
+    
+    ONIKA_HOST_DEVICE_FUNC
+    inline bool exceeds_maximum_distance(double d) const
+    {
+      return false;
     }
   };
   using TrivialTriangleLocator = TrivialTriangleLocatorTmpl<>;
 
   inline GridTriangleIntersectionListRO read_only_view( const GridTriangleIntersectionList& other )
   {
-    return { other.m_grid_dims , other.m_cell_size , other.m_origin , other.m_cell_triangles };
+    return { other.m_grid_dims , other.m_cell_size , other.m_max_dist , other.m_origin , other.m_cell_triangles };
   }
 }
 

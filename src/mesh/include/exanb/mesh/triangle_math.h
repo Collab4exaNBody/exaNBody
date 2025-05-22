@@ -187,7 +187,7 @@ namespace exanb
     double m_tri_u, m_tri_v, m_tri_w;
     double m_edge_u;
     bool m_plane_edge_intersect;
-    bool m_inside_trianle;
+    bool m_inside_triangle;
     bool m_intersect;
   };
 
@@ -302,7 +302,7 @@ ONIKA_UNIT_TEST(triangle_edge_intersection)
       {
         const auto edge_bary = e[0] + ( inter.m_edge_u * (e[1] - e[0]) );
         const auto tri_bary = inter.m_tri_u * t[0] + inter.m_tri_v * t[1] + inter.m_tri_w * t[2];
-        ONIKA_TEST_ASSERT( inter.m_plane_edge_intersect && inter.m_inside_trianle );
+        ONIKA_TEST_ASSERT( inter.m_plane_edge_intersect && inter.m_inside_triangle );
         ONIKA_TEST_ASSERT( (inter.m_tri_u+inter.m_tri_v+inter.m_tri_w-1) < 1e-12 );
         ONIKA_TEST_ASSERT( norm( inter.m_intersection - edge_bary ) < 1e-9 );
         ONIKA_TEST_ASSERT( norm( inter.m_intersection - tri_bary ) < 1e-9 );
@@ -310,12 +310,12 @@ ONIKA_UNIT_TEST(triangle_edge_intersection)
       }
       else
       {
-        ONIKA_TEST_ASSERT( ! inter.m_plane_edge_intersect || ! inter.m_inside_trianle );      
+        ONIKA_TEST_ASSERT( ! inter.m_plane_edge_intersect || ! inter.m_inside_triangle );      
         if( inter.m_plane_edge_intersect )
         {
           ONIKA_TEST_ASSERT( inter.m_tri_u<0 || inter.m_tri_u>1 || inter.m_tri_v<0 || inter.m_tri_v>1 || inter.m_tri_w<0 || inter.m_tri_w>1 );
         }
-        if( inter.m_inside_trianle )
+        if( inter.m_inside_triangle )
         {
           ONIKA_TEST_ASSERT( inter.m_edge_u<0 || inter.m_edge_u>1 || ( ( dot( plane_n , inter.m_intersection ) + plane_d ) / inter.m_typical_length ) > 1e-9 );
         }

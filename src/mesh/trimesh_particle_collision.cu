@@ -25,7 +25,7 @@ under the License.
 
 #include <exanb/mesh/triangle_mesh.h>
 #include <exanb/mesh/triangle_math.h>
-#include <exanb/mesh/particle_mesh_proximty.h>
+#include <exanb/mesh/particle_mesh_collision.h>
 #include <exanb/mesh/edge_math.h>
 #include <onika/math/basic_types.h>
 #include <exanb/core/make_grid_variant_operator.h>
@@ -34,31 +34,20 @@ under the License.
 namespace exanb
 {
 
-  struct TestMeshProximityFunctor
+  struct TestMeshCollisionFunctor
   {
     // in front of an edge, within given maximum distance range
     ONIKA_HOST_DEVICE_FUNC
-    inline void operator () (const Vec3d& r, const Vec3d& pv, double d, size_t cell_idx, size_t p_idx, ssize_t v0, ssize_t v1, ssize_t v2, double w0, double w1, double w2, bool behind ) const
+    inline void operator () (size_t cell_idx, size_t p_idx, size_t tri_idx, const Vec3d& r, const Vec3d& v, double delta_t, double w0, double w1, double w2 ) const
     {
-      if( v1!=-1 && v2!=-1 )
-      {
-        printf("Cell %d , P %d <-> Triangle{%d;%d;%d} : d=%f , behind=%d\n",int(cell_idx),int(p_idx),int(v0),int(v1),int(v2),d,int(behind));
-      }
-      else if( v1!=-1 )
-      {
-        printf("Cell %d , P %d <-> Edge{%d;%d} : d=%f\n",int(cell_idx),int(p_idx),int(v0),int(v1),d);
-      }
-      else
-      {
-        printf("Cell %d , P %d <-> Vertex{%d} : d=%f\n",int(cell_idx),int(p_idx),int(v0),d);
-      }
+      printf("Cell %d , P %d : pos=(%f,%f,%f) , vel=(%f,%f,%f) : impact triangle %d at t+%f\n",int(cell_idx),int(p_idx),p.x,p.y,p.z,v.x,v.y,v.z,int(tri_idx),delta_t);
     }
   };
 
   template< class GridT >
-  class TriangleMeshProximityTest : public OperatorNode
+  class TriangleMeshCollisionTest : public OperatorNode
   {
-    ADD_SLOT( double                       , max_dist          , INPUT , REQUIRED , 0.0 );
+    ADD_SLOT( double                       , dt                , INPUT , REQUIRED , 0.0 );
     ADD_SLOT( GridTriangleIntersectionList , grid_to_triangles , INPUT , OPTIONAL );
     ADD_SLOT( TriangleMesh                 , mesh              , INPUT_OUTPUT , REQUIRED );
     ADD_SLOT( GridT                        , grid              , INPUT_OUTPUT , REQUIRED );
@@ -70,21 +59,22 @@ namespace exanb
       auto ry = grid->field_accessor( field::ry );
       auto rz = grid->field_accessor( field::rz );
 
-      bool fallback_to_trivial_locator = true;
+      auto vx = grid->field_accessor( field::vx );
+      auto vy = grid->field_accessor( field::vy );
+      auto vz = grid->field_accessor( field::vz );
+      
+      const double delta_t = *dt;
+      
       if( grid_to_triangles.has_value() )
       {
-        if( ! grid_to_triangles->exceeds_maximum_distance(*max_dist) )
-        {
-          fallback_to_trivial_locator = false;
-          GridParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , *max_dist };
-          compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
-        }
+        GridParticleTriangleCollision<TestMeshCollisionFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , delta_t };
+        compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz,vx,vy,vz) , parallel_execution_context() );
       }
-      if( fallback_to_trivial_locator )
+      else
       {
         TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
-        ParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { all_triangles , read_only_view(*mesh) , *max_dist };
-        compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
+        ParticleTriangleCollision<TestMeshCollisionFunctor,true,true> func = { all_triangles , read_only_view(*mesh) };
+        compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz,vx,vy,vz) , parallel_execution_context() );
       }
 
     }
@@ -93,7 +83,7 @@ namespace exanb
   // === register factories ===  
   ONIKA_AUTORUN_INIT(particle_mesh_ineraction)
   {
-    OperatorNodeFactory::instance()->register_factory("trimesh_proximity",make_grid_variant_operator< TriangleMeshProximityTest >);
+    OperatorNodeFactory::instance()->register_factory("trimesh_collision",make_grid_variant_operator< TriangleMeshCollisionTest >);
   }
 
 }
