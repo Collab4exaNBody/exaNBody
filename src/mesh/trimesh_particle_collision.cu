@@ -40,7 +40,7 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC
     inline void operator () (size_t cell_idx, size_t p_idx, size_t tri_idx, const Vec3d& r, const Vec3d& v, double delta_t, double w0, double w1, double w2 ) const
     {
-      printf("Cell %d , P %d : pos=(%f,%f,%f) , vel=(%f,%f,%f) : impact triangle %d at t+%f\n",int(cell_idx),int(p_idx),p.x,p.y,p.z,v.x,v.y,v.z,int(tri_idx),delta_t);
+      printf("Cell %d , P %d : pos=(%f,%f,%f) , vel=(%f,%f,%f) : impact triangle %d at t+%f\n",int(cell_idx),int(p_idx),r.x,r.y,r.z,v.x,v.y,v.z,int(tri_idx),delta_t);
     }
   };
 
@@ -67,13 +67,13 @@ namespace exanb
       
       if( grid_to_triangles.has_value() )
       {
-        GridParticleTriangleCollision<TestMeshCollisionFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , delta_t };
+        GridParticleTriangleCollision<TestMeshCollisionFunctor> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , delta_t };
         compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz,vx,vy,vz) , parallel_execution_context() );
       }
       else
       {
         TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
-        ParticleTriangleCollision<TestMeshCollisionFunctor,true,true> func = { all_triangles , read_only_view(*mesh) };
+        ParticleTriangleCollision<TestMeshCollisionFunctor> func = { all_triangles , read_only_view(*mesh) };
         compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz,vx,vy,vz) , parallel_execution_context() );
       }
 

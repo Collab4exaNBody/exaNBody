@@ -41,8 +41,8 @@ namespace exanb
     {
       const Vec3d r0 = {rx,ry,rz};
       const Vec3d v = {vx,vy,vz};
-      const Vec3d r1 = r + v * m_delta_t;
-      const auto triangles_list = m_grid_triangles.triangles_nearby( r );
+      const Vec3d r1 = r0 + v * m_delta_t;
+      const auto triangles_list = m_grid_triangles.triangles_nearby( r0 );
       const int n_triangles = triangles_list.size(); //m_grid_triangles.cell_triangle_count( trigrid_cell_idx );
 
       assert( ! m_grid_triangles.exceeds_maximum_distance( norm(v*m_delta_t) ) );
@@ -61,7 +61,7 @@ namespace exanb
         const auto tri_edge = triangle_edge_intersection( tri , { r0 , r1 } );
         
         // test if nearest triangle is closest element
-        if( tri_edge.m_intersect && ( nearest_triangle == -1 || tri_edge.m_edge_u < edge_u ) )
+        if( tri_edge.m_intersect && ( nearest_triangle == -1 || tri_edge.m_edge_u < edge_u ) )
         {
           nearest_triangle = tri_idx;
           edge_u = tri_edge.m_edge_u;
@@ -71,7 +71,7 @@ namespace exanb
         }
       }
       
-      if( nearest_triangle != -1 ) m_func( cell_idx , p_idx, nearest_triangle, r, v, edge_u * m_delta_t , tri_w0, tri_w1, tri_w2 );
+      if( nearest_triangle != -1 ) m_func( cell_idx , p_idx, nearest_triangle, r0, v, edge_u * m_delta_t , tri_w0, tri_w1, tri_w2 );
     }
   };
 

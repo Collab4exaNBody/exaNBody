@@ -126,6 +126,11 @@ sets result output to true if at least one particle has moved further than thres
       particle_displ_comm->m_async_request = false;
       particle_displ_comm->m_request_started = false;
 
+      const IJK dims = grid->dimension();
+      const size_t n_cells = grid->number_of_cells();
+      std::cout << "ParticleDisplacementOver: n_cells = "<<n_cells<<" , dims = "<<dims<< std::endl;
+      assert( backup_r->m_data.size() == n_cells );
+
       ReduceMaxDisplacementFunctor func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 };
 
       if( *async )
