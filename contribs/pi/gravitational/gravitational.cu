@@ -31,8 +31,10 @@ under the License.
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/particle_neighbors/chunk_neighbors.h> // for MAX_PARTICLE_NEIGHBORS constant
 
+#include <microcosmos/planet_types.h>
+
 // this allows for parallel compilation of templated operator for each available field set
-namespace md
+namespace microcosmos
 {
   using namespace exanb;
 
@@ -42,12 +44,12 @@ namespace md
     double G = 0.0;
   };
 
-  ONIKA_HOST_DEVICE_FUNC inline void gravitational_compute_energy(const GravitationalParms& p, const PairPotentialMinimalParameters& p_pair, double r, double& e, double& de)
+  ONIKA_HOST_DEVICE_FUNC inline void gravitational_compute_energy(const GravitationalParms& p, double mass_a, double mass_b, double r, double& e, double& de)
   {
     assert( r > 0. );
     const double inv_r = 1.0 / r;
-    e = - p.G * p_pair.m_atom_a.m_mass * p_pair.m_atom_b.m_mass * inv_r;
-    de =  p.G * p_pair.m_atom_a.m_mass * p_pair.m_atom_b.m_mass * inv_r * inv_r;
+    e = - p.G * mass_a * mass_b * inv_r;
+    de =  p.G * mass_a * mass_b * inv_r * inv_r;
   }
 
   // interaction potential compute functor
@@ -55,6 +57,7 @@ namespace md
   {
     // potential function parameters
     const GravitationalParms m_params;
+    const PlanetProperties * __restrict__ m_planet_types = nullptr;
 
     // concrete type of computation buffer and particle container may vary,
     // we use templates here to adapat to various situations
@@ -62,6 +65,7 @@ namespace md
     inline void operator () (
       size_t n,                          // number of neighbor particles
       const ComputePairBufferT& buffer,  // neighbors buffer
+      int type_a,                        // central particle's type
       double& fx,                        // central particle's force/X reference
       double& fy,                        // central particle's force/Y reference
       double& fz,                        // central particle's force/Z reference
@@ -73,12 +77,17 @@ namespace md
       double _fy = 0.;
       double _fz = 0.;
 
+      const double mass_a = m_planet_types[type_a].m_mass;;
+
 #     pragma omp simd reduction(+:_fx,_fy,_fz)
       for(size_t i=0;i<n;i++)
       {
         const double r = std::sqrt(buffer.d2[i]);
+        const int type_b = buffer.nbh_pt[i][field::type]; //cells[buffer.cell][field::type][buffer.part];
+        const double mass_b = m_planet_types[type_b].m_mass;
+
         double pair_e=0.0, pair_de=0.0;
-        gravitational_compute_energy( m_params, r, pair_e, pair_de );
+        gravitational_compute_energy( m_params, mass_a, 1.0, r, pair_e, pair_de );
         const auto interaction_weight = buffer.nbh_data.get(i);
         pair_de *= interaction_weight / r;        
         _fx += pair_de * buffer.drx[i];  // force is energy derivative multiplied by rij vector, sum force contributions for all neighbor particles
@@ -95,6 +104,7 @@ namespace md
     ONIKA_HOST_DEVICE_FUNC inline void operator () (
         Vec3d dr
       , double d2
+      , int type_a
       , double& fx
       , double& fy
       , double& fz
@@ -103,9 +113,12 @@ namespace md
       , size_t neighbor_particle
       , double interaction_weight ) const
     {
+      const double mass_a = m_planet_types[type_a].m_mass;
+      const int type_b = cells[neighbor_cell][field::type][neighbor_particle];
+      const double mass_b = m_planet_types[type_b].m_mass;;
       const double r = sqrt(d2);
       double pair_e = 0.0 , pair_de = 0.0;
-      gravitational_compute_energy( m_params, r, pair_e, pair_de );
+      gravitational_compute_energy( m_params, mass_a, mass_b, r, pair_e, pair_de );
       pair_de *= interaction_weight / r;        
       fx += pair_de * dr.x;
       fy += pair_de * dr.y;
@@ -121,12 +134,11 @@ namespace exanb
 
   // specialize functor traits to allow Cuda execution space
   template<>
-  struct ComputePairTraits< md::GravitationalForceFunctor >
+  struct ComputePairTraits< microcosmos::GravitationalForceFunctor >
   {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
+    static inline constexpr bool CudaCompatible = true;
     static inline constexpr bool ComputeBufferCompatible = true;
     static inline constexpr bool BufferLessCompatible = true;
-    static inline constexpr bool CudaCompatible = true;
   };
 
 }
@@ -134,21 +146,20 @@ namespace exanb
 // Yaml conversion operators, allows to read potential parameters from config file
 namespace YAML
 {
-
-  template<> struct convert< md::GravitationalParms >
+  template<> struct convert< microcosmos::GravitationalParms >
   {
-    static bool decode(const Node& node, md::GravitationalParms & v)
+    static bool decode(const Node& node, microcosmos::GravitationalParms & v)
     {
-      v = md::GravitationalParms {};
-      if( !node.IsMap() ) { return false; }
+      v = microcosmos::GravitationalParms {};
+      if( !node.IsMap() ) { onika::lerr<<"GravitationalParms expectes a map"<<std::endl; return false; }
+      if( ! node["G"] ) { onika::lerr<<"GravitationalParms does not contain a 'G' entry"<<std::endl; return false; }
       v.G = node["G"].as<onika::physics::Quantity>().convert();
       return true;
     }
   };
-
 }
 
-namespace md
+namespace microcosmos
 {
   using namespace exanb;
 
@@ -159,7 +170,8 @@ namespace md
   class GravitationalForce : public OperatorNode
   {
     // ========= I/O slots =======================
-    ADD_SLOT( GravitationalParms         , config          , INPUT        , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
+    ADD_SLOT( GravitationalParms        , config          , INPUT        , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
+    ADD_SLOT( PlanetTypeArray           , planet_types    , INPUT        , REQUIRED , DocString{"Planet properties defintions"} );
     ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance"} );
     ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
     ADD_SLOT( bool                      , ghost           , INPUT        , false , DocString{"Enables computation in ghost cells"});
@@ -168,8 +180,10 @@ namespace md
     ADD_SLOT( GridT                     , grid            , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_pair_singlemat
-    using ComputeBuffer = ComputePairBuffer2<false,false>;
-    static inline constexpr FieldSet< field::_fx ,field::_fy ,field::_fz > compute_field_set = {};
+    using CentralParticleFieldSet = FieldSet< field::_type, field::_fx ,field::_fy ,field::_fz >;
+    static inline constexpr CentralParticleFieldSet central_particle_fields = {};
+    using NbhParticleFieldSet = FieldSet< field::_type >;
+    using ComputeBuffer = SimpleNbhComputeBuffer< NbhParticleFieldSet >; // ComputePairBuffer2<false,false>;
 
   public:
     // Operator execution
@@ -183,11 +197,11 @@ namespace md
       ComputePairOptionalLocks<false> cp_locks {};
       exanb::GridChunkNeighborsLightWeightIt<false> nbh_it{ *chunk_neighbors };
       auto force_buf = make_compute_pair_buffer<ComputeBuffer>();
-      GravitationalForceFunctor force_op = { *config };
+      GravitationalForceFunctor force_op = { *config , planet_types->data() };
 
       LinearXForm cp_xform { domain->xform() };
       auto optional = make_compute_pair_optional_args( nbh_it, ComputePairNullWeightIterator{} , cp_xform, cp_locks );
-      compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , compute_field_set , parallel_execution_context() );      
+      compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , central_particle_fields , parallel_execution_context() );      
     }
 
   };

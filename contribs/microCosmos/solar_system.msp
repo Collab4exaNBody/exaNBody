@@ -26,8 +26,16 @@ compute_force:
       rcut: 200.0e6 m
 
 input_data:
-  - particle_types:
-      particle_type_map: { Soleil: 0, Mercure: 1, Venus: 2, Terre: 3, Mars: 4, Jupiter: 5, Saturne: 6, Uranus: 7, Neptune: 8 }
+  - planet_types:
+      Soleil:  { mass: 1.e9 Kg , radius: 5000 Km }
+      Mercure: { mass: 1.e9 Kg , radius: 5000 Km }
+      Venus:   { mass: 1.e9 Kg , radius: 5000 Km }
+      Terre:   { mass: 1.e9 Kg , radius: 5000 Km }
+      Mars:    { mass: 1.e9 Kg , radius: 5000 Km }
+      Jupiter: { mass: 1.e9 Kg , radius: 5000 Km }
+      Saturne: { mass: 1.e9 Kg , radius: 5000 Km }
+      Uranus:  { mass: 1.e9 Kg , radius: 5000 Km }
+      Neptune: { mass: 1.e9 Kg , radius: 5000 Km }
   - domain:
       cell_size: 1e3 m
       grid_dims: [ 10 , 10 , 10 ]
@@ -40,7 +48,7 @@ input_data:
       structure: CUSTOM
       np: 1
       types: [ Soleil, Mercure, Venus, Terre, Mars, Jupiter, Saturne, Uranus, Neptune ]
-      positions: [ [0.5, 0.5, 0.5], [0.0, -0.6, 0.6] ... ]
+      positions: [ [0.5, 0.5, 0.5], [0.0, -0.6, 0.6] ]
       size: [10e9 m , 10e9 m , 10e9 m ]
       noise: 1e6 m
 
