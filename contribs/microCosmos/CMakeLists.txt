@@ -15,3 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/solar_system.msp DESTINATION share/examples)
+
+

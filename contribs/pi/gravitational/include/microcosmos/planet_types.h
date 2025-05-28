@@ -31,19 +31,22 @@ namespace microcosmos
     double m_radius = 1.0;
   };
   
-  using PlanetTypeArray = onika::memory::CudaMMVector<PlanetProperties>;
+  struct PlanetarySystem
+  {
+    onika::memory::CudaMMVector<PlanetProperties> m_planet_properties;
+  };
 }
 
 namespace YAML
 {
-  template<> struct convert< microcosmos::PlanetTypeArray >
+  template<> struct convert< microcosmos::PlanetarySystem >
   {
-    static bool decode(const Node& node, microcosmos::PlanetTypeArray & v)
+    static bool decode(const Node& node, microcosmos::PlanetarySystem & v)
     {
-      v.clear();
-      if( !node.IsSequence() )
+      v.m_planet_properties.clear();
+      if( !node.IsMap() )
       {
-        onika::lerr << "PlanetTypeArray expects a list" << std::endl;
+        onika::lerr << "PlanetarySystem expects a map" << std::endl;
         return false;
       }
       for (auto item : node)
@@ -51,9 +54,10 @@ namespace YAML
         const auto name = item.first.as<std::string>();
         double mass = 1.0;
         double radius = 1.0;
-        if( item.second["mass"] ) mass = item.second["mass"].as<onika::physics::Quantity>().convert();
-        if( item.second["radius"] ) radius = item.second["radius"].as<onika::physics::Quantity>().convert();
-        v.push_back( { name , mass , radius } );
+        std::cout << "add planet type "<<name<<" , mass '"<< item.second["mass"].as<std::string>() << "' , radius '"<< item.second["radius"].as<std::string>()<<"'" << std::endl;
+        if( item.second["mass"] ) { mass = item.second["mass"].as<onika::physics::Quantity>().convert(); std::cout<<"mass="<<mass<<std::endl; }
+        if( item.second["radius"] ) { radius = item.second["radius"].as<onika::physics::Quantity>().convert(); std::cout<<"mass="<<mass<<std::endl; }
+        v.m_planet_properties.push_back( { name , mass , radius } );
       }
       return true;
     }

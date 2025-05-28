@@ -171,7 +171,7 @@ namespace microcosmos
   {
     // ========= I/O slots =======================
     ADD_SLOT( GravitationalParms        , config          , INPUT        , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
-    ADD_SLOT( PlanetTypeArray           , planet_types    , INPUT        , REQUIRED , DocString{"Planet properties defintions"} );
+    ADD_SLOT( PlanetarySystem           , planet_types    , INPUT        , REQUIRED , DocString{"Planet properties defintions"} );
     ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance"} );
     ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
     ADD_SLOT( bool                      , ghost           , INPUT        , false , DocString{"Enables computation in ghost cells"});
@@ -197,7 +197,7 @@ namespace microcosmos
       ComputePairOptionalLocks<false> cp_locks {};
       exanb::GridChunkNeighborsLightWeightIt<false> nbh_it{ *chunk_neighbors };
       auto force_buf = make_compute_pair_buffer<ComputeBuffer>();
-      GravitationalForceFunctor force_op = { *config , planet_types->data() };
+      GravitationalForceFunctor force_op = { *config , planet_types->m_planet_properties.data() };
 
       LinearXForm cp_xform { domain->xform() };
       auto optional = make_compute_pair_optional_args( nbh_it, ComputePairNullWeightIterator{} , cp_xform, cp_locks );

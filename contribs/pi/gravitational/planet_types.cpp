@@ -35,7 +35,7 @@ namespace microcosmos
     // -----------------------------------------------
     // Operator slots
     // -----------------------------------------------    
-    ADD_SLOT( PlanetTypeArray , planet_types      , INPUT_OUTPUT , PlanetTypeArray{} );
+    ADD_SLOT( PlanetarySystem , planet_types      , INPUT_OUTPUT , PlanetarySystem{} );
     ADD_SLOT( ParticleTypeMap , particle_type_map , INPUT_OUTPUT , ParticleTypeMap{} );
     ADD_SLOT( bool            , verbose           , INPUT        , true );
     
@@ -43,9 +43,9 @@ namespace microcosmos
     inline void execute () override final
     {
       particle_type_map->clear();
-      for(size_t i=0;i<planet_types->size();i++)
+      for(size_t i=0;i<planet_types->m_planet_properties.size();i++)
       {
-        particle_type_map->insert( { planet_types->at(i).m_name , i } );
+        particle_type_map->insert( { planet_types->m_planet_properties.at(i).m_name , i } );
       }
 
       if( *verbose )
@@ -53,7 +53,7 @@ namespace microcosmos
         lout << "====== Planet types ======" << std::endl;
         for(const auto & item:*particle_type_map)
         {
-          lout << item.first << " : type=" << item.second << " , mass="<<planet_types->at(item.second).m_mass<<" , radius="<<planet_types->at(item.second).m_radius<<std::endl;
+          lout << item.first << " : type=" << item.second << " , mass="<<planet_types->m_planet_properties.at(item.second).m_mass<<" , radius="<<planet_types->m_planet_properties.at(item.second).m_radius<<std::endl;
         }
         lout << "==========================" << std::endl;
       }
