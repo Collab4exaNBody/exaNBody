@@ -37,9 +37,9 @@ input_data:
       Uranus:  { mass: 1.e9 kg , radius: 5.e6 m }
       Neptune: { mass: 1.e9 kg , radius: 5.e6 m }
   - domain:
-      cell_size: 1e3 m
+      cell_size: 1e6 m
       grid_dims: [ 10 , 10 , 10 ]
-      bounds: [ [ 0.0 , 0.0, 0.0] , [ 10000 m  , 10000 m  , 10000 m ] ]
+      bounds: [ [ 0.0 , 0.0, 0.0] , [ 1e7 m  , 1e7 m  , 1e7 m ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
@@ -47,9 +47,17 @@ input_data:
   - lattice:
       structure: CUSTOM
       types: [ Soleil, Mercure, Venus, Terre, Mars, Jupiter, Saturne, Uranus, Neptune ]
-      positions: [ [0.5, 0.5, 0.5], [0.0, -0.6, 0.6] ]
-      size: [10e9 m , 10e9 m , 10e9 m ]
+      positions:
+        - [  0.5        ,  0.5        ,  0.5        ]
+        - [  5.0000e-01 ,  6.0000e-01 ,  5.0000e-01 ]
+        - [  6.4142e-01 ,  6.0607e-01 ,  6.0607e-01 ]
+        - [  7.0000e-01 ,  5.0000e-01 ,  7.0000e-01 ]
+        - [  6.4142e-01 ,  3.2322e-01 ,  6.7678e-01 ]
+        - [  5.0000e-01 ,  2.0000e-01 ,  5.0000e-01 ]
+        - [  3.5858e-01 ,  2.5251e-01 ,  2.5251e-01 ]
+        - [  3.0000e-01 ,  5.0000e-01 ,  1.0000e-01 ]
+        - [  3.5858e-01 ,  8.1820e-01 ,  1.8180e-01 ]
+      size: [ 10e9 m , 10e9 m , 10e9 m ]
       noise: 1e6 m
 
 simulation: default_simulation
-

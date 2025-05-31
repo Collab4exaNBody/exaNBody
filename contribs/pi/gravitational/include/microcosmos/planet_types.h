@@ -56,7 +56,7 @@ namespace YAML
         double radius = 1.0;
         std::cout << "add planet type "<<name<<" , mass '"<< item.second["mass"].as<std::string>() << "' , radius '"<< item.second["radius"].as<std::string>()<<"'" << std::endl;
         if( item.second["mass"] ) { mass = item.second["mass"].as<onika::physics::Quantity>().convert(); std::cout<<"mass="<<mass<<std::endl; }
-        if( item.second["radius"] ) { radius = item.second["radius"].as<onika::physics::Quantity>().convert(); std::cout<<"mass="<<mass<<std::endl; }
+        if( item.second["radius"] ) { radius = item.second["radius"].as<onika::physics::Quantity>().convert(); std::cout<<"radius="<<radius<<std::endl; }
         v.m_planet_properties.push_back( { name , mass , radius } );
       }
       return true;
