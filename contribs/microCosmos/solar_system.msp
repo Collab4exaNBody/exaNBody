@@ -15,8 +15,8 @@ configuration:
 
 global:
   dt: 1.0 h
-  rcut_max: 200.0e6 m
-  rcut_inc: 10.0e6 m
+  rcut_max: 180 m
+  rcut_inc: 20 m
   simulation_log_frequency: 1
   simulation_end_iteration: 1
 
@@ -27,37 +27,41 @@ compute_force:
 
 input_data:
   - planet_types:
-      Soleil:  { mass: 1.e9 kg , radius: 5.e6 m }
-      Mercure: { mass: 1.e9 kg , radius: 5.e6 m }
-      Venus:   { mass: 1.e9 kg , radius: 5.e6 m }
-      Terre:   { mass: 1.e9 kg , radius: 5.e6 m }
-      Mars:    { mass: 1.e9 kg , radius: 5.e6 m }
-      Jupiter: { mass: 1.e9 kg , radius: 5.e6 m }
-      Saturne: { mass: 1.e9 kg , radius: 5.e6 m }
-      Uranus:  { mass: 1.e9 kg , radius: 5.e6 m }
-      Neptune: { mass: 1.e9 kg , radius: 5.e6 m }
+      Meteor:   { mass: 1.e6 kg , radius: 15 m }
+      Asteroid: { mass: 1.e7 kg , radius: 30 m }
+      Moon:     { mass: 1.e8 kg , radius: 60 m }
+      Planet:   { mass: 1.e9 kg , radius: 150 m }
+  - particle_regions:
+      - BOX:
+          bounds: [ [ 0.0 , 0.0, 0.0] , [ 1e3 m  , 1e3 m  , 1e3 m ] ]
+      - SPHERE:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 300 m , 300 m , 300 m ]
+              - translate: [ 975 m , 975 m , 975 m ]
   - domain:
-      cell_size: 1e6 m
-      grid_dims: [ 10 , 10 , 10 ]
-      bounds: [ [ 0.0 , 0.0, 0.0] , [ 1e7 m  , 1e7 m  , 1e7 m ] ]
+      cell_size: 130 m
+      grid_dims: [ 15 , 15 , 15 ]
+      bounds: [ [ 0.0 , 0.0, 0.0] , [ 1950 m  , 1950 m  , 1950 m ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
   - init_rcb_grid
   - lattice:
       structure: CUSTOM
-      types: [ Soleil, Mercure, Venus, Terre, Mars, Jupiter, Saturne, Uranus, Neptune ]
+      types: [ Planet, Moon ]
       positions:
-        - [  0.5        ,  0.5        ,  0.5        ]
-        - [  5.0000e-01 ,  6.0000e-01 ,  5.0000e-01 ]
-        - [  6.4142e-01 ,  6.0607e-01 ,  6.0607e-01 ]
-        - [  7.0000e-01 ,  5.0000e-01 ,  7.0000e-01 ]
-        - [  6.4142e-01 ,  3.2322e-01 ,  6.7678e-01 ]
-        - [  5.0000e-01 ,  2.0000e-01 ,  5.0000e-01 ]
-        - [  3.5858e-01 ,  2.5251e-01 ,  2.5251e-01 ]
-        - [  3.0000e-01 ,  5.0000e-01 ,  1.0000e-01 ]
-        - [  3.5858e-01 ,  8.1820e-01 ,  1.8180e-01 ]
-      size: [ 10e9 m , 10e9 m , 10e9 m ]
-      noise: 1e6 m
+        - [  0.5  , 0.5  , 0.5  ]
+        - [  0.55 , 0.55 , 0.55 ]
+      size: [ 1950 m , 1950 m , 1950 m ]
+      noise: 1 m
+  - lattice:
+      structure: BCC
+      types: [ Meteor, Asteroid ]
+      size: [ 50 m , 50 m , 50 m ]
+      noise: 1 m
+      noise_cutoff: 2 m
+      region: not SPHERE
 
 simulation: default_simulation
