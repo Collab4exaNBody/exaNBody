@@ -15,8 +15,8 @@ configuration:
 
 global:
   dt: 1 s
-  rcut_max: 180 m
-  rcut_inc: 20 m
+  rcut_max: 280 m
+  rcut_inc: 18 m
   simulation_log_frequency: 10
   simulation_dump_frequency: 20
   simulation_end_iteration: 100
@@ -28,7 +28,7 @@ global:
 compute_force:
   - gravitational_force:
       config: { G: 6.67e-11 m^3/kg/s^2 }
-      rcut: 200.0e6 m
+      rcut: 280 m
 
 input_data:
   - particle_types:
@@ -52,8 +52,8 @@ input_data:
               - scale: [ 80 m , 80 m , 80 m ]
               - translate: [ 1072.5 m , 1072.5 m , 1072.5 m ]
   - domain:
-      cell_size: 130 m
-      grid_dims: [ 15 , 15 , 15 ]
+      cell_size: 150 m
+      grid_dims: [ 13 , 13 , 13 ]
       bounds: [ [ 0.0 , 0.0, 0.0] , [ 1950 m  , 1950 m  , 1950 m ] ]
       periodic: [ true , true , true ]
       expandable: false
@@ -70,7 +70,7 @@ input_data:
   - lattice:
       structure: BCC
       types: [ Meteor, Asteroid ]
-      size: [ 100 m , 100 m , 100 m ]
+      size: [ 150 m , 150 m , 150 m ]
       noise: 1 m
       noise_cutoff: 2 m
       region: not ( PLANET or MOON )

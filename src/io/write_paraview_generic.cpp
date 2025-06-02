@@ -85,7 +85,7 @@ namespace exanb
         {
           for(const auto & it : particle_type_properties->m_scalars)
           {
-            lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
+            // lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
             type_scalar_combiners.push_back( { it.first , it.second.data() } );
           }
         }
