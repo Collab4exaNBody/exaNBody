@@ -59,6 +59,38 @@ namespace microcosmos
     const GravitationalParms m_params;
     const PlanetProperties * __restrict__ m_planet_types = nullptr;
 
+    // ComputeBuffer less computation without virial
+    template<class CellParticlesT>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () (
+        Vec3d dr
+      , double d2
+      , int type_a
+      , double& fx
+      , double& fy
+      , double& fz
+      , CellParticlesT* cells
+      , size_t neighbor_cell
+      , size_t neighbor_particle
+      , double interaction_weight ) const
+    {
+      const double mass_a = m_planet_types[type_a].m_mass;
+      const int type_b = cells[neighbor_cell][field::type][neighbor_particle];
+      const double mass_b = m_planet_types[type_b].m_mass;;
+      const double r = sqrt(d2);
+      double pair_e = 0.0 , pair_de = 0.0;
+      gravitational_compute_energy( m_params, mass_a, mass_b, r, pair_e, pair_de );
+      pair_de *= interaction_weight / r;        
+      fx += pair_de * dr.x;
+      fy += pair_de * dr.y;
+      fz += pair_de * dr.z;
+    }
+
+#if 0
+    // Note 1 :
+    // this functor form needs the trait 'ComputeBufferCompatible' set to true
+    // it is usefull when you need to know about all surrounding particles to
+    // compute local particle force contributions.
+    // Note 2 :
     // concrete type of computation buffer and particle container may vary,
     // we use templates here to adapat to various situations
     template<class ComputePairBufferT, class CellParticlesT> 
@@ -98,32 +130,7 @@ namespace microcosmos
       fy += _fy;
       fz += _fz;
     }
-
-    // ComputeBuffer less computation without virial
-    template<class CellParticlesT>
-    ONIKA_HOST_DEVICE_FUNC inline void operator () (
-        Vec3d dr
-      , double d2
-      , int type_a
-      , double& fx
-      , double& fy
-      , double& fz
-      , CellParticlesT* cells
-      , size_t neighbor_cell
-      , size_t neighbor_particle
-      , double interaction_weight ) const
-    {
-      const double mass_a = m_planet_types[type_a].m_mass;
-      const int type_b = cells[neighbor_cell][field::type][neighbor_particle];
-      const double mass_b = m_planet_types[type_b].m_mass;;
-      const double r = sqrt(d2);
-      double pair_e = 0.0 , pair_de = 0.0;
-      gravitational_compute_energy( m_params, mass_a, mass_b, r, pair_e, pair_de );
-      pair_de *= interaction_weight / r;        
-      fx += pair_de * dr.x;
-      fy += pair_de * dr.y;
-      fz += pair_de * dr.z;
-    }
+#endif
 
   };
 
@@ -137,8 +144,8 @@ namespace exanb
   struct ComputePairTraits< microcosmos::GravitationalForceFunctor >
   {
     static inline constexpr bool CudaCompatible = true;
-    static inline constexpr bool ComputeBufferCompatible = true;
     static inline constexpr bool BufferLessCompatible = true;
+    static inline constexpr bool ComputeBufferCompatible = false; // if true, then uncomment the "ComputePairBuffer" variant functor call operator
   };
 
 }
