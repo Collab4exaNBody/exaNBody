@@ -31,11 +31,13 @@ compute_force:
       rcut: 200.0e6 m
 
 input_data:
-  - planet_types:
-      Meteor:   { mass: 1.e3 kg , radius: 15 m }
-      Asteroid: { mass: 1.e4 kg , radius: 30 m }
-      Moon:     { mass: 1.e5 kg , radius: 60 m }
-      Planet:   { mass: 1.e6 kg , radius: 150 m }
+  - particle_types:
+      verbose: true
+      particle_type_properties:
+        Meteor:   { mass: 1.e3 kg , radius: 15 m }
+        Asteroid: { mass: 1.e4 kg , radius: 30 m }
+        Moon:     { mass: 1.e5 kg , radius: 60 m }
+        Planet:   { mass: 1.e6 kg , radius: 150 m }
   - particle_regions:
       - PLANET:
           quadric:

@@ -31,7 +31,7 @@ under the License.
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/particle_neighbors/chunk_neighbors.h> // for MAX_PARTICLE_NEIGHBORS constant
 
-#include <microcosmos/planet_types.h>
+#include <exanb/core/particle_type_properties.h>
 
 // this allows for parallel compilation of templated operator for each available field set
 namespace microcosmos
@@ -57,7 +57,7 @@ namespace microcosmos
   {
     // potential function parameters
     const GravitationalParms m_params;
-    const PlanetProperties * __restrict__ m_planet_types = nullptr;
+    const double * __restrict__ m_type_mass = nullptr;
 
     // ComputeBuffer less computation without virial
     template<class CellParticlesT>
@@ -73,9 +73,9 @@ namespace microcosmos
       , size_t neighbor_particle
       , double interaction_weight ) const
     {
-      const double mass_a = m_planet_types[type_a].m_mass;
+      const double mass_a = m_type_mass[type_a];
       const int type_b = cells[neighbor_cell][field::type][neighbor_particle];
-      const double mass_b = m_planet_types[type_b].m_mass;;
+      const double mass_b = m_type_mass[type_b];
       const double r = sqrt(d2);
       double pair_e = 0.0 , pair_de = 0.0;
       gravitational_compute_energy( m_params, mass_a, mass_b, r, pair_e, pair_de );
@@ -109,14 +109,14 @@ namespace microcosmos
       double _fy = 0.;
       double _fz = 0.;
 
-      const double mass_a = m_planet_types[type_a].m_mass;;
+      const double mass_a = m_type_mass[type_a];
 
 #     pragma omp simd reduction(+:_fx,_fy,_fz)
       for(size_t i=0;i<n;i++)
       {
         const double r = std::sqrt(buffer.d2[i]);
         const int type_b = buffer.nbh_pt[i][field::type]; //cells[buffer.cell][field::type][buffer.part];
-        const double mass_b = m_planet_types[type_b].m_mass;
+        const double mass_b = m_type_mass[type_b];
 
         double pair_e=0.0, pair_de=0.0;
         gravitational_compute_energy( m_params, mass_a, 1.0, r, pair_e, pair_de );
@@ -177,14 +177,15 @@ namespace microcosmos
   class GravitationalForce : public OperatorNode
   {
     // ========= I/O slots =======================
-    ADD_SLOT( GravitationalParms        , config          , INPUT        , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
-    ADD_SLOT( PlanetarySystem           , planet_types    , INPUT        , REQUIRED , DocString{"Planet properties defintions"} );
-    ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance"} );
-    ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
-    ADD_SLOT( bool                      , ghost           , INPUT        , false , DocString{"Enables computation in ghost cells"});
-    ADD_SLOT( Domain                    , domain          , INPUT        , REQUIRED , DocString{"Simulation domain"});
-    ADD_SLOT( double                    , rcut_max        , INPUT_OUTPUT , 0.0 , DocString{"Updated max rcut"});
-    ADD_SLOT( GridT                     , grid            , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
+    ADD_SLOT( GravitationalParms        , config            , INPUT        , REQUIRED , DocString{"Lennard-Jones potential parameters"} );
+    ADD_SLOT( ParticleTypeMap           , particle_type_map , INPUT        , ParticleTypeMap{ {} } );
+    ADD_SLOT( ParticleTypeProperties    , particle_type_properties , INPUT , ParticleTypeProperties{ {} } );
+    ADD_SLOT( double                    , rcut              , INPUT        , 0.0 , DocString{"Cutoff distance"} );
+    ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors   , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
+    ADD_SLOT( bool                      , ghost             , INPUT        , false , DocString{"Enables computation in ghost cells"});
+    ADD_SLOT( Domain                    , domain            , INPUT        , REQUIRED , DocString{"Simulation domain"});
+    ADD_SLOT( double                    , rcut_max          , INPUT_OUTPUT , 0.0 , DocString{"Updated max rcut"});
+    ADD_SLOT( GridT                     , grid              , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_pair_singlemat
     using CentralParticleFieldSet = FieldSet< field::_type, field::_fx ,field::_fy ,field::_fz >;
@@ -201,10 +202,15 @@ namespace microcosmos
       *rcut_max = std::max( *rcut , *rcut_max );
       if( grid->number_of_cells() == 0 ) { return; }
 
+      if( ! particle_type_properties->has_scalar_property("mass") )
+      {
+        fatal_error() << "particle type property 'mass' is missing" << std::endl;
+      }
+
       ComputePairOptionalLocks<false> cp_locks {};
       exanb::GridChunkNeighborsLightWeightIt<false> nbh_it{ *chunk_neighbors };
       auto force_buf = make_compute_pair_buffer<ComputeBuffer>();
-      GravitationalForceFunctor force_op = { *config , planet_types->m_planet_properties.data() };
+      GravitationalForceFunctor force_op = { *config , particle_type_properties->scalar_property("mass") };
 
       LinearXForm cp_xform { domain->xform() };
       auto optional = make_compute_pair_optional_args( nbh_it, ComputePairNullWeightIterator{} , cp_xform, cp_locks );
