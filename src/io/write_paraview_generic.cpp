@@ -27,6 +27,7 @@ under the License.
 #include <exanb/core/domain.h>
 
 #include <exanb/compute/field_combiners.h>
+#include <exanb/core/particle_type_properties.h>
 
 #include <exanb/io/vtk_writer.h>
 #include <exanb/io/vtk_writer_binary.h>
@@ -47,6 +48,7 @@ namespace exanb
 
     ADD_SLOT( MPI_Comm    , mpi             , INPUT );
     ADD_SLOT( GridT       , grid            , INPUT );
+    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , OPTIONAL );
     ADD_SLOT( Domain      , domain          , INPUT );
     ADD_SLOT( bool        , binary_mode       , INPUT , true);
     ADD_SLOT( bool        , write_box          , INPUT , true);
@@ -58,6 +60,8 @@ namespace exanb
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
+      static constexpr bool has_type_field = GridHasField<GridT,field::_type>::value ;
+      
       ldbg << "ParaviewGenericWriter: filename="<< *filename
            << " , write_box="<< std::boolalpha << *write_box
            << " , write_ghost="<< std::boolalpha << *write_ghost
@@ -72,9 +76,25 @@ namespace exanb
 
       const auto& flist = *fields;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-      auto gridacc = grid->cells_accessor(); //{ grid->cells() };
+      auto gridacc = grid->cells_accessor();
 
-      ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, grid_fields ... );
+      if constexpr ( has_type_field )
+      {
+        std::vector< TypePropertyScalarCombiner > type_scalar_combiners;
+        if( particle_type_properties.has_value() )
+        {
+          for(const auto & it : particle_type_properties->m_scalars)
+          {
+            lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
+            type_scalar_combiners.push_back( { it.first , it.second.data() } );
+          }
+        }
+        ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, type_scalar_combiners , grid_fields ... );
+      }
+      else
+      {
+        ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, grid_fields ... );
+      }
     }
 
     template<class... fid>

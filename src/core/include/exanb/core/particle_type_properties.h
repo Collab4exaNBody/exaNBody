@@ -24,7 +24,24 @@ under the License.
 #include <string>
 #include <onika/math/basic_types.h>
 #include <onika/memory/allocator.h>
+
+#include <exanb/core/grid_fields.h>
 #include <exanb/core/particle_type_id.h>
+#include <onika/soatl/field_combiner.h>
+
+namespace exanb
+{
+  struct TypePropertyScalarFunctor
+  {
+    const std::string m_name = "TypePropertyScalar";
+    const double * m_scalars = nullptr;
+    inline const char* short_name() const { return m_name.c_str(); }
+    inline const char* name() const { return m_name.c_str(); }
+    ONIKA_HOST_DEVICE_FUNC inline double operator () (int t) const { return m_scalars[t]; }
+  };
+}
+
+ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER( exanb, TypePropertyScalarCombiner , exanb::TypePropertyScalarFunctor , exanb::field::_type )
 
 namespace exanb
 {
