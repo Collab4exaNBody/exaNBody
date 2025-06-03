@@ -29,6 +29,21 @@ under the License.
 #include <exanb/core/particle_type_id.h>
 #include <onika/soatl/field_combiner.h>
 
+// backward compatibility with Onika v1.0.1
+#ifndef ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER
+#define ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER(ns,CombT,FuncT,...) \
+namespace onika { \
+namespace soatl { \
+template<> struct FieldCombiner<FuncT OPT_COMMA_VA_ARGS(__VA_ARGS__)> { \
+  FuncT m_func; \
+  using value_type = decltype( m_func( EXPAND_WITH_FUNC(_ONIKA_GET_TYPE_FROM_FIELD_ID OPT_COMMA_VA_ARGS(__VA_ARGS__)) ) ); \
+  const char* short_name() const { return m_func.short_name(); } \
+  const char* name() const { return m_func.name(); } \
+  }; \
+} } \
+namespace ns { using CombT = onika::soatl::FieldCombiner<FuncT OPT_COMMA_VA_ARGS(__VA_ARGS__)>; }
+#endif
+
 namespace exanb
 {
   struct TypePropertyScalarFunctor
