@@ -17,6 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 
+#pragma once
+
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
@@ -28,7 +30,7 @@ under the License.
 #include <onika/math/basic_types_yaml.h>
 #include <onika/math/basic_types_stream.h>
 #include <onika/log.h>
-//#include "exanb/vector_utils.h"
+
 #include <exanb/core/check_particles_inside_cell.h>
 #include <onika/physics/constants.h>
 #include <onika/parallel/random.h>
@@ -56,7 +58,6 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------    
     ADD_SLOT( MPI_Comm        , mpi          , INPUT , MPI_COMM_WORLD  );
-    ADD_SLOT( ReadBoundsSelectionMode, bounds_mode   , INPUT , ReadBoundsSelectionMode::FILE_BOUNDS );
     ADD_SLOT( Domain          , domain       , INPUT_OUTPUT );
     ADD_SLOT( GridT           , grid         , INPUT_OUTPUT );
 
@@ -119,16 +120,6 @@ namespace exanb
         lattice.m_np = types->size();
         lattice.m_types = *types;
         // Checking that positions are contained between 0 and 1 -> fractional coordinates
-#       ifndef NDEBUG
-        for (size_t i=0;i<positions->size();i++) {
-          double px = positions->at(i).x;
-          double py = positions->at(i).y;
-          double pz = positions->at(i).z;
-          assert( px >=0. && px <= 1. );
-          assert( py >=0. && py <= 1. );
-          assert( pz >=0. && pz <= 1. );
-        }
-#       endif
         lattice.m_positions = *positions;
       }
       else if (*structure == "SC")
@@ -213,6 +204,15 @@ namespace exanb
                                 {0.5,    0.50000000,    0.0} };
         lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
       }
+
+      for(size_t i=0;i<lattice.m_positions.size();i++)
+      {
+        const auto p = lattice.m_positions[i];
+        if( p.x < 0.0 || p.x > 1. || p.y < 0.0 || p.y > 1. || p.z < 0.0 || p.z > 1. )
+        {
+          fatal_error()<<"lattice position #"<<i<<", with coordinates "<<p<<", is out of unit cell"<<std::endl;
+        }
+      }
       
       if( lattice.m_types.size() != size_t(lattice.m_np) ) { fatal_error()<<lattice.m_types.size()<<"types are defined, but structure "<< (*structure) <<" requires exactly "<<lattice.m_np<<std::endl; }
       
@@ -224,7 +224,7 @@ namespace exanb
       mock_particle_type_map.clear();
       if( particle_type_map.has_value() ) mock_particle_type_map = *particle_type_map;
       
-      generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
+      generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
                                  , lattice, *noise, noise_cutoff_ifset, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
