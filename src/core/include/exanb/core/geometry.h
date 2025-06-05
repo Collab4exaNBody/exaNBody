@@ -79,6 +79,9 @@ namespace exanb
     return b.bmin.x>=b.bmax.x || b.bmin.y>=b.bmax.y || b.bmin.z>=b.bmax.z;
   }
 
+  // for backward compatibility
+  [[deprecated]] ONIKA_HOST_DEVICE_FUNC inline bool is_nil(const AABB& b) { return is_empty(b); }
+
   inline double max_distance_inside(const AABB& b)
   {
     double x = b.bmax.x - b.bmin.x;
