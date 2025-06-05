@@ -65,7 +65,7 @@ namespace exanb
 
     // limit lattice generation to specified region
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG , region           , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL );
 
     // limit lattice generation to places where some mask has some value
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT , OPTIONAL );
