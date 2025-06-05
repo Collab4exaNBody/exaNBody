@@ -68,7 +68,7 @@ namespace exanb
 
     // limit lattice generation to specified region
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG , region           , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL );
 
     // limit lattice generation to places where some mask has some value
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT , OPTIONAL );
@@ -140,8 +140,8 @@ namespace exanb
       lattice.m_structure = *structure;
       lattice.m_size = *size;
       if (*structure == "CUSTOM") {
-        assert( (*np).has_value() );
-        assert( (*positions).has_value() );
+        assert( np.has_value() );
+        assert( positions.has_value() );
         lattice.m_np = *np;
         lattice.m_types = *types;
         // Checking that positions are contained between 0 and 1 -> fractional coordinates
