@@ -58,6 +58,11 @@ namespace exanb
           out << fid.short_name() ;        
         }
       }
+      template<class GridT, class FidT>
+      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      {
+        for(const auto& fid : fid_vec) this->operator () ( grid , fid );
+      }
     };
 
     struct WriteVectorList
@@ -74,6 +79,11 @@ namespace exanb
           if( first ) first=false; else out<<", ";
           out << fid.short_name() ;        
         }
+      }
+      template<class GridT, class FidT>
+      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      {
+        for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
     };
     
@@ -96,6 +106,11 @@ namespace exanb
             out << vtk_space_offset_six << "<PDataArray type=\""<< ParaViewTypeId<field_type>::str() <<"\" Name=\""<<fid.short_name()<<"\" NumberOfComponents=\""<< ParaViewTypeId<field_type>::ncomp << "\"/>" << std::endl;
           }
         }
+      }
+      template<class GridT, class FidT>
+      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      {
+        for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
     };
 
@@ -124,7 +139,16 @@ namespace exanb
           }
         }
       }
+      template<class GridT, class FidT>
+      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      {
+        for(const auto& fid : fid_vec)
+        {
+          this-> operator () ( grid , fid );
+        }
+      }
     };
+    
     template<class CellsAccessorT> inline WriteArrayData<CellsAccessorT> make_paraview_array_data_writer( const CellsAccessorT& cells, std::ofstream& out, std::function<bool(const std::string&)> fs, int compression_level, bool binary, bool ghost)
     {
       return { cells, out , fs, compression_level, binary, ghost };
