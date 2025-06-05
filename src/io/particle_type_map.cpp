@@ -22,6 +22,7 @@ under the License.
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
 #include <exanb/core/particle_type_id.h>
+#include <exanb/core/particle_type_properties.h>
 
 namespace exanb
 {
@@ -30,18 +31,42 @@ namespace exanb
     // -----------------------------------------------
     // Operator slots
     // -----------------------------------------------    
-    ADD_SLOT( ParticleTypeMap , particle_type_map , INPUT_OUTPUT , ParticleTypeMap{ { "NoType" , 0 } } );
-    ADD_SLOT( bool            , verbose           , INPUT        , true );
+    ADD_SLOT( ParticleTypeMap        , particle_type_map        , INPUT_OUTPUT , ParticleTypeMap{} );
+    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT_OUTPUT , ParticleTypeProperties{} );
+    ADD_SLOT( bool                   , verbose                  , INPUT        , true );
     
   public:
     inline void execute () override final
     {
+      for(const auto & it : *particle_type_map) lout << "particle_type_map has "<<it.first<<std::endl;
+      for(const auto & it : particle_type_properties->m_name_map) lout << "particle_type_properties has "<<it.first<<std::endl;
+      
+      if( particle_type_properties->empty() && particle_type_map->empty() )
+      {
+        particle_type_map->insert( {"NoType",0} );
+      }
+      for(const auto & it : *particle_type_map)
+      {
+        particle_type_properties->m_name_map[ it.first ];
+      }
+      particle_type_properties->update_property_arrays();
+      *particle_type_map = particle_type_properties->build_type_map();
+      
       if( *verbose )
       {
-        lout << "=== Particle type map ===" << std::endl;
+        lout << "=== Particle types ===" << std::endl;
         for(const auto & item:*particle_type_map)
         {
-          lout << item.first << " -> " << item.second << std::endl;
+          lout << item.first << ":" << std::endl
+               << "  id = " << item.second << std::endl;
+          for(const auto & propit : particle_type_properties->m_scalars)
+          {
+            lout << "  "<<propit.first<<" = "<<propit.second[ item.second ]<<std::endl;
+          }
+          for(const auto & propit : particle_type_properties->m_vectors)
+          {
+            lout << "  "<<propit.first<<" = "<<propit.second[ item.second ]<<std::endl;
+          }
         }
         lout << "=========================" << std::endl;
       }
