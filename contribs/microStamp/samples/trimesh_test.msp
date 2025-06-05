@@ -16,7 +16,7 @@ configuration:
   logging:
     debug: true
   debug:
-    filter: [ ".*grid_triangle_intersections" ]
+    filter: [ ".*grid_triangle_intersections" , ".*trimesh_collision" ]
 
 global:
   dt: 1.0e-3 ps
@@ -25,10 +25,14 @@ global:
   simulation_log_frequency: 1
   simulation_end_iteration: 10
 
+trimesh_init:
+  verbose: true
+
 compute_force:
   - lennard_jones_force:
       config: { epsilon: 1.286776984E-21 J , sigma: 0.31589E-09 m }
       rcut: 8.0 ang
+  - trimesh_collision
 
 input_data:
   - particle_types:
@@ -81,11 +85,6 @@ input_data:
   - shift_v:
       value: [ -1000 m/s , 0 , 0 ]
       region: SPHERE
-
-trimesh_init:
-  verbose: true
-
-+first_iteration:
   - trimesh_init
   - grid_triangle_intersections:
       bounding_box: [ [ -1.25 , -1.25 , -1.25 ] , [ 1.25 , 1.25 , 1.25 ] ]
