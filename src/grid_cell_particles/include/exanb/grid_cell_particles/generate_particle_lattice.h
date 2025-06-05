@@ -59,7 +59,6 @@ namespace exanb
   template<class GridT, class ParticleTypeField>
   static inline void generate_particle_lattice(
       MPI_Comm comm
-    , ReadBoundsSelectionMode bounds_mode
     , const Domain& domain
     , GridT& grid
     , const ParticleTypeMap& particle_type_map
@@ -258,12 +257,12 @@ namespace exanb
     lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
     lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
-#     pragma omp parallel
+#   pragma omp parallel
     {
       auto& re = onika::parallel::random_engine();
       std::normal_distribution<double> f_rand(0.,1.);
       
-#       pragma omp for collapse(3) reduction(+:local_generated_count)
+#     pragma omp for collapse(3) reduction(+:local_generated_count)
       for (ssize_t k=k_start; k<=k_end; k++)
       {
         for (ssize_t j=j_start; j<=j_end; j++)
@@ -322,7 +321,7 @@ namespace exanb
       const IJK gend = dims - IJK{ gl, gl, gl };
       const IJK gdims = gend - gstart;
 
-#       pragma omp parallel
+#     pragma omp parallel
       {
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
