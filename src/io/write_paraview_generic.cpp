@@ -80,16 +80,17 @@ namespace exanb
 
       if constexpr ( has_type_field )
       {
-        std::vector< TypePropertyScalarCombiner > type_scalar_combiners;
+        std::vector< TypePropertyScalarCombiner > type_scalar_combiners_vec;
         if( particle_type_properties.has_value() )
         {
           for(const auto & it : particle_type_properties->m_scalars)
           {
             // lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
-            type_scalar_combiners.push_back( { it.first , it.second.data() } );
+            type_scalar_combiners_vec.push_back( { it.first , it.second.data() } );
           }
         }
-        ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, type_scalar_combiners , grid_fields ... );
+        std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalar_combiners_vec;
+        ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, particle_type_fields , grid_fields ... );
       }
       else
       {

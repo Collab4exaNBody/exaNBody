@@ -59,7 +59,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
@@ -81,7 +81,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
@@ -108,7 +108,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
@@ -140,7 +140,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec)
         {
