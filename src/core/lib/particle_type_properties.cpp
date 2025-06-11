@@ -76,10 +76,13 @@ namespace exanb
     {
       m_scalars.clear();
       m_vectors.clear();
+      m_names.assign( m_name_map.size() , "" );
       auto tm = build_type_map();
       for(const auto & type_it : m_name_map)
       {
         const auto & type_name = type_it.first;
+        assert( tm[type_name]>=0 && tm[type_name]<m_names.size() );
+        m_names[ tm[type_name] ] = type_name;
         for(const auto & prop_it : type_it.second.m_scalars) scalar_property(prop_it.first) [ tm[type_name] ] = prop_it.second;
         for(const auto & prop_it : type_it.second.m_vectors) vector_property(prop_it.first) [ tm[type_name] ] = prop_it.second;
       }

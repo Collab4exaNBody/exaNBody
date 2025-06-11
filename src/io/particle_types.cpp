@@ -38,8 +38,8 @@ namespace exanb
   public:
     inline void execute () override final
     {
-      for(const auto & it : *particle_type_map) lout << "particle_type_map has "<<it.first<<std::endl;
-      for(const auto & it : particle_type_properties->m_name_map) lout << "particle_type_properties has "<<it.first<<std::endl;
+      for(const auto & it : *particle_type_map) ldbg << "particle_type_map has "<<it.first<<std::endl;
+      for(const auto & it : particle_type_properties->m_name_map) ldbg << "particle_type_properties has "<<it.first<<std::endl;
       
       if( particle_type_properties->empty() && particle_type_map->empty() )
       {
@@ -51,29 +51,9 @@ namespace exanb
       }
       particle_type_properties->update_property_arrays();
       *particle_type_map = particle_type_properties->build_type_map();
-      
-      if( *verbose )
-      {
-        lout << "=== Particle types ===" << std::endl;
-        for(const auto & item:*particle_type_map)
-        {
-          lout << item.first << ":" << std::endl
-               << "  id = " << item.second << std::endl;
-          for(const auto & propit : particle_type_properties->m_scalars)
-          {
-            lout << "  "<<propit.first<<" = "<<propit.second[ item.second ]<<std::endl;
-          }
-          for(const auto & propit : particle_type_properties->m_vectors)
-          {
-            lout << "  "<<propit.first<<" = "<<propit.second[ item.second ]<<std::endl;
-          }
-        }
-        lout << "=========================" << std::endl;
-      }
+      if( *verbose ) particle_type_properties->to_stream( lout );
     }
-
   };
-
 
   // === register factories ===
   ONIKA_AUTORUN_INIT(particle_types)

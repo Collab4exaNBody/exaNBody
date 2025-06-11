@@ -60,7 +60,8 @@ namespace exanb
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
-      static constexpr bool has_type_field = GridHasField<GridT,field::_type>::value ;
+      using has_field_type_t = typename GridT:: template HasField < field::_type >;
+      static constexpr bool has_field_type = has_field_type_t::value;
       
       ldbg << "ParaviewGenericWriter: filename="<< *filename
            << " , write_box="<< std::boolalpha << *write_box
@@ -78,7 +79,8 @@ namespace exanb
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
       auto gridacc = grid->cells_accessor();
 
-      if constexpr ( has_type_field )
+      std::span<TypePropertyScalarCombiner> particle_type_fields = {};
+      if constexpr ( has_field_type )
       {
         std::vector< TypePropertyScalarCombiner > type_scalar_combiners_vec;
         if( particle_type_properties.has_value() )
@@ -89,13 +91,9 @@ namespace exanb
             type_scalar_combiners_vec.push_back( { it.first , it.second.data() } );
           }
         }
-        std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalar_combiners_vec;
-        ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, particle_type_fields , grid_fields ... );
+        particle_type_fields = type_scalar_combiners_vec;
       }
-      else
-      {
-        ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, grid_fields ... );
-      }
+      ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, particle_type_fields , grid_fields ... );
     }
 
     template<class... fid>

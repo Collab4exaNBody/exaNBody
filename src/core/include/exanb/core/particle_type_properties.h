@@ -71,6 +71,7 @@ namespace exanb
   struct ParticleTypeProperties
   {
     std::map< std::string , ParticleTypePropertyValues > m_name_map;
+    std::vector< std::string > m_names;
     std::map< std::string , onika::memory::CudaMMVector<double> > m_scalars;
     std::map< std::string , onika::memory::CudaMMVector<onika::math::Vec3d> > m_vectors;
 
@@ -83,6 +84,28 @@ namespace exanb
     bool empty() const;
     ParticleTypeMap build_type_map() const;
     void update_property_arrays();
+    
+    template<class StreamT>
+    inline StreamT& to_stream(StreamT& out)
+    {
+      out << "=== Particle types ===" << std::endl;
+      size_t n_types = m_names.size();
+      for(size_t i=0;i<n_types;i++)
+      {
+        out << m_names[i] << ":" << std::endl
+             << "  id = " << i << std::endl;
+        for(const auto & propit : m_scalars)
+        {
+          out << "  "<<propit.first<<" = "<<propit.second[ i ]<<std::endl;
+        }
+        for(const auto & propit : m_vectors)
+        {
+          out << "  "<<propit.first<<" = "<<propit.second[ i ]<<std::endl;
+        }
+      }
+      out << "=========================" << std::endl;
+      return out;
+    }
   };
 
 }
