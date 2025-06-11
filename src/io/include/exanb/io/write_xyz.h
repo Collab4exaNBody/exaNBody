@@ -337,8 +337,8 @@ namespace exanb
       {
         using FieldType = std::remove_cv_t< std::remove_reference_t<decltype(pfield)> >;
         int n = 0;
-        if constexpr ( onika::is_span_v<FieldType> ) for(const auto& f : pfield) n += write_field_to_buf( buf+n, capacity, f, c, p );
-        else n += write_field_to_buf( buf+n, capacity, pfield, c, p );
+        if constexpr ( onika::is_span_v<FieldType> ) for(const auto& f : pfield) n += write_field_to_buf( buf+n, capacity-n, f, c, p );
+        else n += write_field_to_buf( buf+n, capacity-n, pfield, c, p );
         return n;
       };
       int data_line_size = 0;

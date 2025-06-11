@@ -32,7 +32,7 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------    
     ADD_SLOT( ParticleTypeMap        , particle_type_map        , INPUT , REQUIRED );
-    ADD_SLOT( ParticleTypeProperties , add_properties , INPUT , REQUIRED );
+    ADD_SLOT( ParticleTypeProperties , properties , INPUT , REQUIRED );
     ADD_SLOT( bool                   , verbose                  , INPUT        , true );
     ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT_OUTPUT , ParticleTypeProperties{} );
     
@@ -53,7 +53,7 @@ namespace exanb
         }
       }
       
-      for(const auto& type_it : add_properties->m_name_map)
+      for(const auto& type_it : properties->m_name_map)
       {
         const auto & type_name = type_it.first;
         if( particle_type_map->find(type_name) == particle_type_map->end() )
@@ -71,9 +71,9 @@ namespace exanb
     inline void yaml_initialize(const YAML::Node& node) override final
     {
       YAML::Node tmp;
-      if( node.IsMap() && ! node["add_properties"] )
+      if( node.IsMap() && ! node["properties"] )
       {
-        tmp["add_properties"] = node;
+        tmp["properties"] = node;
       }
       else { tmp = node; }
       this->OperatorNode::yaml_initialize(tmp);
@@ -82,7 +82,7 @@ namespace exanb
   };
 
   // === register factories ===
-  ONIKA_AUTORUN_INIT(particle_type_properties)
+  ONIKA_AUTORUN_INIT(particle_type_add_properties)
   {
     OperatorNodeFactory::instance()->register_factory("particle_type_add_properties", make_simple_operator< ParticleTypeAddProperty >);
   }

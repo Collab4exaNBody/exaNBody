@@ -38,19 +38,24 @@ namespace exanb
   public:
     inline void execute () override final
     {
-      for(const auto & it : *particle_type_map) ldbg << "particle_type_map has "<<it.first<<std::endl;
-      for(const auto & it : particle_type_properties->m_name_map) ldbg << "particle_type_properties has "<<it.first<<std::endl;
+      for(const auto & it : *particle_type_map) ldbg << "particle_type_map["<<it.first<<"]="<<it.second<<std::endl;
+      particle_type_properties->to_stream( ldbg );
       
-      if( particle_type_properties->empty() && particle_type_map->empty() )
-      {
-        particle_type_map->insert( {"NoType",0} );
-      }
+      bool need_mutual_update = false;
       for(const auto & it : *particle_type_map)
       {
-        particle_type_properties->m_name_map[ it.first ];
+        if( size_t(it.second) >= particle_type_properties->m_names.size() ) need_mutual_update=true;
+        else if( particle_type_properties->m_names[it.second] != it.first ) need_mutual_update=true;
       }
-      particle_type_properties->update_property_arrays();
-      *particle_type_map = particle_type_properties->build_type_map();
+      if( need_mutual_update )
+      {
+        for(const auto & it : *particle_type_map)
+        {
+          particle_type_properties->m_name_map[ it.first ];
+        }
+        particle_type_properties->update_property_arrays();
+        *particle_type_map = particle_type_properties->build_type_map();
+      }
       if( *verbose ) particle_type_properties->to_stream( lout );
     }
   };

@@ -12,6 +12,8 @@ configuration:
       energy: joule
   logging:
     debug: false
+  debug:
+    filter: [ ".*particle_types" , ".*particle_type_add_properties" ]
   profiling:
     summary: true
 
@@ -20,8 +22,13 @@ global:
   rcut_max: 8.0 ang
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 10
-  simulation_dump_frequency: 100
+  simulation_dump_frequency: 5
   simulation_end_iteration: 1000
+
+dump_data: dump_data_xyz
+
+write_xyz:
+  fields: [ mass , charge , processor_id , force , vel ]
 
 snap_force_generic:
   parameters:
@@ -32,6 +39,7 @@ snap_force_generic:
 compute_force: snap_force_generic
 
 +first_iteration:
+  - particle_types: { verbose: true }
   - grid_stats
   - chunk_neighbors_stats
   - memory_stats
@@ -39,6 +47,9 @@ compute_force: snap_force_generic
 input_data:
   - particle_types:
       particle_type_map: { W: 0 , Be: 1 }
+  - particle_type_add_properties:
+      W: { mass: 1.3 Da }
+      Be: { mass: 1.5 Da , charge: 3.2 e- }
   - particle_regions:
       - PLANE1:
           quadric:

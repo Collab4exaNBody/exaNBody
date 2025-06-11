@@ -84,20 +84,19 @@ namespace exanb
       ForceVec3Combiner    force    = {};
 
       // particle type related automatically generated fields
-      std::span<TypePropertyScalarCombiner> particle_type_fields = {};
+      std::vector< TypePropertyScalarCombiner > type_scalars_vec;
       if constexpr ( has_field_type )
       {
-        std::vector< TypePropertyScalarCombiner > type_scalar_combiners_vec;
         if( particle_type_properties.has_value() )
         {
           for(const auto & it : particle_type_properties->m_scalars)
           {
             // lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
-            type_scalar_combiners_vec.push_back( { it.first , it.second.data() } );
+            type_scalars_vec.push_back( { it.first , it.second.data() } );
           }
         }
-        particle_type_fields = type_scalar_combiners_vec;
       }
+      std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalars_vec;
 
       write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, particle_type_func, field_formatter, *ghost, *physical_time
                                               , position, velocity, force, processor_id, particle_type_fields, onika::soatl::FieldId<fid>{} ... );
