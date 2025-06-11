@@ -157,8 +157,6 @@ namespace exanb
     const IJK dims = grid.dimension();
     int gl = grid.ghost_layers();
     if( enable_ghosts ) { gl = 0; }
-//    const IJK block_dims = dims - (2*gl);
-//    const size_t N = block_dims.i * block_dims.j * block_dims.k;
     
     onika::parallel::ParallelExecutionSpace<3> parallel_range = { { gl , gl , gl } , { dims.i-gl , dims.j-gl , dims.k-gl } };
 
