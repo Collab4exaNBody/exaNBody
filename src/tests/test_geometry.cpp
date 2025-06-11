@@ -70,7 +70,7 @@ int main(int argc,char*argv[])
     Vec3d p = { rdist(rng) , rdist(rng) , rdist(rng) };
     reorder_min_max(A);
     reorder_min_max(B);
-    if( ! is_nil( intersection(A,B) ) )
+    if( ! is_empty( intersection(A,B) ) )
     {
       ++ n_intersect;
       if( A.bmin.x < B.bmin.x ) { ++ n_order_x; }

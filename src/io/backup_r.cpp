@@ -41,12 +41,13 @@ namespace exanb
 
     inline void execute ()  override final
     {
-//      std::cout<<"PositionBackupNode backup_r@"<<backup_r.get_pointer()<<std::endl;
-      IJK dims = grid->dimension();
+      const IJK dims = grid->dimension();
       auto cells = grid->cells();
       const double cell_size = domain->cell_size();
       const ssize_t gl = grid->ghost_layers();
-//      std::cout << "cell_size = " << cell_size << std::endl;
+
+      const size_t n_cells = grid->number_of_cells();
+      std::cout<<"PositionBackupNode : dims="<<dims<< " , n_cells=" << n_cells<< std::endl;
 
       backup_r->m_xform = domain->xform();
       backup_r->m_data.clear();
