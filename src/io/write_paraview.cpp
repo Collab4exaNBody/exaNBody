@@ -79,20 +79,19 @@ namespace exanb
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
       auto gridacc = grid->cells_accessor();
 
-      std::span<TypePropertyScalarCombiner> particle_type_fields = {};
+      std::vector< TypePropertyScalarCombiner > type_scalars;
       if constexpr ( has_field_type )
       {
-        std::vector< TypePropertyScalarCombiner > type_scalar_combiners_vec;
         if( particle_type_properties.has_value() )
         {
           for(const auto & it : particle_type_properties->m_scalars)
           {
             // lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
-            type_scalar_combiners_vec.push_back( { it.first , it.second.data() } );
+            type_scalars.push_back( { it.first , it.second.data() } );
           }
         }
-        particle_type_fields = type_scalar_combiners_vec;
       }
+      std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalars;
       ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, particle_type_fields , grid_fields ... );
     }
 
@@ -102,21 +101,24 @@ namespace exanb
       int rank=0;
       MPI_Comm_rank(*mpi, &rank);
       ProcessorRankCombiner processor_id = { {rank} };
-      execute_on_fields( processor_id, onika::soatl::FieldId<fid>{} ... );
+      VelocityVec3Combiner velocity = {};
+      ForceVec3Combiner    force    = {};
+      execute_on_fields( processor_id, velocity, force, onika::soatl::FieldId<fid>{} ... );
     }
 
   public:
     inline void execute() override final
     {
-      execute_on_field_set(grid->field_set);
+      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
+      execute_on_field_set( GridFieldSet{} );
     }
 
   };
 
   // === register factories ===
-  ONIKA_AUTORUN_INIT(write_paraview_generic)
+  ONIKA_AUTORUN_INIT(write_paraview)
   {
-    OperatorNodeFactory::instance()->register_factory( "write_paraview_generic",make_grid_variant_operator<ParaviewGenericWriter >);
+    OperatorNodeFactory::instance()->register_factory( "write_paraview",make_grid_variant_operator<ParaviewGenericWriter >);
   }
 
 }

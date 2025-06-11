@@ -25,10 +25,14 @@ global:
   simulation_dump_frequency: 5
   simulation_end_iteration: 1000
 
-dump_data: dump_data_xyz
 
 write_xyz:
   fields: [ mass , charge , processor_id , force , vel ]
+
+
+
+#dump_data: dump_data_xyz
+dump_data: dump_data_paraview
 
 snap_force_generic:
   parameters:
