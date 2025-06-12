@@ -198,6 +198,7 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "endmacro()\n")
 
 # install cmake package file to allow external project to find_package exaNBody
 install(FILES ${XNB_CMAKE_PACKAGE} DESTINATION ${XNB_ROOT_DIR})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data/config DESTINATION data)
 
 # generate exaNBody environment setup, based on onika onverionment setup script
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh

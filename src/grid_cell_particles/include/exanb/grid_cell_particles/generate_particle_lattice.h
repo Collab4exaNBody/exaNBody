@@ -242,6 +242,8 @@ namespace exanb
     const AABB grid_bounds = grid.grid_bounds();
     Vec3d lab_lo = domain.xform() * grid_bounds.bmin;
     Vec3d lab_hi = domain.xform() * grid_bounds.bmax;
+    std::cout << "lab_lo = " << lab_lo << std::endl;
+    std::cout << "lab_hi = " << lab_hi << std::endl;
     IJK lattice_lo = { static_cast<ssize_t>( lab_lo.x / lattice_size.x )
                      , static_cast<ssize_t>( lab_lo.y / lattice_size.y )
                      , static_cast<ssize_t>( lab_lo.z / lattice_size.z ) };
@@ -254,8 +256,6 @@ namespace exanb
     ssize_t j_end   = lattice_hi.j + 1;
     ssize_t k_start = lattice_lo.k - 1;
     ssize_t k_end   = lattice_hi.k + 1;
-    lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
-    lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
 #   pragma omp parallel
     {
@@ -271,8 +271,11 @@ namespace exanb
       		{
 	          for (size_t l=0; l<n_particles_cell;l++)
     		    {
-              Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
-              Vec3d grid_pos = inv_xform * lab_pos;
+              Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size );// + position_shift;
+              Mat3d rot = lattice.m_rotmat;
+              Vec3d lab_pos_rot = rot * lab_pos;
+              
+              Vec3d grid_pos = inv_xform * lab_pos_rot;
 	            const IJK loc = grid.locate_cell(grid_pos); //domain_periodic_location( domain , pos );
 
 	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
@@ -280,10 +283,10 @@ namespace exanb
                 Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
                 const double noiselen = norm(noise);
                 if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
-                lab_pos += noise;
-                grid_pos = inv_xform * lab_pos;
+                lab_pos_rot += noise;
+                grid_pos = inv_xform * lab_pos_rot;
 
-                if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
+                if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos_rot,void_centers,void_radiuses) )
 	              {
 	              	assert( min_distance_between( grid_pos, grid.cell_bounds(loc) ) <= grid.cell_size()/2.0 );
 	              	size_t cell_i = grid_ijk_to_index(local_grid_dim, loc);

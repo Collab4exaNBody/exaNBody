@@ -85,6 +85,8 @@ namespace exanb
     ADD_SLOT( double           , noise        , INPUT , 0.0);
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
+    ADD_SLOT( Mat3d            , rotation_matrix , INPUT , Mat3d{1.,0.,0.,0.,1.,0.,0.,0.,1.} );
+    ADD_SLOT( bool             , rotation_random , INPUT , false );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
     ADD_SLOT( std::string      , void_mode          , INPUT , "none"); // none means no void, simple is the one void mode, porosity means randomly distributed voids
@@ -111,6 +113,11 @@ namespace exanb
       LatticeCollection lattice;
       lattice.m_structure = *structure;
       lattice.m_size = *size;
+      if (*rotation_random) {
+        lattice.m_rotmat = random_rotation_matrix();
+      } else {
+        lattice.m_rotmat = *rotation_matrix;
+      }
       if (*structure == "CUSTOM")
       {
         if( ! positions.has_value() )
