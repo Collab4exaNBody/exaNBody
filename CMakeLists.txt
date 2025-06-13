@@ -82,7 +82,8 @@ function(xnb_add_plugin PluginName dirname)
     file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Configuration of exaNBody's ${PluginName} component\n")
     file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_BUILD_${PluginName} ON)\n")
 
-    if(${PluginName}_INCLUDE_DIRS)
+    
+    if(${PluginName}_INCLUDE_DIRS AND NOT ${PluginName}_DONT_EXPORT_INCLUDE_DIRS)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_INCLUDE_DIRS ${${PluginName}_INCLUDE_DIRS})\n")
     endif()
     
