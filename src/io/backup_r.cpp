@@ -47,7 +47,7 @@ namespace exanb
       const ssize_t gl = grid->ghost_layers();
 
       const size_t n_cells = grid->number_of_cells();
-      std::cout<<"PositionBackupNode : dims="<<dims<< " , n_cells=" << n_cells<< std::endl;
+      ldbg<<"PositionBackupNode : dims="<<dims<< " , n_cells=" << n_cells<< std::endl;
 
       backup_r->m_xform = domain->xform();
       backup_r->m_data.clear();
