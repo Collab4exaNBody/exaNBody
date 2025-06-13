@@ -20,7 +20,10 @@ under the License.
 #pragma once
 
 #include <onika/soatl/field_id.h>
+#include <onika/math/basic_types_def.h>
 #include <cstdint>
+#include <cassert>
+#include <yaml-cpp/yaml.h>
 
 #ifndef XNB_PARTICLE_TYPE_INT
 #define XNB_PARTICLE_TYPE_INT uint8_t
@@ -41,30 +44,64 @@ namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_#
     using Id = ::exanb::field::_##__name; \
     static inline const char* short_name() { return #__name ; } \
     static inline const char* name() { return __desc ; } \
+    static inline void set_name(const std::string& s) { assert( s == short_name() ); };\
   }; } } \
 namespace exanb { namespace field { static constexpr ::onika::soatl::FieldId<_##__name> __name; } }
 
 #define XNB_DECLARE_ALIAS(A,F) namespace exanb { namespace field { using _##A=_##F; static constexpr ::onika::soatl::FieldId<_##A> A; } }
 
+#define XNB_DECLARE_DYNAMIC_FIELD(__type,__name,__desc) \
+namespace exanb { namespace field { struct _##__name {}; } } \
+namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_##__name> { \
+    using value_type = __type; \
+    using Id = ::exanb::field::_##__name; \
+    static inline constexpr size_t NAME_MAX_LEN = 16; \
+    char m_name[NAME_MAX_LEN] = #__name ; \
+    inline void set_name(const std::string& s) { strncpy(m_name,s.c_str(),NAME_MAX_LEN); m_name[NAME_MAX_LEN-1]='\0'; };\
+    inline const char* short_name() const { return m_name; } \
+    inline const char* name() const { return m_name; } \
+  }; } } \
+namespace exanb { namespace field { using __name = ::onika::soatl::FieldId<_##__name> ; inline auto mk_##__name (const std::string& s) { __name f; f.set_name(s); return f; } } }
+
+// for dynamic fields, allows field name to be read from YAML conversion
+namespace YAML
+{
+  template<class fid> struct convert< onika::soatl::FieldId<fid> >
+  {
+    static inline bool decode(const Node& node, onika::soatl::FieldId<fid>& v )
+    {
+      if( ! node.IsScalar() ) return false;
+      std::string s = node.as<std::string>();
+      v.set_name( s );
+      return true;
+    }
+  };  
+}
+
 // default particle fields that are defined in namespace 'field'
 // for rx field descriptor instance, use field::rx, for its type, use field::_rx
-XNB_DECLARE_FIELD(uint64_t                 ,id   ,"particle id");
-XNB_DECLARE_FIELD(::exanb::ParticleTypeInt ,type ,"particle type");
-XNB_DECLARE_FIELD(double                   ,rx   ,"particle position X");
-XNB_DECLARE_FIELD(double                   ,ry   ,"particle position Y");
-XNB_DECLARE_FIELD(double                   ,rz   ,"particle position Z");
-XNB_DECLARE_FIELD(double                   ,vx   ,"particle velocity X");
-XNB_DECLARE_FIELD(double                   ,vy   ,"particle velocity Y");
-XNB_DECLARE_FIELD(double                   ,vz   ,"particle velocity Z");
-XNB_DECLARE_FIELD(double                   ,ax   ,"particle acceleration X");
-XNB_DECLARE_FIELD(double                   ,ay   ,"particle acceleration Y");
-XNB_DECLARE_FIELD(double                   ,az   ,"particle acceleration Z");
+XNB_DECLARE_FIELD(uint64_t                 ,id   ,"particle id")
+XNB_DECLARE_FIELD(::exanb::ParticleTypeInt ,type ,"particle type")
+XNB_DECLARE_FIELD(double                   ,rx   ,"particle position X")
+XNB_DECLARE_FIELD(double                   ,ry   ,"particle position Y")
+XNB_DECLARE_FIELD(double                   ,rz   ,"particle position Z")
+XNB_DECLARE_FIELD(double                   ,vx   ,"particle velocity X")
+XNB_DECLARE_FIELD(double                   ,vy   ,"particle velocity Y")
+XNB_DECLARE_FIELD(double                   ,vz   ,"particle velocity Z")
+XNB_DECLARE_FIELD(double                   ,ax   ,"particle acceleration X")
+XNB_DECLARE_FIELD(double                   ,ay   ,"particle acceleration Y")
+XNB_DECLARE_FIELD(double                   ,az   ,"particle acceleration Z")
 
 // usefull aliases, often acceleration and force use the same fields,
 // acceleration is 'just' divided by mass at some point to turn it to force, or vice-versa
 XNB_DECLARE_ALIAS( fx, ax )
 XNB_DECLARE_ALIAS( fy, ay )
 XNB_DECLARE_ALIAS( fz, az )
+
+// Generic fields, several can be instanciated with different names
+XNB_DECLARE_DYNAMIC_FIELD(double               , generic_real , "Generic Scalar" )
+XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Vec3d , generic_vec3 , "Generic Vec3d" )
+XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Mat3d , generic_mat3 , "Generic Mat3d" )
 
 // unused fields, for compatibility only
 struct unused_field_type {};

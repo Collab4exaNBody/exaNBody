@@ -70,6 +70,74 @@ namespace exanb
     }
   };
 
+
+  // utility binary functors with fixed rhs operand
+  template<class RHS>
+  struct InPlaceAddFunctor
+  {
+    const RHS m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( T& a ) const { a += m_rhs; }
+  };
+
+  template<class RHS>
+  struct InPlaceMulFunctor
+  {
+    const RHS m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( T& a ) const { a *= m_rhs; }
+  };
+
+  template<class RHS>
+  struct InPlaceDivFunctor
+  {
+    const RHS m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( T& a ) const { a /= m_rhs; }
+  };
+
+  template<class RHS>
+  struct SetFirstArgFunctor
+  {
+    const RHS m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( T& a ) const { a = m_rhs; }
+  };
+
+
+  // utility binary functors with indirect rhs operand
+  template<class RHSArray>
+  struct IndirectInPlaceAddFunctor
+  {
+    const RHSArray m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t i , T& a ) const { a += m_rhs[i]; }
+  };
+
+  template<class RHSArray>
+  struct IndirectInPlaceMulFunctor
+  {
+    const RHSArray m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t i , T& a ) const { a *= m_rhs[i]; }
+  };
+
+  template<class RHSArray>
+  struct IndirectInPlaceDivFunctor
+  {
+    const RHSArray m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t i , T& a ) const { a /= m_rhs[i]; }
+  };
+
+  template<class RHSArray>
+  struct IndirectSetFirstArgFunctor
+  {
+    const RHSArray m_rhs;
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( size_t i , T& a ) const { a = m_rhs[i]; }
+  };
+
 }
 
 

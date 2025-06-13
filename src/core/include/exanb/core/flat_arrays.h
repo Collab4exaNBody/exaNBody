@@ -64,28 +64,30 @@ namespace exanb
     using value_t = typename field_id_t::value_type;
     using pointer_t = value_t * __restrict__ ;
     using const_pointer_t = const value_t * __restrict__ ;
-    
-    const char* name() const override final
+
+    inline FlatArrayAdapter(const field_id_t& f) : m_field_descriptor(f) {}
+
+    inline const char* name() const override final
     {
-      return field_id_t::name();
+      return m_field_descriptor.name();
     }
     
-    const char* short_name() const override final
+    inline const char* short_name() const override final
     {
-      return field_id_t::short_name();
+      return m_field_descriptor.short_name();
     }
-    
-    std::string type_name() const override final
+
+    inline std::string type_name() const override final
     {
       return typeid(value_t).name();
     }
     
-    size_t size() const override final
+    inline size_t size() const override final
     {
       assert( m_data_storage.size() % sizeof(value_t) == 0 ); return m_data_storage.size() / sizeof(value_t);
     }
     
-    void resize(size_t sz) override final
+    inline void resize(size_t sz) override final
     {
       m_data_storage.resize( sz * sizeof(value_t) );
     }
@@ -99,6 +101,9 @@ namespace exanb
     {
       return this->FlatArrayDescriptor::data<value_t>();
     }
+    
+  private:
+    field_id_t m_field_descriptor = {};
   };  
 
 } // end of namespace exanb
