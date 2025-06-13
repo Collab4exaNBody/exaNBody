@@ -22,6 +22,7 @@ under the License.
 #include <onika/soatl/field_id.h>
 #include <onika/math/basic_types_def.h>
 #include <cstdint>
+#include <cassert>
 #include <yaml-cpp/yaml.h>
 
 #ifndef XNB_PARTICLE_TYPE_INT
@@ -57,10 +58,10 @@ namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_#
     static inline constexpr size_t NAME_MAX_LEN = 16; \
     char m_name[NAME_MAX_LEN] = #__name ; \
     inline void set_name(const std::string& s) { strncpy(m_name,s.c_str(),NAME_MAX_LEN); m_name[NAME_MAX_LEN-1]='\0'; };\
-    inline const char* short_name() const { return m_name ; } \
-    static inline const char* name() { return __desc ; } \
+    inline const char* short_name() const { return m_name; } \
+    inline const char* name() const { return m_name; } \
   }; } } \
-namespace exanb { namespace field { using __name = ::onika::soatl::FieldId<_##__name> ; } }
+namespace exanb { namespace field { using __name = ::onika::soatl::FieldId<_##__name> ; inline auto mk_##__name (const std::string& s) { __name f; f.set_name(s); return f; } } }
 
 // for dynamic fields, allows field name to be read from YAML conversion
 namespace YAML
@@ -76,7 +77,6 @@ namespace YAML
     }
   };  
 }
-
 
 // default particle fields that are defined in namespace 'field'
 // for rx field descriptor instance, use field::rx, for its type, use field::_rx
@@ -99,9 +99,9 @@ XNB_DECLARE_ALIAS( fy, ay )
 XNB_DECLARE_ALIAS( fz, az )
 
 // Generic fields, several can be instanciated with different names
-XNB_DECLARE_DYNAMIC_FIELD(double               , generic_real , "Generic scalar field" )
-XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Vec3d , generic_vec3 , "Generic Vec3d field" )
-XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Mat3d , generic_mat3 , "Generic Mat3d field" )
+XNB_DECLARE_DYNAMIC_FIELD(double               , generic_real , "Generic Scalar" )
+XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Vec3d , generic_vec3 , "Generic Vec3d" )
+XNB_DECLARE_DYNAMIC_FIELD(::onika::math::Mat3d , generic_mat3 , "Generic Mat3d" )
 
 // unused fields, for compatibility only
 struct unused_field_type {};

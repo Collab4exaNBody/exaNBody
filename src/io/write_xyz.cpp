@@ -20,6 +20,7 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/io/write_xyz.h>
+#include <exanb/core/grid_additional_fields.h>
 
 namespace exanb
 {
@@ -83,23 +84,16 @@ namespace exanb
       VelocityVec3Combiner velocity = {};
       ForceVec3Combiner    force    = {};
 
-      // particle type related automatically generated fields
-      std::vector< TypePropertyScalarCombiner > type_scalars_vec;
-      if constexpr ( has_field_type )
-      {
-        if( particle_type_properties.has_value() )
-        {
-          for(const auto & it : particle_type_properties->m_scalars)
-          {
-            // lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
-            type_scalars_vec.push_back( { it.first , it.second.data() } );
-          }
-        }
-      }
-      std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalars_vec;
+      // optional fields
+      ParticleTypeProperties * optional_type_properties = nullptr;
+      if ( has_field_type && particle_type_properties.has_value() ) optional_type_properties = particle_type_properties.get_pointer();
+      GridAdditionalFields add_fields( grid , optional_type_properties );
+      auto [ type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields ] = add_fields.view();
 
       write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, particle_type_func, field_formatter, *ghost, *physical_time
-                                              , position, velocity, force, processor_id, particle_type_fields, onika::soatl::FieldId<fid>{} ... );
+                                              , position, velocity, force, processor_id
+                                              , type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields
+                                              , onika::soatl::FieldId<fid>{} ... );
     }
 
     public:

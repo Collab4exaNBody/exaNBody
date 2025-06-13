@@ -53,8 +53,15 @@ namespace exanb
         {
           particle_type_properties->m_name_map[ it.first ];
         }
-        particle_type_properties->update_property_arrays();
-        *particle_type_map = particle_type_properties->build_type_map();
+        for(const auto & it : particle_type_properties->m_name_map)
+        {
+          if( particle_type_map->find( it.first ) == particle_type_map->end() )
+          {
+            particle_type_map->insert( { it.first , particle_type_map->size() } );
+          }
+        }
+        particle_type_properties->update_property_arrays( *particle_type_map );
+        //*particle_type_map = particle_type_properties->build_type_map();
       }
       if( *verbose ) particle_type_properties->to_stream( lout );
     }

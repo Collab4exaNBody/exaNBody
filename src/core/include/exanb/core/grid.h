@@ -535,7 +535,7 @@ namespace exanb
     {
       auto it = m_flat_arrays.find( f.short_name() );
       if( it == m_flat_arrays.end() )
-      {        
+      {
         it = m_flat_arrays.insert( { f.short_name() , std::make_shared< FlatArrayAdapter<fid> >(f) } ).first;
       }
       assert( it != m_flat_arrays.end() );
@@ -546,16 +546,30 @@ namespace exanb
       return fa->data();
     }
     template<class fid>
+    inline typename onika::soatl::FieldId<fid>::value_type * flat_array_data_nocreate( const onika::soatl::FieldId<fid>& f ) const
+    {
+      auto it = m_flat_arrays.find( f.short_name() );
+      if( it == m_flat_arrays.end() )
+      {
+        return nullptr;
+      }
+      FlatArrayAdapter<fid> * fa = reinterpret_cast< FlatArrayAdapter<fid> * >( it->second.get() );
+      assert( fa != nullptr );
+      assert( fa->type_name() == typeid( typename onika::soatl::FieldId<fid>::value_type ).name() );
+      assert( fa->size() == number_of_particles() );
+      return fa->data();
+    }
+    template<class fid>
     inline auto flat_array_accessor( const onika::soatl::FieldId<fid>& f )
     {
       using details::OptionalCellParticleFieldAccessor;
-      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , false > { flat_array_data(f) };
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , false > { f , flat_array_data(f) };
     }
     template<class fid>
-    inline auto flat_array_const_accessor( const onika::soatl::FieldId<fid>& f )
+    inline auto flat_array_const_accessor( const onika::soatl::FieldId<fid>& f ) const
     {
       using details::OptionalCellParticleFieldAccessor;
-      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , true >{ flat_array_data(f) };
+      return OptionalCellParticleFieldAccessor< onika::soatl::FieldId<fid> , true >{ f , flat_array_data_nocreate(f) };
     }
     inline auto remove_flat_array( const std::string& name )
     {
@@ -571,10 +585,28 @@ namespace exanb
       auto it = m_flat_arrays.find( name );
       if( it != m_flat_arrays.end() ) it->second->shrink_to_fit();
     }
+    inline auto optional_scalar_fields()
+    {
+      std::vector<std::string> scalar_names;
+      for(const auto & it : m_flat_arrays) if( it.second->type_name() == typeid(double).name() ) scalar_names.push_back( it.first );
+      return scalar_names;
+    }
+    inline auto optional_vec3_fields()
+    {
+      std::vector<std::string> vector_names;
+      for(const auto & it : m_flat_arrays) if( it.second->type_name() == typeid(onika::math::Vec3d).name() ) vector_names.push_back( it.first );
+      return vector_names;
+    }
+    inline auto optional_mat3_fields()
+    {
+      std::vector<std::string> matrix_names;
+      for(const auto & it : m_flat_arrays) if( it.second->type_name() == typeid(onika::math::Mat3d).name() ) matrix_names.push_back( it.first );
+      return matrix_names;
+    }
     // ********************************************************
 
 
-    // *** unification of per cell arrays dans flat arrays ***
+    // *** unification of per cell arrays dans flat arrays ***    
     template<class fid>
     inline auto
     field_accessor( const onika::soatl::FieldId<fid>& f )
@@ -584,29 +616,39 @@ namespace exanb
       // we shall never get there, but intel compiler needs this to avoid compile warnings
       return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_accessor(f)) >{} ;
     }
+
     template<class fid>
-    inline auto field_const_accessor( const onika::soatl::FieldId<fid>& f )
+    inline auto field_const_accessor( const onika::soatl::FieldId<fid>& f ) const
     {
       if constexpr ( ! HasField<fid>::value ) return flat_array_const_accessor(f);
       if constexpr (   HasField<fid>::value ) return f;
       // we shall never get there, but intel compiler needs this to avoid compile warnings
       return std::conditional_t< HasField<fid>::value , onika::soatl::FieldId<fid> , decltype(flat_array_const_accessor(f)) >{} ; // should never get ther
     }
+
     template<class... fids>
     inline auto field_accessors_from_field_set( FieldSet<fids...> fs )
     {
       return onika::make_flat_tuple( field_accessor( onika::soatl::FieldId<fids>{} ) ... );
     }
+
     template<class fid>
     inline bool has_allocated_field( const onika::soatl::FieldId<fid>& f )
     {
       return HasField<fid>::value || m_flat_arrays.find( f.short_name() ) != m_flat_arrays.end() ;
     }    
+
     template<class... fids>
     inline auto has_allocated_fields( FieldSet<fids...> )
     {
       return ( ... && ( has_allocated_field( onika::soatl::FieldId<fids>{} ) ) );
     }
+
+    template<class FuncT , class... fids>
+    inline auto field_accessor( const onika::soatl::FieldCombiner<FuncT,fids...>& f ) { return f; }
+
+    template<class FuncT , class... fids>
+    inline auto field_const_accessor( const onika::soatl::FieldCombiner<FuncT,fids...>& f ) const { return f; }
     // ******************************************************* 
 
   private:

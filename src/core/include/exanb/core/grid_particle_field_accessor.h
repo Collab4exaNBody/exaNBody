@@ -48,10 +48,11 @@ namespace exanb
       using Id = typename field_id::Id;
       using value_type = typename field_id::value_type;
       using reference_t = value_type &;
+      const field_id m_field_descriptor;
       std::conditional_t< IsConst , const value_type , value_type > * __restrict__ m_flat_array_ptr = nullptr;
-      static inline constexpr field_id field() { return {}; }
-      static inline constexpr const char* short_name() { return field_id::short_name(); }
-      static inline constexpr const char* name() { return field_id::name(); }
+      inline const field_id& field() const { return m_field_descriptor; }
+      inline const char* short_name() const { return m_field_descriptor.short_name(); }
+      inline const char* name() const { return m_field_descriptor.name(); }
     };
 
 

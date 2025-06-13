@@ -30,53 +30,63 @@ under the License.
 #include <exanb/compute/compute_cell_particles.h>
 #include <exanb/compute/generic_vec3_field_functors.h>
 
+#include <exanb/core/particle_type_properties.h>
+
 namespace exanb
 {
-
+  
   template<
     class GridT,
     class Field_X, class Field_Y, class Field_Z,
     class OpT ,
     class = AssertGridHasFields< GridT, Field_X, Field_Y, Field_Z >
     >
-  class GenericVec3Operator : public OperatorNode
+  class InPlaceVec3TypeScalarOperator : public OperatorNode
   {  
-    ADD_SLOT( Vec3d , value , INPUT , Vec3d{0.,0.,0.} );
     ADD_SLOT( GridT , grid  , INPUT_OUTPUT);
+    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , REQUIRED );
+    ADD_SLOT( std::string , property , INPUT , REQUIRED );
 
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
     ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL );
 
-    using compute_field_set_t = FieldSet< Field_X, Field_Y, Field_Z >;
+    using compute_field_set_t = FieldSet< field::_type , Field_X, Field_Y, Field_Z >;
     using has_field_id_t     = typename GridT:: template HasField <field::_id>;
     static constexpr bool has_field_id = has_field_id_t::value;
     static constexpr bool has_separate_r_fields = ! ( std::is_same_v<Field_X,field::_rx> && std::is_same_v<Field_Y,field::_ry> && std::is_same_v<Field_Z,field::_rz> );
-    
     using compute_field_set_region_t = 
       std::conditional_t< has_field_id ,      
         std::conditional_t< has_separate_r_fields ,
-          FieldSet< field::_rx , field::_ry , field::_rz , field::_id, Field_X, Field_Y, Field_Z >
+          FieldSet< field::_type , field::_rx , field::_ry , field::_rz , field::_id, Field_X, Field_Y, Field_Z >
           ,
-          FieldSet< field::_id, Field_X, Field_Y, Field_Z > >
+          FieldSet< field::_type , field::_id, Field_X, Field_Y, Field_Z > >
         ,
         std::conditional_t< has_separate_r_fields ,
-          FieldSet< field::_rx , field::_ry , field::_rz , Field_X, Field_Y, Field_Z >
+          FieldSet< field::_type , field::_rx , field::_ry , field::_rz , Field_X, Field_Y, Field_Z >
           ,
-          FieldSet< Field_X, Field_Y, Field_Z > > 
+          FieldSet< field::_type , Field_X, Field_Y, Field_Z > > 
         >;
 
   public:
     inline void execute () override final
     {
-      ldbg<<"GenericVec3Operator: value="<<(*value)<<std::endl;
+      ldbg<<"InPlaceVec3TypeScalarOperator: property="<<(*property)<<std::endl;
 
       if( grid->number_of_cells() == 0 ) return;
+
+      if( particle_type_properties->m_scalars.find(*property) == particle_type_properties->m_scalars.end() )
+      {
+        fatal_error() << "particle type property '"<< (*property) << "' does not exist" << std::endl;
+      }
+
+      // get array of per-type values
+      const auto * data_ptr = particle_type_properties->m_scalars[ *property ].data();
 
       if( region.has_value() )
       {
         if( !particle_regions.has_value() )
         {
-          fatal_error() << "GenericVec3Operator: region is defined, but particle_regions has no value" << std::endl;
+          fatal_error() << "InPlaceVec3TypeScalarOperator: region is defined, but particle_regions has no value" << std::endl;
         }        
         if( region->m_nb_operands==0 )
         {
@@ -101,29 +111,24 @@ namespace exanb
         }
 
         field_accessor_tuple_from_field_set_t<compute_field_set_region_t> cp_fields = {};
-        GenericVec3RegionFunctor<OpT> func = { prcsg , { *value  } };
+        GenericIndirectVec3RegionFunctor<OpT> func = { prcsg , { data_ptr } };
         compute_cell_particles( *grid , false , func , cp_fields , parallel_execution_context() );            
       }
       else
       {
         field_accessor_tuple_from_field_set_t<compute_field_set_t> cp_fields = {};
-        GenericVec3Functor<OpT> func = { { *value } };
+        GenericIndirectVec3Functor<OpT> func = { { data_ptr } };
         compute_cell_particles( *grid , false , func , cp_fields , parallel_execution_context() );            
       }
-      
+
     }
 
     inline void yaml_initialize(const YAML::Node& node) override final
     {
       YAML::Node tmp;
-      if( node.IsSequence() )
+      if( node.IsScalar() )
       {
-        tmp["value"] = node;
-      }
-      else if( node.IsScalar() )
-      {
-        double x = node.as<onika::physics::Quantity>().convert();
-        tmp["value"] = std::vector<double> { x , x , x };
+        tmp["property"] = node;
       }
       else { tmp = node; }
       this->OperatorNode::yaml_initialize( tmp );
@@ -131,22 +136,12 @@ namespace exanb
 
   };
 
-  template<class GridT> using ShiftPositionOperator = GenericVec3Operator< GridT, field::_rx,field::_ry,field::_rz , InPlaceAddFunctor<onika::math::Vec3d> >;
-  template<class GridT> using ShiftVelocityOperator = GenericVec3Operator< GridT, field::_vx,field::_vy,field::_vz , InPlaceAddFunctor<onika::math::Vec3d> >;
-  template<class GridT> using ScalePositionOperator = GenericVec3Operator< GridT, field::_rx,field::_ry,field::_rz , InPlaceMulFunctor<onika::math::Vec3d> >;
-  template<class GridT> using ScaleVelocityOperator = GenericVec3Operator< GridT, field::_vx,field::_vy,field::_vz , InPlaceMulFunctor<onika::math::Vec3d> >;
-  template<class GridT> using SetVelocityOperator   = GenericVec3Operator< GridT, field::_vx,field::_vy,field::_vz , SetFirstArgFunctor<onika::math::Vec3d> >;
-  template<class GridT> using SetForceOperator      = GenericVec3Operator< GridT, field::_fx,field::_fy,field::_fz , SetFirstArgFunctor<onika::math::Vec3d> >;
+  template<class GridT> using DivideForceByTypeScalar = InPlaceVec3TypeScalarOperator< GridT, field::_fx,field::_fy,field::_fz , IndirectInPlaceDivFunctor<const double * __restrict__> >;
   
  // === register factories ===  
-  ONIKA_AUTORUN_INIT(generic_op_vec3)
+  ONIKA_AUTORUN_INIT(vec3_typescalar_op)
   {
-   OperatorNodeFactory::instance()->register_factory( "shift_r", make_grid_variant_operator< ShiftPositionOperator > );
-   OperatorNodeFactory::instance()->register_factory( "shift_v", make_grid_variant_operator< ShiftVelocityOperator > );
-   OperatorNodeFactory::instance()->register_factory( "scale_r", make_grid_variant_operator< ScalePositionOperator > );
-   OperatorNodeFactory::instance()->register_factory( "scale_v", make_grid_variant_operator< ScaleVelocityOperator > );
-   OperatorNodeFactory::instance()->register_factory( "set_velocity", make_grid_variant_operator< SetVelocityOperator > );
-   OperatorNodeFactory::instance()->register_factory( "set_force", make_grid_variant_operator< SetForceOperator > );
+   OperatorNodeFactory::instance()->register_factory( "divide_force_by_type_scalar", make_grid_variant_operator< DivideForceByTypeScalar > );
   }
 
 }

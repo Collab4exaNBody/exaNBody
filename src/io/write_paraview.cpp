@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <onika/math/basic_types_yaml.h>
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
@@ -28,6 +29,7 @@ under the License.
 
 #include <exanb/compute/field_combiners.h>
 #include <exanb/core/particle_type_properties.h>
+#include <exanb/core/grid_additional_fields.h>
 
 #include <exanb/io/vtk_writer.h>
 #include <exanb/io/vtk_writer_binary.h>
@@ -40,7 +42,7 @@ under the License.
 
 namespace exanb
 {
-
+  
   template<typename GridT>
   class ParaviewGenericWriter : public OperatorNode
   {
@@ -75,24 +77,21 @@ namespace exanb
         ldbg << std::endl;
       }
 
+      // field selector function
       const auto& flist = *fields;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      
+      // per cell particle attribute accessor
       auto gridacc = grid->cells_accessor();
 
-      std::vector< TypePropertyScalarCombiner > type_scalars;
-      if constexpr ( has_field_type )
-      {
-        if( particle_type_properties.has_value() )
-        {
-          for(const auto & it : particle_type_properties->m_scalars)
-          {
-            // lout << "add field combiner for particle type property '"<<it.first<<"'"<<std::endl;
-            type_scalars.push_back( { it.first , it.second.data() } );
-          }
-        }
-      }
-      std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalars;
-      ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, particle_type_fields , grid_fields ... );
+      // optional fields
+      ParticleTypeProperties * optional_type_properties = nullptr;
+      if ( has_field_type && particle_type_properties.has_value() ) optional_type_properties = particle_type_properties.get_pointer();
+      GridAdditionalFields add_fields( grid , optional_type_properties );
+      auto [ type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields ] = add_fields.view();
+
+      ParaviewWriteTools::write_particles( ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost
+                                         , type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields, grid_fields ... );
     }
 
     template<class... fid>
