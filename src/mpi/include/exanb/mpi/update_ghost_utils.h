@@ -80,11 +80,26 @@ namespace exanb
       }
     }
 
+/*
     template<class ParticleTuple>
     struct GhostCellParticlesUpdateData
     {
       size_t m_cell_i;
       ParticleTuple m_particles[0];
+    };
+*/
+    struct GhostCellParticlesUpdateData
+    {
+      size_t m_cell_i;
+      uint8_t m_particles[0];
+      inline void * particle_data(size_t sizeof_ParticleTuple, size_t idx)
+      {
+        return (void*) ( m_particles + ( sizeof_ParticleTuple * idx ) );
+      }
+      inline const void * particle_data(size_t sizeof_ParticleTuple, size_t idx) const
+      {
+        return (const void*) ( m_particles + ( sizeof_ParticleTuple * idx ) );
+      }
     };
 
     struct UpdateGhostsScratch
@@ -172,6 +187,7 @@ namespace exanb
       const GridCellValueType * m_cell_scalars = nullptr;
       size_t m_cell_scalar_components = 0;
       uint8_t * m_data_ptr_base = nullptr;
+      size_t sizeof_ParticleTuple = 0;
       size_t m_data_buffer_size = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
       GhostBoundaryModifier m_boundary = {};
@@ -193,11 +209,27 @@ namespace exanb
         }
       }
 
+      template<class FieldT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void * pack_particle_field( const onika::cuda::span<FieldT>& fa, typename FieldT::value_type * data, uint64_t cell_i, uint64_t part_i ) const
+      {
+        for(const auto & f : fa) { * (data++) = m_cells[cell_i][f][i]; }
+        return data;
+      }
+
+      template<class FieldT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void * pack_particle_field( const FieldT& f, typename FieldT::value_type * data, uint64_t cell_i, uint64_t part_i ) const
+      {
+        * (data++) = m_cells[cell_i][f][part_i];
+        return data;
+      }
+
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
-      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t i, uint64_t j, std::index_sequence<FieldIndex...> ) const
+      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t part_i, uint64_t j, std::index_sequence<FieldIndex...> ) const
       {
-        data->m_particles[j] = ParticleTuple( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] ... );
+        data->particle_data(j) ... = sizeof_ParticleTuple ... ( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] ... );
       }
 
       ONIKA_HOST_DEVICE_FUNC
