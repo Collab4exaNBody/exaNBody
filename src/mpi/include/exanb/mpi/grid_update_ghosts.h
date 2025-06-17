@@ -85,7 +85,7 @@ namespace exanb
     using ParticleFullTuple = typename CellParticles::TupleValueType;
     using ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple<FieldSetT>::type;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
-    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData<ParticleTuple>;
+    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
     
     // static_assert( ParticleTuple::has_field(field::rx) && ParticleTuple::has_field(field::ry) && ParticleTuple::has_field(field::rz) , "ParticleTuple must contain rx, ry and rz fields" );
     
@@ -93,8 +93,8 @@ namespace exanb
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
-    using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
-    using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT>;
+    using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+    using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
@@ -204,6 +204,7 @@ namespace exanb
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
                                              , ghost_comm_buffers.sendbuf_size(p)
+                                             , sizeof(ParticleTuple)
                                              , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
                                              , ghost_boundary
                                              , update_fields };
@@ -309,6 +310,7 @@ namespace exanb
                                         , cell_scalar_components 
                                         , cell_scalars
                                         , ghost_comm_buffers.recvbuf_size(p)
+                                        , sizeof(ParticleTuple)
                                         , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr
                                         , update_fields
 #                                       ifndef NDEBUG
