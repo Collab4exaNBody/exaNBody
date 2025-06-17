@@ -34,8 +34,7 @@ under the License.
 
 // this allows for parallel compilation of templated operator for each available field set
 namespace exanb
-{
-
+{  
   // AverageNeighbors Context
   template<class ValueT>
   struct AverageNeighborsExtStorage
@@ -131,9 +130,11 @@ namespace exanb
     ADD_SLOT( GridT                     , grid            , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
 
     template<class FieldT>
-    inline void test_and_execute_input_field( const FieldT& input_field ) 
+    inline void test_and_execute_input_field( const FieldT& input_field )
     {
-      if( (*nbh_field) == input_field.short_name() )
+      using InputValueType = typename FieldT::value_type;
+      
+      if constexpr ( std::is_convertible_v<InputValueType,double> ) if( (*nbh_field) == input_field.short_name() )
       {
         using ComputeBuffer = ComputePairBuffer2<false,false,AverageNeighborsExtStorage<typename FieldT::value_type> >;
 
