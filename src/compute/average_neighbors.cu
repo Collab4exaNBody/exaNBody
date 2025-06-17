@@ -118,14 +118,14 @@ namespace exanb
     using DoubleVector = onika::memory::CudaMMVector<double>;
     
     // ========= I/O slots =======================
-    ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance"} );
-    ADD_SLOT( DoubleVector              , weight_function , INPUT        , DoubleVector{1.0} , DocString{"a0...an coefficients for the polynomial distance weighting function : a0*x^0 + a1*x^1 + ... +an*x^n"} );
+    ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance for average operation."} );
+    ADD_SLOT( DoubleVector              , weight_function , INPUT        , DoubleVector{1.0} , DocString{"List of [a0,...,an] coefficients for the polynomial distance weighting function : a0*x^0 + a1*x^1 + ... +an*x^n"} );
     ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
     ADD_SLOT( Domain                    , domain          , INPUT        , REQUIRED , DocString{"Simulation domain"});
     ADD_SLOT( ParticleTypeProperties    , particle_type_properties , INPUT , ParticleTypeProperties{} );
 
-    ADD_SLOT( std::string               , avg_field       , INPUT        , REQUIRED , DocString{"name of resulting average field"});
-    ADD_SLOT( std::string               , nbh_field       , INPUT        , REQUIRED , DocString{"name of averaged neighbor quantity"});
+    ADD_SLOT( std::string               , avg_field       , INPUT        , REQUIRED , DocString{"Name of the resulting averaged field."});
+    ADD_SLOT( std::string               , nbh_field       , INPUT        , REQUIRED , DocString{"Name of the neighbors field to be averaged."});
 
     ADD_SLOT( double                    , rcut_max        , INPUT_OUTPUT , 0.0 , DocString{"Updated max rcut"});
     ADD_SLOT( GridT                     , grid            , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
@@ -215,6 +215,29 @@ namespace exanb
       using GridFieldSet = typename GridT::field_set_t ;
       execute_on_field_set( GridFieldSet{} );
     }
+
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+
+Averaging a per-particle scalar field over neighboring particles in a sphere with a user-specified cutoff radius. Both the field to be average (nbh_field) and the resulting one (avg_field) are user-specified strings.
+
+Usage example:
+
+average_neighbors_scalar:
+  nbh_field: mass
+  avg_field: avg_mass
+  rcut: 8.0 ang
+  weight_function: [ 1.0 , 0.0 , -0.01] # => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle
+
+average_neighbors_scalar:
+  nbh_field: charge
+  avg_field: avg_charge
+  rcut: 12.0 ang
+  weight_function: [ 1.0 , 0.0 , -0.01] # => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle
+
+)EOF";
+    }    
   };
 
   // === register factories ===  
