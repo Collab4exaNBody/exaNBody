@@ -177,7 +177,7 @@ namespace exanb
       inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); } 
     };
 
-    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple , class FieldAccTuple >
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
     struct GhostSendPackFunctor
     {
       static constexpr size_t FieldCount = onika::tuple_size_const_v<FieldAccTuple>;
@@ -211,16 +211,20 @@ namespace exanb
 
       template<class FieldT>
       ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const onika::cuda::span<FieldT>& fa, typename FieldT::value_type * data, uint64_t cell_i, uint64_t part_i ) const
+      inline void * pack_particle_field( const onika::cuda::span<FieldT>& fa, void* data_vp, uint64_t cell_i, uint64_t part_i ) const
       {
+        using ValueType = typename FieldT::value_type ;
+        ValueType * data = ( ValueType * ) data_vp;
         for(const auto & f : fa) { * (data++) = m_cells[cell_i][f][i]; }
         return data;
       }
 
       template<class FieldT>
       ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const FieldT& f, typename FieldT::value_type * data, uint64_t cell_i, uint64_t part_i ) const
+      inline void * pack_particle_field( const FieldT& f, void * data_vp, uint64_t cell_i, uint64_t part_i ) const
       {
+        using ValueType = typename FieldT::value_type ;
+        ValueType * data = ( ValueType * ) data_vp;
         * (data++) = m_cells[cell_i][f][part_i];
         return data;
       }
@@ -229,14 +233,15 @@ namespace exanb
       ONIKA_HOST_DEVICE_FUNC
       inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t part_i, uint64_t j, std::index_sequence<FieldIndex...> ) const
       {
-        data->particle_data(j) ... = sizeof_ParticleTuple ... ( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] ... );
+        void * data_ptr = data->particle_data(j);
+        ( ... , ( data_ptr = pack_particle_field( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] , data_ptr , cell_i, part_i ) ) );
       }
 
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( uint64_t i ) const
       {      
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
-        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof_ParticleTuple;
         assert( byte_offset < m_data_buffer_size );
         uint8_t* data_ptr = m_data_ptr_base + byte_offset; //m_sends[i].m_send_buffer_offset;
         CellParticlesUpdateData* data = (CellParticlesUpdateData*) data_ptr;
@@ -269,13 +274,14 @@ namespace exanb
       }
     };
 
-    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles, class FieldAccTuple>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, bool CreateParticles, class FieldAccTuple>
     struct GhostReceiveUnpackFunctor
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * m_receives = nullptr;
       const uint64_t * m_cell_offset = nullptr;
       uint8_t * m_data_ptr_base = nullptr;
+      size_t sizeof_ParticleTuple = 0;
       CellsAccessorT m_cells = {};
       size_t m_cell_scalar_components = 0;
       GridCellValueType * m_cell_scalars = nullptr;
@@ -308,12 +314,32 @@ namespace exanb
         }
       }
 
+      template<class FieldT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline const void * unpack_particle_field( const onika::cuda::span<FieldT>& fa, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+      {
+        using ValueType = typename FieldT::value_type ;
+        const ValueType * data = ( const ValueType * ) data_vp;
+        for(const auto& f : fa) m_cells[cell_i][f][part_i] = * (data++);
+        return data;
+      }
+
+      template<class FieldT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline const void * unpack_particle_field( const FieldT& f, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+      {
+        using ValueType = typename FieldT::value_type ;
+        const ValueType * data = ( const ValueType * ) data_vp;
+        m_cells[cell_i][f][part_i] = * (data++) ;
+        return data;
+      }
+
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
       inline void unpack_particle_fields( const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t i, std::index_sequence<FieldIndex...> ) const
       {
         using exanb::field_id_fom_acc_v;
-        if constexpr ( CreateParticles ) m_cells[cell_i].set_tuple( i , ParticleFullTuple() ); // zero all fields
+        if constexpr ( CreateParticles ) m_cells[cell_i].zero_tuple( i , ParticleFullTuple() ); // zero all fields
         ( ... , (
           m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i] = data->m_particles[i][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ]
         ) );
@@ -323,7 +349,7 @@ namespace exanb
       inline void operator () ( uint64_t i ) const
       {
         const size_t particle_offset = m_cell_offset[i];
-        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof_ParticleTuple;
         assert( byte_offset < m_data_buffer_size );
         const uint8_t * const __restrict__ data_ptr = m_data_ptr_base + byte_offset; //m_cell_offset[i];
         const CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
