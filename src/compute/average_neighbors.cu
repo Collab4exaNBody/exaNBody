@@ -167,8 +167,8 @@ namespace exanb
       }
     }
 
-    template<class FieldT>
-    inline void test_and_execute_input_field( const std::span<FieldT>& input_fields ) 
+    template< onika::SpanCompatible FieldSpanT >
+    inline void test_and_execute_input_field( const FieldSpanT & input_fields ) 
     {
       for(const auto& f : input_fields) test_and_execute_input_field( f );
     }
@@ -196,9 +196,9 @@ namespace exanb
           }
         }
       }
-      std::span<TypePropertyScalarCombiner> particle_type_fields = type_scalars;
-
-      test_all_input_fields( particle_type_fields , onika::soatl::FieldId<fid>{} ... );
+      
+      test_all_input_fields( onika::cuda::make_span(type_scalars) , onika::soatl::FieldId<fid>{} ... ); // this uses a cuda compatible span
+//      test_all_input_fields( std::span<TypePropertyScalarCombiner>{type_scalars} , onika::soatl::FieldId<fid>{} ... ); // this uses an std::span
     }
 
   public:
