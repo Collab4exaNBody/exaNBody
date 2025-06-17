@@ -45,10 +45,10 @@ namespace exanb
   {  
     ADD_SLOT( GridT , grid  , INPUT_OUTPUT);
     ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , REQUIRED );
-    ADD_SLOT( std::string , property , INPUT , REQUIRED );
+    ADD_SLOT( std::string , property , INPUT , REQUIRED , DocString{"Type-related property to be used for required operation."} );
 
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL , DocString{"Region identifier so the required operation is applied only in a specific region."} );
 
     using compute_field_set_t = FieldSet< field::_type , Field_X, Field_Y, Field_Z >;
     using has_field_id_t     = typename GridT:: template HasField <field::_id>;
@@ -134,6 +134,23 @@ namespace exanb
       this->OperatorNode::yaml_initialize( tmp );
     }
 
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+
+Allows to perform specific operation on a per-particle vector by a per-type scalar. Currently, the available operator is divide_force_by_type_scalar where the per-particle force vector is divided by the user-specified type-related property (e.g. mass).
+
+Usage example:
+
+divide_force_by_type_scalar: mass
+
+divide_force_by_type_scalar:
+  region: REGION1
+  property: mass
+
+)EOF";
+    }
+    
   };
 
   template<class GridT> using DivideForceByTypeScalar = InPlaceVec3TypeScalarOperator< GridT, field::_fx,field::_fy,field::_fz , IndirectInPlaceDivFunctor<const double * __restrict__> >;

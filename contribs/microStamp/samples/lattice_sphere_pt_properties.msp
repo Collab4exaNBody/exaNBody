@@ -25,14 +25,16 @@ compute_force:
       config: { epsilon: 1.286776984E-21 J , sigma: 0.31589E-09 m }
       rcut: 8.0 ang
 
+  
 input_data:
   - particle_types:
-      verbose: true
       particle_type_map: { A: 0 , B: 1 , C: 2 }
-      particle_type_properties:
-        C: { mass: 30. Da, radius: 0.5 ang }    
-        B: { mass: 20. Da, radius: 1.0 ang }
-        A: { mass: 10. Da, radius: 3.0 ang }
+      particle_type_properties: { C: { mass: 30. Da, radius: 0.5 ang }, B: { mass: 20. Da, radius: 1.0 ang }, A: { mass: 10. Da, radius: 3.0 ang } }
+  - particle_type_add_properties:
+     verbose: true
+     properties:
+       C: { aa: 2. }
+       B: { charge: 1. e- }
   - particle_regions:
       - PLANE1:
           quadric:
@@ -85,5 +87,18 @@ input_data:
 # pretty logo banner
 logo_banner:
   - message: "           _               ____  _\n _ __ ___ (_) ___ _ __ ___/ ___|| |_ __ _ _ __ ___  _ __\n| '_ ` _ \\| |/ __| '__/ _ \\___ \\| __/ _` | '_ ` _ \\| '_ \\\n| | | | | | | (__| | | (_) |__) | || (_| | | | | | | |_) |\n|_| |_| |_|_|\\___|_|  \\___/____/ \\__\\__,_|_| |_| |_| .__/\n                                                   |_|\n"
-
-simulation: default_simulation
+simulation:
+  - logo_banner
+  - mpi_comm_world
+  - init_cuda
+  - global
+  - unit_system
+  - input_data
+  - nbh_dist
+  - print_domain
+  - first_iteration
+#  - dump_data
+#  - compute_loop
+#  - final_dump
+#  - memory_stats: { musage_threshold: 16 }
+  - finalize_cuda
