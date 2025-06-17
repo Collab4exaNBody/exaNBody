@@ -31,9 +31,9 @@ namespace exanb
     // -----------------------------------------------
     // Operator slots
     // -----------------------------------------------    
-    ADD_SLOT( ParticleTypeMap        , particle_type_map        , INPUT , REQUIRED );
-    ADD_SLOT( ParticleTypeProperties , properties , INPUT , REQUIRED );
-    ADD_SLOT( bool                   , verbose                  , INPUT        , true );
+    ADD_SLOT( ParticleTypeMap        , particle_type_map        , INPUT , REQUIRED , DocString{"NOT TO BE SET HERE! Must be defined through the particle_types operator. (YAML: dict) Maps string identifiers of particle types to internal integer type IDs."});
+    ADD_SLOT( ParticleTypeProperties , properties , INPUT , REQUIRED , DocString{"(YAML: dict) Assigns properties to each particle type. Each key is a particle identifier from particle_type_map, and each value is a dictionary of properties. If a property is not defined for all types, it is created and set to 0 for others."});
+    ADD_SLOT( bool                   , verbose                  , INPUT        , true , DocString{"(YAML: bool) If true, enables detailed logging or output for debugging or informational purposes related to particle type parsing and setup.."} );
     ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT_OUTPUT , ParticleTypeProperties{} );
     
   public:
@@ -79,6 +79,30 @@ namespace exanb
       this->OperatorNode::yaml_initialize(tmp);
     }
 
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+
+Allows to add type-related properties after particle types have been defined.
+
+Usage example:
+
+particle_type_add_properties:
+  A: { locval: 2., lambda: 0.5, charge: 1 e- }
+  B: { locval: 1. }
+  C: { charge: -0.4 e- }
+
+particle_type_add_properties:
+  verbose: false
+  properties:
+    A: { locval: 2., lambda: 0.5, charge: 1 e- }
+    B: { locval: 1. }
+    C: { charge: -0.4 e- }
+
+particle_type_add_properties: { A: { locval: 2., lambda: 0.5, charge: 1 e- }, B: { locval: 1. }, C: { charge: -0.4 e- } }
+
+)EOF";
+    }    
   };
 
   // === register factories ===

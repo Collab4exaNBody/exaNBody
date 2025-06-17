@@ -31,9 +31,9 @@ namespace exanb
     // -----------------------------------------------
     // Operator slots
     // -----------------------------------------------    
-    ADD_SLOT( ParticleTypeMap        , particle_type_map        , INPUT_OUTPUT , ParticleTypeMap{} );
-    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT_OUTPUT , ParticleTypeProperties{} );
-    ADD_SLOT( bool                   , verbose                  , INPUT        , true );
+    ADD_SLOT( ParticleTypeMap        , particle_type_map        , INPUT_OUTPUT , ParticleTypeMap{} , DocString{"(YAML: dict) Maps string identifiers of particle types to internal integer type IDs."});
+    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT_OUTPUT , ParticleTypeProperties{} , DocString{"(YAML: dict) Assigns properties to each particle type. Each key is a particle identifier from particle_type_map, and each value is a dictionary of properties. If a property is not defined for all types, it is created and set to 0 for others."});
+    ADD_SLOT( bool                   , verbose                  , INPUT        , true , DocString{"(YAML: bool) If true, enables detailed logging or output for debugging or informational purposes related to particle type parsing and setup.."} );
     
   public:
     inline void execute () override final
@@ -64,6 +64,30 @@ namespace exanb
         //*particle_type_map = particle_type_properties->build_type_map();
       }
       if( *verbose ) particle_type_properties->to_stream( lout );
+    }
+
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+
+Allows to define particle species, type mapping and additional type-related properties.
+
+Usage example:
+
+particle_types:
+  verbose: true
+  particle_type_map: { A: 0 , B: 1 , C: 2 }
+  particle_type_properties:
+    A: { mass: 30. Da, radius: 0.5 ang, charge: 1 e- }
+    B: { mass: 20. Da, radius: 1.0 ang }
+    C: { mass: 10. Da, radius: 3.0 ang }
+
+particle_types:
+  verbose: true
+  particle_type_map: { A: 0 , B: 1 }
+  particle_type_properties: { A: { mass: 30. Da, lambda: 0.1 }, B: { mass: 20. Da } }
+
+)EOF";
     }
   };
 
