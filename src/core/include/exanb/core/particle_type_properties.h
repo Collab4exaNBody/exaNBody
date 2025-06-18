@@ -22,6 +22,7 @@ under the License.
 #include <cstdint>
 #include <map>
 #include <string>
+#include <cstring>
 #include <onika/math/basic_types.h>
 #include <onika/memory/allocator.h>
 
@@ -29,34 +30,36 @@ under the License.
 #include <exanb/core/particle_type_id.h>
 #include <onika/soatl/field_combiner.h>
 
-// backward compatibility with Onika v1.0.1
-#ifndef ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER
-#define ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER(ns,CombT,FuncT,...) \
-namespace onika { \
-namespace soatl { \
-template<> struct FieldCombiner<FuncT OPT_COMMA_VA_ARGS(__VA_ARGS__)> { \
-  FuncT m_func; \
-  using value_type = decltype( m_func( EXPAND_WITH_FUNC(_ONIKA_GET_TYPE_FROM_FIELD_ID OPT_COMMA_VA_ARGS(__VA_ARGS__)) ) ); \
-  const char* short_name() const { return m_func.short_name(); } \
-  const char* name() const { return m_func.name(); } \
-  }; \
-} } \
-namespace ns { using CombT = onika::soatl::FieldCombiner<FuncT OPT_COMMA_VA_ARGS(__VA_ARGS__)>; }
-#endif
-
 namespace exanb
 {
-  struct TypePropertyScalarFunctor
+  template<class PropertyValueType>
+  struct TypePropertyFunctor
   {
-    const std::string m_name = "TypePropertyScalar";
-    const double * m_scalars = nullptr;
-    inline const char* short_name() const { return m_name.c_str(); }
-    inline const char* name() const { return m_name.c_str(); }
-    ONIKA_HOST_DEVICE_FUNC inline double operator () (int t) const { return m_scalars[t]; }
+    static inline constexpr size_t MAX_NAME_LEN = 16;
+    char m_name[MAX_NAME_LEN] = "TypeScalar";
+    const PropertyValueType * __restrict__ m_values = nullptr;
+    inline const char* short_name() const { return m_name; }
+    inline const char* name() const { return m_name; }
+    ONIKA_HOST_DEVICE_FUNC inline auto operator () (int t) const { return m_values[t]; }
   };
+  using TypePropertyScalarFunctor = TypePropertyFunctor<double>;
+  using TypePropertyVec3Functor = TypePropertyFunctor<onika::math::Vec3d>;
+  using TypePropertyMat3Functor = TypePropertyFunctor<onika::math::Mat3d>;
+  
+  template<class T>
+  inline auto make_type_property_functor(const std::string& name, const T * __restrict__ data)
+  {
+    TypePropertyFunctor<T> func;
+    std::strncpy( func.m_name , name.c_str() , func.MAX_NAME_LEN );
+    func.m_name[ func.MAX_NAME_LEN - 1 ] = '\0';
+    func.m_values = data;
+    return func;
+  }
 }
 
 ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER( exanb, TypePropertyScalarCombiner , exanb::TypePropertyScalarFunctor , exanb::field::_type )
+ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER( exanb, TypePropertyVec3Combiner , exanb::TypePropertyVec3Functor , exanb::field::_type )
+ONIKA_DECLARE_DYNAMIC_FIELD_COMBINER( exanb, TypePropertyMat3Combiner , exanb::TypePropertyMat3Functor , exanb::field::_type )
 
 namespace exanb
 {
@@ -71,6 +74,7 @@ namespace exanb
   struct ParticleTypeProperties
   {
     std::map< std::string , ParticleTypePropertyValues > m_name_map;
+    std::vector< std::string > m_names;
     std::map< std::string , onika::memory::CudaMMVector<double> > m_scalars;
     std::map< std::string , onika::memory::CudaMMVector<onika::math::Vec3d> > m_vectors;
 
@@ -82,7 +86,33 @@ namespace exanb
     const onika::math::Vec3d * __restrict__ vector_property(const std::string& key) const;
     bool empty() const;
     ParticleTypeMap build_type_map() const;
-    void update_property_arrays();
+    void update_property_arrays(const ParticleTypeMap& type_name_map);
+    inline void update_property_arrays() { this->update_property_arrays( build_type_map() ); }
+    
+    template<class StreamT>
+    inline StreamT& to_stream(StreamT& out)
+    {
+      out << "=== Particle types ===" << std::endl;
+      size_t n_types = m_names.size();
+      for(size_t i=0;i<n_types;i++)
+      {
+        if( m_names[i] != "" )
+        {
+          out << m_names[i] << ":" << std::endl
+               << "  id = " << i << std::endl;
+          for(const auto & propit : m_scalars)
+          {
+            out << "  "<<propit.first<<" = "<<propit.second[ i ]<<std::endl;
+          }
+          for(const auto & propit : m_vectors)
+          {
+            out << "  "<<propit.first<<" = "<<propit.second[ i ]<<std::endl;
+          }
+        }
+      }
+      out << "=========================" << std::endl;
+      return out;
+    }
   };
 
 }

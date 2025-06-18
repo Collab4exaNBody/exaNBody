@@ -72,16 +72,21 @@ namespace exanb
       return tm;
     }
     
-    void ParticleTypeProperties::update_property_arrays()
+    void ParticleTypeProperties::update_property_arrays(const ParticleTypeMap& tm)
     {
       m_scalars.clear();
       m_vectors.clear();
-      auto tm = build_type_map();
+      m_names.assign( MAX_PARTICLE_TYPES , "" );
       for(const auto & type_it : m_name_map)
       {
         const auto & type_name = type_it.first;
-        for(const auto & prop_it : type_it.second.m_scalars) scalar_property(prop_it.first) [ tm[type_name] ] = prop_it.second;
-        for(const auto & prop_it : type_it.second.m_vectors) vector_property(prop_it.first) [ tm[type_name] ] = prop_it.second;
+        auto it = tm.find(type_name);
+        if( it == tm.end() ) { fatal_error() << "Invalid type name map"<<std::endl; }
+        const auto type_id = it->second;
+        if( type_id<0 || size_t(type_id)>=m_names.size() ) { fatal_error() << "Invalid type id "<<type_id<<", bigger than maximum "<<m_names.size() <<std::endl; }
+        m_names[ type_id ] = type_name;
+        for(const auto & prop_it : type_it.second.m_scalars) scalar_property(prop_it.first) [ type_id ] = prop_it.second;
+        for(const auto & prop_it : type_it.second.m_vectors) vector_property(prop_it.first) [ type_id ] = prop_it.second;
       }
     }
 
