@@ -122,7 +122,7 @@ namespace exanb
         {
           const void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_j );
           using exanb::field_id_fom_acc_v;
-          ( ... , ( data_ptr = unpack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i , part_i ) ) );
+          ( ... , ( data_ptr = unpack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , info , data_ptr , cell_i , part_i ) ) );
         }
       }
 

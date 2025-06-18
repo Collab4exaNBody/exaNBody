@@ -39,19 +39,21 @@ namespace exanb
     template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
     template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
     
-    template<class T, class fid>
+    template<class T, class FieldT>
     ONIKA_HOST_DEVICE_FUNC
-    static inline T apply_particle_boundary( const T& v, const onika::soatl::FieldId<fid>& f , const GhostBoundaryModifier& boundary , uint32_t flags )
+    static inline T apply_particle_boundary( const T& v, const FieldT& f , const GhostBoundaryModifier& boundary , uint32_t flags )
     {
+      using fid = typename FieldT::Id;
+      using BX = decltype(PositionBackupFieldX);
+      using BY = decltype(PositionBackupFieldY);
+      using BZ = decltype(PositionBackupFieldZ);
+
       if constexpr ( std::is_same_v<fid,field::_rx> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.x, boundary.m_domain_max.x , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
       if constexpr ( std::is_same_v<fid,field::_ry> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.y, boundary.m_domain_max.y , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
       if constexpr ( std::is_same_v<fid,field::_rz> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.z, boundary.m_domain_max.z , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
 
       if constexpr ( HAS_POSITION_BACKUP_FIELDS )
       {
-        using BX = decltype(PositionBackupFieldX);
-        using BY = decltype(PositionBackupFieldY);
-        using BZ = decltype(PositionBackupFieldZ);
         if constexpr ( std::is_same_v<fid,BX> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.x, boundary.m_domain_max.x , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
         if constexpr ( std::is_same_v<fid,BY> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.y, boundary.m_domain_max.y , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
         if constexpr ( std::is_same_v<fid,BZ> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.z, boundary.m_domain_max.z , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
