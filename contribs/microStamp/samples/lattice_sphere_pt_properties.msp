@@ -12,55 +12,29 @@ configuration:
       energy: joule
   logging:
     debug: false
-  debug:
-    filter: [ ".*particle_types" , ".*particle_type_add_properties" ]
-  profiling:
-    summary: true
 
 global:
   dt: 1.0e-3 ps
   rcut_max: 8.0 ang
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
-  simulation_log_frequency: 10
-  simulation_dump_frequency: 100
-  simulation_end_iteration: 1000
-
-
-write_xyz:
-  fields: [ mass , charge , processor_id , force , vel ]
-
-#dump_data: dump_data_xyz
-dump_data:
-  - average_neighbors_scalar:
-      nbh_field: mass
-      avg_field: density
+  simulation_log_frequency: 1
+  simulation_end_iteration: 10
+  
+compute_force:
+  - lennard_jones_force:
+      config: { epsilon: 1.286776984E-21 J , sigma: 0.31589E-09 m }
       rcut: 8.0 ang
-#  - dump_data_paraview
-  - dump_data_xyz
 
-snap_force_generic:
-  parameters:
-    nt: 2
-    param: "WBe_Wood_PRB2019.snapparam"
-    coef: "WBe_Wood_PRB2019.snapcoeff"
-
-compute_force: snap_force_generic
-
-compute_force_epilog:
-  - divide_force_by_type_scalar: mass
-
-+first_iteration:
-  - particle_types: { verbose: true }
-  - grid_stats
-  - chunk_neighbors_stats
-  - memory_stats
-
+  
 input_data:
   - particle_types:
-      particle_type_map: { W: 0 , Be: 1 }
+      particle_type_map: { A: 0 , B: 1 , C: 2 }
+      particle_type_properties: { C: { mass: 30. Da, radius: 0.5 ang }, B: { mass: 20. Da, radius: 1.0 ang }, A: { mass: 10. Da, radius: 3.0 ang } }
   - particle_type_add_properties:
-      W: { mass: 183.84 Da , z: 74 }
-      Be: { mass: 9.012182 Da , z: 4 }
+     verbose: true
+     properties:
+       C: { aa: 2. }
+       B: { charge: 1. e- }
   - particle_regions:
       - PLANE1:
           quadric:
@@ -68,31 +42,19 @@ input_data:
             transform:
               - zrot: pi/4
               - translate: [ 20 ang , 150 ang , 0 ]
-      - PLANE1b:
-          quadric:
-            shape: { plane: [ 1 , 0 , 0 , 0 ] }
-            transform:
-              - zrot: pi/4
-              - translate: [ 23 ang , 153 ang , 0 ]
       - PLANE2:
           quadric:
             shape: { plane: [ 1 , 0 , 0 , 0 ] }
             transform:
               - zrot: -pi/4
               - translate: [ 20 ang , 150 ang , 0 ]
-      - PLANE2b:
-          quadric:
-            shape: { plane: [ 1 , 0 , 0 , 0 ] }
-            transform:
-              - zrot: -pi/4
-              - translate: [ 23 ang , 153 ang , 0 ]
       - BOX:
           bounds: [ [ 250 ang , 0 ang , 0 ang ] , [ 300 ang , 300 ang , 300 ang ] ]
       - SPHERE:
           quadric:
             shape: sphere
             transform:
-              - scale: [ 80 ang , 80 ang , 80 ang ] 
+              - scale: [ 20 ang , 20 ang , 20 ang ] 
               - translate: [ 150 ang , 150 ang , 150 ang ]
   - domain:
       cell_size: 30.0 ang
@@ -104,18 +66,18 @@ input_data:
   - init_rcb_grid
   - lattice:
       structure: SC
-      types: [ W ]
-      size: [ 5. ang , 5. ang , 5. ang ]
+      types: [ A ]
+      size: [ 3. ang , 3. ang , 3. ang ]
       noise: 0.1 ang
       noise_cutoff: 0.4 ang
-      region: PLANE1 or PLANE2 or BOX
+      region: PLANE1 or PLANE2 or BOX or SPHERE
   - lattice:
-      structure: SC
-      types: [ Be ]
-      size: [ 4. ang , 4. ang , 4. ang ]
+      structure: BCC
+      types: [ B , C ]
+      size: [ 15 ang , 15 ang , 15 ang ]
       noise: 0.1 ang
       noise_cutoff: 0.4 ang
-      region: SPHERE and not ( PLANE1b or PLANE2b )
+      region: not ( PLANE1 or PLANE2 or BOX or SPHERE )
   - gaussian_noise_v
   - scale_v: 1000 m/s
   - shift_v:
@@ -125,7 +87,18 @@ input_data:
 # pretty logo banner
 logo_banner:
   - message: "           _               ____  _\n _ __ ___ (_) ___ _ __ ___/ ___|| |_ __ _ _ __ ___  _ __\n| '_ ` _ \\| |/ __| '__/ _ \\___ \\| __/ _` | '_ ` _ \\| '_ \\\n| | | | | | | (__| | | (_) |__) | || (_| | | | | | | |_) |\n|_| |_| |_|_|\\___|_|  \\___/____/ \\__\\__,_|_| |_| |_| .__/\n                                                   |_|\n"
-
-simulation: default_simulation
-
-
+simulation:
+  - logo_banner
+  - mpi_comm_world
+  - init_cuda
+  - global
+  - unit_system
+  - input_data
+  - nbh_dist
+  - print_domain
+  - first_iteration
+#  - dump_data
+#  - compute_loop
+#  - final_dump
+#  - memory_stats: { musage_threshold: 16 }
+  - finalize_cuda

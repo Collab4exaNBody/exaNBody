@@ -82,7 +82,8 @@ function(xnb_add_plugin PluginName dirname)
     file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Configuration of exaNBody's ${PluginName} component\n")
     file(APPEND ${XNB_CMAKE_PACKAGE} "set(XNB_BUILD_${PluginName} ON)\n")
 
-    if(${PluginName}_INCLUDE_DIRS)
+    
+    if(${PluginName}_INCLUDE_DIRS AND NOT ${PluginName}_DONT_EXPORT_INCLUDE_DIRS)
       file(APPEND ${XNB_CMAKE_PACKAGE} "set(${PluginName}_INCLUDE_DIRS ${${PluginName}_INCLUDE_DIRS})\n")
     endif()
     
@@ -198,6 +199,7 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "endmacro()\n")
 
 # install cmake package file to allow external project to find_package exaNBody
 install(FILES ${XNB_CMAKE_PACKAGE} DESTINATION ${XNB_ROOT_DIR})
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data/config DESTINATION data)
 
 # generate exaNBody environment setup, based on onika onverionment setup script
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
