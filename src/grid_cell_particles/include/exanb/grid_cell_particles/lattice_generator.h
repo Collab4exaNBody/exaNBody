@@ -17,6 +17,8 @@ specific language governing permissions and limitations
 under the License.
 */
 
+#pragma once
+
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
@@ -28,7 +30,7 @@ under the License.
 #include <onika/math/basic_types_yaml.h>
 #include <onika/math/basic_types_stream.h>
 #include <onika/log.h>
-//#include "exanb/vector_utils.h"
+
 #include <exanb/core/check_particles_inside_cell.h>
 #include <onika/physics/constants.h>
 #include <onika/parallel/random.h>
@@ -56,7 +58,6 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------    
     ADD_SLOT( MPI_Comm        , mpi          , INPUT , MPI_COMM_WORLD  );
-    ADD_SLOT( ReadBoundsSelectionMode, bounds_mode   , INPUT , ReadBoundsSelectionMode::FILE_BOUNDS );
     ADD_SLOT( Domain          , domain       , INPUT_OUTPUT );
     ADD_SLOT( GridT           , grid         , INPUT_OUTPUT );
 
@@ -80,7 +81,6 @@ namespace exanb
     ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
-    ADD_SLOT( ssize_t          , np           , INPUT , OPTIONAL );    
     ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL );    
     ADD_SLOT( double           , noise        , INPUT , 0.0);
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
@@ -100,50 +100,61 @@ namespace exanb
       //   if 'CUSTOM' -> check required fields then create LatticeCollection
       //   if one of predefined lattices 'SC' 'BCC' 'FCC' 'HCP' etc... -> check required fields then create Lattice Collection
 
+      if( positions.has_value() )
+      {
+        if( positions->size() != types->size() )
+        {
+          fatal_error() << "positions is defined with a different number of elements ("<<positions->size()<<") than types ("<<types->size()<<")"<<std::endl;
+        }
+      }
+
       LatticeCollection lattice;
       lattice.m_structure = *structure;
       lattice.m_size = *size;
-      if (*structure == "CUSTOM") {
-        assert( np.has_value() );
-        assert( positions.has_value() );
-        lattice.m_np = *np;
+      if (*structure == "CUSTOM")
+      {
+        if( ! positions.has_value() )
+        {
+          fatal_error() << "CUSTOM structure is selected, but 'positions' is not defined"<<std::endl;
+        }
+        lattice.m_np = types->size();
         lattice.m_types = *types;
         // Checking that positions are contained between 0 and 1 -> fractional coordinates
-#       ifndef NDEBUG
-        for (size_t i=0;i<positions->size();i++) {
-          double px = positions->at(i).x;
-          double py = positions->at(i).y;
-          double pz = positions->at(i).z;
-          assert( px >=0. && px <= 1. );
-          assert( py >=0. && py <= 1. );
-          assert( pz >=0. && pz <= 1. );
-        }
-#       endif
         lattice.m_positions = *positions;
-      } else if (*structure == "SC") {
+      }
+      else if (*structure == "SC")
+      {
         lattice.m_np = 1;
         lattice.m_types = *types;
         lattice.m_positions = { {.5, .5, .5 } };
-      } else if (*structure == "BCC") {
+      }
+      else if (*structure == "BCC")
+      {
         lattice.m_np = 2;
         lattice.m_types = *types;
         lattice.m_positions = { {.0, .0, .0} ,
                                 {.5, .5, .5} };
-      } else if (*structure == "2BCT") {
+      }
+      else if (*structure == "2BCT")
+      {
         lattice.m_np = 4;
         lattice.m_types = *types;
         lattice.m_positions = { {.0, .0, .0 } ,
                                 {.0, .5, .25} ,
                                 {.5, .5, .5 } ,
                                 {.5, .0, .75} };
-      } else if (*structure == "FCC") {
+      }
+      else if (*structure == "FCC")
+      {
         lattice.m_np = 4;
         lattice.m_types = *types;
         lattice.m_positions = { {.0, .0, .0} ,
                                 {.0, .5, .5} ,
                                 {.5, .0, .5} ,
                                 {.5, .5, .0} };	
-      } else if (*structure == "HCP") {
+      }
+      else if (*structure == "HCP")
+      {
         lattice.m_np = 4;
         lattice.m_types = *types;
         lattice.m_positions = { {0.25,    0.25000000,    0.25} ,
@@ -151,7 +162,9 @@ namespace exanb
                                 {0.25,    0.58333333,    0.75} ,
                                 {0.75,    0.08333333,    0.75} };
         lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
-      } else if (*structure == "c-DIA") {
+      }
+      else if (*structure == "c-DIA")
+      {
         lattice.m_np = 8;
         lattice.m_types = *types;
         lattice.m_positions = { {.00, .00, .00} ,
@@ -162,7 +175,9 @@ namespace exanb
                                 {.75, .75, .25} ,          
                                 {.75, .25, .75} ,
                                 {.25, .75, .75} };
-      } else if (*structure == "h-DIA") {
+      }
+      else if (*structure == "h-DIA")
+      {
         lattice.m_np = 8;
         lattice.m_types = *types;
         lattice.m_positions = { {0.50000000,    0.16666667,    0.50000000} ,
@@ -174,7 +189,9 @@ namespace exanb
                                 {0.00000000,    0.33333333,    0.37500000} ,
                                 {0.50000000,    0.83333333,    0.37500000} };
         lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
-      } else if (*structure == "graphite") {
+      }
+      else if (*structure == "graphite")
+      {
         lattice.m_np = 8;
         lattice.m_types = *types;
         lattice.m_positions = { {0.0,    0.00000000,    0.5} ,
@@ -187,6 +204,17 @@ namespace exanb
                                 {0.5,    0.50000000,    0.0} };
         lattice.m_size.y *= (2. * sin(120. * M_PI / 180.));
       }
+
+      for(size_t i=0;i<lattice.m_positions.size();i++)
+      {
+        const auto p = lattice.m_positions[i];
+        if( p.x < 0.0 || p.x > 1. || p.y < 0.0 || p.y > 1. || p.z < 0.0 || p.z > 1. )
+        {
+          fatal_error()<<"lattice position #"<<i<<", with coordinates "<<p<<", is out of unit cell"<<std::endl;
+        }
+      }
+      
+      if( lattice.m_types.size() != size_t(lattice.m_np) ) { fatal_error()<<lattice.m_types.size()<<"types are defined, but structure "<< (*structure) <<" requires exactly "<<lattice.m_np<<std::endl; }
       
       const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
@@ -196,7 +224,7 @@ namespace exanb
       mock_particle_type_map.clear();
       if( particle_type_map.has_value() ) mock_particle_type_map = *particle_type_map;
       
-      generate_particle_lattice( *mpi, *bounds_mode, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
+      generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
                                  , lattice, *noise, noise_cutoff_ifset, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
