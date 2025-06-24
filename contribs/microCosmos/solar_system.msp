@@ -1,0 +1,87 @@
+configuration:
+  physics:
+    units:
+      length: meter
+      mass: kilogram
+      time: second
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+
+global:
+  dt: 1 s
+  rcut_max: 280 m
+  rcut_inc: 18 m
+  simulation_log_frequency: 10
+  simulation_dump_frequency: 20
+  simulation_end_iteration: 100
+
++first_iteration:
+  - grid_stats
+  - chunk_neighbors_stats
+
+compute_force:
+  - gravitational_force:
+      config: { G: 6.67e-11 m^3/kg/s^2 }
+      rcut: 280 m
+
+input_data:
+  - particle_types:
+      verbose: true
+      particle_type_properties:
+        Meteor:   { mass: 1.e3 kg , radius: 15 m }
+        Asteroid: { mass: 1.e4 kg , radius: 30 m }
+        Moon:     { mass: 1.e5 kg , radius: 80 m }
+        Planet:   { mass: 1.e6 kg , radius: 150 m }
+  - particle_regions:
+      - PLANET:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 200 m , 200 m , 200 m ]
+              - translate: [ 975 m , 975 m , 975 m ]
+      - MOON:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 80 m , 80 m , 80 m ]
+              - translate: [ 1072.5 m , 1072.5 m , 1072.5 m ]
+  - domain:
+      cell_size: 150 m
+      grid_dims: [ 13 , 13 , 13 ]
+      bounds: [ [ 0.0 , 0.0, 0.0] , [ 1950 m  , 1950 m  , 1950 m ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: CUSTOM
+      types: [ Planet, Moon ]
+      positions:
+        - [  0.5  , 0.5  , 0.5  ]
+        - [  0.55 , 0.55 , 0.55 ]
+      size: [ 1950 m , 1950 m , 1950 m ]
+      noise: 1 m
+  - lattice:
+      structure: BCC
+      types: [ Meteor, Asteroid ]
+      size: [ 150 m , 150 m , 150 m ]
+      noise: 1 m
+      noise_cutoff: 2 m
+      region: not ( PLANET or MOON )
+  - set_velocity:
+      value: [ 1.5 m/s , 0 , 0 ]
+      region: MOON
+  - gaussian_noise_v:
+      sigma: 2 m/s
+      dt: 1
+      region: not ( PLANET or MOON )
+
+dump_data: dump_data_paraview
+
+simulation: default_simulation
