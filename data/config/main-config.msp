@@ -1,0 +1,60 @@
+configuration:
+  logging:
+    debug: false
+
+includes:
+  - global-defaults.msp
+  - dump-data.msp
+  - simulation-log.msp
+  - numerical-scheme.msp
+  - update-particles.msp
+  - compute-loop.msp
+
+domain:
+  cell_size: 1.0
+
+# defaults to null input data
+input_data:
+  - domain
+  - grid_clear
+
+unit_system:
+  verbose: true
+
+user_test: nop
+
+# pretty logo banner
+logo_banner:
+  - message: "\n                _   _ ______           _                _____  _____\n               | \\ | || ___ \\         | |              / __  \\|  _  |\n  _____  ____ _|  \\| || |_/ / ___   __| |_   _  __   __`' / /'| |/' |\n / _ \\ \\/ / _` | . ` || ___ \\/ _ \\ / _` | | | | \\ \\ / /  / /  |  /| |\n|  __/>  < (_| | |\\  || |_/ / (_) | (_| | |_| |  \\ V / ./ /___\\ |_/ /\n \\___/_/\\_\\__,_\\_| \\_/\\____/ \\___/ \\__,_|\\__, |   \\_/  \\_____(_)___/\n                                          __/ |\n                                         |___/\n"
+
+# default N-Body simulation structure
+# one can use this default simulation backbone as a start point or miniapp skeleton
+default_simulation:
+  - logo_banner
+  - mpi_comm_world
+  - init_cuda
+  - global
+  - unit_system
+  - input_data
+  - nbh_dist
+  - print_domain
+  - first_iteration
+  - compute_loop
+  - final_dump
+  - memory_stats: { musage_threshold: 16 }
+  - finalize_cuda
+
+# demo test simulation block, may run without any data at all
+# just to see if executable runs well
+test_simulation:
+  - logo_banner
+  - mpi_comm_world
+  - init_cuda
+  - global
+  - unit_system
+  - memory_stats: { musage_threshold: 16 }
+  - user_test
+  - finalize_cuda
+
+simulation: test_simulation
+

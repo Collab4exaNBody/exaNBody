@@ -1,0 +1,78 @@
+# when to trigger particle migration
+trigger_move_particles:
+  rebind: { threshold: max_displ , result: trigger_move_particles }
+  body:
+    - particle_displ_over
+
+# Grid refinement defaults
+rebuild_amr:
+  sub_grid_density: 6.5
+  amr_z_curve: false
+  enforced_ordering: 1
+
+# neighbor lists defaults
+chunk_neighbors:
+  config:
+    free_scratch_memory: false
+    build_particle_offset: true
+    subcell_compaction: true
+    scratch_mem_per_cell: 1048576
+    stream_prealloc_factor: 1.05 # standard value to avoid most of dynamic allocations
+    chunk_size: 1
+
+trigger_load_balance:
+  - trigger_lb_tmp:
+      condition: enable_load_balance
+      rebind: { result: trigger_lb_tmp , freq: simulation_load_balance_frequency }
+      body:
+        - nth_timestep: { first: false , delayed: true }
+  - extend_domain
+  - combine:
+      rebind: { in1: trigger_lb_tmp , in2: domain_extended , result: trigger_load_balance }
+      body: [ boolean_or ]
+
+load_balance_if_triggered:
+  condition: trigger_load_balance
+  body:
+  - simple_cost_model
+  - load_balance_rcb
+
+update_particle_neighbors:
+  - amr_grid_pairs
+  - chunk_neighbors
+  - resize_particle_locks
+
+parallel_update_particles:
+  - migrate_cell_particles
+  - rebuild_amr
+  - backup_r
+  - ghost_comm_scheme
+  - ghost_update_all
+  - update_particle_neighbors
+
+init_particles:
+  - move_particles
+  - extend_domain
+  - simple_cost_model
+  - load_balance_rcb
+  - parallel_update_particles
+
+update_particles_full:
+  condition: trigger_move_particles
+  body:
+    - move_particles
+    - trigger_load_balance
+    - load_balance_if_triggered
+    - parallel_update_particles
+
+update_particles_fast:
+  condition: not trigger_move_particles
+  body:
+    - ghost_update_r
+
+check_and_update_particles:
+  - trigger_move_particles
+  - update_particles_full
+  - update_particles_fast
+
+
