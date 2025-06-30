@@ -22,7 +22,7 @@ global:
   rcut_max: 8.0 ang
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 10
-  simulation_dump_frequency: 5
+  simulation_dump_frequency: 100
   simulation_end_iteration: 1000
 
 

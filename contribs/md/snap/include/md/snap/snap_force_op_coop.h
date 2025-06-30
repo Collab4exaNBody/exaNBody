@@ -19,35 +19,15 @@ under the License.
 
 #pragma once
 
-#include <onika/physics/units.h>
-#include <onika/physics/constants.h>
-#include <exanb/core/concurent_add_contributions.h>
-#include <onika/cuda/cuda.h>
-
-#include <cmath>
-
-// tells if we use Complex arithmetic classes or unroll all to scalar expressions
-//#define SNAP_AUTOGEN_COMPLEX_MATH 1
-
-#include <md/snap/snap_compute_buffer.h>
-#include <md/snap/snap_compute_ui.h>
-#include <md/snap/snap_compute_yi.h>
-#include <md/snap/snap_compute_duidrj.h>
-#include <md/snap/snap_compute_deidrj.h>
-
-#ifdef SNAP_AUTOGEN_COMPLEX_MATH
-#include <md/snap/snap_math.h>
-#endif
-
-#include <md/snap/snap_force_contrib.h>
+#include <md/snap/snap_force_op.h>
 
 namespace md
 {
   using namespace exanb;
 
   // Force operator
-  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
-  struct SnapXSForceOp 
+  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT>
+  struct SnapXSForceOp<SnapConfParamT,ComputeBufferT,CellParticlesT,true>
   {
     const SnapConfParamT snaconf;
     
@@ -210,8 +190,6 @@ namespace md
 
       assert( ncoeff == static_cast<unsigned int>(snaconf.ncoeff) );
 
-      buf.ext.init( snaconf );
-
       // energy and force contributions to the particle
       Mat3dT _vir; // default constructor defines all elements to 0
       double _fx = 0.;
@@ -219,51 +197,42 @@ namespace md
       double _fz = 0.;
 
       // start of SNA
-
       const int itype = type;
       const double radi = radelem[itype];
-
-      int ninside = 0;
-      for (int jj = 0; jj < jnum; jj++)
+      ONIKA_CU_BLOCK_SHARED int ninside;
+      ONIKA_CU_BLOCK_SHARED uint8_t inside_idx[buf.MaxNeighbors];
+      if( ONIKA_CU_THREAD_IDX == 0 )
       {
-//        const double delx = buf.drx[jj];
-//        const double dely = buf.dry[jj];
-//        const double delz = buf.drz[jj];
-        const double rsq = buf.d2[jj];
-	      const int jtype = buf.nbh_pt[jj][field::type];
-	      const double cut_ij = ( radi + radelem[jtype] ) * rcutfac;
-	      const double cutsq_ij = cut_ij * cut_ij;
-        if( rsq < cutsq_ij && rsq > 1e-20 )
-        {
-          if( ninside != jj ) { buf.copy( jj , ninside ); }
-          ninside++;
-        }
+        ninside = 0;
+        buf.ext.init( snaconf );
       }
+      ONIKA_CU_BLOCK_SYNC();
+      
+      //for (int jj = 0; jj < jnum; jj++)
+      ONIKA_CU_BLOCK_SIMD_FOR(int,jj,0,jnum)
+      {
+        const double rsq = buf.d2[jj];
+        const int jtype = buf.nbh_pt[jj][field::type];
+        const double cut_ij = ( radi + radelem[jtype] ) * rcutfac;
+        const double cutsq_ij = cut_ij * cut_ij;
+        const bool is_nbh_valid = ( rsq < cutsq_ij && rsq > 1e-20 );
+        const int tl_ninside = ONIKA_CU_ATOMIC_ADD( ninside , int(is_nbh_valid) );
+        if( is_nbh_valid ) inside_idx[tl_ninside] = jj;
+      }
+//      ONIKA_CU_BLOCK_SYNC();
 
       const double* __restrict__ betaloc = coeffelem + itype * (snaconf.ncoeff + 1 ) + 1;
       //const int idxu_max = snaconf.idxu_max; // used by macro ULIST_J_A
       
-      // compute Ui, Yi for atom I
-      // reads sinner, dinner, wj
-      // writes ulist and ulisttot
-      //const unsigned int ulist_size = jnum * snaconf.idxu_max;
-      /*
-      snap_compute_ui( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max
-                     , snabuf.element, buf.drx,buf.dry,buf.drz, snabuf.rcutij, snaconf.rootpqarray, snabuf.sinnerij, snabuf.dinnerij, snabuf.wj
-                     , snaconf.wselfall_flag, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.chem_flag
-                     , snaconf.wself, snaconf.rmin0, snaconf.rfac0
-                     , snabuf.ulist_r_ij, snabuf.ulist_i_ij, snabuf.ulisttot_r, snabuf.ulisttot_i // OUTPUTS
-                     , ninside, snaconf.chem_flag ? itype : 0);
-      
-      Content of snap_compute_ui unrolled here => */
+      snap_uarraytot_zero( snaconf.nelements, snaconf.idxu_max, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i() , ONIKA_CU_THREAD_IDX, ONIKA_CU_BLOCK_SIZE );
+      snap_uarraytot_init_wself( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.wself, snaconf.wselfall_flag, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i(), snaconf.chem_flag ? itype : 0 , ONIKA_CU_THREAD_IDX, ONIKA_CU_BLOCK_SIZE );
+      ONIKA_CU_BLOCK_SYNC();
 
-//      double UiTot_array_r[ snaconf.idxu_max * snaconf.nelements ];
-//      double UiTot_array_i[ snaconf.idxu_max * snaconf.nelements ];
-      snap_uarraytot_zero( snaconf.nelements, snaconf.idxu_max, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i() );
-      snap_uarraytot_init_wself( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.wself, snaconf.wselfall_flag, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i(), snaconf.chem_flag ? itype : 0 );
-
-      for (int jj = 0; jj < ninside; jj++)
+      //for (int jj = 0; jj < ninside; jj++)
+      ONIKA_CU_BLOCK_SIMD_FOR(int,jj_in,0,ninside)
       {
+        const int jj = inside_idx[jj_in];
+        
         const int jtype = buf.nbh_pt[jj][field::type];
         const int jelem = snaconf.chem_flag ? jtype : 0 ;
 
@@ -276,10 +245,6 @@ namespace md
         const double theta0 = (r - snaconf.rmin0) * snaconf.rfac0 * M_PI / (rcutij_jj - snaconf.rmin0);
         const double z0 = r / tan(theta0);
 
-        //double Ui_array_r[snaconf.idxu_max];
-        //double Ui_array_i[snaconf.idxu_max];
-        //snap_compute_uarray( snaconf.twojmax, snaconf.rootpqarray, Ui_array_r, Ui_array_i, x, y, z, z0, r );
-
         double sinnerij_jj = 0.0;
         double dinnerij_jj = 0.0;
         if (snaconf.switch_inner_flag) {
@@ -289,53 +254,44 @@ namespace md
         const double wj_jj = wjelem[jtype];
         const double sfac_jj = snap_compute_sfac( snaconf.rmin0, snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
-        //snap_add_uarraytot( snaconf.twojmax, jelem, snaconf.idxu_max, sfac_jj*wj_jj, Ui_array_r, Ui_array_i, UiTot_array_r /*snabuf.ulisttot_r*/, UiTot_array_i /*snabuf.ulisttot_i*/ );
-        snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext );
+        snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext , AtomicAccumFunctor{} );
       }
+      ONIKA_CU_BLOCK_SYNC();
       /****************** end of Ui sum computation **********************/
 
 
+      //snap_zero_yi_array( snaconf.nelements, snaconf.idxu_max_alt, buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i() );
+      {
+        auto N = snaconf.idxu_max_alt * snaconf.nelements;
+        double * __restrict__ ylist_r = buf.ext.m_Y_array.r();
+        double * __restrict__ ylist_i = buf.ext.m_Y_array.i();
+        //for(int i=0;i<N;++i)
+        ONIKA_CU_BLOCK_SIMD_FOR(int,i,0,N)
+        {
+          YLIST_R(i) = 0.0;
+          YLIST_I(i) = 0.0;
+        }
+      }
+      ONIKA_CU_BLOCK_SYNC();
 
-      // for neighbors of I within cutoff:
-      // compute Fij = dEi/dRj = -dEi/dRi
-      // add to Fi, subtract from Fj
-      // scaling is that for type I
-
-      // reads ulisttot
-      // writes ylist
-      /*
-      snap_compute_yi( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.idxz_max
-                     , snaconf.idxz, snaconf.idxcg_block, snaconf.cglist
-                     , snabuf.ulisttot_r, snabuf.ulisttot_i
-                     , snaconf.idxb_max, snaconf.idxb_block, snaconf.bnorm_flag
-                     , snabuf.ylist_r, snabuf.ylist_i // OUTPUTS
-                     , betaloc );
-      Content of snap_compute_yi inlined here =>
-      */
-//      double Yi_array_r[ snaconf.idxu_max * snaconf.nelements ];
-//      double Yi_array_i[ snaconf.idxu_max * snaconf.nelements ];
-      snap_zero_yi_array( snaconf.nelements, snaconf.idxu_max_alt, buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i() );
-/*
-      snap_add_yi_contribution( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.idxz_max
-                              , snaconf.idxz, snaconf.idxcg_block, snaconf.cglist
-                              , buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i()
-                              , snaconf.idxb_max, snaconf.idxb_block, snaconf.bnorm_flag
-                              , buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i()
-                              , betaloc );
-*/
       snap_add_yi_contribution_alt( snaconf.nelements, snaconf.twojmax, snaconf.idxu_max, snaconf.idxz_max_alt
                               , snaconf.idxz_alt, snaconf.idxcg_block, snaconf.cglist
                               , snaconf.y_jju_map, snaconf.idxu_max_alt
                               , buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i()
                               , snaconf.idxb_max, snaconf.idxb_block, snaconf.bnorm_flag
                               , buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i()
-                              , betaloc );
-
+                              , betaloc 
+                              , ONIKA_CU_THREAD_IDX , ONIKA_CU_BLOCK_SIZE , AtomicAccumFunctor{}
+                              );
+      ONIKA_CU_BLOCK_SYNC();
       /******************* end of Yi computation ********************/
 
 
-      for (int jj = 0; jj < ninside; jj++)
+      //for (int jj_in = 0; jj_in < ninside; jj_in++) if( ONIKA_CU_THREAD_IDX == 0 )
+      ONIKA_CU_BLOCK_SIMD_FOR(int,jj_in,0,ninside)
       {
+        const int jj = inside_idx[jj_in];
+
         const int jtype = buf.nbh_pt[jj][field::type];
         const int jelem = snaconf.chem_flag ? jtype : 0 ;
 
@@ -366,9 +322,9 @@ namespace md
                                 , snaconf.rmin0, snaconf.rfac0, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.chem_flag
                                 , fij, buf.ext );
 
-	      fij[0] *= conv_energy_factor;
-	      fij[1] *= conv_energy_factor;
-	      fij[2] *= conv_energy_factor;
+        fij[0] *= conv_energy_factor;
+        fij[1] *= conv_energy_factor;
+        fij[2] *= conv_energy_factor;
 
         if constexpr ( compute_virial )
         {
@@ -387,90 +343,57 @@ namespace md
           , cells[cell_b][field::fx][p_b], cells[cell_b][field::fy][p_b], cells[cell_b][field::fz][p_b]
           , -fij[0]                      , -fij[1]                      , -fij[2] );
       }
+      // ONIKA_CU_BLOCK_SYNC();
 
       if constexpr ( compute_virial )
         concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double,Mat3d> ( lock_a, fx, fy, fz, virial, _fx, _fy, _fz, _vir );
       else
         concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> ( lock_a, fx, fy, fz, _fx, _fy, _fz );
+      
+      // ONIKA_CU_BLOCK_SYNC();
 
       if constexpr ( SnapConfParamT::HasEneryField ) if (eflag)
       {
-        double _en = 0.;
-
-        const long bispectrum_ii_offset = snaconf.ncoeff * ( cell_particle_offset[buf.cell] + buf.part );
-
-        // evdwl = energy of atom I, sum over coeffs_k * Bi_k
-        const double * const coeffi = coeffelem /*[itype]*/;
-	      //	coeffelem[ itype * (snaconf.ncoeff + 1 ) + icoeff + 1 ]
-	      double evdwl = coeffi[itype * (snaconf.ncoeff + 1)];
-	      //	std::cout << "TYpe = " << itype << "e0 = " << evdwl << std::endl;
-
-        // snabuf.copy_bi2bvec();
-
-        // E = beta.B + 0.5*B^t.alpha.B
-
-        // linear contributions
-
-        for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++)
+        if( ONIKA_CU_THREAD_IDX == 0 )
         {
-          evdwl += betaloc[icoeff] * bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
-	      // evdwl += coeffi[itype * (snaconf.ncoeff + 1) + icoeff+1] * bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
-        }
+          double _en = 0.;
+          const long bispectrum_ii_offset = snaconf.ncoeff * ( cell_particle_offset[buf.cell] + buf.part );
+          const double * const coeffi = coeffelem /*[itype]*/;
+	        double evdwl = coeffi[itype * (snaconf.ncoeff + 1)];
 
-        // quadratic contributions
-
-        if (quadraticflag)
-        {
-          int k = snaconf.ncoeff+1;
-          for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++) 
+          for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++)
           {
-            double bveci = bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
-            evdwl += 0.5*coeffi[k++]*bveci*bveci;
-            for (int jcoeff = icoeff+1; jcoeff < snaconf.ncoeff; jcoeff++) 
+            evdwl += betaloc[icoeff] * bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
+          }
+          // quadratic contributions
+          if (quadraticflag)
+          {
+            int k = snaconf.ncoeff+1;
+            for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++) 
             {
-              double bvecj = bispectrum[ bispectrum_ii_offset + jcoeff ] /*bispectrum[ii][jcoeff]*/ ;
-              evdwl += coeffi[k++]*bveci*bvecj;
+              double bveci = bispectrum[ bispectrum_ii_offset + icoeff ] /*bispectrum[ii][icoeff]*/ ;
+              evdwl += 0.5*coeffi[k++]*bveci*bveci;
+              for (int jcoeff = icoeff+1; jcoeff < snaconf.ncoeff; jcoeff++) 
+              {
+                double bvecj = bispectrum[ bispectrum_ii_offset + jcoeff ] /*bispectrum[ii][jcoeff]*/ ;
+                evdwl += coeffi[k++]*bveci*bvecj;
+              }
             }
           }
+          evdwl *= 1.;//scale[itype][itype];
+          _en = evdwl; // ev_tally_full(i,2.0*evdwl,0.0,0.0,0.0,0.0,0.0);
+          if( conv_energy_units )
+          {
+            _en *= conv_energy_factor;
+          }
+          
+          en += _en;
         }
-        evdwl *= 1.;//scale[itype][itype];
-        _en = evdwl; // ev_tally_full(i,2.0*evdwl,0.0,0.0,0.0,0.0,0.0);
-        
-        if( conv_energy_units )
-        {
-          _en *= conv_energy_factor;
-        }
-
-        en += _en;
       }
       
-/*
-      if( buf.ext.m_U_array.m_ptr != nullptr )
-      {
-        printf("U_array has been dynamically allocated\n");
-      }
-      if( buf.ext.m_DU_array.m_ptr != nullptr )
-      {
-        printf("DU_array has been dynamically allocated\n");
-      }
-*/
-
+      // ONIKA_CU_BLOCK_SYNC();
     }
   };
 
 }
 
-#include <md/snap/snap_force_op_coop.h>
-
-namespace exanb
-{
-  template<class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute >
-  struct ComputePairTraits< md::SnapXSForceOp<SnapConfParamT,CPBufT,CellParticlesT,CoopCompute> >
-  {
-    static inline constexpr bool ComputeBufferCompatible      = true;
-    static inline constexpr bool BlockSharedComputeBuffer     = CoopCompute;
-    static inline constexpr bool BufferLessCompatible         = false;
-    static inline constexpr bool CudaCompatible               = true;
-  };
-
-}

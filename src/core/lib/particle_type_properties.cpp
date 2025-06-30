@@ -71,7 +71,7 @@ namespace exanb
       }
       return tm;
     }
-    
+
     void ParticleTypeProperties::update_property_arrays(const ParticleTypeMap& tm)
     {
       m_scalars.clear();

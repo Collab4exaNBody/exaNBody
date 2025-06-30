@@ -86,6 +86,7 @@ namespace exanb
     const onika::math::Vec3d * __restrict__ vector_property(const std::string& key) const;
     bool empty() const;
     ParticleTypeMap build_type_map() const;
+
     void update_property_arrays(const ParticleTypeMap& type_name_map);
     inline void update_property_arrays() { this->update_property_arrays( build_type_map() ); }
     
