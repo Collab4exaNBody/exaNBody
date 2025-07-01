@@ -33,6 +33,7 @@ under the License.
 #include <onika/soatl/field_tuple.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>
+#include <onika/soatl/field_id_tuple_utils.h>
 
 #include <vector>
 #include <string>
@@ -83,7 +84,7 @@ namespace exanb
     using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
     //using CellParticles = typename GridT::CellParticles;
     //using ParticleFullTuple = typename CellParticles::TupleValueType;
-    using ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
+    using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
     //using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateValueFunctor = UpdateFuncT;
@@ -97,6 +98,12 @@ namespace exanb
     using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,UpdateFuncT,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
+
+    const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+    if( sizeof_ParticleTuple != sizeof(_ParticleTuple) )
+    {
+      fatal_error() << "packed fields will occupy "<< sizeof_ParticleTuple <<" bytes, but "<< sizeof(_ParticleTuple) <<" are expected"<<std::endl;
+    }
 
     ldbg << "update from ghost : ";
     print_field_tuple( ldbg , update_fields );
@@ -144,7 +151,7 @@ namespace exanb
     //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
     // ***************** send/receive bufer resize ******************
-    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof(ParticleTuple) , sizeof(GridCellValueType) , cell_scalar_components );
+    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components );
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
@@ -175,7 +182,7 @@ namespace exanb
                                              , cell_scalar_components
                                              , cell_scalars
                                              , ghost_comm_buffers.recvbuf_size(p)
-                                             , sizeof(ParticleTuple)
+                                             , sizeof_ParticleTuple
                                              , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr 
                                              , update_fields };
         
@@ -262,7 +269,7 @@ namespace exanb
                                               , cell_scalar_components
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
                                               , ghost_comm_buffers.sendbuf_size(p)
-                                              , sizeof(ParticleTuple)
+                                              , sizeof_ParticleTuple
                                               , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
                                               , ghost_boundary
                                               , UpdateValueFunctor{} 
