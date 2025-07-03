@@ -67,7 +67,7 @@ namespace exanb
       if constexpr ( std::is_same_v<fid,field::_fy> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
       if constexpr ( std::is_same_v<fid,field::_fz> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
       
-      return {};
+      return v;
     }
 
     struct GhostCellParticlesUpdateData
@@ -195,24 +195,26 @@ namespace exanb
         }
       }
 
-      template<class FieldT>
+      template<class FieldOrSpanT>
       ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const onika::cuda::span<FieldT>& fa, void* data_vp, uint64_t cell_i, uint64_t part_i , uint32_t cell_boundary_flags ) const
+      inline void * pack_particle_field( const FieldOrSpanT& _f, void * data_vp, uint64_t cell_i, uint64_t part_i , uint32_t cell_boundary_flags ) const
       {
-        using ValueType = typename FieldT::value_type ;
-        ValueType * data = ( ValueType * ) data_vp;
-        for(const auto & f : fa) { *(data++) = apply_particle_boundary(m_cells[cell_i][f][part_i],f,m_boundary,cell_boundary_flags); }
-        return data;
-      }
-
-      template<class FieldT>
-      ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const FieldT& f, void * data_vp, uint64_t cell_i, uint64_t part_i , uint32_t cell_boundary_flags ) const
-      {
-        using ValueType = typename FieldT::value_type ;
-        ValueType * data = ( ValueType * ) data_vp;
-        * (data++) = apply_particle_boundary(m_cells[cell_i][f][part_i],f,m_boundary,cell_boundary_flags);
-        return data;
+        if constexpr ( onika::is_span_v<FieldOrSpanT> )
+        {
+          using FieldT = typename FieldOrSpanT::value_type ;
+          using ValueType = typename FieldT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          //const size_t N = _f.size(); auto * f_ptr = _f.data();
+          for(const auto & f : _f) { *(data++) = apply_particle_boundary(m_cells[cell_i][f][part_i],f,m_boundary,cell_boundary_flags); }
+          return data;
+        }
+        else
+        {
+          using ValueType = typename FieldOrSpanT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          * (data++) = apply_particle_boundary(m_cells[cell_i][_f][part_i],_f,m_boundary,cell_boundary_flags);
+          return data;
+        }
       }
 
       template<size_t ... FieldIndex>

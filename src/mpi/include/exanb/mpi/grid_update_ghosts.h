@@ -81,10 +81,10 @@ namespace exanb
     bool wait_all ,
     std::integral_constant<bool,CreateParticles> )
   {
-    using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
+    //using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
     using CellParticles = typename GridT::CellParticles;
     using ParticleFullTuple = typename CellParticles::TupleValueType;
-    using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple<FieldSetT>::type;
+    //using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple<FieldSetT>::type;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
     
@@ -104,8 +104,8 @@ namespace exanb
       fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
     }
 
-    const size_t sizeof_ParticleTuple = std::max( sizeof(_ParticleTuple) , onika::soatl::field_id_tuple_size_bytes( update_fields ) );
-    lout << "particle fields will occupy "<< sizeof_ParticleTuple <<" bytes , parcked size is "<<  onika::soatl::field_id_tuple_size_bytes( update_fields ) <<std::endl;
+    const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+    lout << "sizeof_ParticleTuple = "<<sizeof_ParticleTuple<<std::endl;
 
     //int comm_tag = *mpi_tag;
     int nprocs = 1;

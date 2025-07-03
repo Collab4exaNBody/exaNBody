@@ -81,10 +81,10 @@ namespace exanb
     bool wait_all,
     UpdateFuncT update_func )
   {
-    using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
+    //using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
     //using CellParticles = typename GridT::CellParticles;
     //using ParticleFullTuple = typename CellParticles::TupleValueType;
-    using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
+    //using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
     //using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateValueFunctor = UpdateFuncT;
@@ -100,10 +100,7 @@ namespace exanb
     using onika::parallel::block_parallel_for;
 
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
-    if( sizeof_ParticleTuple != sizeof(_ParticleTuple) )
-    {
-      fatal_error() << "packed fields will occupy "<< sizeof_ParticleTuple <<" bytes, but "<< sizeof(_ParticleTuple) <<" are expected"<<std::endl;
-    }
+    lout << "sizeof_ParticleTuple = "<<sizeof_ParticleTuple<<std::endl;
 
     ldbg << "update from ghost : ";
     print_field_tuple( ldbg , update_fields );

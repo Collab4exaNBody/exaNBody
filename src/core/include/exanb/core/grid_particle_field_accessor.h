@@ -232,7 +232,7 @@ namespace exanb
 
   // utility templates
   template<class T> static inline constexpr bool field_tuple_has_external_fields_v = details::FieldAccessorTupleHasExternalFields<T>::value;
-  template<class FieldSetT> using field_accessor_tuple_to_field_set_t = typename details::FieldAccessorTupleToFieldSet<FieldSetT>::type;
+  //template<class FieldSetT> using field_accessor_tuple_to_field_set_t = typename details::FieldAccessorTupleToFieldSet<FieldSetT>::type;
   template<class FieldSetT> using field_accessor_tuple_from_field_set_t = typename details::FieldAccessorTupleFromFieldSet<FieldSetT>::type;
   template<class FieldAccT> static inline constexpr details::field_id_fom_acc_t<FieldAccT> field_id_fom_acc_v = {};
 
