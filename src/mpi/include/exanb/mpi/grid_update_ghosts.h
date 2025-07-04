@@ -81,14 +81,10 @@ namespace exanb
     bool wait_all ,
     std::integral_constant<bool,CreateParticles> )
   {
-    //using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
     using CellParticles = typename GridT::CellParticles;
     using ParticleFullTuple = typename CellParticles::TupleValueType;
-    //using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple<FieldSetT>::type;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
-    
-    // static_assert( ParticleTuple::has_field(field::rx) && ParticleTuple::has_field(field::ry) && ParticleTuple::has_field(field::rz) , "ParticleTuple must contain rx, ry and rz fields" );
     
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
@@ -105,7 +101,6 @@ namespace exanb
     }
 
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
-    lout << "sizeof_ParticleTuple = "<<sizeof_ParticleTuple<<std::endl;
 
     //int comm_tag = *mpi_tag;
     int nprocs = 1;
@@ -137,7 +132,7 @@ namespace exanb
     }
     ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
         <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
-        <<", cell_size="<<cell_size<< std::endl;
+        <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple<<std::endl;
 
     CellParticles * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };

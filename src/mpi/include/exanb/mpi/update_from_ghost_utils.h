@@ -85,33 +85,34 @@ namespace exanb
         }
       }
 
-      template<class FieldT>
+      template<class FieldOrSpanT>
       ONIKA_HOST_DEVICE_FUNC
-      inline const void * unpack_particle_field( const FieldT& f, const GhostCellSendScheme& info, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+      inline const void * unpack_particle_field( const FieldOrSpanT& _f, const GhostCellSendScheme& info, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
       {
-        using exanb::field_id_fom_acc_v;
-        using ValueType = typename FieldT::value_type ;
-        ValueType * data = ( ValueType * ) data_vp;        
-        m_merge_func( m_cells[cell_i][f][part_i]
-                    , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
-                    , onika::TrueType{} );
-        return data;
-      }
-
-      template<class FieldT>
-      ONIKA_HOST_DEVICE_FUNC
-      inline const void * unpack_particle_field( const onika::cuda::span<FieldT>& fa, const GhostCellSendScheme& info, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
-      {
-        using exanb::field_id_fom_acc_v;
-        using ValueType = typename FieldT::value_type ;
-        ValueType * data = ( ValueType * ) data_vp;
-        for(const auto& f : fa)
+        if constexpr ( onika::is_span_v<FieldOrSpanT> )
         {
-          m_merge_func( m_cells[cell_i][f][part_i]
+          using FieldT = typename FieldOrSpanT::value_type ;
+          using ValueType = typename FieldT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          for(const auto & f : _f)
+          {
+            m_merge_func( m_cells[cell_i][f][part_i]
+                        , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
+                        , onika::TrueType{} );
+          }
+          return data;
+        }
+        else
+        {
+          using exanb::field_id_fom_acc_v;
+          using FieldT = FieldOrSpanT;
+          using ValueType = typename FieldT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;        
+          m_merge_func( m_cells[cell_i][_f][part_i]
                       , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
                       , onika::TrueType{} );
+          return data;
         }
-        return data;
       }
 
       template<size_t ... FieldIndex>
@@ -188,24 +189,26 @@ namespace exanb
         }
       }
 
-      template<class FieldT>
+      template<class FieldOrSpanT>
       ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const FieldT& f, void* data_vp, uint64_t cell_i, uint64_t part_i ) const
+      inline void * pack_particle_field( const FieldOrSpanT& _f, void* data_vp, uint64_t cell_i, uint64_t part_i ) const
       {
-        using ValueType = typename FieldT::value_type ;
-        ValueType * data = ( ValueType * ) data_vp;
-        * (data++) = m_cells[cell_i][f][part_i];
-        return data;
-      }
-
-      template<class FieldT>
-      ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const onika::cuda::span<FieldT>& fa, void* data_vp, uint64_t cell_i, uint64_t part_i ) const
-      {
-        using ValueType = typename FieldT::value_type ;
-        ValueType * data = ( ValueType * ) data_vp;
-        for(const auto & f : fa) { * (data++) = m_cells[cell_i][f][part_i]; }
-        return data;
+        if constexpr ( onika::is_span_v<FieldOrSpanT> )
+        {
+          using FieldT = typename FieldOrSpanT::value_type ;
+          using ValueType = typename FieldT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          for(const auto & f : _f) { * (data++) = m_cells[cell_i][f][part_i]; }
+          return data;
+        }
+        else
+        {
+          using FieldT = FieldOrSpanT;
+          using ValueType = typename FieldT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          * (data++) = m_cells[cell_i][_f][part_i];
+          return data;
+        }
       }
 
       template<size_t ... FieldIndex>

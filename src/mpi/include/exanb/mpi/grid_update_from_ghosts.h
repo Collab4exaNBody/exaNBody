@@ -100,11 +100,10 @@ namespace exanb
     using onika::parallel::block_parallel_for;
 
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
-    lout << "sizeof_ParticleTuple = "<<sizeof_ParticleTuple<<std::endl;
 
     ldbg << "update from ghost : ";
     print_field_tuple( ldbg , update_fields );
-    ldbg<<std::endl;
+    ldbg<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple<< std::endl;
 
     //int comm_tag = *mpi_tag;
     int nprocs = 1;

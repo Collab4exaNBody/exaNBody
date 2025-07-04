@@ -35,9 +35,7 @@ under the License.
 
 #include <vector>
 #include <string>
-#include <list>
-#include <algorithm>
-#include <tuple>
+#include <regex>
 
 #include <mpi.h>
 #include <exanb/mpi/update_from_ghost_utils.h>
@@ -51,18 +49,18 @@ under the License.
 namespace exanb
 {
 
-  template<
-    class GridT,
-    class FieldSetT,
-    class UpdateFuncT = UpdateValueAdd >
-  class UpdateFromGhosts : public OperatorNode
+  template< class GridT, class FieldSetT, class UpdateFuncT = UpdateValueAdd >
+  class UpdateFromGhostsTmpl;
+
+  template< class GridT, class UpdateFuncT, class... fids >
+  class UpdateFromGhostsTmpl< GridT , FieldSet<fids...> , UpdateFuncT > : public OperatorNode
   {  
+    using FieldSetT = FieldSet<fids...>;
     using CellParticles = typename GridT::CellParticles;
-    using ParticleFullTuple = typename CellParticles::TupleValueType;
-    using ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
     using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateValueFunctor = UpdateFuncT;
+    using StringVector = std::vector<std::string>;
         
     // -----------------------------------------------
     // Operator slots
@@ -73,6 +71,7 @@ namespace exanb
     ADD_SLOT( Domain                   , domain            , INPUT );
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
+    ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
     ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
     ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
@@ -92,10 +91,25 @@ namespace exanb
       {
         fatal_error() << "Attempt to use UpdateFromGhosts on uninitialized fields" << std::endl;
       }
+
+      using onika::cuda::make_const_span;
+
+      const auto& flist = *opt_fields;
+      auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+
+      using generic_real_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( grid->field_accessor( field::generic_real{""} ) ) > >;
+      using generic_vec3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( grid->field_accessor( field::generic_vec3{""} ) ) > >;
+      using generic_mat3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( grid->field_accessor( field::generic_mat3{""} ) ) > >;
+      std::vector< generic_real_accessor_t > opt_real;
+      std::vector< generic_vec3_accessor_t > opt_vec3;
+      std::vector< generic_mat3_accessor_t > opt_mat3;
+      for(const auto & opt_name : grid->optional_scalar_fields()) if(opt_field_upd(opt_name)) { opt_real.push_back( grid->field_accessor(field::mk_generic_real(opt_name)) ); ldbg<<"opt. ghost real "<<opt_name<<std::endl; }
+      for(const auto & opt_name : grid->optional_vec3_fields()  ) if(opt_field_upd(opt_name)) { opt_vec3.push_back( grid->field_accessor(field::mk_generic_vec3(opt_name)) ); ldbg<<"opt. ghost vec3 "<<opt_name<<std::endl; }
+      for(const auto & opt_name : grid->optional_mat3_fields()  ) if(opt_field_upd(opt_name)) { opt_mat3.push_back( grid->field_accessor(field::mk_generic_mat3(opt_name)) ); ldbg<<"opt. ghost mat3 "<<opt_name<<std::endl; }
     
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
       auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); };
-      auto update_fields = grid->field_accessors_from_field_set( FieldSetT{} );
+      auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
 
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, *domain, grid_cell_values.get_pointer(),
                         *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
@@ -104,6 +118,9 @@ namespace exanb
     }
 
   };
+
+  template< class GridT , class FieldSetT , class UpdateFuncT = UpdateValueAdd >
+  using UpdateFromGhosts = UpdateFromGhostsTmpl< GridT , FieldSetT , UpdateFuncT >;
 
 }
 
