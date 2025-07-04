@@ -48,9 +48,9 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
   // === register factory ===
-  template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , typename GridT::Fields , true >;
+  template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , AddDefaultFields< typename GridT::Fields > , true >;
   template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false >;
-  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > , true >;
+  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , AddDefaultFields< RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > > , true >;
   template<typename GridT> using UpdateGhostsOptOnly = UpdateGhostsNode< GridT , FieldSet<> , false >;
 
   ONIKA_AUTORUN_INIT(update_ghosts)

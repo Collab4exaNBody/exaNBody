@@ -114,8 +114,6 @@ namespace exanb
   };
 
   template< class GridT, class FieldSetT, bool CreateParticles>
-  using UpdateGhostsNode = UpdateGhostsNodeTmpl< GridT , AddDefaultFields< FieldSetT > , CreateParticles >;
-
-
+  using UpdateGhostsNode = UpdateGhostsNodeTmpl< GridT , FieldSetT , CreateParticles >;
 }
 
