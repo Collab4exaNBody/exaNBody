@@ -23,21 +23,20 @@ under the License.
 
 namespace md
 {
-
-  struct SimpleAccumFunctor
+  
+  template<bool UseAtomic>
+  struct SwitchableAtomicAccumFunctor
   {
     template<class T>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
-    void operator () ( T & x , const T & y ) const { x += y; }
+    void operator () ( T & x , const T & y ) const
+    {
+      if constexpr ( UseAtomic ) { ONIKA_CU_BLOCK_ATOMIC_ADD( x , y ); }
+      else { x += y; }
+    }
   };
 
-  struct AtomicAccumFunctor
-  {
-    template<class T>
-    ONIKA_HOST_DEVICE_FUNC
-    ONIKA_ALWAYS_INLINE
-    void operator () ( T & x , const T & y ) const { ONIKA_CU_BLOCK_ATOMIC_ADD( x , y ); }
-  };
-
+  using SimpleAccumFunctor = SwitchableAtomicAccumFunctor<false>;
+  using AtomicAccumFunctor = SwitchableAtomicAccumFunctor<true>;
 }
