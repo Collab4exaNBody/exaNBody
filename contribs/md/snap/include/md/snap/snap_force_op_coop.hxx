@@ -219,7 +219,8 @@ under the License.
         const double cutsq_ij = cut_ij * cut_ij;
         if( rsq < cutsq_ij && rsq > 1e-20 )
         {
-          inside_idx[ SNAP_IF_COOP( ONIKA_CU_ATOMIC_ADD(ninside,1) , ninside++ ) ] = jj;
+          const int write_idx = SNAP_IF_COOP( ONIKA_CU_ATOMIC_ADD(ninside,1) , ninside++ );
+          inside_idx[write_idx] = jj;
         }
       }
 

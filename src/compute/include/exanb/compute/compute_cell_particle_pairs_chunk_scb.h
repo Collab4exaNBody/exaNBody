@@ -79,6 +79,20 @@ namespace exanb
 
     // create local computation scratch buffer
     ONIKA_CU_BLOCK_SHARED onika::cuda::UnitializedPlaceHolder<ComputePairBufferT> tab_place_holder;
+
+    // pointers to central particle's coordinates
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ rx_a;
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ ry_a;
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ rz_a;
+
+    // chunk neighbors data stream
+    ONIKA_CU_BLOCK_SHARED const uint16_t* stream_base;
+    ONIKA_CU_BLOCK_SHARED const uint32_t* __restrict__ particle_offset;
+    ONIKA_CU_BLOCK_SHARED int32_t poffshift;
+
+    // next place where to write valid neighbor particle
+    ONIKA_CU_BLOCK_SHARED int valid_nbh_index;
+
     ComputePairBufferT & tab = tab_place_holder.get_ref();
     if ( ONIKA_CU_THREAD_IDX == 0 )
     {
@@ -86,20 +100,20 @@ namespace exanb
       tab.ta = particle_id_codec::MAX_PARTICLE_TYPE; // not used for single material computations
       tab.tb = particle_id_codec::MAX_PARTICLE_TYPE;
       tab.cell = cell_a;
+      
+      rx_a = cells[cell_a].field_pointer_or_null(RX);
+      ry_a = cells[cell_a].field_pointer_or_null(RY);
+      rz_a = cells[cell_a].field_pointer_or_null(RZ);
+      
+      const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
+      stream_base = stream_info.stream;
+      particle_offset = stream_info.offset;
+      poffshift = stream_info.shift;
     }
     ONIKA_CU_BLOCK_SYNC();
 
-    // pointers to central particle's coordinates
-    const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX);
-    const double* __restrict__ ry_a = cells[cell_a].field_pointer_or_null(RY);
-    const double* __restrict__ rz_a = cells[cell_a].field_pointer_or_null(RZ);
-
-    // chunk neighbors data stream
-    const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
-    const uint16_t* stream_base = stream_info.stream;
+    // initialize stream cursor
     const uint16_t* __restrict__ stream = stream_base;
-    const uint32_t* __restrict__ particle_offset = stream_info.offset;
-    const int32_t poffshift = stream_info.shift;
 
     // pointers to neighbor particle's coordinates
     const double* __restrict__ rx_b = nullptr;
@@ -132,8 +146,7 @@ namespace exanb
     nchunks = 0; p_nbh_index = 0; cell_b = 0;
     // -------------------------------------
 
-    ONIKA_CU_BLOCK_SHARED int valid_nbh_index;
-
+ 
     while( p_a < cell_a_particles )
     {
       // --- particle processing start code ---
