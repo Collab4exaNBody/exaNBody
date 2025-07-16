@@ -171,11 +171,11 @@ namespace exanb
 
     if( rcpo.m_num_cell_indices>0 && rcpo.m_cell_indices==nullptr )
     {
-      fatal_error() << "compute_cell_particles: cell_indices cannot be NULL if number_cell_indices > 0" << std::endl;
+      fatal_error() << "reduce_cell_particles: cell_indices cannot be NULL if number_cell_indices > 0" << std::endl;
     }
     if( rcpo.m_num_cell_indices == ReduceCellParticlesOptions::NO_CELL_INDICES && rcpo.m_cell_indices != nullptr )
     {
-      fatal_error() << "compute_cell_particles: cell_indices ignored but cell_indices!=nullptr" << std::endl;
+      fatal_error() << "reduce_cell_particles: cell_indices ignored but cell_indices!=nullptr" << std::endl;
     }
 
     const IJK dims = grid.dimension();
