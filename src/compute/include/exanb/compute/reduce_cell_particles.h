@@ -169,7 +169,7 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ReduceCellParticlesFunctor<CellsAccessorT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
 
-    if( rcpo.m_num_cell_indices>0 && rcpo.m_cell_indices==nullptr )
+    if( rcpo.m_num_cell_indices>0 && rcpo.m_cell_indices==nullptr &&  rcpo.m_num_cell_indices != ReduceCellParticlesOptions::NO_CELL_INDICES )
     {
       fatal_error() << "reduce_cell_particles: cell_indices cannot be NULL if number_cell_indices > 0" << std::endl;
     }
