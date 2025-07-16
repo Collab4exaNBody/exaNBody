@@ -58,7 +58,7 @@ namespace exanb
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
     ResultT* m_reduced_val = nullptr;
-    const size_t* m_cell_idxs = nullptr; // List of non empty cells
+    const size_t * m_cell_idxs = nullptr; // List of non empty cells
     FieldAccTupleT m_cpfields;
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
@@ -134,6 +134,18 @@ namespace onika
 
 namespace exanb
 {
+  struct ReduceCellParticlesOptions /* Similar to ComputeCellParticlesOptions*/
+  {
+    static inline constexpr size_t NO_CELL_INDICES = std::numeric_limits<size_t>::max();
+    // -1 means all cells are processed and m_cell_indices is ignored.
+    // 0 or greater value indicates you want a 1D kernel using indices stored in m_num_cell_indices.
+    size_t m_num_cell_indices = NO_CELL_INDICES;
+    const size_t * m_cell_indices = nullptr;
+
+    // 0 means no override of BlockParallelForOptions' max_block_size parameter
+    size_t m_max_block_size = 0;
+  };
+
   // ==== OpenMP parallel for style implementation ====
   // cells are dispatched to threads using a "#pragma omp parallel for" construct
   template<class GridT, class FuncT, class ResultT, class... FieldAccT>
@@ -147,8 +159,7 @@ namespace exanb
     const onika::FlatTuple<FieldAccT...>& cp_fields ,
     onika::parallel::ParallelExecutionContext * exec_ctx ,
     onika::parallel::ParallelExecutionCallback user_cb ,
-    const size_t* cell_idxs = nullptr ,
-    size_t n_cells = 0 )
+    const ReduceCellParticlesOptions rcpo = {})
   {
     using onika::parallel::block_parallel_for;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
@@ -158,15 +169,18 @@ namespace exanb
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
     using PForFuncT = ReduceCellParticlesFunctor<CellsAccessorT,FuncT,ResultT,FieldTupleT, std::make_index_sequence<sizeof...(FieldAccT)> >;
 
-    if( n_cells == 0 ) cell_idxs = nullptr;
+    if( rcpo.m_num_cell_indices>0 && rcpo.m_cell_indices==nullptr )
+    {
+      fatal_error() << "compute_cell_particles: cell_indices cannot be NULL if number_cell_indices > 0" << std::endl;
+    }
+    if( rcpo.m_num_cell_indices == ReduceCellParticlesOptions::NO_CELL_INDICES && rcpo.m_cell_indices != nullptr )
+    {
+      fatal_error() << "compute_cell_particles: cell_indices ignored but cell_indices!=nullptr" << std::endl;
+    }
 
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
-    const IJK block_dims = dims - (2*gl);
-    const size_t N = n_cells > 0 ? n_cells : block_dims.i * block_dims.j * block_dims.k;
-
-    //assert(cells != nullptr || n_cells <= 0 );
-    assert(cell_idxs != nullptr || n_cells <= 0); 
+    assert(rcpo.m_cell_indices != nullptr || rcpo.m_num_cell_indices <= 0); 
 
     ResultT* target_reduced_value_ptr = &reduced_val;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
@@ -182,8 +196,27 @@ namespace exanb
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
 
-    PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , cell_idxs , cp_fields };
-    return block_parallel_for( N, pfor_func , exec_ctx , ParForOpts{ .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) } );
+    ParForOpts pfor_opts = { .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) };
+    if( rcpo.m_max_block_size > 0 ) pfor_opts.max_block_size = rcpo.m_max_block_size;
+
+    PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , rcpo.m_cell_indices , cp_fields };
+
+    if( rcpo.m_num_cell_indices == ReduceCellParticlesOptions::NO_CELL_INDICES )
+    {
+      const IJK block_dims = dims - (2*gl);
+      const size_t N = block_dims.i * block_dims.j * block_dims.k;
+      return block_parallel_for( N, pfor_func , exec_ctx , pfor_opts );
+    }
+    else
+    {
+      //// We could use ParallelExecutionSpace if we modify ReduceCellParticlesFunctor () 
+      //// -> cell_a = i in this case and remove cell_a = m_cell_idxs[i];
+      //// But we should adapt the other case if rcpo.m_num_cell_indices == ReduceCellParticlesOptions::NO_CELL_INDICES
+      // using CellListT = std::span<const size_t>; // default span definition would use ssize_t and prevent constructor match with size_t* pointer
+      // onika::parallel::ParallelExecutionSpace<1,1,CellListT> parallel_range = { {0} , { rcpo.m_num_cell_indices } , CellListT{rcpo.m_cell_indices, rcpo.m_num_cell_indices} }; 
+      //return block_parallel_for( parallel_range, pfor_func, exec_ctx, pfor_opts );
+      return block_parallel_for( rcpo.m_num_cell_indices, pfor_func, exec_ctx, pfor_opts );
+    }
   }
 
   template<class GridT, class FuncT, class ResultT, class... field_ids>
@@ -197,12 +230,11 @@ namespace exanb
     FieldSet<field_ids...> ,
     onika::parallel::ParallelExecutionContext * exec_ctx , 
     onika::parallel::ParallelExecutionCallback user_cb = {},
-    const size_t* cell_idxs = nullptr ,
-    size_t n_cells = 0 )
+    const ReduceCellParticlesOptions rcpo = {})
   {
     using FieldTupleT = onika::FlatTuple< onika::soatl::FieldId<field_ids> ... >;
     FieldTupleT cp_fields = { onika::soatl::FieldId<field_ids>{} ... };
-    return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb, cell_idxs, n_cells );
+    return reduce_cell_particles(grid,enable_ghosts,func,reduced_val,cp_fields,exec_ctx, user_cb, rcpo );
   }
 }
 
