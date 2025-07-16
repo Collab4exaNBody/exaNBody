@@ -1,0 +1,12 @@
+global:
+  dt: 1.0e-3 s
+  rcut_inc: 1.0e-3 m   # additional distance so that we d'ont have to rebuild neighbor list each time step
+  compute_loop_continue: true
+  simulation_end_iteration: 10000
+  simulation_log_frequency: 10
+  simulation_load_balance_frequency: 100
+  simulation_dump_frequency: 1000         # 0 means no dump at all
+  timestep: 0
+  physical_time: 0.
+  enable_load_balance: true
+

@@ -27,5 +27,5 @@ class Exanbody(CMakePackage):
         )
 
     def cmake_args(self):
-      args = [ self.define_from_variant("-DXNB_BUILD_CUDA=ON", "cuda"), ]
+      args = [ self.define_from_variant("-DONIKA_BUILD_CUDA=ON", "cuda"), ]
       return args

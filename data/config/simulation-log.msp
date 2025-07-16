@@ -1,0 +1,12 @@
+# define when log must be printed
+trigger_print_log:
+  rebind: { freq: simulation_log_frequency , result: trigger_print_log }
+  body:
+    - nth_timestep: { first: true }
+
+print_log_if_triggered:
+  condition: trigger_print_log
+  body:
+    - simulation_stats
+    - print_simulation_stats
+
