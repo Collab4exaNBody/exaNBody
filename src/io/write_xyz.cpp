@@ -73,7 +73,8 @@ namespace exanb
       {
         if constexpr ( has_field_type )
         {
-          return tp.m_names[ cells[c][field::type][pos] ].c_str();
+          const auto type_id = cells[c][field::type][pos];
+          if( type_id>=0 && type_id<tp.m_names.size() ) return tp.m_names[type_id].c_str();
         }
         return "XX";
       };
