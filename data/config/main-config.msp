@@ -26,6 +26,7 @@ user_test: nop
 # pretty logo banner
 logo_banner:
   - message: "\n                _   _ ______           _                _____  _____\n               | \\ | || ___ \\         | |              / __  \\|  _  |\n  _____  ____ _|  \\| || |_/ / ___   __| |_   _  __   __`' / /'| |/' |\n / _ \\ \\/ / _` | . ` || ___ \\/ _ \\ / _` | | | | \\ \\ / /  / /  |  /| |\n|  __/>  < (_| | |\\  || |_/ / (_) | (_| | |_| |  \\ V / ./ /___\\ |_/ /\n \\___/_/\\_\\__,_\\_| \\_/\\____/ \\___/ \\__,_|\\__, |   \\_/  \\_____(_)___/\n                                          __/ |\n                                         |___/\n"
+simulation_epilog: nop
 
 # default N-Body simulation structure
 # one can use this default simulation backbone as a start point or miniapp skeleton
@@ -40,6 +41,7 @@ default_simulation:
   - print_domain
   - first_iteration
   - compute_loop
+  - simulation_epilog
   - final_dump
   - memory_stats: { musage_threshold: 16 }
   - finalize_cuda

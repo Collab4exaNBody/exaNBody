@@ -64,6 +64,7 @@ namespace exanb
     ADD_SLOT( double , sigma   , INPUT , 1.0 );
     ADD_SLOT( double , dt      , INPUT , 1.0 );
     ADD_SLOT( bool   , ghost   , INPUT , false );
+    ADD_SLOT( bool   , deterministic_noise , INPUT , false );
 
     // optionaly limit noise to a geometric region
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
@@ -90,6 +91,7 @@ namespace exanb
                                                            grid_cell_mask_name.get_pointer(), 
                                                            grid_cell_mask_value.get_pointer() );
 
+      const bool det_noise = *deterministic_noise;
       double sigma_dt = (*sigma) * std::sqrt( *dt );
       auto cells = grid->cells();
       IJK dims = grid->dimension();
@@ -99,12 +101,18 @@ namespace exanb
       IJK gend = dims - IJK{ gl, gl, gl };
       IJK gdims = gend - gstart;
 
+      const auto dom_dims = domain->grid_dimension();
+      const auto dom_start = grid->offset();
+
 #     pragma omp parallel
       {
-        auto& re = onika::parallel::random_engine();
+        std::mt19937_64 det_re;
+        std::mt19937_64 & re = det_noise ? det_re : onika::parallel::random_engine() ;
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
-          size_t i = grid_ijk_to_index( dims , loc + gstart );
+          const auto i = grid_ijk_to_index( dims , loc + gstart );
+          const auto domain_cell_idx = grid_ijk_to_index( dom_dims , loc + gstart + dom_start );
+          det_re.seed( domain_cell_idx * 1023 );
           apply_gaussian_noise( cells[i], re, sigma_dt, particle_filter, field_id, field_set );
         }
         GRID_OMP_FOR_END
