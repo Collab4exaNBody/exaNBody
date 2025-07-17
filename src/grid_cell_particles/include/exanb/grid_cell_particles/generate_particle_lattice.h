@@ -72,6 +72,7 @@ namespace exanb
     , LatticeCollection lattice  
     , double sigma_noise
     , double noise_cutoff
+//    , bool deterministic_noise
     , const Vec3d& position_shift
     , const std::string& void_mode
     , const Vec3d& void_center
@@ -257,9 +258,14 @@ namespace exanb
     lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
     lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
+    bool deterministic_noise = false;
+
 #   pragma omp parallel
     {
-      auto& re = onika::parallel::random_engine();
+      auto& real_re = onika::parallel::random_engine();
+      std::mt19937_64 det_re;
+      std::mt19937_64 & re = deterministic_noise ? det_re : real_re ;
+      
       std::normal_distribution<double> f_rand(0.,1.);
       
 #     pragma omp for collapse(3) reduction(+:local_generated_count)
@@ -269,6 +275,7 @@ namespace exanb
         {
           for (ssize_t i=i_start; i<=i_end; i++)
       		{
+            det_re.seed( ( ( (k*1023) ^ j ) * 1023 ) ^ i );
 	          for (size_t l=0; l<n_particles_cell;l++)
     		    {
               Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
