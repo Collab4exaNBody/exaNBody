@@ -195,7 +195,6 @@ namespace exanb
                 compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
               }
               tab.process_neighbor(tab , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
-              ++ tab.count;
             }
             if constexpr ( ! use_compute_buffer )
             {
