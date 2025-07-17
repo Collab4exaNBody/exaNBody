@@ -370,7 +370,7 @@ namespace exanb
   }
 
 
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PESFuncT, class FieldAccTupleT, class UpdateFuncT>
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT, class FieldAccTupleT, class UpdateFuncT>
   static inline void grid_update_from_ghosts(
     LDBGT& ldbg,
     MPI_Comm comm,
@@ -380,7 +380,7 @@ namespace exanb
     GridCellValues* grid_cell_values,
     UpdateGhostsScratchT& ghost_comm_buffers,
     const PECFuncT& parallel_execution_context,
-    const PESFuncT& parallel_execution_stream,
+    const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
     long comm_tag ,
     bool gpu_buffer_pack ,
@@ -390,7 +390,7 @@ namespace exanb
     bool wait_all,
     UpdateFuncT update_func )
   {
-    grid_update_from_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_stream,
+    grid_update_from_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_queue,
                        update_fields,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,update_func);
   }
 
