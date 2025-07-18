@@ -21,17 +21,17 @@ if(EXANB_BUILD_CONTRIB_MD)
   add_subdirectory(md)
 endif()
 
-option(EXANB_BUILD_MICROSTAMP "Build microStamp (MD) miniapp" OFF)
-if(EXANB_BUILD_MICROSTAMP)
-  add_subdirectory(microStamp)
-endif()
-
 option(EXANB_BUILD_CONTRIB_PI "Build Planetary Interaction contribs " OFF)
 if(EXANB_BUILD_CONTRIB_PI)
   add_subdirectory(pi)
 endif()
 
-option(EXANB_BUILD_MICROCOSMOS "Build microCosmos miniapp" OFF)
+option(EXANB_BUILD_MICROSTAMP "Build microStamp (MD) miniapp" OFF)
+if(EXANB_BUILD_MICROSTAMP)
+  add_subdirectory(microStamp)
+endif()
+
+option(EXANB_BUILD_MICROCOSMOS "Build microCosmos (Planets) miniapp" OFF)
 if(EXANB_BUILD_MICROCOSMOS)
   add_subdirectory(microCosmos)
 endif()
