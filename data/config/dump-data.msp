@@ -16,8 +16,19 @@ dump_data_paraview:
       rebind: { mesg: filename }
       body:
         - message: { endl: true }
-  - write_paraview_generic
+  - write_paraview
 
+# ASCII XYZ output files
+dump_data_xyz:
+  - timestep_file: "particles_%09d.xyz"
+  - message: { mesg: "Write xyz " , endl: false }
+  - print_dump_file:
+      rebind: { mesg: filename }
+      body:
+        - message: { endl: true }
+  - write_xyz
+
+# dump/restart binary files
 dump_data_particles:
   - timestep_file: "particles_%09d.dump"
   - message: { mesg: "Write " , endl: false }

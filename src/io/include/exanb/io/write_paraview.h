@@ -59,7 +59,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
@@ -81,7 +81,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
@@ -108,7 +108,7 @@ namespace exanb
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec) this->operator () ( grid , fid );
       }
@@ -129,18 +129,19 @@ namespace exanb
         using field_type = typename FidT::value_type;      
         if( m_field_selector(fid.short_name()) )
         {
+          const auto field_acc = grid.field_const_accessor( fid );
           if(binary)
           {
-            write_binary_datas_from_field(grid, m_cells, fid , fid.short_name() , ParaViewTypeId<field_type>::str() , out, compression_level, ghost );
+            write_binary_datas_from_field(grid, m_cells, field_acc , field_acc.short_name() , ParaViewTypeId<field_type>::str() , out, compression_level, ghost );
           }
           else
           {
-            write_ascii_datas_from_field(grid, m_cells, fid , fid.short_name() , ParaViewTypeId<field_type>::str() , out, ghost );
+            write_ascii_datas_from_field(grid, m_cells, field_acc , field_acc.short_name() , ParaViewTypeId<field_type>::str() , out, ghost );
           }
         }
       }
       template<class GridT, class FidT>
-      inline void operator () ( GridT& grid, const std::vector<FidT>& fid_vec )
+      inline void operator () ( GridT& grid, const std::span<FidT>& fid_vec )
       {
         for(const auto& fid : fid_vec)
         {
