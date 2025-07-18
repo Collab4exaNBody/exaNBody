@@ -27,6 +27,7 @@ under the License.
 #include <exanb/core/check_particles_inside_cell.h>
 #include <onika/parallel/random.h>
 #include <onika/thread.h>
+#include <onika/hash_utils.h>
 #include <exanb/core/particle_type_id.h>
 #include <exanb/grid_cell_particles/particle_localized_filter.h>
 #include <exanb/grid_cell_particles/lattice_collection.h>
@@ -72,6 +73,7 @@ namespace exanb
     , LatticeCollection lattice  
     , double sigma_noise
     , double noise_cutoff
+    , bool deterministic_noise
     , const Vec3d& position_shift
     , const std::string& void_mode
     , const Vec3d& void_center
@@ -142,10 +144,10 @@ namespace exanb
        
     const IJK local_grid_dim = grid.dimension();
     unsigned long long next_id = 0;      
+    const size_t n_cells = grid.number_of_cells();
     
     if( has_field_id )
     {
-      size_t n_cells = grid.number_of_cells();
       auto cells = grid.cells();
 #       pragma omp parallel for schedule(dynamic) reduction(max:next_id)
       for(size_t cell_i=0;cell_i<n_cells;cell_i++) if( ! grid.is_ghost_cell(cell_i) )
@@ -164,8 +166,7 @@ namespace exanb
     // =============== Section that concerns the porosity mode ========================
 
     std::random_device rd{};
-    std::mt19937 gen{rd()};
-    std::default_random_engine generator;
+    std::mt19937 generator( deterministic_noise ? onika::multi_hash(void_porosity,void_mean_diameter,void_radius,void_center.x,void_center.y,void_center.z) : rd() );
     std::normal_distribution<double> distribution_radius(void_mean_diameter, void_mean_diameter/2.);
     std::uniform_real_distribution<double> distribution_center_x( domain.origin().x , domain.extent().x );
     std::uniform_real_distribution<double> distribution_center_y( domain.origin().y , domain.extent().y );
@@ -257,11 +258,14 @@ namespace exanb
     lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
     lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
-#   pragma omp parallel
+    const int nthreads = deterministic_noise ? 1 : omp_get_max_threads();
+
+#   pragma omp parallel num_threads(nthreads)
     {
-      auto& re = onika::parallel::random_engine();
+      std::mt19937_64 det_re;
+      std::mt19937_64 & re = deterministic_noise ? det_re : onika::parallel::random_engine() ;
       std::normal_distribution<double> f_rand(0.,1.);
-      
+
 #     pragma omp for collapse(3) reduction(+:local_generated_count)
       for (ssize_t k=k_start; k<=k_end; k++)
       {
@@ -269,11 +273,12 @@ namespace exanb
         {
           for (ssize_t i=i_start; i<=i_end; i++)
       		{
+            det_re.seed( ( ( (k*1023) ^ j ) * 1023 ) ^ i );
 	          for (size_t l=0; l<n_particles_cell;l++)
     		    {
               Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
               Vec3d grid_pos = inv_xform * lab_pos;
-	            const IJK loc = grid.locate_cell(grid_pos); //domain_periodic_location( domain , pos );
+	            const IJK loc = grid.locate_cell(grid_pos);
 
 	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
         			{          			
@@ -313,13 +318,16 @@ namespace exanb
     {
       unsigned long long particle_id_start = 0;
       MPI_Exscan( &local_generated_count , &particle_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm);
-      std::atomic<uint64_t> particle_id_counter = particle_id_start + next_id;
+      const uint64_t particle_id_counter = particle_id_start + next_id;
 
       const IJK dims = grid.dimension();
       const ssize_t gl = grid.ghost_layers();
-      const IJK gstart { gl, gl, gl };
+      const IJK gstart = { gl, gl, gl };
       const IJK gend = dims - IJK{ gl, gl, gl };
       const IJK gdims = gend - gstart;
+
+      // = particle_id_counter.fetch_add(1,std::memory_order_relaxed);
+      std::vector<size_t> cell_id_count( n_cells , 0 );
 
 #     pragma omp parallel
       {
@@ -331,7 +339,28 @@ namespace exanb
           {
             if( cells[i][field::id][j] == no_id )
             {
-              cells[i][field::id][j] = particle_id_counter.fetch_add(1,std::memory_order_relaxed);
+              ++ cell_id_count[i];
+            }
+          }
+        }
+        GRID_OMP_FOR_END
+        
+#       pragma omp single
+        {
+          std::exclusive_scan(cell_id_count.begin(), cell_id_count.end(), cell_id_count.begin(),0);
+          assert( n_cells==0 || cell_id_count[0] == 0 );
+        }
+#       pragma omp barrier
+        
+        GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
+        {
+          size_t i = grid_ijk_to_index( dims , loc + gstart );
+          size_t n = cells[i].size();
+          for(size_t j=0;j<n;j++)
+          {
+            if( cells[i][field::id][j] == no_id )
+            {
+              cells[i][field::id][j] = particle_id_counter + ( cell_id_count[i] ++ );
             }
           }
         }
