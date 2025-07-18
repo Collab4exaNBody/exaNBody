@@ -23,7 +23,6 @@ under the License.
 #include <onika/soatl/field_tuple.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/core/grid_particle_field_accessor.h>
