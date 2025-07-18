@@ -84,6 +84,7 @@ namespace exanb
     ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL );    
     ADD_SLOT( double           , noise        , INPUT , 0.0);
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
+    ADD_SLOT( bool             , deterministic_noise , INPUT , false );    
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
 
     // this additional parameter will decide domain's dimensions
@@ -238,7 +239,7 @@ namespace exanb
       
       generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                               , lattice, *noise, noise_cutoff_ifset, *shift
+                                 , lattice, *noise, noise_cutoff_ifset, *deterministic_noise, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
     
