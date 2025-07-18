@@ -180,7 +180,8 @@ namespace exanb
 
     const IJK dims = grid.dimension();
     const int gl = enable_ghosts ? 0 : grid.ghost_layers();
-    assert(rcpo.m_cell_indices != nullptr || rcpo.m_num_cell_indices <= 0); 
+    assert(rcpo.m_cell_indices != nullptr && rcpo.m_num_cell_indices != ReduceCellParticlesOptions::NO_CELL_INDICES 
+        || rcpo.m_cell_indices == nullptr && rcpo.m_num_cell_indices == ReduceCellParticlesOptions::NO_CELL_INDICES); 
 
     ResultT* target_reduced_value_ptr = &reduced_val;
     if constexpr ( ReduceCellParticlesTraits<FuncT>::CudaCompatible )
