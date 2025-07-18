@@ -325,7 +325,8 @@ namespace exanb
             return 0;
           }
           *buf = ' ';
-          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][pfield][p] );
+          auto f_acc = grid.field_const_accessor(pfield);
+          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][f_acc][p] );
           if( capacity < n )
           {
             fatal_error() << "unexpected buffer overflow" << std::endl;

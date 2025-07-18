@@ -51,17 +51,17 @@ namespace exanb { namespace field { static constexpr ::onika::soatl::FieldId<_##
 #define XNB_DECLARE_ALIAS(A,F) namespace exanb { namespace field { using _##A=_##F; static constexpr ::onika::soatl::FieldId<_##A> A; } }
 
 #define XNB_DECLARE_DYNAMIC_FIELD(__type,__name,__desc) \
-namespace exanb { namespace field { struct _##__name {}; } } \
-namespace onika { namespace soatl { template<> struct FieldId<::exanb::field::_##__name> { \
+namespace exanb { namespace field { template<size_t _GENERIC_IDX> struct _##__name { static inline constexpr auto GENERIC_IDX=_GENERIC_IDX; }; } } \
+namespace onika { namespace soatl { template<size_t _GENERIC_IDX> struct FieldId<::exanb::field::_##__name<_GENERIC_IDX> > { \
     using value_type = __type; \
-    using Id = ::exanb::field::_##__name; \
+    using Id = ::exanb::field::_##__name<_GENERIC_IDX>; \
     static inline constexpr size_t NAME_MAX_LEN = 16; \
     char m_name[NAME_MAX_LEN] = #__name ; \
     inline void set_name(const std::string& s) { strncpy(m_name,s.c_str(),NAME_MAX_LEN); m_name[NAME_MAX_LEN-1]='\0'; };\
     inline const char* short_name() const { return m_name; } \
     inline const char* name() const { return m_name; } \
   }; } } \
-namespace exanb { namespace field { using __name = ::onika::soatl::FieldId<_##__name> ; inline auto mk_##__name (const std::string& s) { __name f; f.set_name(s); return f; } } }
+namespace exanb { namespace field { template<size_t I> using __name##_nth=::onika::soatl::FieldId<_##__name<I> >; using __name = __name##_nth<0> ; inline auto mk_##__name (const std::string& s) { __name f; f.set_name(s); return f; } } }
 
 // for dynamic fields, allows field name to be read from YAML conversion
 namespace YAML

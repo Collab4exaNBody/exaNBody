@@ -1,0 +1,115 @@
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+  debug:
+    filter: [ ".*particle_types" , ".*particle_type_add_properties" ]
+  profiling:
+    summary: true
+
+global:
+  dt: 1.0e-3 ps
+  rcut_max: 8.0 ang
+  rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
+  simulation_log_frequency: 10
+  simulation_dump_frequency: 10
+  simulation_end_iteration: 100
+
+write_paraview:
+  fields: [ mass , avgmass , processor_id , radius ]
+  write_ghost: true
+  
+dump_data:
+  - average_neighbors_scalar:
+      nbh_field: mass
+      avg_field: avgmass
+      rcut: 8.0 ang
+  - ghost_update_opt: { opt_fields: [ "avgmass" ] }
+  - dump_data_paraview
+
+compute_force: nop
+
+input_data:
+  - particle_types:
+      particle_type_map: { W: 0 , Be: 1 }
+  - particle_type_add_properties:
+      W: { mass: 183.84 Da , z: 74 , radius: 2. ang}
+      Be: { mass: 9.012182 Da , z: 4, radius: 1. ang}
+  - particle_regions:
+      - PLANE1:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - zrot: pi/4
+              - translate: [ 20 ang , 150 ang , 0 ]
+      - PLANE1b:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - zrot: pi/4
+              - translate: [ 23 ang , 153 ang , 0 ]
+      - PLANE2:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - zrot: -pi/4
+              - translate: [ 20 ang , 150 ang , 0 ]
+      - PLANE2b:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - zrot: -pi/4
+              - translate: [ 23 ang , 153 ang , 0 ]
+      - BOX:
+          bounds: [ [ 250 ang , 0 ang , 0 ang ] , [ 300 ang , 300 ang , 300 ang ] ]
+      - SPHERE:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 80 ang , 80 ang , 80 ang ] 
+              - translate: [ 150 ang , 150 ang , 150 ang ]
+  - domain:
+      cell_size: 30.0 ang
+      grid_dims: [ 10 , 10 , 10 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 300.0 ang , 300.0 ang , 300.0 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: SC
+      types: [ W ]
+      size: [ 5. ang , 5. ang , 5. ang ]
+      noise: 0.1 ang
+      noise_cutoff: 0.4 ang
+      region: PLANE1 or PLANE2 or BOX
+  - lattice:
+      structure: SC
+      types: [ Be ]
+      size: [ 4. ang , 4. ang , 4. ang ]
+      noise: 0.1 ang
+      noise_cutoff: 0.4 ang
+      region: SPHERE and not ( PLANE1b or PLANE2b )
+  - gaussian_noise_v
+  - scale_v: 1000 m/s
+  - shift_v:
+      value: [ -1000 m/s , 0 , 0 ]
+      region: SPHERE
+
+# pretty logo banner
+logo_banner:
+  - message: "           _               ____  _\n _ __ ___ (_) ___ _ __ ___/ ___|| |_ __ _ _ __ ___  _ __\n| '_ ` _ \\| |/ __| '__/ _ \\___ \\| __/ _` | '_ ` _ \\| '_ \\\n| | | | | | | (__| | | (_) |__) | || (_| | | | | | | |_) |\n|_| |_| |_|_|\\___|_|  \\___/____/ \\__\\__,_|_| |_| |_| .__/\n                                                   |_|\n"
+
+simulation: default_simulation
+
+
