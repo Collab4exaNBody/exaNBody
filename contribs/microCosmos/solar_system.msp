@@ -11,7 +11,7 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: true
+    debug: false
   debug:
     filter: [.*gravitational_force]
 
