@@ -30,3 +30,4 @@ ONIKA_DECLARE_FIELD_COMBINER( exanb, ProcessorRankCombiner , processor_id , exan
 ONIKA_DECLARE_FIELD_COMBINER( exanb, PositionVec3Combiner  , position , exanb::Vec3FromXYZFunctor , exanb::field::_rx , exanb::field::_ry , exanb::field::_rz )
 ONIKA_DECLARE_FIELD_COMBINER( exanb, VelocityVec3Combiner  , velocity , exanb::Vec3FromXYZFunctor , exanb::field::_vx , exanb::field::_vy , exanb::field::_vz )
 ONIKA_DECLARE_FIELD_COMBINER( exanb, ForceVec3Combiner     , force    , exanb::Vec3FromXYZFunctor , exanb::field::_fx , exanb::field::_fy , exanb::field::_fz )
+

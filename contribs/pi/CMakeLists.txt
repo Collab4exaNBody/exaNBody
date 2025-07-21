@@ -16,5 +16,10 @@
 # under the License.
 #
 
-add_subdirectory(gravitational)
+set(piGravitational_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
+set(ONIKA_BUILD_piGravitational_DEFAULT ON)
+set(ONIKA_BUILD_piGravitational_FORCED ON)
+
+# xnb_add_plugin is a wrapper for onika_add_plugin to enabled redistribution of sour souce templates
+xnb_add_plugin(piGravitational ${CMAKE_CURRENT_SOURCE_DIR})
 
