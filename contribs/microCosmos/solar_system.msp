@@ -12,18 +12,21 @@ configuration:
       energy: joule
   logging:
     debug: false
+  debug:
+    filter: [.*gravitational_force]
 
 global:
   dt: 1 s
   rcut_max: 280 m
   rcut_inc: 18 m
-  simulation_log_frequency: 10
-  simulation_dump_frequency: 20
+  simulation_log_frequency: 1
+  simulation_dump_frequency: 5
   simulation_end_iteration: 100
 
 +first_iteration:
   - grid_stats
   - chunk_neighbors_stats
+  - memory_stats
 
 compute_force:
   - gravitational_force:
