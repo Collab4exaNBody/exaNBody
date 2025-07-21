@@ -57,9 +57,10 @@ namespace exanb
     return true;
   }
 
-  template<class GridT, class ParticleTypeField>
+  template<class LDBGT, class GridT, class ParticleTypeField>
   static inline void generate_particle_lattice(
-      MPI_Comm comm
+      LDBGT& ldbg
+    , MPI_Comm comm
     , const Domain& domain
     , GridT& grid
     , const ParticleTypeMap& particle_type_map
@@ -255,10 +256,15 @@ namespace exanb
     ssize_t j_end   = lattice_hi.j + 1;
     ssize_t k_start = lattice_lo.k - 1;
     ssize_t k_end   = lattice_hi.k + 1;
-    lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
-    lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
+    ldbg << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
+    ldbg << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
+    const auto dom_dims = domain.grid_dimension();
+    const auto dom_start = grid.offset();
+    const size_t dom_n_cells = dom_dims.i * dom_dims.j * dom_dims.k;    
     const int nthreads = deterministic_noise ? 1 : omp_get_max_threads();
+
+    ldbg << "deterministic="<< deterministic_noise<<", nthreads="<<nthreads<<", dom_dims="<<dom_dims<<", dom_start="<<dom_start<<", dom_n_cells="<<dom_n_cells <<std::endl;
 
 #   pragma omp parallel num_threads(nthreads)
     {
@@ -327,40 +333,58 @@ namespace exanb
       const IJK gdims = gend - gstart;
 
       // = particle_id_counter.fetch_add(1,std::memory_order_relaxed);
-      std::vector<size_t> cell_id_count( n_cells , 0 );
+      std::vector<long> cell_id_count;
+      if( deterministic_noise )
+      {
+        cell_id_count.assign( dom_n_cells , 0 );
+      }
+      else
+      {
+        cell_id_count.assign( n_cells , 0 );
+      }
 
 #     pragma omp parallel
       {
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
-          size_t i = grid_ijk_to_index( dims , loc + gstart );
-          size_t n = cells[i].size();
+          const size_t cell_idx_local = grid_ijk_to_index( dims , loc + gstart );
+          const size_t cell_idx = deterministic_noise ? grid_ijk_to_index( dom_dims , loc + gstart + dom_start ) : cell_idx_local ;
+          assert( cell_idx < cell_id_count.size() );
+          const size_t n = cells[cell_idx_local].size();
           for(size_t j=0;j<n;j++)
           {
-            if( cells[i][field::id][j] == no_id )
+            if( cells[cell_idx_local][field::id][j] == no_id )
             {
-              ++ cell_id_count[i];
+              ++ cell_id_count[cell_idx];
             }
           }
         }
         GRID_OMP_FOR_END
         
-#       pragma omp single
+#       pragma omp barrier
+
+#       pragma omp master
         {
+          if( deterministic_noise )
+          {
+            MPI_Allreduce(MPI_IN_PLACE,cell_id_count.data(),cell_id_count.size(),MPI_LONG,MPI_SUM,comm);
+          }
           std::exclusive_scan(cell_id_count.begin(), cell_id_count.end(), cell_id_count.begin(),0);
-          assert( n_cells==0 || cell_id_count[0] == 0 );
+          assert( dom_n_cells==0 || n_cells==0 || cell_id_count[0]==0 );
         }
+
 #       pragma omp barrier
         
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
-          size_t i = grid_ijk_to_index( dims , loc + gstart );
-          size_t n = cells[i].size();
+          const size_t cell_idx_local = grid_ijk_to_index( dims , loc + gstart );
+          const size_t cell_idx = deterministic_noise ? grid_ijk_to_index( dom_dims , loc + gstart + dom_start ) : cell_idx_local ;
+          const size_t n = cells[cell_idx_local].size();
           for(size_t j=0;j<n;j++)
           {
-            if( cells[i][field::id][j] == no_id )
+            if( cells[cell_idx_local][field::id][j] == no_id )
             {
-              cells[i][field::id][j] = particle_id_counter + ( cell_id_count[i] ++ );
+              cells[cell_idx_local][field::id][j] = particle_id_counter + ( cell_id_count[cell_idx] ++ );
             }
           }
         }
@@ -374,7 +398,7 @@ namespace exanb
     MPI_Allreduce(&local_generated_count,&min_output_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_MIN,comm);
     MPI_Allreduce(&local_generated_count,&max_output_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,comm);
     MPI_Allreduce(&local_generated_count,&sum_output_particles,1,MPI_UNSIGNED_LONG_LONG,MPI_SUM,comm);
-    lout << "output particles  = " << sum_output_particles << " (min="<<min_output_particles<<",max="<<max_output_particles<<")" <<std::endl
+    ldbg << "output particles  = " << sum_output_particles << " (min="<<min_output_particles<<",max="<<max_output_particles<<")" <<std::endl
          << "================================="<< std::endl << std::endl;
   }
 
