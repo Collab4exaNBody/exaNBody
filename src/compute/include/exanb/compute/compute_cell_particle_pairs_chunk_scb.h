@@ -67,7 +67,12 @@ namespace exanb
     }
 
     // number of particles in cell
-    const unsigned int cell_a_particles = cells[cell_a].size();
+    ONIKA_CU_BLOCK_SHARED unsigned int cell_a_particles;
+    if ( ONIKA_CU_THREAD_IDX == 0 )
+    {
+       cell_a_particles = cells[cell_a].size();
+    }
+    ONIKA_CU_BLOCK_SYNC();
     if( cell_a_particles == 0 ) return;
     
     const int dims_i = dims.i;
@@ -79,6 +84,40 @@ namespace exanb
 
     // create local computation scratch buffer
     ONIKA_CU_BLOCK_SHARED onika::cuda::UnitializedPlaceHolder<ComputePairBufferT> tab_place_holder;
+
+    // pointers to central particle's coordinates
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ rx_a;
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ ry_a;
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ rz_a;
+
+    // chunk neighbors data stream
+    ONIKA_CU_BLOCK_SHARED const uint16_t* stream_base;
+    ONIKA_CU_BLOCK_SHARED const uint32_t* __restrict__ particle_offset;
+    ONIKA_CU_BLOCK_SHARED int32_t poffshift;
+
+    // next place where to write valid neighbor particle
+    ONIKA_CU_BLOCK_SHARED int valid_nbh_index;
+
+    // stream cursor
+    ONIKA_CU_BLOCK_SHARED const uint16_t* __restrict__ stream;
+
+    // pointers to neighbor particle's coordinates
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ rx_b;
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ ry_b;
+    ONIKA_CU_BLOCK_SHARED const double* __restrict__ rz_b;
+    
+    // decode neighbors sream variables
+    ONIKA_CU_BLOCK_SHARED unsigned int stream_last_p_a;
+    ONIKA_CU_BLOCK_SHARED int cell_groups;
+    ONIKA_CU_BLOCK_SHARED int nchunks;
+
+    ONIKA_CU_BLOCK_SHARED unsigned int p_nbh_index;
+    ONIKA_CU_BLOCK_SHARED size_t cell_b;
+    ONIKA_CU_BLOCK_SHARED int cell_b_particles;
+
+    // compute next particle index to process
+    ONIKA_CU_BLOCK_SHARED unsigned int p_a; //ONIKA_CU_THREAD_IDX;
+
     ComputePairBufferT & tab = tab_place_holder.get_ref();
     if ( ONIKA_CU_THREAD_IDX == 0 )
     {
@@ -86,54 +125,53 @@ namespace exanb
       tab.ta = particle_id_codec::MAX_PARTICLE_TYPE; // not used for single material computations
       tab.tb = particle_id_codec::MAX_PARTICLE_TYPE;
       tab.cell = cell_a;
+      
+      rx_a = cells[cell_a].field_pointer_or_null(RX);
+      ry_a = cells[cell_a].field_pointer_or_null(RY);
+      rz_a = cells[cell_a].field_pointer_or_null(RZ);
+      
+      const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
+      stream_base = stream_info.stream;
+      particle_offset = stream_info.offset;
+      poffshift = stream_info.shift;
+      
+      // initialize stream cursor
+      stream = stream_base;
+
+      // pointers to neighbor particle's coordinates
+      rx_b = nullptr;
+      ry_b = nullptr;
+      rz_b = nullptr;
+      
+      // decode neighbors sream variables
+      stream_last_p_a = 0;
+      cell_groups = 0;
+      nchunks = 0;
+
+      p_nbh_index = 0;
+      cell_b = 0;
+      cell_b_particles = 0;
+
+      // compute next particle index to process
+      p_a = 0; 
+
+      // initialize number of cell groups for first particle, only if cell is not empty
+      cell_groups = *(stream++);
+
+      // -- jump to next particle to process --
+      while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a ++; }
+      while( p_a < cell_a_particles && p_a > stream_last_p_a )
+      {
+        if( particle_offset != nullptr ) { stream = stream_base + particle_offset[p_a] + poffshift; stream_last_p_a = p_a; }
+        else { stream += nchunks; while( cell_groups > 0 ) { stream += 2 + stream[1]; -- cell_groups; } nchunks = 0; ++ stream_last_p_a; }
+        cell_groups = *(stream++);
+      }
+      nchunks = 0; p_nbh_index = 0; cell_b = 0;
+      // -------------------------------------
     }
     ONIKA_CU_BLOCK_SYNC();
 
-    // pointers to central particle's coordinates
-    const double* __restrict__ rx_a = cells[cell_a].field_pointer_or_null(RX);
-    const double* __restrict__ ry_a = cells[cell_a].field_pointer_or_null(RY);
-    const double* __restrict__ rz_a = cells[cell_a].field_pointer_or_null(RZ);
-
-    // chunk neighbors data stream
-    const auto stream_info = chunknbh_stream_info( optional.nbh.m_nbh_streams[cell_a] , cell_a_particles );
-    const uint16_t* stream_base = stream_info.stream;
-    const uint16_t* __restrict__ stream = stream_base;
-    const uint32_t* __restrict__ particle_offset = stream_info.offset;
-    const int32_t poffshift = stream_info.shift;
-
-    // pointers to neighbor particle's coordinates
-    const double* __restrict__ rx_b = nullptr;
-    const double* __restrict__ ry_b = nullptr;
-    const double* __restrict__ rz_b = nullptr;
-    
-    // decode neighbors sream variables
-    unsigned int stream_last_p_a = 0;
-    int cell_groups = 0;
-    int nchunks = 0;
-
-    unsigned int p_nbh_index = 0;
-    size_t cell_b = 0;
-    int cell_b_particles = 0;
-
-    // compute next particle index to process
-    unsigned int p_a = 0; //ONIKA_CU_THREAD_IDX;
-
-    // initialize number of cell groups for first particle, only if cell is not empty
-    cell_groups = *(stream++);
-
-    // -- jump to next particle to process --
-    while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a ++; }
-    while( p_a < cell_a_particles && p_a > stream_last_p_a )
-    {
-      if( particle_offset != nullptr ) { stream = stream_base + particle_offset[p_a] + poffshift; stream_last_p_a = p_a; }
-      else { stream += nchunks; while( cell_groups > 0 ) { stream += 2 + stream[1]; -- cell_groups; } nchunks = 0; ++ stream_last_p_a; }
-      cell_groups = *(stream++);
-    }
-    nchunks = 0; p_nbh_index = 0; cell_b = 0;
-    // -------------------------------------
-
-    ONIKA_CU_BLOCK_SHARED int valid_nbh_index;
-
+ 
     while( p_a < cell_a_particles )
     {
       // --- particle processing start code ---
@@ -154,18 +192,22 @@ namespace exanb
           if( cell_groups > 0 )
           {
             // restart from next cell group
-            const uint16_t cell_b_enc = *(stream++);
-            assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
-            nchunks = *(stream++); assert( nchunks > 0 );
-            const int rel_i = int( cell_b_enc & 31 ) - 16;
-            const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
-            const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
-            cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
-            cell_b_particles = cells[cell_b].size();         
-            rx_b = cells[cell_b].field_pointer_or_null(RX);
-            ry_b = cells[cell_b].field_pointer_or_null(RY);
-            rz_b = cells[cell_b].field_pointer_or_null(RZ);
-            -- cell_groups;
+            if( ONIKA_CU_THREAD_IDX == 0 )
+            {
+              const uint16_t cell_b_enc = *(stream++);
+              assert( cell_b_enc >= GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE );
+              nchunks = *(stream++); assert( nchunks > 0 );
+              const int rel_i = int( cell_b_enc & 31 ) - 16;
+              const int rel_j = int( (cell_b_enc>>5) & 31 ) - 16;
+              const int rel_k = int( (cell_b_enc>>10) & 31 ) - 16;
+              cell_b = cell_a + ( ( ( rel_k * dims_j ) + rel_j ) * dims_i + rel_i );
+              cell_b_particles = cells[cell_b].size();         
+              rx_b = cells[cell_b].field_pointer_or_null(RX);
+              ry_b = cells[cell_b].field_pointer_or_null(RY);
+              rz_b = cells[cell_b].field_pointer_or_null(RZ);
+              -- cell_groups;
+            }
+            ONIKA_CU_BLOCK_SYNC();
           }
         }
         
@@ -175,8 +217,7 @@ namespace exanb
           const bool is_nbh_chunk_valid = ( stream_chunk_offset < nchunks );
           const unsigned int chunk_b = is_nbh_chunk_valid ? stream[stream_chunk_offset] : 0 ;
           const unsigned int chunks_consumed = ( ONIKA_CU_BLOCK_SIZE >= nchunks ) ? nchunks : ONIKA_CU_BLOCK_SIZE ;
-          nchunks -= chunks_consumed;
-          stream += chunks_consumed;
+                    
           if( is_nbh_chunk_valid )
           {
             const int p_b_start = chunk_b * CS;
@@ -196,9 +237,15 @@ namespace exanb
                 tab.process_neighbor(tab, tl_nbh_write_idx , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index + ( stream_chunk_offset * CS ) + tl_nbh_index , nbh_data_ctx) );
               }
             }
-            p_nbh_index += chunks_consumed * CS;            
           }
           
+          if( ONIKA_CU_THREAD_IDX == 0 )
+          {
+            p_nbh_index += chunks_consumed * CS;            
+            nchunks -= chunks_consumed;
+            stream += chunks_consumed;
+          }
+          ONIKA_CU_BLOCK_SYNC();
         }
 
       }
@@ -222,15 +269,19 @@ namespace exanb
       // --------------------------------
       
       // -- jump to next particle to process --
-      p_a ++;
-      while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a ++; }
-      while( p_a < cell_a_particles && p_a > stream_last_p_a )
+      if( ONIKA_CU_THREAD_IDX == 0 )
       {
-        if( particle_offset != nullptr ) { stream = stream_base + particle_offset[p_a] + poffshift; stream_last_p_a = p_a; }
-        else { stream += nchunks; while( cell_groups > 0 ) { stream += 2 + stream[1]; -- cell_groups; } nchunks = 0; ++ stream_last_p_a; }
-        cell_groups = *(stream++);
+        p_a ++;
+        while( p_a < cell_a_particles && !optional.particle_filter(cell_a,p_a) ) { p_a ++; }
+        while( p_a < cell_a_particles && p_a > stream_last_p_a )
+        {
+          if( particle_offset != nullptr ) { stream = stream_base + particle_offset[p_a] + poffshift; stream_last_p_a = p_a; }
+          else { stream += nchunks; while( cell_groups > 0 ) { stream += 2 + stream[1]; -- cell_groups; } nchunks = 0; ++ stream_last_p_a; }
+          cell_groups = *(stream++);
+        }
+        nchunks = 0; p_nbh_index = 0; cell_b = 0;
       }
-      nchunks = 0; p_nbh_index = 0; cell_b = 0;
+      ONIKA_CU_BLOCK_SYNC();
       // -------------------------------------
       
     } // end of ONIKA_CU_BLOCK_SIMD_FOR_UNGUARDED for loop

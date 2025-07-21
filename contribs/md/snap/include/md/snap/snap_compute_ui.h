@@ -234,7 +234,7 @@ namespace md
     }
   }
 
-  template<class SnapXSForceExtStorageT>
+  template<class SnapXSForceExtStorageT, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
                                    int twojmax
@@ -242,7 +242,8 @@ namespace md
                                  , double const * __restrict__ rootpqarray
                                  , double * __restrict__ ulisttot_r 
                                  , double * __restrict__ ulisttot_i
-                                 , SnapXSForceExtStorageT& ext )
+                                 , SnapXSForceExtStorageT& ext
+                                 , AccumFuncT merge_func = {} )
   {
     const int idxu_max = SUM_INT_SQR(twojmax+1);
     snap_compute_uarray( twojmax, rootpqarray, ext.m_U_array.r(), ext.m_U_array.i(), x,y,z,z0,r );

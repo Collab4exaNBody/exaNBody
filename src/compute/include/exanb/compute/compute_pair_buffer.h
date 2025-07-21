@@ -63,7 +63,7 @@ namespace exanb
                       FieldArraysT cells, size_t cell_b, size_t p_b,
                       const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
-      this->operator () ( tab, tab.count, dr, d2, cells, cell_b, p_b, nbh_data );
+      this->operator () ( tab, tab.count++, dr, d2, cells, cell_b, p_b, nbh_data );
     }
 
   };
