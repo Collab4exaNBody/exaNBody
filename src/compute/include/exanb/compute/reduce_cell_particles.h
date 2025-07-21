@@ -57,13 +57,14 @@ namespace exanb
     const IJK m_grid_dims = { 0, 0, 0 };
     const ssize_t m_ghost_layers = 0;
     const FuncT m_func;
+    ResultT m_default_value = ResultT();
     ResultT* m_reduced_val = nullptr;
     const size_t * m_cell_idxs = nullptr; // List of non empty cells
     FieldAccTupleT m_cpfields;
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( uint64_t i ) const
     {
-      ResultT local_val = ResultT();
+      ResultT local_val = m_default_value;
 
       size_t cell_a = size_t(-1); 
       IJK cell_a_loc;
@@ -200,7 +201,7 @@ namespace exanb
     ParForOpts pfor_opts = { .user_cb = user_cb , .return_data = &reduced_val, .return_data_size = sizeof(ResultT) };
     if( rcpo.m_max_block_size > 0 ) pfor_opts.max_block_size = rcpo.m_max_block_size;
 
-    PForFuncT pfor_func = { cells , dims , gl , func , target_reduced_value_ptr , rcpo.m_cell_indices , cp_fields };
+    PForFuncT pfor_func = { cells , dims , gl , func , reduced_val /* initial value */, target_reduced_value_ptr , rcpo.m_cell_indices , cp_fields };
 
     if( rcpo.m_num_cell_indices == ReduceCellParticlesOptions::NO_CELL_INDICES )
     {
