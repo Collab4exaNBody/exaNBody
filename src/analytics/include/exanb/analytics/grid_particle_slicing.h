@@ -80,9 +80,10 @@ namespace exanb
       {
         using onika::cuda::clamp;
         const double value = m_pacc[c][m_field][p]; // .get(c,p,m_field);
+
         for(int i = -m_rep_i ; i <= m_rep_i ; i++)
-        for(int j = -m_rep_j ; i <= m_rep_j ; j++)
-        for(int k = -m_rep_k ; i <= m_rep_k ; k++)
+        for(int j = -m_rep_j ; j <= m_rep_j ; j++)
+        for(int k = -m_rep_k ; k <= m_rep_k ; k++)
         {
           const Vec3d dom_shift = { m_domain_size.x*i , m_domain_size.y*j , m_domain_size.z*k };
           const Vec3d r = Vec3d{rx,ry,rz} - m_origin + dom_shift;
@@ -124,7 +125,7 @@ namespace exanb
       inline void operator () ( const GridT& grid , const FidT& proj_field )
       {
         using namespace SliceParticleFieldTools;
-        using field_type = decltype( m_pacc[0][proj_field][0] /*m_pacc.get(0,0,proj_field)*/ );
+        using field_type = typename FidT::value_type;
         
         if constexpr ( std::is_arithmetic_v<field_type> )
         {
