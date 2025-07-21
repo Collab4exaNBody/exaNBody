@@ -161,7 +161,7 @@ namespace exanb
         }
       }
       MPI_Allreduce(MPI_IN_PLACE,&next_id,1,MPI_UNSIGNED_LONG_LONG,MPI_MAX,comm);
-      ++ next_id; // start right after gretest id
+      ++ next_id; // start right after greatest id
     }
 
     // =============== Section that concerns the porosity mode ========================
@@ -228,7 +228,7 @@ namespace exanb
 
     //ldbg << "total particles = "<< repeats->i * repeats->j * repeats->k * n_particles_cell<<std::endl;
 
-    const uint64_t no_id = next_id;
+    constexpr uint64_t no_id = ParticleRegion::MAX_VALID_ID;
     unsigned long long local_generated_count = 0;
 
 /*
@@ -263,8 +263,8 @@ namespace exanb
     const auto dom_start = grid.offset();
     const size_t dom_n_cells = dom_dims.i * dom_dims.j * dom_dims.k;    
     const int nthreads = deterministic_noise ? 1 : omp_get_max_threads();
-
-    ldbg << "deterministic="<< deterministic_noise<<", nthreads="<<nthreads<<", dom_dims="<<dom_dims<<", dom_start="<<dom_start<<", dom_n_cells="<<dom_n_cells <<std::endl;
+    const int gl = grid.ghost_layers();
+    ldbg << "deterministic="<< deterministic_noise<<", nthreads="<<nthreads<<", dom_dims="<<dom_dims<<", dom_start="<<dom_start<<", dom_n_cells="<<dom_n_cells<<" ghost_layers="<<gl <<std::endl;
 
 #   pragma omp parallel num_threads(nthreads)
     {
@@ -285,9 +285,12 @@ namespace exanb
               Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
               Vec3d grid_pos = inv_xform * lab_pos;
 	            const IJK loc = grid.locate_cell(grid_pos);
+              const bool is_inner_cell = loc.i>=gl && loc.i<(local_grid_dim.i-gl)
+                                      && loc.j>=gl && loc.j<(local_grid_dim.j-gl)
+                                      && loc.k>=gl && loc.k<(local_grid_dim.k-gl);
 
-	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
-        			{          			
+	            if( grid.contains(loc) && is_inner_cell && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds_no_ghost() , grid_pos ) )
+        			{
                 Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
                 const double noiselen = norm(noise);
                 if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
@@ -323,7 +326,10 @@ namespace exanb
     if constexpr ( has_field_id )
     {
       unsigned long long particle_id_start = 0;
-      MPI_Exscan( &local_generated_count , &particle_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm);
+      if( ! deterministic_noise )
+      {
+        MPI_Exscan( &local_generated_count , &particle_id_start , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm);
+      }
       const uint64_t particle_id_counter = particle_id_start + next_id;
 
       const IJK dims = grid.dimension();
@@ -333,15 +339,7 @@ namespace exanb
       const IJK gdims = gend - gstart;
 
       // = particle_id_counter.fetch_add(1,std::memory_order_relaxed);
-      std::vector<long> cell_id_count;
-      if( deterministic_noise )
-      {
-        cell_id_count.assign( dom_n_cells , 0 );
-      }
-      else
-      {
-        cell_id_count.assign( n_cells , 0 );
-      }
+      std::vector<long> cell_id_count( deterministic_noise ? dom_n_cells : n_cells , 0 );
 
 #     pragma omp parallel
       {
@@ -360,21 +358,17 @@ namespace exanb
           }
         }
         GRID_OMP_FOR_END
+      }
         
-#       pragma omp barrier
-
-#       pragma omp master
-        {
-          if( deterministic_noise )
-          {
-            MPI_Allreduce(MPI_IN_PLACE,cell_id_count.data(),cell_id_count.size(),MPI_LONG,MPI_SUM,comm);
-          }
-          std::exclusive_scan(cell_id_count.begin(), cell_id_count.end(), cell_id_count.begin(),0);
-          assert( dom_n_cells==0 || n_cells==0 || cell_id_count[0]==0 );
-        }
-
-#       pragma omp barrier
+      if( deterministic_noise )
+      {
+        MPI_Allreduce(MPI_IN_PLACE,cell_id_count.data(),cell_id_count.size(),MPI_LONG,MPI_SUM,comm);
+      }
+      std::exclusive_scan(cell_id_count.begin(), cell_id_count.end(), cell_id_count.begin(),0);
+      assert( dom_n_cells==0 || n_cells==0 || cell_id_count[0]==0 );
         
+#     pragma omp parallel
+      {
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
           const size_t cell_idx_local = grid_ijk_to_index( dims , loc + gstart );

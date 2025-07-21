@@ -23,7 +23,7 @@ global:
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 10
   simulation_dump_frequency: 1
-  simulation_end_iteration: 10
+  simulation_end_iteration: 20
 
 write_xyz:
   fields: [ id ]
@@ -45,15 +45,17 @@ snap_force_generic:
     coef: "WBe_Wood_PRB2019.snapcoeff"
 
 dump_debug:
+#  - timestep_file: "debug_%09d.xyz"
+#  - write_xyz: { fields: [ id ] }
   - timestep_file: "debug_%09d.txt"
   - debug_particle
 
-compute_force: snap_force_generic
+compute_force:
+  - dump_debug
+  - snap_force_generic
 
 compute_force_epilog:
   - divide_force_by_type_scalar: mass
-  - dump_debug
-
 
 +first_iteration:
   - particle_types: { verbose: true }
@@ -102,8 +104,8 @@ input_data:
               - translate: [ 150 ang , 150 ang , 150 ang ]
   - domain:
       cell_size: 30.0 ang
-      grid_dims: [ 2 , 2 , 2 ]
-      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 60.0 ang , 60.0 ang , 60.0 ang ] ]
+      grid_dims: [ 10 , 10 , 10 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 300.0 ang , 300.0 ang , 300.0 ang ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
@@ -112,25 +114,22 @@ input_data:
       structure: SC
       types: [ W ]
       size: [ 5. ang , 5. ang , 5. ang ]
-      noise: 0.0 # 0.1 ang
-      noise_cutoff: 0.0 # 0.4 ang
+      noise: 0.1 ang
+      noise_cutoff: 0.4 ang
       region: PLANE1 or PLANE2 or BOX
   - lattice:
       structure: SC
       types: [ Be ]
       size: [ 4. ang , 4. ang , 4. ang ]
-      noise: 0.0 # 0.1 ang
-      noise_cutoff: 0.0 # 0.4 ang
+      noise: 0.1 ang
+      noise_cutoff: 0.4 ang
       region: SPHERE and not ( PLANE1b or PLANE2b )
-  - timestep_file: "debug_lattice_%09d.txt"
-  - debug_particle
   - gaussian_noise_v
   - scale_v: 1000 m/s
   - shift_v:
       value: [ -1000 m/s , 0 , 0 ]
       region: SPHERE
-  - timestep_file: "debug_init_%09d.txt"
-  - debug_particle
+  - dump_debug
 
 # pretty logo banner
 logo_banner:
@@ -138,10 +137,10 @@ logo_banner:
 
 simulation: default_simulation
 
-xx_simulation_epilog:
+simulation_epilog:
   - check_values:
       file: deterministic_lattice.dat
-      samples: 20
+      samples: 4096
       pos_threshold: 1.e-10
       acc_threshold: 1.e-10
       vel_threshold: 1.e-10
