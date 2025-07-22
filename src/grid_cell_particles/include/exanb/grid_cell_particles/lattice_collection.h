@@ -60,7 +60,7 @@ namespace exanb
   }
   
   // Rodrigues' rotation formula to compute rotation matrix
-  Mat3d rotation_matrix(const Vec3d axis, double angle) {
+  Mat3d rotation_matrix_axis_angle(const Vec3d axis, double angle) {
     double x = 0.;//axis.x;
     double y = 1.;//axis.y;
     double z = 0.;//axis.z;
@@ -79,7 +79,7 @@ namespace exanb
   Mat3d random_rotation_matrix() {
     Vec3d axis = random_unit_vector();
     double angle = random_double(0.0, 2.0 * M_PI);
-    return rotation_matrix(axis, angle);
+    return rotation_matrix_axis_angle(axis, angle);
   }
   
 }

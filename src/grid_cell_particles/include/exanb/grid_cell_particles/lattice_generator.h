@@ -86,6 +86,8 @@ namespace exanb
     ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
     ADD_SLOT( Mat3d            , rotation_matrix , INPUT , Mat3d{1.,0.,0.,0.,1.,0.,0.,0.,1.} );
+    ADD_SLOT( Vec3d            , rotation_axis   , INPUT , Vec3d{1.,0.,0.} );
+    ADD_SLOT( double           , rotation_angle  , INPUT , 0.0 );
     ADD_SLOT( bool             , rotation_random , INPUT , false );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
@@ -118,6 +120,13 @@ namespace exanb
       } else {
         lattice.m_rotmat = *rotation_matrix;
       }
+      if (rotation_axis.has_value() && rotation_angle.has_value()) {
+        std::cout << "Generating rotation matrix from user defined axis/angle" << std::endl;
+        std::cout << "\t axis  = " << *rotation_axis  << std::endl;
+        std::cout << "\t angle = " << *rotation_angle << std::endl;        
+        lattice.m_rotmat = rotation_matrix_axis_angle( *rotation_axis, *rotation_angle);
+      }
+      
       if (*structure == "CUSTOM")
       {
         if( ! positions.has_value() )

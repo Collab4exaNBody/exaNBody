@@ -23,6 +23,10 @@ global:
   
 compute_force: nop
 
+write_xyz:
+  fields: [ id, mass ]
+dump_data: dump_data_xyz
+  
 input_data:
   - particle_types:
       particle_type_map: { A: 0 , B: 1 , C: 2 }
@@ -33,13 +37,12 @@ input_data:
           quadric:
             shape: sphere
             transform:
-              - scale: [ 20 ang , 20 ang , 20 ang ] 
-              - translate: [ 150 ang , 150 ang , 150 ang ]
+              - scale: [ 40 ang , 40 ang , 40 ang ] 
+              - translate: [ 50 ang , 50 ang , 50 ang ]
   - domain:
-      cell_size: 30.0 ang
+      cell_size: 10.0 ang
       grid_dims: [ 10 , 10 , 10 ]
-#      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 300.0 ang , 300.0 ang , 300.0 ang ] ]
-      bounds: [ [ -150.0 ang , -150.0 ang , -150.0 ang ] , [ 150.0 ang , 150.0 ang , 150.0 ang ] ]  
+      bounds: [ [ 0.0 ang , 0.0 ang , 0.0 ang ] , [ 100.0 ang , 100.0 ang , 100.0 ang ] ]  
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
@@ -48,12 +51,13 @@ input_data:
       structure: BCC
       types: [ A, A]
       size: [ 3. ang , 3. ang , 3. ang ]
-#      noise: 0.1 ang
+      noise: 0.1 ang
 #      noise_cutoff: 0.4 ang
 #      rotation_matrix: [ [0.8090, 0., 0.5878], [0., 1., 0.], [-0.5878, 0., 0.8090] ]
-      rotation_axis: [0,1,0]
-      rotation_angle: 35. deg
-      rotation_random: true
+      rotation_axis: [1,0,0]
+#      rotation_angle: 0.5235987755982988 rad  
+      rotation_angle: -40.0 degree
+#      rotation_random: true
       region: SPHERE
 
 # pretty logo banner
