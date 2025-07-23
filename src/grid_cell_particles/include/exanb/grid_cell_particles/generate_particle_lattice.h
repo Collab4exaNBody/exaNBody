@@ -210,6 +210,16 @@ namespace exanb
     {
       fatal_error() << "void_mode '"<< void_mode << "' unknown" << std::endl;
     }
+    const size_t n_holes = void_centers.size();
+    if(n_holes>0)
+    {
+      std::cout << "RANK "<<rank<<" :";
+      for(size_t i=0;i<n_holes;i++)
+      {
+        std::cout << " { c="<<void_centers[i]<<", r="<<void_radiuses[i]<<"}";
+      }
+      std::cout << std::endl;
+    }
 
     // =============== Generate particles into grid ========================
 
@@ -241,15 +251,16 @@ namespace exanb
 */
 
     const Mat3d inv_xform = domain.inv_xform();
-    const AABB grid_bounds = grid.grid_bounds();
-    Vec3d lab_lo = domain.xform() * grid_bounds.bmin;
-    Vec3d lab_hi = domain.xform() * grid_bounds.bmax;
-    IJK lattice_lo = { static_cast<ssize_t>( lab_lo.x / lattice_size.x )
-                     , static_cast<ssize_t>( lab_lo.y / lattice_size.y )
-                     , static_cast<ssize_t>( lab_lo.z / lattice_size.z ) };
-    IJK lattice_hi = { static_cast<ssize_t>( lab_hi.x / lattice_size.x )
-                     , static_cast<ssize_t>( lab_hi.y / lattice_size.y )
-                     , static_cast<ssize_t>( lab_hi.z / lattice_size.z ) };
+    const AABB grid_lattice_bounds = deterministic_noise ? domain.bounds() : grid.grid_bounds_no_ghost();
+    const Vec3d lab_lo = domain.xform() * grid_lattice_bounds.bmin;
+    const Vec3d lab_hi = domain.xform() * grid_lattice_bounds.bmax;
+    
+    IJK lattice_lo = { static_cast<ssize_t>( floor( lab_lo.x / lattice_size.x ) )
+                     , static_cast<ssize_t>( floor( lab_lo.y / lattice_size.y ) )
+                     , static_cast<ssize_t>( floor( lab_lo.z / lattice_size.z ) ) };
+    IJK lattice_hi = { static_cast<ssize_t>( ceil( lab_hi.x / lattice_size.x ) )
+                     , static_cast<ssize_t>( ceil( lab_hi.y / lattice_size.y ) )
+                     , static_cast<ssize_t>( ceil( lab_hi.z / lattice_size.z ) ) };
     ssize_t i_start = lattice_lo.i - 1;
     ssize_t i_end   = lattice_hi.i + 1;
     ssize_t j_start = lattice_lo.j - 1;
@@ -266,9 +277,13 @@ namespace exanb
     const int gl = grid.ghost_layers();
     ldbg << "deterministic="<< deterministic_noise<<", nthreads="<<nthreads<<", dom_dims="<<dom_dims<<", dom_start="<<dom_start<<", dom_n_cells="<<dom_n_cells<<" ghost_layers="<<gl <<std::endl;
 
+    //const char dbgfname [] = { 'd','0'+rank/10,'0'+rank%10,'.','t','x','t','\0' };
+    //std::ofstream dbgfile(dbgfname , std::ios_base::out | std::ios_base::ate );
+
+    std::mt19937_64 det_re(1);
+
 #   pragma omp parallel num_threads(nthreads)
     {
-      std::mt19937_64 det_re;
       std::mt19937_64 & re = deterministic_noise ? det_re : onika::parallel::random_engine() ;
       std::normal_distribution<double> f_rand(0.,1.);
 
@@ -279,7 +294,6 @@ namespace exanb
         {
           for (ssize_t i=i_start; i<=i_end; i++)
       		{
-            det_re.seed( ( ( (k*1023) ^ j ) * 1023 ) ^ i );
 	          for (size_t l=0; l<n_particles_cell;l++)
     		    {
               Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
@@ -289,12 +303,25 @@ namespace exanb
                                       && loc.j>=gl && loc.j<(local_grid_dim.j-gl)
                                       && loc.k>=gl && loc.k<(local_grid_dim.k-gl);
 
-              Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
+              Vec3d noise = { 0. , 0. , 0. };
+              if( sigma_noise > 0.0 )
+              {
+                noise.x = f_rand(re) * sigma_noise;
+                noise.y = f_rand(re) * sigma_noise;
+                noise.z = f_rand(re) * sigma_noise;
+              }
 
 	            if( grid.contains(loc) && is_inner_cell && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds_no_ghost() , grid_pos ) )
         			{
-                const double noiselen = norm(noise);
-                if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
+                if( noise_upper_bound <= 0.0 )
+                {
+                  noise = Vec3d{0.,0.,0.};
+                }
+                else
+                {
+                  const double noiselen = norm(noise);
+                  if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
+                }
                 lab_pos += noise;
                 grid_pos = inv_xform * lab_pos;
 
@@ -308,6 +335,7 @@ namespace exanb
                   if constexpr (  has_field_type ) pt = ParticleTupleIO( grid_pos.x,grid_pos.y,grid_pos.z, no_id, particle_type_id[l] );
 	              	if constexpr ( !has_field_type ) pt = ParticleTupleIO( grid_pos.x,grid_pos.y,grid_pos.z, no_id );
                   
+                  //dbgfile << i << ',' <<j << ',' << k<<'/'<<l<<",r="<<noise<< " -> " <<(loc+dom_start)<<'/'<<cells[cell_i].size() << std::endl;
 	              	cell_locks[cell_i].lock();
 	              	cells[cell_i].push_back( pt , grid.cell_allocator() );
 	              	cell_locks[cell_i].unlock();
@@ -317,8 +345,8 @@ namespace exanb
           }
         }
       }
-      
     }
+    //dbgfile.close();
 
     grid.rebuild_particle_offsets();  
 
