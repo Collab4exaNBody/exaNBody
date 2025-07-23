@@ -31,11 +31,11 @@ namespace exanb
     ADD_SLOT( MPI_Comm   , mpi       , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( GridT      , grid      , INPUT , REQUIRED );
     ADD_SLOT( Domain     , domain    , INPUT , REQUIRED );
-    ADD_SLOT( double     , thickness , INPUT , 1.0 );
-    ADD_SLOT( Vec3d      , direction , INPUT , Vec3d{1,0,0} );
-    ADD_SLOT( StringList , fields    , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to slice"} );
-    ADD_SLOT( StringMap  , caption   , INPUT , StringMap{} , DocString{"map field names to output plot names"} );
-    ADD_SLOT( StringList , average   , INPUT , StringMap{} , DocString{"for each fields, indicate if normalization is needed (divide by number of cnotributions)"} );
+    ADD_SLOT( double     , thickness , INPUT , 1.0, DocString{"(YAML: double) Bin size)"});
+    ADD_SLOT( Vec3d      , direction , INPUT , Vec3d{1,0,0} , DocString{"(YAML: list) Slice direction as a vector. Not necessarily normalized.)"});
+    ADD_SLOT( StringList , fields    , INPUT , StringList({".*"}) , DocString{"(YAML: list) List of regular expressions to select fields to slice"} );
+    ADD_SLOT( StringMap  , caption   , INPUT , StringMap{} , DocString{"(YAML: dict) map field names to output plot names"} );
+    ADD_SLOT( StringList , average   , INPUT , StringMap{} , DocString{"(YAML: dict) for each fields, indicate if normalization is needed (divide by number of cnotributions)"} );
     ADD_SLOT( Plot1DSet  , plots     , INPUT_OUTPUT );
 
   public:
@@ -75,7 +75,23 @@ namespace exanb
     // -----------------------------------------------
     inline std::string documentation() const override final
     {
-      return R"EOF(create 1D Plots from particles fields, averaging those fields by slices of given orientation and thickness)EOF";
+      return R"EOF(
+Create 1D Plots from particles fields, averaging those fields by slices of given orientation and thickness.
+
+Usage example:
+
+dump_data:
+  - grid_particle_slicing:
+      fields: [ vx, vy, vz ]
+      thickness: 3.3 ang
+      direction: [1,0,0]
+      caption:
+        "vx": "Velocity X"
+        "vy": "Velocity Y"
+        "vx": "Velocity X"
+      average: [ "vx", "vy", "vz" ]
+
+)EOF";
     }    
 
   };
