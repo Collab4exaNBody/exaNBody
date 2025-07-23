@@ -87,15 +87,52 @@ namespace exanb
       }
     };
 
+    struct UpdateGhostsMpiBuffer
+    {
+      onika::memory::CudaMMVector<uint8_t> m_managed_buffer;
+      onika::cuda::CudaDeviceStorage<uint8_t> m_device_buffer;
+      onika::cuda::CudaDevice * m_cuda_device = nullptr;
+
+      inline uint8_t* data() { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get() ; }
+      inline const uint8_t* data() const { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get(); }
+      
+      inline size_t size() const { return m_cuda_device == nullptr ? m_managed_buffer.size() : m_device_buffer.m_shared->m_array_size; }
+      // inline size_t capacity() const { return m_cuda_device == nullptr ? m_managed_buffer.capacity() : m_device_buffer.m_shared->m_array_size; }
+      
+      inline void clear()
+      {
+        m_managed_buffer.clear();
+        m_managed_buffer.shrink_to_fit();
+        m_device_buffer.reset();
+      }
+      
+      inline void resize(size_t sz)
+      {
+        if( m_cuda_device != nullptr )
+        {
+          m_managed_buffer.clear();
+          if( m_device_buffer.get() == nullptr || sz != m_device_buffer.m_shared->m_array_size )
+          {
+            m_device_buffer = onika::cuda::CudaDeviceStorage<uint8_t>::New( *m_cuda_device , sz );
+          }
+        }
+        else
+        {
+          m_managed_buffer.resize( sz );
+        }
+      }
+    };
+
     struct UpdateGhostsScratch
     {
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       std::vector<size_t> send_buffer_offsets;
       std::vector<size_t> recv_buffer_offsets;
       std::vector< int > send_pack_async;
-      std::vector< int > recv_unpack_async;    
-      onika::memory::CudaMMVector<uint8_t> send_buffer;
-      onika::memory::CudaMMVector<uint8_t> recv_buffer;
+      std::vector< int > recv_unpack_async;
+      
+      UpdateGhostsMpiBuffer send_buffer;
+      UpdateGhostsMpiBuffer recv_buffer;
             
       inline void initialize_partners(int nprocs)
       {
@@ -105,8 +142,20 @@ namespace exanb
         recv_unpack_async.resize( nprocs );
       }
 
-      inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components )
+      inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
       {
+        if( alloc_on_device != send_buffer.m_cuda_device )
+        {
+          send_buffer.clear();
+          send_buffer.m_cuda_device = alloc_on_device;
+        }
+        
+        if( alloc_on_device != recv_buffer.m_cuda_device )
+        {
+          recv_buffer.clear();
+          recv_buffer.m_cuda_device = alloc_on_device;
+        }        
+        
         int nprocs = comm_scheme.m_partner.size();
         initialize_partners( nprocs );
         recv_buffer_offsets[0] = 0;
