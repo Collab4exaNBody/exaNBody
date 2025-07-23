@@ -58,7 +58,7 @@ namespace exanb
     OperatorNodeFactory::instance()->register_factory( "ghost_update_all",       make_grid_variant_operator<UpdateGhostsAllFields> );
     OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_fv", make_grid_variant_operator<UpdateGhostsAllFieldsNoFV> );
     OperatorNodeFactory::instance()->register_factory( "ghost_update_r",         make_grid_variant_operator<UpdateGhostsR> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_opt",         make_grid_variant_operator<UpdateGhostsOptOnly> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_opt",       make_grid_variant_operator<UpdateGhostsOptOnly> );
   }
 
 }

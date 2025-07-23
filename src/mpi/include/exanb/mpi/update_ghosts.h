@@ -111,6 +111,31 @@ namespace exanb
                           *serialize_pack_send, *wait_all, std::integral_constant<bool,CreateParticles>{} );
     }
 
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+
+Update field value in ghost layers at MPI subdomain and domain boundaries. Usefull when some operators compute a per particle field and that field needs to be updated in the ghosts for visualisation of computation purpose.
+
+Multiple variants are predefined for that operation:
+- ghost_update_all: updates all per-particle fields.
+- ghost_update_all_no_fv: updates all per-particle fields except forces and velocities.
+- ghost_update_r: updates particles positions only.
+- ghost_update_opt: updates optional fields created by specific operators. The list of optional fields needs to be passed as a list to that operator ( opt_fields: [ "field1", "field2" ].
+
+Usage example:
+
+dump_data:
+  - ghost_update_all
+  - average_neighbors_scalar:
+      nbh_field: vx
+      avg_field: avgvx
+      rcut: 8.0 ang
+  - ghost_update_opt: { opt_fields: [ "avgvx" ] }
+  - write_paraview: { fields: [ "vx", "avgvx" ], write_ghost: true }
+
+)EOF";
+    }    
   };
 
   template< class GridT, class FieldSetT, bool CreateParticles>
