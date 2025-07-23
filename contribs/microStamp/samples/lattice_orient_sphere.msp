@@ -42,7 +42,8 @@ input_data:
   - domain:
       cell_size: 10.0 ang
       grid_dims: [ 10 , 10 , 10 ]
-      bounds: [ [ 0.0 ang , 0.0 ang , 0.0 ang ] , [ 100.0 ang , 100.0 ang , 100.0 ang ] ]  
+      bounds: [ [ 0.0 ang , 0.0 ang , 0.0 ang ] , [ 100.0 ang , 100.0 ang , 100.0 ang ] ]
+#      bounds: [ [ -50.0 ang , -50.0 ang , -50.0 ang ] , [ 50.0 ang , 50.0 ang , 50.0 ang ] ]    
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
@@ -56,7 +57,7 @@ input_data:
 #      rotation_matrix: [ [0.8090, 0., 0.5878], [0., 1., 0.], [-0.5878, 0., 0.8090] ]
       rotation_axis: [1,0,0]
 #      rotation_angle: 0.5235987755982988 rad  
-      rotation_angle: -40.0 degree
+      rotation_angle: -55.0 degree
 #      rotation_random: true
       region: SPHERE
 

@@ -242,14 +242,45 @@ namespace exanb
     const AABB grid_bounds = grid.grid_bounds();
     Vec3d lab_lo = domain.xform() * grid_bounds.bmin;
     Vec3d lab_hi = domain.xform() * grid_bounds.bmax;
+    Vec3d lab_width = lab_hi-lab_lo;
+    
+    Vec3d motif_lo = Vec3d{0., 0., 0.};
+    Vec3d motif_hi = Vec3d{lattice_size.x, lattice_size.y, lattice_size.z};
+    Vec3d motif_width = motif_hi-motif_lo;
+
+    Vec3d rot_motif_lo = lattice.m_rotmat * motif_lo;
+    Vec3d rot_motif_hi = lattice.m_rotmat * motif_hi;
+    
+    Vec3d corner0 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0.,             0.,             0.};
+    Vec3d corner1 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x,             0.,             0.};
+    Vec3d corner2 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0., rot_motif_hi.y,             0.};
+    Vec3d corner3 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0.,             0., rot_motif_hi.z};
+    Vec3d corner4 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x, rot_motif_hi.y,             0.};
+    Vec3d corner5 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x,             0., rot_motif_hi.z};
+    Vec3d corner6 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0., rot_motif_hi.y, rot_motif_hi.z};
+    Vec3d corner7 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x, rot_motif_hi.y, rot_motif_hi.z};        
+
+    
+    double xmin = std::min({corner0.x,corner1.x,corner2.x,corner3.x,corner4.x,corner5.x,corner6.x,corner7.x});
+    double xmax = std::max({corner0.x,corner1.x,corner2.x,corner3.x,corner4.x,corner5.x,corner6.x,corner7.x});
+    
+    double ymin = std::min({corner0.y,corner1.y,corner2.y,corner3.y,corner4.y,corner5.y,corner6.y,corner7.y});    
+    double ymax = std::max({corner0.y,corner1.y,corner2.y,corner3.y,corner4.y,corner5.y,corner6.y,corner7.y});
+    
+    double zmin = std::min({corner0.z,corner1.z,corner2.z,corner3.z,corner4.z,corner5.z,corner6.z,corner7.z});
+    double zmax = std::max({corner0.z,corner1.z,corner2.z,corner3.z,corner4.z,corner5.z,corner6.z,corner7.z});
+    
+    AABB new_motif_bounds  = { { xmin, ymin, zmin } , { xmax, ymax, zmax } };
+    Vec3d new_motif_width  = Vec3d{xmax-xmin, ymax-ymin, zmax-zmin};
+    
     std::cout << "lab_lo = " << lab_lo << std::endl;
     std::cout << "lab_hi = " << lab_hi << std::endl;
-    IJK lattice_lo = { static_cast<ssize_t>( lab_lo.x / lattice_size.x )
-                     , static_cast<ssize_t>( lab_lo.y / lattice_size.y )
-                     , static_cast<ssize_t>( lab_lo.z / lattice_size.z ) };
-    IJK lattice_hi = { static_cast<ssize_t>( lab_hi.x / lattice_size.x )
-                     , static_cast<ssize_t>( lab_hi.y / lattice_size.y )
-                     , static_cast<ssize_t>( lab_hi.z / lattice_size.z ) };
+    IJK lattice_lo = { static_cast<ssize_t>( (lab_lo.x-xmin) / new_motif_width.x )
+      , static_cast<ssize_t>( (lab_lo.y-ymin) / new_motif_width.y )
+      , static_cast<ssize_t>( (lab_lo.z-zmin) / new_motif_width.z ) };
+    IJK lattice_hi = { static_cast<ssize_t>( (lab_hi.x-xmax) / new_motif_width.x )
+      , static_cast<ssize_t>( (lab_hi.y-ymax) / new_motif_width.y )
+      , static_cast<ssize_t>( (lab_hi.z-zmax) / new_motif_width.z ) };
     ssize_t i_start = lattice_lo.i - 1;
     ssize_t i_end   = lattice_hi.i + 1;
     ssize_t j_start = lattice_lo.j - 1;
