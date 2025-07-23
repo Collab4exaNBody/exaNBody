@@ -289,9 +289,10 @@ namespace exanb
                                       && loc.j>=gl && loc.j<(local_grid_dim.j-gl)
                                       && loc.k>=gl && loc.k<(local_grid_dim.k-gl);
 
+              Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
+
 	            if( grid.contains(loc) && is_inner_cell && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds_no_ghost() , grid_pos ) )
         			{
-                Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
                 const double noiselen = norm(noise);
                 if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
                 lab_pos += noise;

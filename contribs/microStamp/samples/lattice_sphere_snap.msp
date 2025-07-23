@@ -51,7 +51,7 @@ dump_debug:
   - debug_particle
 
 compute_force:
-  - dump_debug
+#  - dump_debug
   - snap_force_generic
 
 compute_force_epilog:
@@ -124,12 +124,12 @@ input_data:
       noise: 0.1 ang
       noise_cutoff: 0.4 ang
       region: SPHERE and not ( PLANE1b or PLANE2b )
+  - dump_debug
   - gaussian_noise_v
   - scale_v: 1000 m/s
   - shift_v:
       value: [ -1000 m/s , 0 , 0 ]
       region: SPHERE
-  - dump_debug
 
 # pretty logo banner
 logo_banner:
