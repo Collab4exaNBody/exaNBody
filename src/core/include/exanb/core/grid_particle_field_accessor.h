@@ -232,7 +232,7 @@ namespace exanb
 
   // utility templates
   template<class T> static inline constexpr bool field_tuple_has_external_fields_v = details::FieldAccessorTupleHasExternalFields<T>::value;
-  template<class FieldSetT> using field_accessor_tuple_to_field_set_t = typename details::FieldAccessorTupleToFieldSet<FieldSetT>::type;
+  //template<class FieldSetT> using field_accessor_tuple_to_field_set_t = typename details::FieldAccessorTupleToFieldSet<FieldSetT>::type;
   template<class FieldSetT> using field_accessor_tuple_from_field_set_t = typename details::FieldAccessorTupleFromFieldSet<FieldSetT>::type;
   template<class FieldAccT> static inline constexpr details::field_id_fom_acc_t<FieldAccT> field_id_fom_acc_v = {};
 
@@ -274,12 +274,25 @@ namespace exanb
   {
     return onika::FlatTuple< onika::soatl::FieldId<field_ids> ... , FieldAccessorT ... > { onika::soatl::FieldId<field_ids>{} ... , f ... };
   }
-    
-  template<class StreamT, class FieldAccTupleT, size_t... I>
-  static inline StreamT& print_field_tuple(StreamT& out, const FieldAccTupleT& tp , std::index_sequence<I...> )
+
+  template<class StreamT, class FieldOrSpanT >
+  static inline StreamT& print_field_short_name(StreamT& out, const FieldOrSpanT& _f, const char* & s )
   {
-    int s=0;
-    ( ... , ( out << (((s++)==0)?"":",") << tp.get(onika::tuple_index_t<I>{}).short_name() ) ) ;
+    if constexpr ( onika::is_span_v<FieldOrSpanT> )
+    {
+      for(const auto & f : _f) { print_field_short_name(out,f,s); }
+    }
+    else
+    {
+      out << s << _f.short_name();
+      s = ",";
+    }
+    return out;
+  }
+  template<class StreamT, class FieldAccTupleT, size_t... I>
+  static inline StreamT& print_field_tuple(StreamT& out, const FieldAccTupleT& tp , std::index_sequence<I...> , const char * s="" )
+  {
+    ( ... , ( print_field_short_name(out,tp.get(onika::tuple_index_t<I>{}),s) ) ) ;
     return out;
   }
   template<class StreamT, class FieldAccTupleT>
