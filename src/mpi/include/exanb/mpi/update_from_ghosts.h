@@ -70,14 +70,9 @@ namespace exanb
     ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
     ADD_SLOT( Domain                   , domain            , INPUT );
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
-    ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
     ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
-    ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
-    ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
-    ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
-    ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
-    ADD_SLOT( bool                     , wait_all          , INPUT , false );
+    ADD_SLOT( GridUpdateGhostConfig    , update_ghost_config , INPUT, GridUpdateGhostConfig{} );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
@@ -111,10 +106,8 @@ namespace exanb
       auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); };
       auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
 
-      grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, *grid, *domain, grid_cell_values.get_pointer(),
-                        *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
-                        *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
-                        *serialize_pack_send, *wait_all, UpdateFuncT{} );
+      grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
+                        *ghost_comm_buffers, pecfunc,peqfunc, update_fields,*update_ghost_config, UpdateFuncT{} );
     }
 
   };

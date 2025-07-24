@@ -67,14 +67,9 @@ namespace exanb
     ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
     ADD_SLOT( Domain                   , domain            , INPUT );
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
-    ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
     ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
-    ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
-    ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
-    ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
-    ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
-    ADD_SLOT( bool                     , wait_all          , INPUT , false );
+    ADD_SLOT( GridUpdateGhostConfig    , update_ghost_config , INPUT, GridUpdateGhostConfig{} );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
@@ -85,6 +80,14 @@ namespace exanb
       if( grid->number_of_particles() == 0 ) return;
 
       using onika::cuda::make_const_span;
+      
+      if( update_ghost_config->device_side_buffer && update_ghost_config->alloc_on_device == nullptr )
+      {
+        if( global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
+        {
+          update_ghost_config->alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
+        }
+      }
       
       const auto& flist = *opt_fields;
       auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
@@ -107,8 +110,7 @@ namespace exanb
 
       grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
                           *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
-                          *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
-                          *serialize_pack_send, *wait_all, std::integral_constant<bool,CreateParticles>{} );
+                          *update_ghost_config, std::integral_constant<bool,CreateParticles>{} );
     }
 
     inline std::string documentation() const override final
