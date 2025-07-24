@@ -79,7 +79,14 @@ namespace exanb
     const UpdateGhostConfig& config,
     std::integral_constant<bool,CreateParticles> )
   {
-    auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,device_side_buffer] = config;
+    auto [_alloc_on_device,comm_tag,_gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,_device_side_buffer] = config;
+    auto alloc_on_device = _alloc_on_device;
+    auto gpu_buffer_pack = _gpu_buffer_pack;
+    if( CreateParticles || !gpu_buffer_pack )
+    {
+      alloc_on_device = nullptr;
+      gpu_buffer_pack = false;
+    }
 
     using CellParticles = typename GridT::CellParticles;
     using ParticleFullTuple = typename CellParticles::TupleValueType;
@@ -425,6 +432,20 @@ namespace exanb
     {
       gridp->rebuild_particle_offsets();
     }
+
+#if 0
+    {
+      static constexpr const char* memTypeStr[] = { "Unregistered" , "Host" , "Device" , "Managed" };
+      auto * sendbuf_ptr = ghost_comm_buffers.sendbuf_ptr(0);
+      auto * recvbuf_ptr = ghost_comm_buffers.recvbuf_ptr(0);
+      cudaPointerAttributes info;
+      cudaPointerGetAttributes( &info , sendbuf_ptr );
+      lout << "sendbuf_ptr: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
+      cudaPointerGetAttributes( &info , recvbuf_ptr );
+      lout << "recvbuf_ptr: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
+      //sendbuf_ptr[0] = recvbuf_ptr[0];
+    }
+#endif
 
     ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
   }

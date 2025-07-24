@@ -87,7 +87,7 @@ namespace exanb
       }
     };
 
-    struct UpdateGhostsMpiBuffer
+    struct UpdateGhostMpiBuffer
     {
       onika::memory::CudaMMVector<uint8_t> m_managed_buffer;
       onika::cuda::CudaDeviceStorage<uint8_t> m_device_buffer;
@@ -96,8 +96,12 @@ namespace exanb
       inline uint8_t* data() { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get() ; }
       inline const uint8_t* data() const { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get(); }
       
-      inline size_t size() const { return m_cuda_device == nullptr ? m_managed_buffer.size() : m_device_buffer.m_shared->m_array_size; }
-      // inline size_t capacity() const { return m_cuda_device == nullptr ? m_managed_buffer.capacity() : m_device_buffer.m_shared->m_array_size; }
+      inline size_t size() const
+      {
+        if( m_cuda_device == nullptr ) return m_managed_buffer.size();
+        else if( m_device_buffer.m_shared != nullptr ) return m_device_buffer.m_shared->m_array_size;
+        return 0;
+      }
       
       inline void clear()
       {
@@ -131,8 +135,8 @@ namespace exanb
       std::vector< int > send_pack_async;
       std::vector< int > recv_unpack_async;
       
-      UpdateGhostsMpiBuffer send_buffer;
-      UpdateGhostsMpiBuffer recv_buffer;
+      UpdateGhostMpiBuffer send_buffer;
+      UpdateGhostMpiBuffer recv_buffer;
             
       inline void initialize_partners(int nprocs)
       {
