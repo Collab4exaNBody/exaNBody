@@ -22,7 +22,6 @@ under the License.
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
 #include <onika/math/basic_types_def.h>
 #include <exanb/core/grid_fields.h>
-
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda.h>
 #include <onika/soatl/field_tuple.h>
