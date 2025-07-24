@@ -26,15 +26,16 @@ user_test: nop
 # pretty logo banner
 logo_banner:
   - message: "\n                _   _ ______           _                _____  _____\n               | \\ | || ___ \\         | |              / __  \\|  _  |\n  _____  ____ _|  \\| || |_/ / ___   __| |_   _  __   __`' / /'| |/' |\n / _ \\ \\/ / _` | . ` || ___ \\/ _ \\ / _` | | | | \\ \\ / /  / /  |  /| |\n|  __/>  < (_| | |\\  || |_/ / (_) | (_| | |_| |  \\ V / ./ /___\\ |_/ /\n \\___/_/\\_\\__,_\\_| \\_/\\____/ \\___/ \\__,_|\\__, |   \\_/  \\_____(_)___/\n                                          __/ |\n                                         |___/\n"
-
-update_ghosts_config:
-  mpi_tag: 0
-  gpu_buffer_pack: true
-  async_buffer_pack: true
-  staging_buffer: false
-  serialize_pack_send: true
-  wait_all: false
-  device_side_buffer: true
+update_ghost_config:
+  verbose: true
+  update_ghost_config:
+    mpi_tag: 0
+    gpu_buffer_pack: true
+    async_buffer_pack: true
+    staging_buffer: false
+    serialize_pack_send: true
+    wait_all: false
+    device_side_buffer: true
 
 # default N-Body simulation structure
 # one can use this default simulation backbone as a start point or miniapp skeleton
@@ -44,7 +45,7 @@ default_simulation:
   - init_cuda
   - global
   - unit_system
-  - update_ghosts_config
+  - update_ghost_config
   - input_data
   - nbh_dist
   - print_domain

@@ -25,7 +25,7 @@ under the License.
 
 namespace exanb
 {
-  struct GridUpdateGhostConfig
+  struct UpdateGhostConfig
   {
     onika::cuda::CudaDevice * alloc_on_device = nullptr;
     long mpi_tag = 0;
@@ -41,16 +41,16 @@ namespace exanb
 namespace YAML
 {
 
-  template<> struct convert< exanb::GridUpdateGhostConfig >
+  template<> struct convert< exanb::UpdateGhostConfig >
   {
-    static inline bool decode(const Node& node, exanb::GridUpdateGhostConfig & config)
+    static inline bool decode(const Node& node, exanb::UpdateGhostConfig & config)
     {
       if( ! node.IsMap() )
       {
         exanb::fatal_error() << "UpdateGhostConfig must be a map" << std::endl;
         return false;
       }
-      config = exanb::GridUpdateGhostConfig{};
+      config = exanb::UpdateGhostConfig{};
       if(node["mpi_tag"])             config.mpi_tag             = node["mpi_tag"].as<int>();
       if(node["gpu_buffer_pack"])     config.gpu_buffer_pack     = node["gpu_buffer_pack"].as<bool>();
       if(node["async_buffer_pack"])   config.async_buffer_pack   = node["async_buffer_pack"].as<bool>();

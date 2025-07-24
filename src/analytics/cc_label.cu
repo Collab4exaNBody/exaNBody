@@ -230,7 +230,7 @@ namespace exanb
       {
         ldbg << "nonzero_ghost_subcells="<<nonzero_ghost_subcells<<", grid_update_from_ghosts with UpdateValueAdd merge functor"<<std::endl;
         grid_update_from_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                          *ghost_comm_buffers, pecfunc,peqfunc, update_fields, GridUpdateGhostConfig{} , UpdateValueAdd{} );
+                          *ghost_comm_buffers, pecfunc,peqfunc, update_fields, UpdateGhostConfig{} , UpdateValueAdd{} );
 #       pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
         for( ssize_t k=0 ; k < grid_dims.k ; k++)
         for( ssize_t j=0 ; j < grid_dims.j ; j++)
@@ -354,7 +354,7 @@ namespace exanb
       {
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
                             *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
-                            GridUpdateGhostConfig{} , std::integral_constant<bool,false>{} );
+                            UpdateGhostConfig{} , std::integral_constant<bool,false>{} );
 
         ULongLong label_update_count = 0;
         label_update_passes = 0;

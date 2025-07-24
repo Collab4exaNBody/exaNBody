@@ -38,7 +38,7 @@ under the License.
 #include <exanb/mpi/update_ghost_utils.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <onika/mpi/data_types.h>
-#include <exanb/mpi/grid_update_ghosts_config.h>
+#include <exanb/mpi/update_ghost_config.h>
 
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>
@@ -76,7 +76,7 @@ namespace exanb
     const PECFuncT& parallel_execution_context,
     const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
-    const GridUpdateGhostConfig& config,
+    const UpdateGhostConfig& config,
     std::integral_constant<bool,CreateParticles> )
   {
     auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,device_side_buffer] = config;
@@ -450,7 +450,7 @@ namespace exanb
     bool wait_all ,
     std::integral_constant<bool,CreateParticles> create_particles)
   {
-    GridUpdateGhostConfig config = {nullptr,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all};
+    UpdateGhostConfig config = {nullptr,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all};
     grid_update_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,
                        parallel_execution_context,parallel_execution_queue,update_fields,config,create_particles);
   }

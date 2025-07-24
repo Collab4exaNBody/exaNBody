@@ -69,7 +69,7 @@ namespace exanb
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
-    ADD_SLOT( GridUpdateGhostConfig    , update_ghost_config , INPUT, GridUpdateGhostConfig{} );
+    ADD_SLOT( UpdateGhostConfig    , update_ghost_config , INPUT, UpdateGhostConfig{} );
 
     ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
 
