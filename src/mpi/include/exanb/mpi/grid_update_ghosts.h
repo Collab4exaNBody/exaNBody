@@ -36,9 +36,13 @@ under the License.
 
 #include <mpi.h>
 #include <exanb/mpi/update_ghost_utils.h>
+#include <exanb/mpi/ghosts_comm_scheme.h>
 #include <onika/mpi/data_types.h>
+#include <exanb/mpi/update_ghost_config.h>
+
 #include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>
+#include <onika/soatl/field_id_tuple_utils.h>
 
 namespace exanb
 {
@@ -72,29 +76,29 @@ namespace exanb
     const PECFuncT& parallel_execution_context,
     const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
-    long comm_tag ,
-    bool gpu_buffer_pack ,
-    bool async_buffer_pack ,
-    bool staging_buffer ,
-    bool serialize_pack_send ,
-    bool wait_all ,
+    const UpdateGhostConfig& config,
     std::integral_constant<bool,CreateParticles> )
   {
-    using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
+    auto [_alloc_on_device,comm_tag,_gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,_device_side_buffer] = config;
+    auto alloc_on_device = _alloc_on_device;
+    auto gpu_buffer_pack = _gpu_buffer_pack;
+    if( CreateParticles || !gpu_buffer_pack )
+    {
+      alloc_on_device = nullptr;
+      gpu_buffer_pack = false;
+    }
+
     using CellParticles = typename GridT::CellParticles;
     using ParticleFullTuple = typename CellParticles::TupleValueType;
-    using ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple<FieldSetT>::type;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
-    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData<ParticleTuple>;
-    
-    // static_assert( ParticleTuple::has_field(field::rx) && ParticleTuple::has_field(field::ry) && ParticleTuple::has_field(field::rz) , "ParticleTuple must contain rx, ry and rz fields" );
+    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
     
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
-    using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT>;
-    using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT>;
+    using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+    using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT>;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
@@ -102,6 +106,8 @@ namespace exanb
     {
       fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
     }
+
+    const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     //int comm_tag = *mpi_tag;
     int nprocs = 1;
@@ -133,7 +139,7 @@ namespace exanb
     }
     ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
         <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
-        <<", cell_size="<<cell_size<< std::endl;
+        <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple<<std::endl;
 
     CellParticles * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
@@ -169,7 +175,7 @@ namespace exanb
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
 
     // ***************** send/receive buffers resize ******************
-    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof(ParticleTuple) , sizeof(GridCellValueType) , cell_scalar_components );
+    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device );
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
@@ -204,6 +210,7 @@ namespace exanb
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
                                              , ghost_comm_buffers.sendbuf_size(p)
+                                             , sizeof_ParticleTuple
                                              , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
                                              , ghost_boundary
                                              , update_fields };
@@ -309,6 +316,7 @@ namespace exanb
                                         , cell_scalar_components 
                                         , cell_scalars
                                         , ghost_comm_buffers.recvbuf_size(p)
+                                        , sizeof_ParticleTuple
                                         , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr
                                         , update_fields
 #                                       ifndef NDEBUG
@@ -425,6 +433,20 @@ namespace exanb
       gridp->rebuild_particle_offsets();
     }
 
+#if 0
+    {
+      static constexpr const char* memTypeStr[] = { "Unregistered" , "Host" , "Device" , "Managed" };
+      auto * sendbuf_ptr = ghost_comm_buffers.sendbuf_ptr(0);
+      auto * recvbuf_ptr = ghost_comm_buffers.recvbuf_ptr(0);
+      cudaPointerAttributes info;
+      cudaPointerGetAttributes( &info , sendbuf_ptr );
+      lout << "sendbuf_ptr: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
+      cudaPointerGetAttributes( &info , recvbuf_ptr );
+      lout << "recvbuf_ptr: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
+      //sendbuf_ptr[0] = recvbuf_ptr[0];
+    }
+#endif
+
     ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
   }
 
@@ -449,8 +471,9 @@ namespace exanb
     bool wait_all ,
     std::integral_constant<bool,CreateParticles> create_particles)
   {
-    grid_update_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_queue,
-                       update_fields,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,create_particles);
+    UpdateGhostConfig config = {nullptr,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all};
+    grid_update_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,
+                       parallel_execution_context,parallel_execution_queue,update_fields,config,create_particles);
   }
 
 }

@@ -1,0 +1,87 @@
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: true
+  debug:
+    filter: [ "grid_particle_slicing" ]
+        
+global:
+  simulation_end_iteration: 1
+  simulation_log_frequency: 1
+  simulation_dump_thermo_frequency: 1
+  simulation_dump_frequency: 1
+  rcut_inc: 1.0 ang
+  dt: 2.0e-3 ps
+  init_temperature: 5. K
+  deterministic_noise: true
+
+compute_force: nop
+
+input_data:
+  - particle_types:
+      particle_types_map: { Ta: 0 }
+  - particle_type_add_properties:
+      Ta: { mass: 180.95 Da, z: 73, chage: 0 e- }
+  - particle_regions:
+      - PLANE1:
+          quadric:
+            shape: { plane: [ 1 , 0 , 0 , 0 ] }
+            transform:
+              - translate: [ 82.5 ang , 0 , 0 ]
+  - domain:
+      cell_size: 3.3 ang
+      grid_dims: [ 50 , 5 , 5 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 165.0 ang , 16.5 ang , 16.5 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: BCC
+      types: [ Ta, Ta]
+      size: [ 3.3 ang , 3.3 ang , 3.3 ang ]
+  - gaussian_noise_v
+  - scale_v: 1000 m/s
+  - shift_v:
+      value: [ -1000 m/s , 0 , 0 ]
+      region: PLANE1
+  - shift_v:
+      value: [ 1000 m/s , 0 , 0 ]
+      region: not PLANE1
+
++first_iteration:
+  - dump_data
+  
+dump_data:
+  - grid_particle_slicing:
+      fields: [ vx, vy, vz ]
+      thickness: 3.3 ang
+      direction: [1,0,0]
+      caption:
+        "vx": "Velocity X"
+        "vy": "Velocity Y"
+        "vx": "Velocity X"
+      average: [ "vx", "vy", "vz" ]
+  - write_plot1d:
+      plot_names: [ "vx", "vy", "vz" ]
+      separator: " "
+      filename: "plot_test"
+      multicolumns: true
+  - write_plot1d:
+      plot_names: [ "vx", "vy", "vz" ]
+      separator: " "
+      filename: "plot_test"
+      multicolumns: false
+
+simulation: default_simulation
+      
