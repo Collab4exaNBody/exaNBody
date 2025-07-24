@@ -28,6 +28,8 @@ under the License.
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/mpi/update_from_ghost_utils.h>
 #include <onika/mpi/data_types.h>
+#include <exanb/mpi/update_ghost_config.h>
+
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
 #include <onika/soatl/field_tuple.h>
@@ -73,19 +75,13 @@ namespace exanb
     const PECFuncT& parallel_execution_context,
     const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
-    long comm_tag ,
-    bool gpu_buffer_pack ,
-    bool async_buffer_pack ,
-    bool staging_buffer ,
-    bool serialize_pack_send ,
-    bool wait_all,
+
+    const UpdateGhostConfig& config,
+
     UpdateFuncT update_func )
   {
-    //using FieldSetT = field_accessor_tuple_to_field_set_t< FieldAccTupleT >; //FieldSet< typename FieldAccT::Id ... >;
-    //using CellParticles = typename GridT::CellParticles;
-    //using ParticleFullTuple = typename CellParticles::TupleValueType;
-    //using _ParticleTuple = typename UpdateGhostsUtils::FieldSetToParticleTuple< FieldSetT >::type;
-    //using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
+    auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,device_side_buffer] = config;
+
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using UpdateValueFunctor = UpdateFuncT;
 
@@ -147,7 +143,7 @@ namespace exanb
     //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
     // ***************** send/receive bufer resize ******************
-    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components );
+    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType), cell_scalar_components, alloc_on_device  );
     auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
     auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
 
@@ -395,8 +391,9 @@ namespace exanb
     bool wait_all,
     UpdateFuncT update_func )
   {
-    grid_update_from_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,parallel_execution_context,parallel_execution_queue,
-                       update_fields,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,update_func);
+    UpdateGhostConfig config = {nullptr,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all};
+    grid_update_from_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,
+                            parallel_execution_context,parallel_execution_queue,update_fields,config,update_func);
   }
 
 }
