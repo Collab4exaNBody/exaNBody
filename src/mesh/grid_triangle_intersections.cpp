@@ -164,14 +164,14 @@ namespace exanb
             set_a.insert( { ssize_t(p_idx) , v0 , v1 , v2 } );
           };
           TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
-          ParticleTriangleProximity<decltype(check_particle_triangle_a),true,true> triv_proximity = { all_triangles , read_only_view(*mesh) , max_dist , check_particle_triangle_a };
+          ParticleTriangleProjProximity<decltype(check_particle_triangle_a),true,true> triv_proximity = { all_triangles , read_only_view(*mesh) , max_dist , check_particle_triangle_a };
 
           std::set< onika::oarray_t<ssize_t,4> > set_b;
           auto check_particle_triangle_b = [&set_b](const Vec3d& r, const Vec3d& pv, double d, size_t /*unused*/, size_t p_idx, ssize_t v0, ssize_t v1, ssize_t v2, double w0, double w1, double w2, bool behind ) -> void
           {
             set_b.insert( { ssize_t(p_idx) , v0 , v1 , v2 } );
           };
-          GridParticleTriangleProximity<decltype(check_particle_triangle_b),true,true> grid_proximity = { cell_triangles_ro , read_only_view(*mesh) , max_dist , check_particle_triangle_b };
+          GridParticleTriangleProjProximity<decltype(check_particle_triangle_b),true,true> grid_proximity = { cell_triangles_ro , read_only_view(*mesh) , max_dist , check_particle_triangle_b };
 
           const auto check_domain = enlarge( *bounding_box , cell_size * 2 );
           constexpr size_t N_SAMPLES = 10000;

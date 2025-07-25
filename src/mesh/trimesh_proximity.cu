@@ -76,14 +76,14 @@ namespace exanb
         if( ! grid_to_triangles->exceeds_maximum_distance(*max_dist) )
         {
           fallback_to_trivial_locator = false;
-          GridParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , *max_dist };
+          GridParticleTriangleProjProximity<TestMeshProximityFunctor,true,true> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) , *max_dist };
           compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
         }
       }
       if( fallback_to_trivial_locator )
       {
         TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
-        ParticleTriangleProximity<TestMeshProximityFunctor,true,true> func = { all_triangles , read_only_view(*mesh) , *max_dist };
+        ParticleTriangleProjProximity<TestMeshProximityFunctor,true,true> func = { all_triangles , read_only_view(*mesh) , *max_dist };
         compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz) , parallel_execution_context() );
       }
 

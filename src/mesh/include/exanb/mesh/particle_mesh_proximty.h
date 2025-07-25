@@ -27,9 +27,8 @@ under the License.
 
 namespace exanb
 {
-
   template<class GridTriangleLocator, class ProximityFuncT, bool EnableEdge=true, bool EnableVertex=true>
-  struct ParticleMeshProximityFunctor
+  struct ParticleMeshProjProximityFunctor
   {
     GridTriangleLocator m_grid_triangles;
     TriangleMeshRO m_triangle_mesh;
@@ -121,10 +120,10 @@ namespace exanb
     }
   };
 
-  template<class FuncT, bool EnableEdge, bool EnableVertex> using GridParticleTriangleProximity = ParticleMeshProximityFunctor<GridTriangleIntersectionListRO,FuncT,EnableEdge,EnableVertex>;
-  template<class FuncT, bool EnableEdge, bool EnableVertex> using ParticleTriangleProximity = ParticleMeshProximityFunctor<TrivialTriangleLocator,FuncT,EnableEdge,EnableVertex>;
+  template<class FuncT, bool EnableEdge, bool EnableVertex> using GridParticleTriangleProjProximity = ParticleMeshProjProximityFunctor<GridTriangleIntersectionListRO,FuncT,EnableEdge,EnableVertex>;
+  template<class FuncT, bool EnableEdge, bool EnableVertex> using ParticleTriangleProjProximity = ParticleMeshProjProximityFunctor<TrivialTriangleLocator,FuncT,EnableEdge,EnableVertex>;
 
-  template<class LocatorT, class FuncT, bool EnableEdge, bool EnableVertex> struct ComputeCellParticlesTraits< ParticleMeshProximityFunctor<LocatorT,FuncT,EnableEdge,EnableVertex> >
+  template<class LocatorT, class FuncT, bool EnableEdge, bool EnableVertex> struct ComputeCellParticlesTraits< ParticleMeshProjProximityFunctor<LocatorT,FuncT,EnableEdge,EnableVertex> >
   {
     static inline constexpr bool CudaCompatible = true;
   };
