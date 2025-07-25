@@ -68,6 +68,7 @@ namespace exanb
       ldbg<<"Out block = "<< out_block << std::endl;
 
       // initializes local processor's grid
+      grid->reset();
       grid->set_offset( out_block.start );
       grid->set_origin( domain->bounds().bmin );
       grid->set_cell_size( domain->cell_size() );
