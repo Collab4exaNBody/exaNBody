@@ -51,4 +51,6 @@ input_data:
       grid_cell_mask_name: MASK1
       grid_cell_mask_value: 1
 
-simulation: default_simulation  
+simulation: default_simulation
+
+# NOTE: not working with MPI > 1  
