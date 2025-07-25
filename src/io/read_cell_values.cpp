@@ -43,24 +43,13 @@ namespace exanb
     using DoubleVector = std::vector<double>;
   
     ADD_SLOT( GridT            , grid             , INPUT , REQUIRED );
-    ADD_SLOT( Domain           , domain           , INPUT , REQUIRED );
-    
-    ADD_SLOT( ParticleRegions  , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG, region           , INPUT_OUTPUT , OPTIONAL , DocString{"Region of the field where the value is to be applied."} );
     ADD_SLOT( GridCellValues   , grid_cell_values , INPUT_OUTPUT );
-    ADD_SLOT( long             , grid_subdiv      , INPUT , 1, DocString{"Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});    
-    ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED , DocString{"Name of the field."});
-    ADD_SLOT( int              , field_dim       , INPUT , REQUIRED);    
-    ADD_SLOT( std::string      , file_name        , INPUT , REQUIRED , DocString{"Name of the file."});
+    ADD_SLOT( int              , grid_subdiv      , INPUT , 1, DocString{"(YAML: int) Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});    
+    ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED , DocString{"(YAML: string) Name of the field."});
+    ADD_SLOT( int              , field_dim        , INPUT  , 1);    
+    ADD_SLOT( std::string      , file_name        , INPUT , REQUIRED , DocString{"(YAML: string) Name of the file."});
 
   public:  
-
-    inline std::string documentation() const override final
-    {
-      return R"EOF(
-              This operator assigns a value to a point on a Cartesian grid, such as the velocity of a fluid. This operator can also be used to refine the grid and define different behaviors in different spatial regions. 
-                )EOF";
-    }
 
     inline void execute() override final
     {
@@ -70,9 +59,9 @@ namespace exanb
         fatal_error() << "Cannot initialize cell values with 0-component vector value (empty vector given)" << std::endl;
       }
 
-      if( *grid_subdiv > 1 )
+      if( *field_dim > 1 )
       {
-        fatal_error() << "Cannot assign subdiv > 1. The external field should match the exact size of the grid defined by domain" << std::endl;
+        fatal_error() << "Cannot consider field_dim > 1. For now, the external field should be scalar." << std::endl;
       }
       
       if( grid->dimension() != grid_cell_values->grid_dims() )
@@ -86,18 +75,18 @@ namespace exanb
         ldbg << "Update cell values grid offset to "<< grid->offset() << std::endl;
         grid_cell_values->set_grid_offset( grid->offset() );
       }
-
-      int Nx, Ny, Nz, dataDimension;
-      std::string dataType;
       
       std::ifstream file(*file_name);
       if (!file.is_open()) {
         throw std::runtime_error(std::string("Could not open file ") + *file_name);
       }
 
+      int Nx, Ny, Nz, dataDimension;
+      std::string dataType;
+
       // retreive field data accessor. create data field if needed
       const int ncomps = *field_dim;
-      const int subdiv = 1;
+      const int subdiv = *grid_subdiv;
       if( ! grid_cell_values->has_field(*field_name) )
         {
           ldbg << "Create cell field "<< *field_name << " subdiv="<<subdiv<<" ncomps="<<ncomps<< std::endl;
@@ -107,25 +96,20 @@ namespace exanb
       assert( size_t(subdiv) == grid_cell_values->field(*field_name).m_subdiv );
       assert( size_t(subdiv * subdiv * subdiv) * ncomps == grid_cell_values->field(*field_name).m_components );
       auto field_data = grid_cell_values->field_data(*field_name);
-
-      const Mat3d xform = domain->xform();
-      const double cell_size = domain->cell_size();
-      const double subcell_size = cell_size / subdiv;
       const IJK dims = grid_cell_values->grid_dims();
-      const IJK grid_offset = grid_cell_values->grid_offset();
-      const Vec3d domain_origin = domain->origin();
       
       std::string line;
-      bool dataSection = false;
-      int pointCount = 0;
-      size_t cnt = 0;
+      bool lookup_table_found = false;
+      ssize_t pointCount;
+      
+      // Read until LOOKUP_TABLE is found
       while (std::getline(file, line)) {
         std::istringstream lineStream(line);
         std::string keyword;
         lineStream >> keyword;
         if (keyword == "DIMENSIONS") {
           lineStream >> Nx >> Ny >> Nz;
-          if ( (dims.i != Nx ) || (dims.j != Ny ) || (dims.k != Nz ) ) {
+          if ( (dims.i != (Nx/subdiv) ) || (dims.j != (Ny/subdiv) ) || (dims.k != (Nz/subdiv) ) ) {
             lerr << "VTK file grid dimensions are not equal to simulation grid dimensions" << std::endl;
             lerr << "Current  grid dimensions = " << grid->dimension() << std::endl;
             lerr << "VTK file grid dimensions = " << IJK{Nx,Ny,Nz} << std::endl;
@@ -134,41 +118,77 @@ namespace exanb
         } else if (keyword == "POINT_DATA") {
           lineStream >> pointCount;
           assert(pointCount == Nx*Ny*Nz);
-          assert((grid_dims.i*grid_dims.j*grid_dims.k) == pointCount);
+          assert((dims.i*dims.j*dims.k*subdiv*subdiv*subdiv) == pointCount);
         } else if (keyword == "SCALARS" || keyword == "VECTORS") {
           dataType = keyword;
           std::string name, type;
           lineStream >> name >> type;
           dataDimension = (keyword == "SCALARS") ? 1 : 3; // Scalars have 1 dimension, Vectors have 3
-          cnt = 0;
-        } else if (keyword == "LOOKUP_TABLE") {
-          std::string lkp;
-          lineStream >> lkp;
-          dataSection = true;            
-        }
-        if (dataSection) {
-          double value;
-          while (lineStream >> value || std::getline(file, line)) {
-            if (!lineStream) {
-              lineStream.clear();
-              lineStream.str(line);
-              lineStream >> value;
-            }
-
-            for (size_t d = 0; d < dataDimension; ++d) {
-              field_data.m_data_ptr[cnt+d] = value;
-              if (d < dataDimension - 1) {
-                lineStream >> value;
-              }
-            }
-            cnt += 1;
-          }
+        } else if (line.find("LOOKUP_TABLE") != std::string::npos) {
+          lookup_table_found = true;
+          lout << "LOOKUP_TABLE found" << std::endl;
+          break;
         }
       }
+    
+      if (!lookup_table_found) {
+        lerr << "LOOKUP_TABLE not found in the file." << std::endl;
+        std::abort();
+      }
 
+      // Read the lookup table values and reorder on the fly using a single loop
+      for (ssize_t idx = 0; idx < pointCount; ++idx) {
+        double value;
+        if (!(file >> value)) {
+          std::cerr << "Failed to read data from the file." << std::endl;
+          std::abort();
+        }
+
+        // Compute i, j, k on the fly
+        size_t k = idx % Nz;
+        size_t j = (idx / Nz) % Ny;
+        size_t i = idx / (Nz * Ny);
+        
+        // Calculate the cell indices in the nnx x nny x nnz grid
+        size_t cell_i = i / subdiv;
+        size_t cell_j = j / subdiv;
+        size_t cell_k = k / subdiv;
+
+        // Calculate the local indices within the cell
+        size_t local_i = i % subdiv;
+        size_t local_j = j % subdiv;
+        size_t local_k = k % subdiv;
+
+        // Calculate the destination index
+        size_t dest_idx = (cell_i * dims.j * dims.k + cell_j * dims.k + cell_k) * subdiv * subdiv * subdiv + (local_i * subdiv * subdiv + local_j * subdiv + local_k);
+
+        // Assign the value to the correct position
+        field_data.m_data_ptr[dest_idx] = value;
+      }
       file.close();
     }
 
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+This operator reads a scalar field from an external .vtk file (structured grid) and assigns the scalar value to the points on a Cartesian grid aligned with the simulation domain. The dimensions of the scalar field need to be either the same of the domain grid or a multiple (using subdiv) of it. This operators outputs a grid_cell_values data structure that can be subsequently used as a mask for example to populate the domain with particles.
+
+Usage example:
+
+  - read_cell_values:
+      field_name: "MASK1"
+      file_name: "points_40x40x40.vtk"
+      grid_subdiv: 4
+  - lattice:
+      structure: BCC
+      types: [ W, W ]
+      size: [ 3 ang , 3 ang , 3 ang ]
+      grid_cell_mask_name: MASK1
+      grid_cell_mask_value: 1
+
+)EOF";
+    }
+    
   };
 
   // === register factories ===  
