@@ -1,13 +1,13 @@
 /*
-Licensed to the Apache Software Foundation (ASF) under one
-or more contributor license agreements.  See the NOTICE file
-distributed with this work for additional information
-regarding copyright ownership.  The ASF licenses this file
-to you under the Apache License, Version 2.0 (the
-"License"); you may not use this file except in compliance
-with the License.  You may obtain a copy of the License at
+   Licensed to the Apache Software Foundation (ASF) under one
+   or more contributor license agreements.  See the NOTICE file
+   distributed with this work for additional information
+   regarding copyright ownership.  The ASF licenses this file
+   to you under the Apache License, Version 2.0 (the
+   "License"); you may not use this file except in compliance
+   with the License.  You may obtain a copy of the License at
 
-  http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing,
 software distributed under the License is distributed on an
@@ -15,7 +15,7 @@ software distributed under the License is distributed on an
 KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
-*/
+ */
 
 #pragma once
 #include <onika/math/basic_types_yaml.h>
@@ -27,6 +27,8 @@ under the License.
 #include <onika/math/basic_types_stream.h>
 #include <onika/log.h>
 #include <exanb/core/domain.h>
+#include <exanb/core/simple_block_rcb.h>
+#include <exanb/io/grid_memory_compact.h>
 
 #include <iostream>
 #include <fstream>
@@ -39,11 +41,11 @@ under the License.
 namespace exanb
 {
   template<class GridT , class ESType, typename DumpFieldSet>
-  class SimDumpReadParticlesES : public OperatorNode
+    class SimDumpReadParticlesES : public OperatorNode
   {
     ADD_SLOT( MPI_Comm    , mpi             , INPUT );
-    ADD_SLOT( GridT       , grid     , INPUT );
-    ADD_SLOT( Domain      , domain   , INPUT );
+    ADD_SLOT( GridT       , grid     , INPUT_OUTPUT );
+    ADD_SLOT( Domain      , domain   , INPUT_OUTPUT );
     ADD_SLOT( std::string , filename , INPUT );
     ADD_SLOT( long        , timestep      , INPUT , DocString{"Iteration number"} );
     ADD_SLOT( double      , physical_time , INPUT , DocString{"Physical time"} );
@@ -56,7 +58,7 @@ namespace exanb
     ADD_SLOT( bool        , shrink_to_fit   , INPUT ,OPTIONAL , DocString{"if set to true and bounds was wpecified, try to reduce domain's grid size to the minimum size enclosing fixed bounds"} );
     ADD_SLOT( GridExtraDynamicDataStorageT<ESType> , ges  , INPUT_OUTPUT , DocString{"Interaction list"} );
 
-  public:
+    public:
     inline void execute () override final
     {
       ParticleDumpFilterWithExtraDataStorage<GridT, ESType, DumpFieldSet> dump_filter = {*ges,*grid};
@@ -95,6 +97,7 @@ namespace exanb
 
       dump_filter.enable_extra_data = *enable_extra_data;
       exanb::read_dump( *mpi, ldbg, *grid, *domain, *physical_time, *timestep, *filename, DumpFieldSet{} , dump_filter );
+      exanb::grid_memory_compact(*grid);
     }
   };
 }

@@ -23,7 +23,6 @@ under the License.
 #include <onika/soatl/field_tuple.h>
 #include <onika/memory/allocator.h>
 #include <vector>
-#include <onika/parallel/parallel_execution_stream.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
 #include <exanb/core/grid_particle_field_accessor.h>
@@ -38,53 +37,54 @@ namespace exanb
     template<typename FieldSetT> struct FieldSetToParticleTuple;
     template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
     template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
-
-    template<typename TupleT, class pos_id, class vel_id, class force_id>
-    ONIKA_HOST_DEVICE_FUNC
-    static inline void apply_field_boundary( TupleT& t
-                                           , onika::soatl::FieldId<pos_id> pos_field
-                                           , onika::soatl::FieldId<vel_id> vel_field
-                                           , onika::soatl::FieldId<force_id> force_field
-                                           , double rmin, double rmax , uint32_t flags )
-    {
-      static constexpr bool has_pos_field   = onika::soatl::field_tuple_has_field_v<TupleT,pos_id>;
-      static constexpr bool has_vel_field   = onika::soatl::field_tuple_has_field_v<TupleT,vel_id>;
-      static constexpr bool has_force_field = onika::soatl::field_tuple_has_field_v<TupleT,force_id>;
-      if constexpr ( has_pos_field )
-      {
-        t[pos_field] = GhostBoundaryModifier::apply_coord_modifier( t[pos_field] , rmin , rmax , flags );
-      }
-      if constexpr ( has_vel_field )
-      {
-        t[vel_field] = GhostBoundaryModifier::apply_vector_modifier( t[vel_field] , flags );
-      }
-      if constexpr ( has_force_field )
-      {
-        t[force_field] = GhostBoundaryModifier::apply_vector_modifier( t[force_field] , flags );
-      }
-    }
     
-    template<typename TupleT>
+    template<class T, class FieldT>
     ONIKA_HOST_DEVICE_FUNC
-    static inline void apply_particle_boundary( TupleT& t , const GhostBoundaryModifier& boundary , uint32_t flags )
+    static inline T apply_particle_boundary( const T& v, const FieldT& f , const GhostBoundaryModifier& boundary , uint32_t flags )
     {
-      apply_field_boundary( t, field::rx, field::vx, field::fx, boundary.m_domain_min.x, boundary.m_domain_max.x, flags >> GhostBoundaryModifier::MASK_SHIFT_X );
-      apply_field_boundary( t, field::ry, field::vy, field::fy, boundary.m_domain_min.y, boundary.m_domain_max.y, flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
-      apply_field_boundary( t, field::rz, field::vz, field::fz, boundary.m_domain_min.z, boundary.m_domain_max.z, flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
+      using fid = typename FieldT::Id;
+      using BX = decltype(PositionBackupFieldX);
+      using BY = decltype(PositionBackupFieldY);
+      using BZ = decltype(PositionBackupFieldZ);
+
+      if constexpr ( std::is_same_v<fid,field::_rx> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.x, boundary.m_domain_max.x , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
+      if constexpr ( std::is_same_v<fid,field::_ry> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.y, boundary.m_domain_max.y , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
+      if constexpr ( std::is_same_v<fid,field::_rz> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.z, boundary.m_domain_max.z , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
+
       if constexpr ( HAS_POSITION_BACKUP_FIELDS )
       {
-        static constexpr onika::soatl::FieldId<void> no_field = {}; 
-        apply_field_boundary( t, PositionBackupFieldX, no_field, no_field, boundary.m_domain_min.x, boundary.m_domain_max.x, flags >> GhostBoundaryModifier::MASK_SHIFT_X );
-        apply_field_boundary( t, PositionBackupFieldY, no_field, no_field, boundary.m_domain_min.y, boundary.m_domain_max.y, flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
-        apply_field_boundary( t, PositionBackupFieldZ, no_field, no_field, boundary.m_domain_min.z, boundary.m_domain_max.z, flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
+        if constexpr ( std::is_same_v<fid,BX> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.x, boundary.m_domain_max.x , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
+        if constexpr ( std::is_same_v<fid,BY> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.y, boundary.m_domain_max.y , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
+        if constexpr ( std::is_same_v<fid,BZ> ) return GhostBoundaryModifier::apply_coord_modifier( v , boundary.m_domain_min.z, boundary.m_domain_max.z , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
       }
+
+      if constexpr ( std::is_same_v<fid,field::_vx> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
+      if constexpr ( std::is_same_v<fid,field::_vy> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
+      if constexpr ( std::is_same_v<fid,field::_vz> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
+
+      if constexpr ( std::is_same_v<fid,field::_fx> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
+      if constexpr ( std::is_same_v<fid,field::_fy> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
+      if constexpr ( std::is_same_v<fid,field::_fz> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
+      
+      return v;
     }
 
-    template<class ParticleTuple>
     struct GhostCellParticlesUpdateData
     {
       size_t m_cell_i;
-      ParticleTuple m_particles[0];
+      uint8_t m_particles[0];
+      
+      ONIKA_HOST_DEVICE_FUNC
+      inline void * particle_data(size_t sizeof_ParticleTuple, size_t idx)
+      {
+        return (void*) ( m_particles + ( sizeof_ParticleTuple * idx ) );
+      }
+      
+      ONIKA_HOST_DEVICE_FUNC
+      inline const void * particle_data(size_t sizeof_ParticleTuple, size_t idx) const
+      {
+        return (const void*) ( m_particles + ( sizeof_ParticleTuple * idx ) );
+      }
     };
 
     struct UpdateGhostsScratch
@@ -162,7 +162,7 @@ namespace exanb
       inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); } 
     };
 
-    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple , class FieldAccTuple >
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
     struct GhostSendPackFunctor
     {
       static constexpr size_t FieldCount = onika::tuple_size_const_v<FieldAccTuple>;
@@ -173,6 +173,7 @@ namespace exanb
       size_t m_cell_scalar_components = 0;
       uint8_t * m_data_ptr_base = nullptr;
       size_t m_data_buffer_size = 0;
+      size_t sizeof_ParticleTuple = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
       GhostBoundaryModifier m_boundary = {};
       FieldAccTuple m_fields = {};
@@ -193,18 +194,44 @@ namespace exanb
         }
       }
 
+      template<class FieldOrSpanT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline void * pack_particle_field( const FieldOrSpanT& _f, void * data_vp, uint64_t cell_i, uint64_t part_i , uint32_t cell_boundary_flags ) const
+      {
+        if constexpr ( onika::is_span_v<FieldOrSpanT> )
+        {
+          using FieldT = typename FieldOrSpanT::value_type ;
+          using ValueType = typename FieldT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          //const size_t N = _f.size(); auto * f_ptr = _f.data();
+          for(const auto & f : _f) { *(data++) = apply_particle_boundary(m_cells[cell_i][f][part_i],f,m_boundary,cell_boundary_flags); }
+          return data;
+        }
+        else
+        {
+          using ValueType = typename FieldOrSpanT::value_type ;
+          ValueType * data = ( ValueType * ) data_vp;
+          * (data++) = apply_particle_boundary(m_cells[cell_i][_f][part_i],_f,m_boundary,cell_boundary_flags);
+          return data;
+        }
+      }
+
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
-      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t i, uint64_t j, std::index_sequence<FieldIndex...> ) const
+      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t part_i, uint64_t part_j , uint32_t cell_boundary_flags , std::index_sequence<FieldIndex...> ) const
       {
-        data->m_particles[j] = ParticleTuple( m_cells[cell_i][m_fields.get(onika::tuple_index_t<FieldIndex>{})][i] ... );
+        if constexpr ( sizeof...(FieldIndex) > 0 )
+        {
+          void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_j );
+          ( ... , ( data_ptr = pack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i, part_i , cell_boundary_flags ) ) );
+        }
       }
 
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( uint64_t i ) const
       {      
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
-        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof_ParticleTuple;
         assert( byte_offset < m_data_buffer_size );
         uint8_t* data_ptr = m_data_ptr_base + byte_offset; //m_sends[i].m_send_buffer_offset;
         CellParticlesUpdateData* data = (CellParticlesUpdateData*) data_ptr;
@@ -222,12 +249,12 @@ namespace exanb
         {
           if constexpr ( FieldCount > 0 ) { assert( particle_index[j] < m_cells[cell_i].size() ); }
           // m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
-          pack_particle_fields( data, cell_i, particle_index[j] , j , FieldIndexSeq{} );
-          apply_particle_boundary( data->m_particles[j], m_boundary, cell_boundary_flags );
+          pack_particle_fields( data, cell_i, particle_index[j] , j , cell_boundary_flags , FieldIndexSeq{} );
+          //apply_particle_boundary( data->m_particles[j], m_boundary, cell_boundary_flags );
         }
         if( m_cell_scalars != nullptr )
         {
-          const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+          const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof_ParticleTuple;
           GridCellValueType* gcv = reinterpret_cast<GridCellValueType*>( data_ptr + data_cur );
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
@@ -237,7 +264,7 @@ namespace exanb
       }
     };
 
-    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles, class FieldAccTuple>
+    template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, bool CreateParticles, class FieldAccTuple>
     struct GhostReceiveUnpackFunctor
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
@@ -248,6 +275,7 @@ namespace exanb
       size_t m_cell_scalar_components = 0;
       GridCellValueType * m_cell_scalars = nullptr;
       size_t m_data_buffer_size = 0;
+      size_t sizeof_ParticleTuple = 0;
       uint8_t * m_staging_buffer_ptr = nullptr;
       FieldAccTuple m_fields = {};
 
@@ -276,22 +304,43 @@ namespace exanb
         }
       }
 
+      template<class FieldT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline const void * unpack_particle_field( const onika::cuda::span<FieldT>& fa, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+      {
+        using ValueType = typename FieldT::value_type ;
+        const ValueType * data = ( const ValueType * ) data_vp;
+        for(const auto& f : fa) m_cells[cell_i][f][part_i] = * (data++);
+        return data;
+      }
+
+      template<class FieldT>
+      ONIKA_HOST_DEVICE_FUNC
+      inline const void * unpack_particle_field( const FieldT& f, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+      {
+        using ValueType = typename FieldT::value_type ;
+        const ValueType * data = ( const ValueType * ) data_vp;
+        m_cells[cell_i][f][part_i] = * (data++) ;
+        return data;
+      }
+
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
-      inline void unpack_particle_fields( const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t i, std::index_sequence<FieldIndex...> ) const
+      inline void unpack_particle_fields( const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t part_i, std::index_sequence<FieldIndex...> ) const
       {
-        using exanb::field_id_fom_acc_v;
-        if constexpr ( CreateParticles ) m_cells[cell_i].set_tuple( i , ParticleFullTuple() ); // zero all fields
-        ( ... , (
-          m_cells[cell_i][ m_fields.get(onika::tuple_index_t<FieldIndex>{}) ][i] = data->m_particles[i][ field_id_fom_acc_v< decltype( m_fields.get_copy(onika::tuple_index_t<FieldIndex>{}) ) > ]
-        ) );
+        if constexpr ( sizeof...(FieldIndex) > 0 )
+        {
+          const void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_i );
+          if constexpr ( CreateParticles ) m_cells[cell_i].set_tuple( part_i , {} ); // zero all fields
+          ( ... , ( data_ptr = unpack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i, part_i ) ) );
+        }
       }
 
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( uint64_t i ) const
       {
         const size_t particle_offset = m_cell_offset[i];
-        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof(ParticleTuple);
+        const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof_ParticleTuple;
         assert( byte_offset < m_data_buffer_size );
         const uint8_t * const __restrict__ data_ptr = m_data_ptr_base + byte_offset; //m_cell_offset[i];
         const CellParticlesUpdateData * const __restrict__ data = (CellParticlesUpdateData*) data_ptr;
@@ -329,7 +378,7 @@ namespace exanb
 
         if( m_cell_scalars != nullptr )
         {
-          const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof(ParticleTuple);
+          const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof_ParticleTuple;
           const GridCellValueType* gcv = reinterpret_cast<const GridCellValueType*>( data_ptr + data_cur );
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , c , 0 , m_cell_scalar_components )
           {
@@ -350,14 +399,14 @@ namespace onika
   namespace parallel
   {
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class FieldAccTupleT>
-    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,FieldAccTupleT> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTupleT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostSendPackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };
 
-    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, class ParticleTuple, class ParticleFullTuple, bool CreateParticles, class FieldAccTupleT>
-    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,ParticleTuple,ParticleFullTuple,CreateParticles,FieldAccTupleT> >
+    template<class CellParticles, class GridCellValueType, class CellParticlesUpdateData, bool CreateParticles, class FieldAccTupleT>
+    struct BlockParallelForFunctorTraits< exanb::UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellParticles,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT> >
     {
       static inline constexpr bool CudaCompatible = true;
     };

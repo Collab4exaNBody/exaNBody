@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <onika/math/basic_types_yaml.h>
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
@@ -27,6 +28,8 @@ under the License.
 #include <exanb/core/domain.h>
 
 #include <exanb/compute/field_combiners.h>
+#include <exanb/core/particle_type_properties.h>
+#include <exanb/core/grid_additional_fields.h>
 
 #include <exanb/io/vtk_writer.h>
 #include <exanb/io/vtk_writer_binary.h>
@@ -39,7 +42,7 @@ under the License.
 
 namespace exanb
 {
-
+  
   template<typename GridT>
   class ParaviewGenericWriter : public OperatorNode
   {
@@ -47,6 +50,7 @@ namespace exanb
 
     ADD_SLOT( MPI_Comm    , mpi             , INPUT );
     ADD_SLOT( GridT       , grid            , INPUT );
+    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , OPTIONAL );
     ADD_SLOT( Domain      , domain          , INPUT );
     ADD_SLOT( bool        , binary_mode       , INPUT , true);
     ADD_SLOT( bool        , write_box          , INPUT , true);
@@ -58,6 +62,9 @@ namespace exanb
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields) 
     {
+      using has_field_type_t = typename GridT:: template HasField < field::_type >;
+      static constexpr bool has_field_type = has_field_type_t::value;
+      
       ldbg << "ParaviewGenericWriter: filename="<< *filename
            << " , write_box="<< std::boolalpha << *write_box
            << " , write_ghost="<< std::boolalpha << *write_ghost
@@ -70,11 +77,21 @@ namespace exanb
         ldbg << std::endl;
       }
 
+      // field selector function
       const auto& flist = *fields;
       auto field_selector = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
-      auto gridacc = grid->cells_accessor(); //{ grid->cells() };
+      
+      // per cell particle attribute accessor
+      auto gridacc = grid->cells_accessor();
 
-      ParaviewWriteTools::write_particles(ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost, grid_fields ... );
+      // optional fields
+      ParticleTypeProperties * optional_type_properties = nullptr;
+      if ( has_field_type && particle_type_properties.has_value() ) optional_type_properties = particle_type_properties.get_pointer();
+      GridAdditionalFields add_fields( grid , optional_type_properties );
+      auto [ type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields ] = add_fields.view();
+
+      ParaviewWriteTools::write_particles( ldbg,*mpi,*grid,gridacc,*domain,*filename,field_selector,*compression,*binary_mode,*write_box,*write_ghost
+                                         , type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields, grid_fields ... );
     }
 
     template<class... fid>
@@ -83,21 +100,24 @@ namespace exanb
       int rank=0;
       MPI_Comm_rank(*mpi, &rank);
       ProcessorRankCombiner processor_id = { {rank} };
-      execute_on_fields( processor_id, onika::soatl::FieldId<fid>{} ... );
+      VelocityVec3Combiner velocity = {};
+      ForceVec3Combiner    force    = {};
+      execute_on_fields( processor_id, velocity, force, onika::soatl::FieldId<fid>{} ... );
     }
 
   public:
     inline void execute() override final
     {
-      execute_on_field_set(grid->field_set);
+      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
+      execute_on_field_set( GridFieldSet{} );
     }
 
   };
 
   // === register factories ===
-  ONIKA_AUTORUN_INIT(write_paraview_generic)
+  ONIKA_AUTORUN_INIT(write_paraview)
   {
-    OperatorNodeFactory::instance()->register_factory( "write_paraview_generic",make_grid_variant_operator<ParaviewGenericWriter >);
+    OperatorNodeFactory::instance()->register_factory( "write_paraview",make_grid_variant_operator<ParaviewGenericWriter >);
   }
 
 }

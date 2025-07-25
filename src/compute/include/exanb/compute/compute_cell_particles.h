@@ -125,6 +125,18 @@ namespace onika
 namespace exanb
 {
 
+  struct ComputeCellParticlesOptions
+  {
+    static inline constexpr size_t NO_CELL_INDICES = std::numeric_limits<size_t>::max();
+    // -1 means all cells are processed and m_cell_indices is ignored.
+    // 0 or greater value indicates you want a 1D kernel using indices stored in m_num_cell_indices.
+    size_t m_num_cell_indices = NO_CELL_INDICES;
+    const size_t * m_cell_indices = nullptr;
+
+    // 0 means no override of BlockParallelForOptions' max_block_size parameter
+    size_t m_max_block_size = 0;
+  };
+
   template<class GridT, class FuncT, class FieldSetT>
   static inline
   onika::parallel::ParallelExecutionWrapper
@@ -203,6 +215,57 @@ namespace exanb
     return block_parallel_for( parallel_range, pfor_func, exec_ctx );
   }
 
+  template<class GridT, class FuncT, class... FieldAccT>
+  static inline
+  onika::parallel::ParallelExecutionWrapper
+  compute_cell_particles(
+    GridT& grid,
+    bool enable_ghosts,
+    const FuncT& func,
+    const onika::FlatTuple<FieldAccT...>& cpfields ,
+    onika::parallel::ParallelExecutionContext * exec_ctx,
+    const ComputeCellParticlesOptions& ccpo  )
+  {
+    using onika::parallel::BlockParallelForOptions;
+    using onika::parallel::block_parallel_for;   
+    using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
+    using FieldTupleT = onika::FlatTuple<FieldAccT...>;
+    static constexpr bool has_external_or_optional_fields = field_tuple_has_external_fields_v<FieldTupleT>;    
+    using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
+    using PForFuncT = ComputeCellParticlesFunctor<CellsAccessorT,FuncT,FieldTupleT,std::make_index_sequence<sizeof...(FieldAccT)> >;
+    
+    if( ccpo.m_num_cell_indices>0 && ccpo.m_cell_indices==nullptr )
+    {
+      fatal_error() << "compute_cell_particles: cell_indices cannot be NULL if number_cell_indices > 0" << std::endl;
+    }
+    if( ccpo.m_num_cell_indices == ComputeCellParticlesOptions::NO_CELL_INDICES && ccpo.m_cell_indices != nullptr )
+    {
+      fatal_error() << "compute_cell_particles: cell_indices ignored but cell_indices!=nullptr" << std::endl;
+    }
+
+  	const IJK dims = grid.dimension();
+  	const int gl = enable_ghosts ? 0 : grid.ghost_layers();	
+    CellsAccessorT cells = {};
+    if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
+    else cells = grid.cells();
+
+    BlockParallelForOptions pfor_opts = {};
+    if( ccpo.m_max_block_size > 0 ) pfor_opts.max_block_size = ccpo.m_max_block_size;
+
+    PForFuncT pfor_func = { cells , dims , func , cpfields };
+
+    if( ccpo.m_num_cell_indices == ComputeCellParticlesOptions::NO_CELL_INDICES )
+    {
+      onika::parallel::ParallelExecutionSpace<3> parallel_range = { { gl , gl , gl } , { dims.i-gl , dims.j-gl , dims.k-gl } }; 
+      return block_parallel_for( parallel_range, pfor_func, exec_ctx, pfor_opts );
+    }
+    else
+    {
+      using CellListT = std::span<const size_t>; // default span definition would use ssize_t and prevent constructor match with size_t* pointer
+      onika::parallel::ParallelExecutionSpace<1,1,CellListT> parallel_range = { {0} , {ccpo.m_num_cell_indices} , CellListT{ccpo.m_cell_indices,ccpo.m_num_cell_indices} }; 
+      return block_parallel_for( parallel_range, pfor_func, exec_ctx, pfor_opts );
+    }
+  }
 
 
   // ========== old API ==================

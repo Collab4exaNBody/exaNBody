@@ -30,9 +30,11 @@ under the License.
 #include <onika/math/quaternion_operators.h>
 #include <onika/math/basic_types_stream.h>
 #include <onika/oarray.h>
+#include <onika/type_utils.h>
 
 #include <exanb/io/vtk_writer.h>
 #include <exanb/compute/field_combiners.h>
+#include <exanb/core/particle_type_properties.h>
 
 #include <iostream>
 #include <fstream>
@@ -181,7 +183,7 @@ namespace exanb
           if( conv != 1.0 ) { fatal_error() << "Conversion factor not allowed for type "<<typeid(T).name()<<std::endl; }
           return onika::format_string_buffer( buf, bufsize, format_for_value(in_v) , in_v );
         }
-	return 0; // should never get there
+        return 0; // should never get there
       }
 
     };
@@ -284,9 +286,24 @@ namespace exanb
       //   field_selector(particle_fields.short_name()) ? ( oss << ' ' << formatter.field_name_mapping(particle_fields) ) : oss
       // ) ;
       oss<<" Properties=species:S:1";
-      ( ... , (
-        field_selector(particle_fields.short_name()) ? ( oss << ':' << formatter.property_for_field(particle_fields) ) : oss
-      ) );
+      auto print_fields_header = [&]( const auto& pfield ) -> size_t
+      {
+        if( field_selector(pfield.short_name()) )
+        {
+          oss << ':' << formatter.property_for_field(pfield) ;
+          return 1;
+        }        
+        return 0;
+      };
+      auto print_fields_header_span = [&]( const auto& pfield ) -> size_t
+      {
+        size_t nf = 0;
+        using FieldType = std::remove_cv_t< std::remove_reference_t<decltype(pfield)> >;
+        if constexpr ( onika::is_span_v<FieldType> ) for(const auto& f : pfield) nf += print_fields_header( f );
+        else nf += print_fields_header( pfield );
+        return nf;
+      };
+      ( ... , ( print_fields_header_span(particle_fields) ) );
       oss << " Time="<<time<<"\n";
       std::string header_data = oss.str();
       size_t offset_header = header_data.length();
@@ -297,36 +314,57 @@ namespace exanb
         MPI_File_write(mpiFile, header_data.data() , header_data.length() , MPI_CHAR , &status);
       }
 
-      auto write_field_to_buf = [&] (char* buf, int capacity, auto f, size_t c, size_t p) -> int
+      auto write_field_to_buf = [&] (char* buf, int capacity, const auto& pfield, size_t c, size_t p) -> int
       {
         int n = 0;
-        if( field_selector(f.short_name()) )
+        if( field_selector(pfield.short_name()) )
         {
           if( capacity == 0 )
           {
-            ldbg << "buffer full, can't write field "<<f.short_name()<<std::endl;
+            ldbg << "buffer full, can't write field "<<pfield.short_name()<<std::endl;
             return 0;
           }
           *buf = ' ';
-          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][f][p] );
+          auto f_acc = grid.field_const_accessor(pfield);
+          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][f_acc][p] );
           if( capacity < n )
           {
-            fatal_error() << "unsexpcted buffer overflow" << std::endl;
+            fatal_error() << "unexpected buffer overflow" << std::endl;
           }
-          //ldbg << "write field "<<f.short_name()<<" using 1+"<<n<<" bytes"<<std::endl;
         }
         return n;
       };
-
+      auto write_field_to_buf_span = [&] (char* buf, int capacity, const auto& pfield, size_t c, size_t p) -> int
+      {
+        using FieldType = std::remove_cv_t< std::remove_reference_t<decltype(pfield)> >;
+        int n = 0;
+        if constexpr ( onika::is_span_v<FieldType> ) for(const auto& f : pfield) n += write_field_to_buf( buf+n, capacity-n, f, c, p );
+        else n += write_field_to_buf( buf+n, capacity-n, pfield, c, p );
+        return n;
+      };
       int data_line_size = 0;
       size_t nb_particles_written = 0;
 
       auto write_position_and_fields = [&] (auto position_field, auto ... f)
       {
-        // account for  particle type, then 1 space character, then particle position
+        // account for particle type, then 1 space character, then particle position
         data_line_size = formatter(nullptr,0,std::string("XX")) + 1 + formatter(nullptr,0,decltype(cells[0][position_field][0]){});
         ldbg << "particle data start size = "<<data_line_size<<std::endl;
-        ( ... , ( data_line_size += field_selector(f.short_name()) ? ( 1 + formatter(nullptr,0, typename decltype(f)::value_type {} ) ) : 0 ) );
+        auto field_formatting_length = [&] ( const auto& f) -> size_t
+        {
+          using ValueType = typename std::remove_cv_t< std::remove_reference_t<decltype(f)> >::value_type;
+          if( field_selector(f.short_name()) ) return 1 + formatter(nullptr,0,ValueType{});
+          else return 0;
+        };
+        auto field_formatting_length_span = [&] ( const auto& pfield ) -> size_t
+        {
+          using FieldType = std::remove_cv_t< std::remove_reference_t<decltype(pfield)> >;
+          size_t n = 0;
+          if constexpr ( onika::is_span_v<FieldType> ) for(const auto& f : pfield) n += field_formatting_length( f );
+          else n += field_formatting_length( pfield );
+          return n;
+        };
+        ( ... , ( data_line_size += field_formatting_length_span(f) ) );
         ++ data_line_size; // we'll add a '\n' at the end of each line      
         ldbg << "particle data total size = "<<data_line_size<<std::endl;
         std::string line_data( data_line_size , ' ' );
@@ -352,7 +390,7 @@ namespace exanb
               written += formatter( buf+written , data_line_size + 1 - written , pos_vec );
               //buf[written] = '\0';
               //ldbg << "particle data start = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;              
-              ( ... , ( written += write_field_to_buf(buf+written,data_line_size+1-written,f,c,pos) ) );
+              ( ... , ( written += write_field_to_buf_span(buf+written,data_line_size+1-written,f,c,pos) ) );
               //buf[written] = '\0';
               //ldbg << "particle data line = '"<<line_data.data()<<"' , bytes="<< written<<" , length="<< line_data.length() <<std::endl;
               assert( written == (data_line_size-1) );
@@ -376,50 +414,6 @@ namespace exanb
 
   } // end of write_xyz_details namespace
   
-  template<class GridT , class ParticleTypeStrFuncT = write_xyz_details::NullParticleTypleStrFunctor , class FieldFormatterT = write_xyz_details::DefaultFieldFormatter >
-  class WriteXYZGeneric : public OperatorNode
-  {    
-    using StringList = std::vector<std::string>;
-        
-    ADD_SLOT( MPI_Comm             , mpi      , INPUT );
-    ADD_SLOT( GridT                , grid     , INPUT );
-    ADD_SLOT( Domain               , domain   , INPUT );
-    ADD_SLOT( bool                 , ghost    , INPUT , false );
-    ADD_SLOT( std::string          , filename , INPUT , "output"); // default value for backward compatibility
-    ADD_SLOT( StringList           , fields   , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to project"} );
-    ADD_SLOT( ParticleTypeStrFuncT , particle_type_func , INPUT , ParticleTypeStrFuncT{} );
-    ADD_SLOT( FieldFormatterT      , field_formatter , INPUT , FieldFormatterT{} );
-      
-    template<class... fid>
-    inline void execute_on_field_set( FieldSet<fid...> ) 
-    {
-      int rank=0;
-      MPI_Comm_rank(*mpi, &rank);
-      ProcessorRankCombiner processor_id = { {rank} };
-      
-      PositionVec3Combiner position = {};
-      VelocityVec3Combiner velocity = {};
-      ForceVec3Combiner    force    = {};
-
-      // property name for position must be 'Position'
-      StringList flist = { "position" };
-      for(const auto& f : *fields) { if( f != "position" ) flist.push_back(f); }
-
-      auto formatter = *field_formatter;
-      formatter.m_field_name_map["position"] = "pos";
-
-      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, *particle_type_func, formatter, *ghost, 0.0
-                                              , position, velocity, force, processor_id, onika::soatl::FieldId<fid>{} ... );
-    }
-
-    public:
-    inline void execute() override
-    {
-      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_rx, field::_ry, field::_rz, field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
-      execute_on_field_set( GridFieldSet{} );
-    }
-    
-  };
 
 }
 

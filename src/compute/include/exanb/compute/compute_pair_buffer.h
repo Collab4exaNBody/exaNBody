@@ -22,7 +22,6 @@ under the License.
 #include <exanb/core/config.h> // for MAX_PARTICLE_NEIGHBORS constant
 #include <onika/math/basic_types_def.h>
 #include <exanb/core/grid_fields.h>
-
 #include <onika/memory/allocator.h>
 #include <onika/cuda/cuda.h>
 #include <onika/soatl/field_tuple.h>
@@ -34,11 +33,28 @@ under the License.
 namespace exanb
 {
 
-  struct NoExtraStorage{};  
+  struct NoExtraStorage{};
 
   // Compute buffer post processing API
   struct DefaultComputePairBufferAppendFunc
-  {  
+  {
+
+    template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () (ComputeBufferT& tab, int write_idx, const Vec3d& dr, double d2,
+                      FieldArraysT cells, size_t cell_b, size_t p_b,
+                      const NbhDataT& nbh_data = 1.0 ) const noexcept
+    {
+      assert( static_cast<size_t>(write_idx) < ComputeBufferT::MaxNeighbors );
+      tab.d2[write_idx] = d2;
+      tab.drx[write_idx] = dr.x;
+      tab.dry[write_idx] = dr.y;
+      tab.drz[write_idx] = dr.z;
+      tab.nbh.set( write_idx , cell_b, p_b );
+      tab.nbh_data.set( write_idx , nbh_data );
+    }
+
     template<class ComputeBufferT, class FieldArraysT, class NbhDataT=double>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
@@ -46,19 +62,13 @@ namespace exanb
                       FieldArraysT cells, size_t cell_b, size_t p_b,
                       const NbhDataT& nbh_data = 1.0 ) const noexcept
     {
-      assert( static_cast<size_t>(tab.count) < ComputeBufferT::MaxNeighbors );
-      tab.d2[tab.count] = d2;
-      tab.drx[tab.count] = dr.x;
-      tab.dry[tab.count] = dr.y;
-      tab.drz[tab.count] = dr.z;
-      tab.nbh.set( tab.count , cell_b, p_b );
-      tab.nbh_data.set( tab.count , nbh_data );
-      ++ tab.count;
+      this->operator () ( tab, tab.count++, dr, d2, cells, cell_b, p_b, nbh_data );
     }
+
   };
 
   struct NullComputePairBufferAppendFunc
-  {  
+  {
     template<class ComputeBufferT, class FieldArraysT, class NbhDataT>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
@@ -157,12 +167,12 @@ namespace exanb
     using CPBufNbhFields = ComputePairBuffer2NbhFields<MaxNeighbors,NbhFieldSet>;
     using NbhFieldTuple = typename CPBufNbhFields::FieldTupleT;
     using ContextWithoutBuffer = ComputeContextNoBuffer<ExtendedStorage>;
-  
+
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drx[MaxNeighbors];     // neighbor's relative position x to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double dry[MaxNeighbors];     // neighbor's relative position y to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double drz[MaxNeighbors];     // neighbor's relative position z to reference particle
     alignas(onika::memory::DEFAULT_ALIGNMENT) double d2[MaxNeighbors];      // squared distance between reference particle and neighbor
-    ExtendedStorage ext;    
+    ExtendedStorage ext;
     UserNeighborDataBufferTmpl<UserNbhData,MaxNeighbors> nbh_data;
     ComputePairBuffer2Nbh<UseNeighbors,MaxNeighbors> nbh;
     CPBufNbhFields nbh_pt;
@@ -172,7 +182,7 @@ namespace exanb
     uint32_t ta; // type of particle A (current particle)
     uint32_t tb; // type of particle B (neighbor particles type)
     BufferProcessFunc process_neighbor;
-    
+
     ONIKA_HOST_DEVICE_FUNC inline void copy(size_t src, size_t dst) noexcept
     {
       drx[dst] = drx[src];
@@ -216,18 +226,11 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline void init(ComputePairBuffer& buf) const { m_init_func(buf); }
   };
 
-  template<class CPBufT>
-  static inline ComputePairBufferFactory< CPBufT, CPBufNullInit >
-  make_compute_pair_buffer()
+  template<class CPBufT , class CPBufInitFunc = CPBufNullInit >
+  static inline ComputePairBufferFactory< CPBufT, CPBufInitFunc >
+  make_compute_pair_buffer( const CPBufInitFunc & init_func = {} )
   {
-    return ComputePairBufferFactory< CPBufT, CPBufNullInit > { {} };
-  }
-
-  template<class CPBufT>
-  static inline ComputePairBufferFactory< CPBufT, std::function<void(CPBufT&)> >
-  make_compute_pair_buffer( const std::function<void(CPBufT&)> & init_func )
-  {
-    return ComputePairBufferFactory< CPBufT, std::function<void(CPBufT&)> > { init_func };
+    return ComputePairBufferFactory< CPBufT, CPBufInitFunc > { init_func };
   }
 
   static inline constexpr ComputePairBufferFactory< ComputePairBuffer2<> > make_default_pair_buffer() { return {}; }
