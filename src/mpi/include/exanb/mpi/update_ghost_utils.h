@@ -148,6 +148,9 @@ namespace exanb
 
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
       {
+        static constexpr size_t MPI_BUFFER_ALIGN = onika::memory::GenericHostAllocator::DefaultAlignBytes;
+        static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
+        static constexpr size_t MPI_BUFFER_ALIGN_MASK = ~ MPI_BUFFER_ALIGN_PAD;
         if( alloc_on_device != send_buffer.m_cuda_device )
         {
           send_buffer.clear();
@@ -176,7 +179,8 @@ namespace exanb
           }
           assert( particles_to_receive == particles_to_receive_chk );
 #         endif
-          const size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+          /*const*/ size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+          receive_size = ( receive_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
           
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
@@ -188,7 +192,8 @@ namespace exanb
           }
           assert( particles_to_send == particles_to_send_chk );
 #         endif
-          const size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+          /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+          send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
 
           recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + receive_size;
           send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;
