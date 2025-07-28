@@ -433,17 +433,16 @@ namespace exanb
       gridp->rebuild_particle_offsets();
     }
 
-#if 0
+#if 1
     {
       static constexpr const char* memTypeStr[] = { "Unregistered" , "Host" , "Device" , "Managed" };
       auto * sendbuf_ptr = ghost_comm_buffers.sendbuf_ptr(0);
       auto * recvbuf_ptr = ghost_comm_buffers.recvbuf_ptr(0);
       cudaPointerAttributes info;
       cudaPointerGetAttributes( &info , sendbuf_ptr );
-      lout << "sendbuf_ptr: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
+      lout << "grid_update_ghosts: sendbuf: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::flush;
       cudaPointerGetAttributes( &info , recvbuf_ptr );
-      lout << "recvbuf_ptr: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
-      //sendbuf_ptr[0] = recvbuf_ptr[0];
+      lout << ", recvbuf: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
     }
 #endif
 

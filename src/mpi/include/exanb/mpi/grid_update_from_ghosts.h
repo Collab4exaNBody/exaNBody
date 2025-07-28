@@ -366,7 +366,20 @@ namespace exanb
     {
       parallel_execution_queue().wait( recv_unpack_async[p] );
     }
-    
+
+#if 1
+    {
+      static constexpr const char* memTypeStr[] = { "Unregistered" , "Host" , "Device" , "Managed" };
+      auto * sendbuf_ptr = ghost_comm_buffers.sendbuf_ptr(0);
+      auto * recvbuf_ptr = ghost_comm_buffers.recvbuf_ptr(0);
+      cudaPointerAttributes info;
+      cudaPointerGetAttributes( &info , sendbuf_ptr );
+      lout << "grid_update_from_ghosts: sendbuf: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::flush;
+      cudaPointerGetAttributes( &info , recvbuf_ptr );
+      lout << ", recvbuf: device="<<info.device<<", devPtr="<<info.devicePointer<<", hostPtr="<<info.hostPointer<<", type="<<memTypeStr[info.type]<<std::endl;
+    }
+#endif
+
     ldbg << "--- end update_from_ghosts : received "<< ghost_cells_recv<<" ghost cells" << std::endl;
   }
 
