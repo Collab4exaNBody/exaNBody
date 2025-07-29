@@ -30,6 +30,35 @@ namespace exanb
 {
 
   template<class RNG, class CellT, class ParticleFilterFuncT, class IdField, class... field_ids>
+  static inline void apply_truncated_gaussian_noise( CellT& cell, RNG& re, double sigma, double sigma_cut,
+            const ParticleFilterFuncT& particle_filter,
+            IdField ID,
+            FieldSet<field_ids...> )
+  {
+    static constexpr bool has_id_field = CellT::has_field( ID );
+    std::normal_distribution<double> gaussian(0.0,sigma);
+    const size_t n = cell.size();
+    for(size_t i=0;i<n;i++)
+    {
+      Vec3d r = { cell[field::rx][i] , cell[field::ry][i] , cell[field::rz][i] };
+      uint64_t id = 0;
+      if constexpr ( has_id_field ) { id = cell[ID][i]; }
+      if( particle_filter(r,id) )
+      {
+        ( ... , (
+                 [&]() {
+                   double noise = gaussian(re);
+                   const double noiselen = sqrt(noise * noise);
+                   if (noiselen > sigma_cut) noise *= sigma_cut / noiselen;
+                   cell[onika::soatl::FieldId<field_ids>()][i] += noise;
+                 }()
+                 ) );
+      }
+    }
+  }
+
+  
+  template<class RNG, class CellT, class ParticleFilterFuncT, class IdField, class... field_ids>
   static inline void apply_gaussian_noise( CellT& cell, RNG& re, double sigma,
             const ParticleFilterFuncT& particle_filter,
             IdField ID,
@@ -58,21 +87,21 @@ namespace exanb
     >
   class GaussianNoise : public OperatorNode
   {
-    ADD_SLOT( GridT  , grid    , INPUT_OUTPUT );
-    ADD_SLOT( Domain , domain  , INPUT );
+    ADD_SLOT( GridT  , grid      , INPUT_OUTPUT );
+    ADD_SLOT( Domain , domain    , INPUT );
 
-    ADD_SLOT( double , sigma   , INPUT , 1.0 );
-    ADD_SLOT( double , dt      , INPUT , 1.0 );
-    ADD_SLOT( bool   , ghost   , INPUT , false );
+    ADD_SLOT( double , sigma     , INPUT , 1.0 );
+    ADD_SLOT( double , sigma_cut , INPUT );
+    ADD_SLOT( bool   , ghost     , INPUT , false );
 
     // optionaly limit noise to a geometric region
-    ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG , region           , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegions    , particle_regions , INPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG  , region           , INPUT_OUTPUT , OPTIONAL );
 
     // optionaly limit lattice generation to places where some mask has some value
-    ADD_SLOT( GridCellValues , grid_cell_values    , INPUT , OPTIONAL );
-    ADD_SLOT( std::string    , grid_cell_mask_name , INPUT , OPTIONAL );
-    ADD_SLOT( double         , grid_cell_mask_value, INPUT , OPTIONAL );
+    ADD_SLOT( GridCellValues     , grid_cell_values    , INPUT , OPTIONAL );
+    ADD_SLOT( std::string        , grid_cell_mask_name , INPUT , OPTIONAL );
+    ADD_SLOT( double             , grid_cell_mask_value, INPUT , OPTIONAL );
 
     static constexpr onika::soatl::FieldId<IdField> field_id = {};
     static constexpr FieldSetT field_set = {};
@@ -98,16 +127,31 @@ namespace exanb
       IJK gend = dims - IJK{ gl, gl, gl };
       IJK gdims = gend - gstart;
 
+      if (sigma_cut.has_value()) {
+        lout << "SIGMA CUT HAS VALUE " << *sigma_cut << std::endl;
 #     pragma omp parallel
-      {
-        auto& re = onika::parallel::random_engine();
-        GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
-          size_t i = grid_ijk_to_index( dims , loc + gstart );
-          apply_gaussian_noise( cells[i], re, *sigma, particle_filter, field_id, field_set );
-        }
-        GRID_OMP_FOR_END
+          auto& re = onika::parallel::random_engine();
+          GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
+            {
+              size_t i = grid_ijk_to_index( dims , loc + gstart );
+              apply_truncated_gaussian_noise( cells[i], re, *sigma, *sigma_cut, particle_filter, field_id, field_set );
+            }
+          GRID_OMP_FOR_END
+            }
+      } else {
+#     pragma omp parallel
+        {
+          auto& re = onika::parallel::random_engine();
+          GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
+            {
+              size_t i = grid_ijk_to_index( dims , loc + gstart );
+              apply_gaussian_noise( cells[i], re, *sigma, particle_filter, field_id, field_set );
+            }
+          GRID_OMP_FOR_END
+            }
       }
+      
     }
 
     // -----------------------------------------------
