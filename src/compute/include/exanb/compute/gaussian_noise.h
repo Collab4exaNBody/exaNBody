@@ -90,7 +90,6 @@ namespace exanb
                                                            grid_cell_mask_name.get_pointer(), 
                                                            grid_cell_mask_value.get_pointer() );
 
-      double sigma_dt = (*sigma) * std::sqrt( *dt );
       auto cells = grid->cells();
       IJK dims = grid->dimension();
       ssize_t gl = 0; 
@@ -105,7 +104,7 @@ namespace exanb
         GRID_OMP_FOR_BEGIN(gdims,_,loc, schedule(dynamic) )
         {
           size_t i = grid_ijk_to_index( dims , loc + gstart );
-          apply_gaussian_noise( cells[i], re, sigma_dt, particle_filter, field_id, field_set );
+          apply_gaussian_noise( cells[i], re, *sigma, particle_filter, field_id, field_set );
         }
         GRID_OMP_FOR_END
       }
