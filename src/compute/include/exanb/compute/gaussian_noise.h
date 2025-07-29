@@ -90,18 +90,18 @@ namespace exanb
     ADD_SLOT( GridT  , grid      , INPUT_OUTPUT );
     ADD_SLOT( Domain , domain    , INPUT );
 
-    ADD_SLOT( double , sigma     , INPUT , 1.0 );
-    ADD_SLOT( double , sigma_cut , INPUT );
-    ADD_SLOT( bool   , ghost     , INPUT , false );
+    ADD_SLOT( double , sigma     , INPUT , 1.0 , DocString("(YAML: float) Standard deviation of the gaussian distribution") );
+    ADD_SLOT( double , sigma_cut , INPUT  , DocString("(YAML: float) Maximum absolute value for the gaussian distribution. All values beyond this cutoff will be set to the cutoff value.") );
+    ADD_SLOT( bool   , ghost     , INPUT , false , DocString("(YAML: bool) Process ghosts atoms.") );
 
     // optionaly limit noise to a geometric region
-    ADD_SLOT( ParticleRegions    , particle_regions , INPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegions    , particle_regions , INPUT , OPTIONAL , DocString("(YAML: boolean expression) Boolean expression of particle_regions in which the gaussian noise should be applied.") );
     ADD_SLOT( ParticleRegionCSG  , region           , INPUT_OUTPUT , OPTIONAL );
 
     // optionaly limit lattice generation to places where some mask has some value
     ADD_SLOT( GridCellValues     , grid_cell_values    , INPUT , OPTIONAL );
-    ADD_SLOT( std::string        , grid_cell_mask_name , INPUT , OPTIONAL );
-    ADD_SLOT( double             , grid_cell_mask_value, INPUT , OPTIONAL );
+    ADD_SLOT( std::string        , grid_cell_mask_name , INPUT , OPTIONAL , DocString("(YAML: string) Name of grid_cell_values mask that will act as a mask region in which the gaussian noise should be applied."));
+    ADD_SLOT( double             , grid_cell_mask_value, INPUT , OPTIONAL , DocString("(YAML: float) Value of the grid_cell_values used to define the mask."));
 
     static constexpr onika::soatl::FieldId<IdField> field_id = {};
     static constexpr FieldSetT field_set = {};
@@ -159,8 +159,32 @@ namespace exanb
     inline std::string documentation() const override final
     {
       return R"EOF(
-Apply a white gaussian noise to selected fields.
+Apply a white gaussian noise to selected fields. In addition, a cutoff can be passed to the operator to avoid values beyond it. Be careful, doing this do not lead to a gaussian distribution but a truncated one!
 Note: processes particles in ghost layers if and only if ghost input is true
+
+Usage example:
+
+input_data:
+  - particle_types:
+      particle_type_map: { A: 0 }
+  - particle_type_add_properties:
+      A: { mass: 25.0 Da }
+  - domain:
+      cell_size: 5.0 ang
+      grid_dims: [20,20,20]
+      bounds: [[0 ang ,0 ang,0 ang],[100 ang, 100 ang, 100 ang]]
+      xform: [[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
+      periodic: [true,true,true]
+      expandable: false
+  - init_rcb_grid
+  - lattice:
+      structure: BCC
+      types: [ A, A]
+      size: [ 5.0 ang , 5.0 ang , 5.0 ang ]
+  - gaussian_noise_r: { sigma: 0.2 ang , sigma_cut: 0.3 ang }
+  - gaussian_noise_v: { sigma: 50. ang/ps }
+  - gaussian_noise_v: { sigma: 50. ang/ps, region: SPHERE }
+  - gaussian_noise_v: { sigma: 50. ang/ps, grid_cell_mask_name: MYMASK, grid_cell_mask_value: 1. }
 )EOF";
     }
 
