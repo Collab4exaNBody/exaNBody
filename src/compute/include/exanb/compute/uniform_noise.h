@@ -114,8 +114,32 @@ namespace exanb
     inline std::string documentation() const override final
     {
       return R"EOF(
-Apply a white uniform noise to selected fields.
+Apply a white gaussian noise to selected fields. In addition, a cutoff can be passed to the operator to avoid values beyond it. Be careful, doing this do not lead to a gaussian distribution but a truncated one!
 Note: processes particles in ghost layers if and only if ghost input is true
+
+Usage example:
+
+input_data:
+  - particle_types:
+      particle_type_map: { A: 0 }
+  - particle_type_add_properties:
+      A: { mass: 25.0 Da }
+  - domain:
+      cell_size: 5.0 ang
+      grid_dims: [20,20,20]
+      bounds: [[0 ang ,0 ang,0 ang],[100 ang, 100 ang, 100 ang]]
+      xform: [[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
+      periodic: [true,true,true]
+      expandable: false
+  - init_rcb_grid
+  - lattice:
+      structure: BCC
+      types: [ A, A]
+      size: [ 5.0 ang , 5.0 ang , 5.0 ang ]
+  - uniform_noise_r: { sigma: 0.2 ang }
+  - uniform_noise_v: { sigma: 50. ang/ps }
+  - uniform_noise_v: { sigma: 50. ang/ps, region: SPHERE }
+  - uniform_noise_v: { sigma: 50. ang/ps, grid_cell_mask_name: MYMASK, grid_cell_mask_value: 1. }
 )EOF";
     }
 
