@@ -70,8 +70,6 @@ namespace exanb
     , const ScalarSourceTermInstance user_function
     , double user_threshold
     , LatticeCollection lattice  
-    , double sigma_noise
-    , double noise_cutoff
     , const Vec3d& position_shift
     , const std::string& void_mode
     , const Vec3d& void_center
@@ -92,9 +90,6 @@ namespace exanb
                                               >;
 
     Vec3d lattice_size = lattice.m_size;
-    double noise_upper_bound = std::numeric_limits<double>::max();
-    if( noise_cutoff >= 0.0 ) noise_upper_bound = noise_cutoff;
-    else noise_upper_bound = std::min(lattice_size.x,std::min(lattice_size.y,lattice_size.z)) * 0.5;
 
     // MPI Initialization
     int rank=0, np=1;
@@ -108,9 +103,7 @@ namespace exanb
     for(const auto& s:lattice.m_types) lout <<" "<<s;
     lout << std::endl
          << "lattice cell size = "<< lattice_size << std::endl
-         << "position shift    = "<< position_shift <<std::endl
-         << "noise sigma       = "<< sigma_noise <<std::endl
-         << "noise cutoff      = "<< noise_cutoff <<std::endl;
+         << "position shift    = "<< position_shift <<std::endl;
 
     ParticleTypeMap typeMap;
     if( ! particle_type_map.empty() )
@@ -259,9 +252,6 @@ namespace exanb
 
 #   pragma omp parallel
     {
-      auto& re = onika::parallel::random_engine();
-      std::normal_distribution<double> f_rand(0.,1.);
-      
 #     pragma omp for collapse(3) reduction(+:local_generated_count)
       for (ssize_t k=k_start; k<=k_end; k++)
       {
@@ -277,10 +267,6 @@ namespace exanb
 
 	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
         			{          			
-                Vec3d noise = Vec3d{ f_rand(re) * sigma_noise , f_rand(re) * sigma_noise , f_rand(re) * sigma_noise };
-                const double noiselen = norm(noise);
-                if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
-                lab_pos += noise;
                 grid_pos = inv_xform * lab_pos;
 
                 if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )

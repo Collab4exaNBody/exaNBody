@@ -82,8 +82,6 @@ namespace exanb
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
     ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL );    
-    ADD_SLOT( double           , noise        , INPUT , 0.0);
-    ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
@@ -216,7 +214,6 @@ namespace exanb
       
       if( lattice.m_types.size() != size_t(lattice.m_np) ) { fatal_error()<<lattice.m_types.size()<<"types are defined, but structure "<< (*structure) <<" requires exactly "<<lattice.m_np<<std::endl; }
       
-      const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
       
@@ -226,7 +223,7 @@ namespace exanb
       
       generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                                 , lattice, *noise, noise_cutoff_ifset, *shift
+                                 , lattice, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
     
