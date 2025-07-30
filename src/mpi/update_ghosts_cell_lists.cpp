@@ -29,7 +29,7 @@ namespace exanb
   
   struct GhostUpdateCellLists
   {
-    ghost_sender[]...
+    int ghost_sender; /* to be continued */
   };
   
   struct UpdateGhostCellListsNode : public OperatorNode
