@@ -82,8 +82,6 @@ namespace exanb
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED , DocString{"(YAML: list) List of types. Must be consistent with the required crystal structure. (SC:1 | BCC:2 | FCC,2BCT,HCP:4 | c-DIA,h-DIA,graphite:8)"} );
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED , DocString{"(YAML: Vec3d) Vector with crystal unit cell lengths."} );
     ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL , DocString{"(YAML: list of Vec3d) Only when structure CUSTOM is required. List of positions of individual atoms. Must be consistent with number of types provided."} );
-    ADD_SLOT( double           , noise        , INPUT , 0.0);
-    ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );    
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} , DocString{"(YAML: Vec3d) Vector for shifting atomic positions in the unit cell."} );
 
     // this additional parameter will decide domain's dimensions
@@ -219,7 +217,6 @@ namespace exanb
 
       if( lattice.m_types.size() != size_t(lattice.m_np) ) { fatal_error()<<lattice.m_types.size()<<"types are defined, but structure "<< (*structure) <<" requires exactly "<<lattice.m_np<<std::endl; }
       
-      const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
       
@@ -263,7 +260,7 @@ namespace exanb
       
       generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                               , lattice, *noise, noise_cutoff_ifset, *shift
+                               , lattice, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
 
