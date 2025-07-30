@@ -72,8 +72,6 @@ namespace exanb
     , const ScalarSourceTermInstance user_function
     , double user_threshold
     , LatticeCollection lattice  
-    , double sigma_noise
-    , double noise_cutoff
     , bool deterministic_noise
     , const Vec3d& position_shift
     , const std::string& void_mode
@@ -95,9 +93,6 @@ namespace exanb
                                               >;
 
     Vec3d lattice_size = lattice.m_size;
-    double noise_upper_bound = std::numeric_limits<double>::max();
-    if( noise_cutoff >= 0.0 ) noise_upper_bound = noise_cutoff;
-    else noise_upper_bound = std::min(lattice_size.x,std::min(lattice_size.y,lattice_size.z)) * 0.5;
 
     // MPI Initialization
     int rank=0, np=1;
@@ -111,9 +106,7 @@ namespace exanb
     for(const auto& s:lattice.m_types) lout <<" "<<s;
     lout << std::endl
          << "lattice cell size = "<< lattice_size << std::endl
-         << "position shift    = "<< position_shift <<std::endl
-         << "noise sigma       = "<< sigma_noise <<std::endl
-         << "noise cutoff      = "<< noise_cutoff <<std::endl;
+         << "position shift    = "<< position_shift <<std::endl;
 
     ParticleTypeMap typeMap;
     if( ! particle_type_map.empty() )
@@ -284,9 +277,6 @@ namespace exanb
 
 #   pragma omp parallel num_threads(nthreads)
     {
-      std::mt19937_64 & re = deterministic_noise ? det_re : onika::parallel::random_engine() ;
-      std::normal_distribution<double> f_rand(0.,1.);
-
 #     pragma omp for collapse(3) reduction(+:local_generated_count)
       for (ssize_t k=k_start; k<=k_end; k++)
       {
@@ -302,27 +292,9 @@ namespace exanb
               const bool is_inner_cell = loc.i>=gl && loc.i<(local_grid_dim.i-gl)
                                       && loc.j>=gl && loc.j<(local_grid_dim.j-gl)
                                       && loc.k>=gl && loc.k<(local_grid_dim.k-gl);
-
-              Vec3d noise = { 0. , 0. , 0. };
-              if( sigma_noise > 0.0 )
-              {
-                noise.x = f_rand(re) * sigma_noise;
-                noise.y = f_rand(re) * sigma_noise;
-                noise.z = f_rand(re) * sigma_noise;
-              }
-
-	            if( grid.contains(loc) && is_inner_cell && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds_no_ghost() , grid_pos ) )
-        			{
-                if( noise_upper_bound <= 0.0 )
-                {
-                  noise = Vec3d{0.,0.,0.};
-                }
-                else
-                {
-                  const double noiselen = norm(noise);
-                  if( noiselen > noise_upper_bound ) noise *= noise_upper_bound/noiselen;
-                }
-                lab_pos += noise;
+              
+	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
+        			{          			
                 grid_pos = inv_xform * lab_pos;
 
                 if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
