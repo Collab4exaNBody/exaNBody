@@ -90,18 +90,18 @@ namespace exanb
     ADD_SLOT( GridT  , grid      , INPUT_OUTPUT );
     ADD_SLOT( Domain , domain    , INPUT );
 
-    ADD_SLOT( double , sigma     , INPUT , 1.0 , DocString("(YAML: float) Standard deviation of the gaussian distribution") );
-    ADD_SLOT( double , sigma_cut , INPUT  , DocString("(YAML: float) Maximum absolute value for the gaussian distribution. All values beyond this cutoff will be set to the cutoff value.") );
-    ADD_SLOT( bool   , ghost     , INPUT , false , DocString("(YAML: bool) Process ghosts atoms.") );
+    ADD_SLOT( double , sigma     , INPUT , 1.0 , DocString{"(YAML: float) Standard deviation of the gaussian distribution"} );
+    ADD_SLOT( double , sigma_cut , INPUT  , DocString{"(YAML: float) Maximum absolute value for the gaussian distribution. All values beyond this cutoff will be set to the cutoff value."} );
+    ADD_SLOT( bool   , ghost     , INPUT , false , DocString{"(YAML: bool) Process ghosts atoms."} );
 
     // optionaly limit noise to a geometric region
-    ADD_SLOT( ParticleRegions    , particle_regions , INPUT , OPTIONAL , DocString("(YAML: boolean expression) Boolean expression of particle_regions in which the gaussian noise should be applied.") );
-    ADD_SLOT( ParticleRegionCSG  , region           , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegions    , particle_regions , INPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG  , region           , INPUT_OUTPUT , OPTIONAL , DocString{"Region identifier or boolean expression with region identifiers to which the gaussian noise should be applied."} );
 
     // optionaly limit lattice generation to places where some mask has some value
     ADD_SLOT( GridCellValues     , grid_cell_values    , INPUT , OPTIONAL );
-    ADD_SLOT( std::string        , grid_cell_mask_name , INPUT , OPTIONAL , DocString("(YAML: string) Name of grid_cell_values mask that will act as a mask region in which the gaussian noise should be applied."));
-    ADD_SLOT( double             , grid_cell_mask_value, INPUT , OPTIONAL , DocString("(YAML: float) Value of the grid_cell_values used to define the mask."));
+    ADD_SLOT( std::string        , grid_cell_mask_name , INPUT , OPTIONAL , DocString{"(YAML: string) Name of grid_cell_values mask that will act as a mask region in which the gaussian noise should be applied."} );
+    ADD_SLOT( double             , grid_cell_mask_value, INPUT , OPTIONAL , DocString{"(YAML: float) Value of the grid_cell_values used to define the mask."} );
 
     static constexpr onika::soatl::FieldId<IdField> field_id = {};
     static constexpr FieldSetT field_set = {};
@@ -128,7 +128,6 @@ namespace exanb
       IJK gdims = gend - gstart;
 
       if (sigma_cut.has_value()) {
-        lout << "SIGMA CUT HAS VALUE " << *sigma_cut << std::endl;
 #     pragma omp parallel
         {
           auto& re = onika::parallel::random_engine();
