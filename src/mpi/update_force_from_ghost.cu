@@ -39,7 +39,7 @@ under the License.
 #include <mpi.h>
 #include <exanb/mpi/update_ghost_utils.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
-#include <exanb/mpi/update_ghosts.h>
+#include <exanb/mpi/update_from_ghosts.h>
 #include <onika/mpi/data_types.h>
 
 namespace exanb
@@ -48,17 +48,13 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
   // === register factory ===
-  template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , AddDefaultFields< typename GridT::Fields > , true >;
-  template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false >;
-  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , AddDefaultFields< RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > > , true >;
-  template<typename GridT> using UpdateGhostsOptOnly = UpdateGhostsNode< GridT , FieldSet<> , false >;
+  template<typename GridT> using UpdateForceFromGhosts = UpdateFromGhosts< GridT , FieldSet<field::_fx,field::_fy,field::_fz> , UpdateValueAdd >;
+  template<typename GridT> using UpdateOptFromGhosts = UpdateFromGhosts< GridT , FieldSet<> , UpdateValueAdd >;
 
-  ONIKA_AUTORUN_INIT(update_ghosts)
+  ONIKA_AUTORUN_INIT(update_force_from_ghost)
   {
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_all",       make_grid_variant_operator<UpdateGhostsAllFields> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_fv", make_grid_variant_operator<UpdateGhostsAllFieldsNoFV> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_r",         make_grid_variant_operator<UpdateGhostsR> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_opt",       make_grid_variant_operator<UpdateGhostsOptOnly> );
+    OperatorNodeFactory::instance()->register_factory( "update_force_from_ghost", make_grid_variant_operator<UpdateForceFromGhosts> );
+    OperatorNodeFactory::instance()->register_factory( "update_opt_from_ghost", make_grid_variant_operator<UpdateForceFromGhosts> );
   }
 
 }

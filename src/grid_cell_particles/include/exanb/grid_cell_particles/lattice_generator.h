@@ -66,36 +66,34 @@ namespace exanb
 
     // limit lattice generation to specified region
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL , DocString{"Region identifier or boolean expression of region identifiers to be filled with particles"} );
 
     // limit lattice generation to places where some mask has some value
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT , OPTIONAL );
-    ADD_SLOT( std::string    , grid_cell_mask_name , INPUT , OPTIONAL );
-    ADD_SLOT( double         , grid_cell_mask_value , INPUT , OPTIONAL );
+    ADD_SLOT( std::string    , grid_cell_mask_name , INPUT , OPTIONAL , DocString{"(YAML: string) Name of grid_cell_values mask that will act as a mask region in which particles will be created."} );
+    ADD_SLOT( double         , grid_cell_mask_value , INPUT , OPTIONAL , DocString{"(YAML: float) Value of the grid_cell_values used to define the mask."} );
     
     // limit lattice generation given a source term spatial function
     ADD_SLOT( ScalarSourceTermInstance , user_function , INPUT , OPTIONAL , DocString{"user scalar source term function defining space locations where particle generation is enabled"} );
     ADD_SLOT( double                   , user_threshold, INPUT , 0.0 , DocString{"if user_function(...) returns a value greater or equal to this threshold, allows particle generation, otherwise prevent it"} );
 
     // Variables related to the crystal structure : can be a predefined structure or a custom one
-    ADD_SLOT( std::string      , structure    , INPUT , REQUIRED );
-    ADD_SLOT( StringVector     , types        , INPUT , REQUIRED );    
-    ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED );    
-    ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL );    
-    ADD_SLOT( double           , noise        , INPUT , 0.0);
-    ADD_SLOT( double           , noise_cutoff , INPUT , OPTIONAL );
-    ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} );
+    ADD_SLOT( std::string      , structure    , INPUT , REQUIRED , DocString{"(YAML: string) Name of required crystal structure. SC or BCC or FCC or 2BCT or HCP or h-DIA or c-DIA or graphite."} );
+    ADD_SLOT( StringVector     , types        , INPUT , REQUIRED , DocString{"(YAML: list) List of types. Must be consistent with the required crystal structure. (SC:1 | BCC:2 | FCC,2BCT,HCP:4 | c-DIA,h-DIA,graphite:8)"} );
+    ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED , DocString{"(YAML: Vec3d) Vector with crystal unit cell lengths."} );
+    ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL , DocString{"(YAML: list of Vec3d) Only when structure CUSTOM is required. List of positions of individual atoms. Must be consistent with number of types provided."} );
+    ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} , DocString{"(YAML: Vec3d) Vector for shifting atomic positions in the unit cell."} );
     ADD_SLOT( Mat3d            , rotation_matrix , INPUT , Mat3d{1.,0.,0.,0.,1.,0.,0.,0.,1.} );
     ADD_SLOT( Vec3d            , rotation_axis   , INPUT , Vec3d{1.,0.,0.} );
     ADD_SLOT( double           , rotation_angle  , INPUT , 0.0 );
     ADD_SLOT( bool             , rotation_random , INPUT , false );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
-    ADD_SLOT( std::string      , void_mode          , INPUT , "none"); // none means no void, simple is the one void mode, porosity means randomly distributed voids
-    ADD_SLOT( Vec3d            , void_center        , INPUT , Vec3d{0., 0., 0.});
-    ADD_SLOT( double           , void_radius        , INPUT , 0.);
-    ADD_SLOT( double           , void_porosity      , INPUT , 0.);
-    ADD_SLOT( double           , void_mean_diameter , INPUT , 0.);        
+    ADD_SLOT( std::string      , void_mode          , INPUT , "none", DocString{"(YAML: string) Void mode (none, simple or porosity)."} );
+    ADD_SLOT( Vec3d            , void_center        , INPUT , Vec3d{0., 0., 0.}, DocString{"(YAML: Vec3d) Void center position in the case of a simple void is required."} );
+    ADD_SLOT( double           , void_radius        , INPUT , 0., DocString{"(YAML: float) Void radius in the case of a simple void is requied."} );
+    ADD_SLOT( double           , void_porosity      , INPUT , 0., DocString{"(YAML: float) Target porosity in the case the void mode is set to porosity."} );
+    ADD_SLOT( double           , void_mean_diameter , INPUT , 0., DocString{"(YAML: float) Mean void diameterin the case the void mode is set to porosity."} );
     
   public:
     inline void execute () override final
@@ -112,6 +110,23 @@ namespace exanb
         }
       }
 
+      if( (*structure == "SC") && (types->size() != 1) )
+        {
+          fatal_error() << "For SC structure, types must contain 1 specy. Example: types: [ A ]"<<std::endl;
+        }
+      else if ( (*structure == "BCC") && (types->size() != 2) )
+        {
+          fatal_error() << "For BCC structure, types must contain 2 species. Example: types: [ A, A ]"<<std::endl;
+        }
+      else if ( (*structure == "2BCT" || *structure == "FCC" || *structure == "HCP") && (types->size() != 4) )
+        {
+          fatal_error() << "For 2BCT, FCC or HCP structure, types must contain 4 species. Example: types: [ A, A, B, B ]"<<std::endl;
+        }
+      else if ( (*structure == "c-DIA" || *structure == "h-DIA" || *structure == "graphite") && (types->size() != 8) )
+        {
+          fatal_error() << "For c-DIA, h-DIA or graphite structure, types must contain 8 species. Example: types: [ A, A, B, B, C, C, D, D ]"<<std::endl;
+        }
+        
       LatticeCollection lattice;
       lattice.m_structure = *structure;
       lattice.m_size = *size;
@@ -135,7 +150,6 @@ namespace exanb
         }
         lattice.m_np = types->size();
         lattice.m_types = *types;
-        // Checking that positions are contained between 0 and 1 -> fractional coordinates
         lattice.m_positions = *positions;
       }
       else if (*structure == "SC")
@@ -226,13 +240,12 @@ namespace exanb
         const auto p = lattice.m_positions[i];
         if( p.x < 0.0 || p.x > 1. || p.y < 0.0 || p.y > 1. || p.z < 0.0 || p.z > 1. )
         {
-          fatal_error()<<"lattice position #"<<i<<", with coordinates "<<p<<", is out of unit cell"<<std::endl;
+          fatal_error()<<"lattice position #"<<i<<", with coordinates "<<p<<", is out of unit cell. Positions must be provided in reduced coordinates."<<std::endl;
         }
       }
       
       if( lattice.m_types.size() != size_t(lattice.m_np) ) { fatal_error()<<lattice.m_types.size()<<"types are defined, but structure "<< (*structure) <<" requires exactly "<<lattice.m_np<<std::endl; }
       
-      const double noise_cutoff_ifset = noise_cutoff.has_value() ? *noise_cutoff : -1.0;
       std::shared_ptr<exanb::ScalarSourceTerm> user_source_term = nullptr;
       if( user_function.has_value() ) user_source_term = *user_function;
       
@@ -242,10 +255,67 @@ namespace exanb
       
       generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                                 , lattice, *noise, noise_cutoff_ifset, *shift
+                                 , lattice, *shift
                                , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
-    
+
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+
+Replicate a unit cell with particles as specific locations in the simulation domain or specific regions. Various crystal structures can be required: SC, BCC, 2BCT, FCC, HCP, h-DIA, c-DIA, graphite and CUSTOM. These unit cells are all orthorhombic (all angles = 90 deg, but lengths can be different). In the case of CUSTOM, the user needs to provide the particles location as well.
+
+This operator requires the domain to be fully defined before. Also, the init_rcb_grid operator needs to be called in between domain and lattice operators, as in the example below. See the online documentation to get more usage examples.
+
+Usage examples:
+
+input_data:
+  - domain:
+      cell_size: 5.0 ang
+      grid_dims: [20,20,20]
+      bounds: [[0 ang ,0 ang,0 ang],[100 ang, 100 ang, 100 ang]]
+      xform: [[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
+      periodic: [true,true,true]
+      expandable: false
+  - init_rcb_grid
+  - lattice:
+      structure: BCC
+      types: [ Ta , Ta]
+      size: [ 3. ang , 3. ang , 3. ang ]
+
+input_data:
+  - particle_regions:
+      - ZONE1:
+          quadric:
+            shape: conex
+            transform:
+              - scale: [ 1 , 1 , 1 ]
+              - translate: [ 0 , 50 ang , 50 ang ]
+      - ZONE2:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 150 , 100 , 50 ]
+              - yrot: pi/4
+              - translate: [ 150 ang , 150 ang , 150 ang ]
+      - ZONE3:
+          bounds: [ [ 100 ang , 100 ang , 100 ang ] , [ 200 ang , 200 ang , 200 ang ] ]
+  - domain:
+      cell_size: 20.0 ang
+      grid_dims: [15,15,15]
+      bounds: [[0 ang ,0 ang,0 ang],[300 ang, 300 ang, 300 ang]]
+      xform: [[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
+      periodic: [true,true,true]
+      expandable: false
+  - init_rcb_grid
+  - lattice:
+      structure: SC
+      types: [ A ]
+      size: [ 3 ang , 3 ang , 3 ang ]
+      region: ZONE2 and ( ZONE3 or not ZONE1 )
+
+)EOF";
+    }    
   };
 
 }

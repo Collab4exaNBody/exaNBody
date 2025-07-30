@@ -22,6 +22,7 @@ under the License.
 #include <onika/soatl/field_id.h>
 #include <onika/cuda/cuda.h>
 #include <onika/integral_constant.h>
+#include <onika/math/basic_types_operators.h>
 
 namespace exanb
 {
@@ -101,9 +102,9 @@ namespace exanb
       ( ... , ( assert_field_equal( cells[cell_i][onika::soatl::FieldId<field_ids>{}][p_i] , in[onika::soatl::FieldId<field_ids>{}] ) ) );
     }
 
-    template<bool ThreadSafe=false>
+    template<class T1, class T2, bool ThreadSafe>
     ONIKA_HOST_DEVICE_FUNC
-    inline void operator() ( const double& upd, const double& in, onika::BoolConst<ThreadSafe> = {}) const
+    inline void operator() ( const T1& upd, const T2& in, onika::BoolConst<ThreadSafe> = {}) const
     {
       assert_field_equal( upd , in );
     }
