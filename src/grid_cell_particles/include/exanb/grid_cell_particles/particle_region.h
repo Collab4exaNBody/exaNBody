@@ -40,13 +40,16 @@ namespace exanb
 {  
   struct ParticleRegion
   {
-    static constexpr size_t MAX_NAME_LEN = 13;
-    static constexpr AABB NO_BOUNDS = { { -onika::cuda::numeric_limits<double>::infinity , -onika::cuda::numeric_limits<double>::infinity , -onika::cuda::numeric_limits<double>::infinity } , 
-                      {  onika::cuda::numeric_limits<double>::infinity ,  onika::cuda::numeric_limits<double>::infinity ,  onika::cuda::numeric_limits<double>::infinity } };
+    static inline constexpr uint64_t MAX_END_ID = std::numeric_limits<uint64_t>::max();
+    static inline constexpr uint64_t MAX_VALID_ID = MAX_END_ID - 1;
+    static inline constexpr size_t MAX_NAME_LEN = 13;
+    static inline constexpr AABB NO_BOUNDS = {
+      { -onika::cuda::numeric_limits<double>::infinity , -onika::cuda::numeric_limits<double>::infinity , -onika::cuda::numeric_limits<double>::infinity } , 
+      {  onika::cuda::numeric_limits<double>::infinity ,  onika::cuda::numeric_limits<double>::infinity ,  onika::cuda::numeric_limits<double>::infinity } };
     
     // default id range includes all possible ids
     uint64_t m_id_start = 0;
-    uint64_t m_id_end = std::numeric_limits<uint64_t>::max();
+    uint64_t m_id_end = MAX_END_ID;
     
     // default bounds includes the whole 3D space
     AABB m_bounds = NO_BOUNDS;
@@ -184,49 +187,23 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline bool contains(const Vec3d& r , uint64_t id) const
     {
       uint64_t rvalues = 0;
-//      lout << "regions =";
       for(int i=0;i<m_nb_regions;i++)
       {
         uint64_t C = m_regions[i].contains(r,id);
-//        lout << " "<<C;
         rvalues |= ( C << i );
       }
-//      lout<<std::endl;
-
-//      lout << "operands =";
-      // when object contains no expression at all, it implicitly returns true;
       uint64_t values = ( m_nb_operands > 0 ) ? 0 : 1;
       for(unsigned int i=0;i<m_nb_operands;i++)
       {
-//        lout << " " << (int)m_operand_places[i];
         values |= ( ( rvalues >> m_operand_places[i] ) & 1ull ) << i;
       }
-//      lout<<std::endl;
       
       uint64_t expr = m_expr;
       unsigned int nop = m_nb_operands;
       for(unsigned int i=0;i<m_nb_operands_log2;i++)
       {
-//        lout << "Evaluate round "<<i<<std::endl
-//             << "\tvalues =";
-//        for(unsigned int i=0;i<nop;i++) lout << " " << ( (values>>i) & 1ull );
-//        lout<<std::endl<<"\texpr   =";
-//        for(unsigned int i=0;i<nop;i++) lout << " " << ( (expr>>i) & 1ull );
-//        lout<<std::endl;
-
-        values = values ^ expr; // apply input optional negation
-//        lout << "\txor    =";
-//        for(unsigned int i=0;i<nop;i++) lout << " " << ( (values>>i) & 1ull );
-//        lout<<std::endl;
-        
+        values = values ^ expr; // apply input optional negation        
         values = values & (values>>1); // execute AND operation
-//        lout << "\tand    =";
-//        for(unsigned int i=0;i<nop;i++)
-//        {
-//          if(i%2==0) lout << " " << ( (values>>i) & 1ull );
-//          else lout << " x";
-//        }
-//        lout<<std::endl;
 
         // prepare next operations for next round
         expr = expr >> nop;
@@ -239,11 +216,7 @@ namespace exanb
           next |= ( ( ( values >> (j*2) ) & 1ull ) << j );
         }
         values = next;
-//        lout << "\tpacked =";
-//        for(unsigned int i=0;i<nop;i++) lout << " " << ( (values>>i) & 1ull );
-//        lout<<std::endl;
       }
-//      lout << "result = "<< (values&1ull) <<std::endl;
       return ( values & 1ull ) != 0;
     }
   };

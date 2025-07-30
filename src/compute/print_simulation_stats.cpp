@@ -43,7 +43,7 @@ namespace exanb
   
     inline void execute () override final
     {
-      lout<<"step="<<*timestep<<", time=" << (*physical_time)
+      lout<< std::defaultfloat << std::scientific << std::setprecision(6) << std::setw(8) << "step="<<*timestep<<", time=" << (*physical_time)
       << ", N="<< simulation_stats->m_particle_count << ", Kin.E="<<simulation_stats->m_kinetic_energy
       <<", vel=["<<simulation_stats->m_min_vel<<";"<<simulation_stats->m_max_vel<<"]"
       <<", acc=["<<simulation_stats->m_min_acc<<";"<<simulation_stats->m_max_acc<<"]" <<std::endl;

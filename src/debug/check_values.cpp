@@ -223,19 +223,19 @@ namespace exanb
         GRID_OMP_FOR_BEGIN( dims-2*gl, _, loc, reduction(+:r_l2_norm,a_l2_norm,v_l2_norm) )
         {
           size_t i = grid_ijk_to_index( dims , loc+gl );
-          const uint64_t* __restrict__ part_ids = cells[i][field::id];
+          const auto* __restrict__ part_ids = cells[i][field::id];
 
-          const double* __restrict__ rx = cells[i][field::rx];
-          const double* __restrict__ ry = cells[i][field::ry];
-          const double* __restrict__ rz = cells[i][field::rz];
+          const auto* __restrict__ rx = cells[i][field::rx];
+          const auto* __restrict__ ry = cells[i][field::ry];
+          const auto* __restrict__ rz = cells[i][field::rz];
 
-          const double* __restrict__ ax = cells[i][field::ax];
-          const double* __restrict__ ay = cells[i][field::ay];
-          const double* __restrict__ az = cells[i][field::az];
+          const auto* __restrict__ ax = cells[i][field::ax];
+          const auto* __restrict__ ay = cells[i][field::ay];
+          const auto* __restrict__ az = cells[i][field::az];
 
-          const double* __restrict__ vx = cells[i][field::vx];
-          const double* __restrict__ vy = cells[i][field::vy];
-          const double* __restrict__ vz = cells[i][field::vz];
+          const auto* __restrict__ vx = cells[i][field::vx];
+          const auto* __restrict__ vy = cells[i][field::vy];
+          const auto* __restrict__ vz = cells[i][field::vz];
 
           size_t n_part = cells[i].size();
           for(size_t j=0;j<n_part;j++)
@@ -277,18 +277,17 @@ namespace exanb
                   {
                     if( *fatal )
                     {
-                      lerr << "particle #"<<part_ids[j]<<" : re="<<std::sqrt(r_err2)<<"/"<<pos_max_err<<" ae="<<std::sqrt(a_err2)<<"/"<< acc_max_err<<" ve="<<std::sqrt(v_err2)<<"/"<< vel_max_err<<std::endl
+                      fatal_error() << "particle #"<<part_ids[j]<<" : re="<<std::sqrt(r_err2)<<"/"<<pos_max_err<<" ae="<<std::sqrt(a_err2)<<"/"<< acc_max_err<<" ve="<<std::sqrt(v_err2)<<"/"<< vel_max_err<<std::endl
                            << " : a="<<Vec3d{ax[j],ay[j],az[j]}<<" aref="<<Vec3d{it->m_a[0],it->m_a[1],it->m_a[2]}<<std::endl
                            << " : v="<<Vec3d{vx[j],vy[j],vz[j]}<<" vref="<<Vec3d{it->m_v[0],it->m_v[1],it->m_v[2]}<<std::endl
                            << " : r="<<r<<" rref="<<ref_r<<std::endl;
-                      std::abort();
                     }
                     else
                     {
-                    ldbg << "particle #"<<part_ids[j]<<" : re="<<std::sqrt(r_err2)<<"/"<<pos_max_err<<" ae="<<std::sqrt(a_err2)<<"/"<< acc_max_err<<std::endl
-                         << " : a="<<Vec3d{ax[j],ay[j],az[j]}<<" aref="<<Vec3d{it->m_a[0],it->m_a[1],it->m_a[2]}<<std::endl
-                         << " : v="<<Vec3d{vx[j],vy[j],vz[j]}<<" vref="<<Vec3d{it->m_v[0],it->m_v[1],it->m_v[2]}<<std::endl
-                         << " : r="<<r<<" rref="<<ref_r<<std::endl;
+                      ldbg << "particle #"<<part_ids[j]<<" : re="<<std::sqrt(r_err2)<<"/"<<pos_max_err<<" ae="<<std::sqrt(a_err2)<<"/"<< acc_max_err<<std::endl
+                           << " : a="<<Vec3d{ax[j],ay[j],az[j]}<<" aref="<<Vec3d{it->m_a[0],it->m_a[1],it->m_a[2]}<<std::endl
+                           << " : v="<<Vec3d{vx[j],vy[j],vz[j]}<<" vref="<<Vec3d{it->m_v[0],it->m_v[1],it->m_v[2]}<<std::endl
+                           << " : r="<<r<<" rref="<<ref_r<<std::endl;
                     }
                   }
                 }
@@ -323,7 +322,7 @@ namespace exanb
         if( nprocs > 1 )
         {
           int data_size = reference_values.size();
-	  std::vector<int> all_data_sizes( nprocs , 0 );
+          std::vector<int> all_data_sizes( nprocs , 0 );
           MPI_Allgather( &data_size, 1 , MPI_INT , all_data_sizes.data() , 1 , MPI_INT , comm );
           assert( all_data_sizes[rank] == data_size );
           
