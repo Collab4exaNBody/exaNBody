@@ -29,7 +29,7 @@ compute_force: nop
 
 input_data:
   - particle_types:
-      particle_types_map: { Ta: 0 }
+      particle_type_map: { Ta: 0 }
   - particle_type_add_properties:
       Ta: { mass: 180.95 Da, z: 73, chage: 0 e- }
   - particle_regions:
