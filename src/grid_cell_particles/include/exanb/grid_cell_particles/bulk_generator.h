@@ -87,7 +87,7 @@ namespace exanb
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} , DocString{"(YAML: Vec3d) Vector for shifting atomic positions in the unit cell."} );
 
     // this additional parameter will decide domain's dimensions
-    ADD_SLOT( IJK             , repeat        , INPUT , IJK{1,1,1} , DocString{"(YAML: Vec3d) Vector with required replication number of unit cell along x,y,z.);
+    ADD_SLOT( IJK             , repeat        , INPUT , IJK{1,1,1} , DocString{"(YAML: Vec3d) Vector with required replication number of unit cell along x,y,z."} );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
     ADD_SLOT( std::string      , void_mode          , INPUT , "none", DocString{"(YAML: string) Void mode (none, simple or porosity)."} );
