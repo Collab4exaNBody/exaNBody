@@ -68,15 +68,17 @@ input_data:
       structure: SC
       types: [ A ]
       size: [ 3. ang , 3. ang , 3. ang ]
-      noise: 0.1 ang
-      noise_cutoff: 0.4 ang
+  - gaussian_noise_r:
+      sigma: 0.1 ang
+      sigma_cut: 0.4 ang
       region: PLANE1 or PLANE2 or BOX or SPHERE
   - lattice:
       structure: BCC
       types: [ B , C ]
       size: [ 15 ang , 15 ang , 15 ang ]
-      noise: 0.1 ang
-      noise_cutoff: 0.4 ang
+  - gaussian_noise_r:
+      sigma: 0.1 ang
+      sigma_cut: 0.4 ang
       region: not ( PLANE1 or PLANE2 or BOX or SPHERE )
   - gaussian_noise_v
   - scale_v: 1000 m/s
