@@ -100,7 +100,7 @@ update_ghosts_config:
   };
 
   // === register factory ===
-  ONIKA_AUTORUN_INIT(update_ghosts_config)
+  ONIKA_AUTORUN_INIT(update_ghost_config)
   {
     OperatorNodeFactory::instance()->register_factory("update_ghost_config",make_compatible_operator<UpdateGhostConfigOperator>);
   }
