@@ -42,8 +42,8 @@ input_data:
   - init_rcb_grid
   - read_cell_values:
       field_name: "MASK1"
-      file_name: "points_10x10x10.vtk" # generate this file using contribs/paraview/generate_vtk_grid.py
-      grid_subdiv: 1
+      file_name: "points_40x40x40.vtk" # generate this file using contribs/paraview/generate_vtk_grid.py
+      grid_subdiv: 4
   - lattice:
       structure: BCC
       types: [ W, W ]
