@@ -42,22 +42,18 @@ namespace exanb
   {  
     using DoubleVector = std::vector<double>;
   
+    ADD_SLOT( Domain           , domain           , INPUT , REQUIRED );
     ADD_SLOT( GridT            , grid             , INPUT , REQUIRED );
     ADD_SLOT( GridCellValues   , grid_cell_values , INPUT_OUTPUT );
-    ADD_SLOT( int              , grid_subdiv      , INPUT , 1, DocString{"(YAML: int) Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});    
+    ADD_SLOT( size_t           , grid_subdiv      , INPUT , DocString{"(YAML: int) Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});    
     ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED , DocString{"(YAML: string) Name of the field."});
-    ADD_SLOT( int              , field_dim        , INPUT  , 1);    
+    ADD_SLOT( int              , field_dim        , INPUT , 1, DocString{"(YAML: int) Field dimension."});
     ADD_SLOT( std::string      , file_name        , INPUT , REQUIRED , DocString{"(YAML: string) Name of the file."});
 
   public:  
 
     inline void execute() override final
     {
-
-      if( file_name->empty() )
-      {
-        fatal_error() << "Cannot initialize cell values with 0-component vector value (empty vector given)" << std::endl;
-      }
 
       if( *field_dim > 1 )
       {
@@ -75,7 +71,34 @@ namespace exanb
         ldbg << "Update cell values grid offset to "<< grid->offset() << std::endl;
         grid_cell_values->set_grid_offset( grid->offset() );
       }
+
+      if( !field_dim.has_value() )
+      {
+        ldbg << "Please provide a field dimension using field_dim slot " << std::endl;
+      }
+      const int ncomps = *field_dim;
+
+      if( !grid_subdiv.has_value() )
+      {
+        ldbg << "Please provide a subdivision value using grid_subdiv slot " << std::endl;
+      }
+      const IJK subcell_grid = { *grid_subdiv, *grid_subdiv, *grid_subdiv };
+      const ssize_t stride = (*grid_subdiv)*(*grid_subdiv)*(*grid_subdiv);
       
+      if( ! grid_cell_values->has_field(*field_name) )
+        {
+          ldbg << "Create cell field "<< *field_name << " subdiv="<<*grid_subdiv<<" ncomps="<<ncomps<< std::endl;
+          ldbg << std::endl;
+          grid_cell_values->add_field(*field_name,*grid_subdiv,ncomps);
+        }
+      assert( *grid_subdiv == grid_cell_values->field(*field_name).m_subdiv );
+      assert( stride * ncomps == grid_cell_values->field(*field_name).m_components );
+      auto field_data = grid_cell_values->field_data(*field_name);
+      
+      if( file_name->empty() )
+      {
+        fatal_error() << "Please provide a file name." << std::endl;
+      }
       std::ifstream file(*file_name);
       if (!file.is_open()) {
         throw std::runtime_error(std::string("Could not open file ") + *file_name);
@@ -83,47 +106,38 @@ namespace exanb
 
       int Nx, Ny, Nz, dataDimension;
       std::string dataType;
-
-      // retreive field data accessor. create data field if needed
-      const int ncomps = *field_dim;
-      const int subdiv = *grid_subdiv;
-      if( ! grid_cell_values->has_field(*field_name) )
-        {
-          ldbg << "Create cell field "<< *field_name << " subdiv="<<subdiv<<" ncomps="<<ncomps<< std::endl;
-          ldbg << std::endl;
-          grid_cell_values->add_field(*field_name,subdiv,ncomps);
-        }
-      assert( size_t(subdiv) == grid_cell_values->field(*field_name).m_subdiv );
-      assert( size_t(subdiv * subdiv * subdiv) * ncomps == grid_cell_values->field(*field_name).m_components );
-      auto field_data = grid_cell_values->field_data(*field_name);
+      
       const IJK dims = grid_cell_values->grid_dims();
+      const IJK dom_dims = domain->grid_dimension();
       
       std::string line;
       bool lookup_table_found = false;
       ssize_t pointCount;
       
-      // Read until LOOKUP_TABLE is found
       while (std::getline(file, line)) {
         std::istringstream lineStream(line);
         std::string keyword;
         lineStream >> keyword;
         if (keyword == "DIMENSIONS") {
           lineStream >> Nx >> Ny >> Nz;
-          if ( (dims.i != (Nx/subdiv) ) || (dims.j != (Ny/subdiv) ) || (dims.k != (Nz/subdiv) ) ) {
-            lerr << "VTK file grid dimensions are not equal to simulation grid dimensions" << std::endl;
-            lerr << "Current  grid dimensions = " << grid->dimension() << std::endl;
-            lerr << "VTK file grid dimensions = " << IJK{Nx,Ny,Nz} << std::endl;
+          
+          if ( (dom_dims.i != (Nx/(*grid_subdiv)) ) || (dom_dims.j != (Ny/(*grid_subdiv)) ) || (dom_dims.k != (Nz/(*grid_subdiv)) ) ) {
+            lerr << "VTK file grid dimensions (without subdiv) are not equal to simulation domain grid dimensions" << std::endl;
+            lerr << "Simulation domain  grid dimensions = " << dom_dims << std::endl;
+            lerr << "VTK file grid dimensions = " << IJK{Nx/(*grid_subdiv),Ny/(*grid_subdiv),Nz/(*grid_subdiv)} << std::endl;
             std::abort();
           }
         } else if (keyword == "POINT_DATA") {
           lineStream >> pointCount;
           assert(pointCount == Nx*Ny*Nz);
-          assert((dims.i*dims.j*dims.k*subdiv*subdiv*subdiv) == pointCount);
+          assert((dims.i*dims.j*dims.k*stride) == pointCount);
         } else if (keyword == "SCALARS" || keyword == "VECTORS") {
           dataType = keyword;
           std::string name, type;
           lineStream >> name >> type;
           dataDimension = (keyword == "SCALARS") ? 1 : 3; // Scalars have 1 dimension, Vectors have 3
+          if (dataDimension != *field_dim)
+            throw std::runtime_error(std::string("Dimension != 1. Field should be scalar."));
         } else if (line.find("LOOKUP_TABLE") != std::string::npos) {
           lookup_table_found = true;
           lout << "LOOKUP_TABLE found" << std::endl;
@@ -135,7 +149,9 @@ namespace exanb
         lerr << "LOOKUP_TABLE not found in the file." << std::endl;
         std::abort();
       }
-
+      
+      const IJK gcv_grid = grid_cell_values->grid_dims();
+      
       // Read the lookup table values and reorder on the fly using a single loop
       for (ssize_t idx = 0; idx < pointCount; ++idx) {
         double value;
@@ -144,26 +160,25 @@ namespace exanb
           std::abort();
         }
 
-        // Compute i, j, k on the fly
-        size_t k = idx % Nz;
-        size_t j = (idx / Nz) % Ny;
-        size_t i = idx / (Nz * Ny);
+        // Position in the global VTK grid
+        IJK vtk_location = IJK { idx / (Nz * Ny), (idx / Nz) % Ny, idx % Nz };
+        // Position in the global domain grid
+        IJK dom_location = vtk_location / subcell_grid;
+        // Position in the MPI domain grid
+        IJK mpi_location = dom_location - grid->offset();
+        // Position in the subcell grid
+        IJK subcell_location = vtk_location % subcell_grid;
+
+        // Computing main cell index
+        ssize_t cell_index = grid_ijk_to_index( gcv_grid, mpi_location);
+        // Computing sub cell index
+        ssize_t subcell_index = grid_ijk_to_index( subcell_grid , subcell_location );
+        // Computing destination index
+        ssize_t dest_idx = cell_index * stride + subcell_index;
         
-        // Calculate the cell indices in the nnx x nny x nnz grid
-        size_t cell_i = i / subdiv;
-        size_t cell_j = j / subdiv;
-        size_t cell_k = k / subdiv;
-
-        // Calculate the local indices within the cell
-        size_t local_i = i % subdiv;
-        size_t local_j = j % subdiv;
-        size_t local_k = k % subdiv;
-
-        // Calculate the destination index
-        size_t dest_idx = (cell_i * dims.j * dims.k + cell_j * dims.k + cell_k) * subdiv * subdiv * subdiv + (local_i * subdiv * subdiv + local_j * subdiv + local_k);
-
-        // Assign the value to the correct position
-        field_data.m_data_ptr[dest_idx] = value;
+        // Check if the mpi_location is in my rank domain and assign value to data ptr
+        if (grid->contains(mpi_location)) field_data.m_data_ptr[dest_idx] = value;
+        
       }
       file.close();
     }
@@ -185,6 +200,22 @@ Usage example:
       size: [ 3 ang , 3 ang , 3 ang ]
       grid_cell_mask_name: MASK1
       grid_cell_mask_value: 1
+
+Header of points_40x40x40.vtk file:
+
+# vtk DataFile Version 5.1
+vtk output
+ASCII
+DATASET STRUCTURED_POINTS
+DIMENSIONS 40 40 40
+SPACING 1 1 1
+ORIGIN 0 0 0
+POINT_DATA 64000
+SCALARS ScalarData vtktypeint64
+LOOKUP_TABLE default
+0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 
+0 0 0 0 0 0 0 0 0 
 
 )EOF";
     }
