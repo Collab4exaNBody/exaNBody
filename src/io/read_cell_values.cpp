@@ -113,7 +113,7 @@ namespace exanb
       int Nx, Ny, Nz, dataDimension;
       std::string dataType;
       
-      const IJK dims = grid_cell_values->grid_dims();
+      [[maybe_unused]] const IJK dims = grid_cell_values->grid_dims();
       const IJK dom_dims = domain->grid_dimension();
       
       std::string line;
