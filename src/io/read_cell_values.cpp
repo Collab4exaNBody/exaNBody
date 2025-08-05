@@ -22,21 +22,24 @@ under the License.
 #include <onika/log.h>
 #include <onika/math/basic_types.h>
 #include <onika/math/basic_types_stream.h>
+#include <onika/yaml/yaml_enum.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/grid_cell_particles/particle_region.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/make_grid_variant_operator.h>
-      
+
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <stdexcept>
 
+EXANB_YAML_ENUM(exanb,StructuredGridOrdering,C_ORDER,F_ORDER)
+
 namespace exanb
 {
-
   template< class GridT >
   class ReadCellValues : public OperatorNode
   {  
@@ -45,11 +48,11 @@ namespace exanb
     ADD_SLOT( Domain           , domain           , INPUT , REQUIRED );
     ADD_SLOT( GridT            , grid             , INPUT , REQUIRED );
     ADD_SLOT( GridCellValues   , grid_cell_values , INPUT_OUTPUT );
-    ADD_SLOT( size_t           , grid_subdiv      , INPUT , DocString{"(YAML: int) Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});    
+    ADD_SLOT( long             , grid_subdiv      , INPUT , DocString{"(YAML: int) Number of (uniform) subdivisions required for this field. Note that the refinement is an octree."});    
     ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED , DocString{"(YAML: string) Name of the field."});
-    ADD_SLOT( int              , field_dim        , INPUT , 1, DocString{"(YAML: int) Field dimension."});
+    ADD_SLOT( long             , field_dim        , INPUT , 1, DocString{"(YAML: int) Field dimension."});
     ADD_SLOT( std::string      , file_name        , INPUT , REQUIRED , DocString{"(YAML: string) Name of the file."});
-    ADD_SLOT( std::string      , grid_ordering    , INPUT , "F-order" , DocString{"(YAML: string) Ordering style."});
+    ADD_SLOT( StructuredGridOrdering , grid_ordering , INPUT , StructuredGridOrdering::F_ORDER , DocString{"(YAML: StructuredGridOrdering, i.e. C_ORDER or F_ORDER symbolic value) Ordering style."});
 
   public:  
 
@@ -77,22 +80,24 @@ namespace exanb
       {
         ldbg << "Please provide a field dimension using field_dim slot " << std::endl;
       }
-      const int ncomps = *field_dim;
+      const unsigned long ncomps = *field_dim;
 
       if( !grid_subdiv.has_value() )
       {
         ldbg << "Please provide a subdivision value using grid_subdiv slot " << std::endl;
       }
-      const IJK subcell_grid = { *grid_subdiv, *grid_subdiv, *grid_subdiv };
-      const ssize_t stride = (*grid_subdiv)*(*grid_subdiv)*(*grid_subdiv);
+      const long cell_subdiv = *grid_subdiv;
+      
+      const IJK subcell_grid = { cell_subdiv, cell_subdiv, cell_subdiv };
+      const ssize_t stride = cell_subdiv*cell_subdiv*cell_subdiv;
       
       if( ! grid_cell_values->has_field(*field_name) )
         {
-          ldbg << "Create cell field "<< *field_name << " subdiv="<<*grid_subdiv<<" ncomps="<<ncomps<< std::endl;
+          ldbg << "Create cell field "<< *field_name << " subdiv="<<cell_subdiv<<" ncomps="<<ncomps<< std::endl;
           ldbg << std::endl;
-          grid_cell_values->add_field(*field_name,*grid_subdiv,ncomps);
+          grid_cell_values->add_field(*field_name,cell_subdiv,ncomps);
         }
-      assert( *grid_subdiv == grid_cell_values->field(*field_name).m_subdiv );
+      assert( size_t(cell_subdiv) == grid_cell_values->field(*field_name).m_subdiv );
       assert( stride * ncomps == grid_cell_values->field(*field_name).m_components );
       auto field_data = grid_cell_values->field_data(*field_name);
       
@@ -122,10 +127,10 @@ namespace exanb
         if (keyword == "DIMENSIONS") {
           lineStream >> Nx >> Ny >> Nz;
           
-          if ( (dom_dims.i != (Nx/(*grid_subdiv)) ) || (dom_dims.j != (Ny/(*grid_subdiv)) ) || (dom_dims.k != (Nz/(*grid_subdiv)) ) ) {
+          if ( (dom_dims.i != (Nx/cell_subdiv) ) || (dom_dims.j != (Ny/cell_subdiv) ) || (dom_dims.k != (Nz/cell_subdiv) ) ) {
             lerr << "VTK file grid dimensions (without subdiv) are not equal to simulation domain grid dimensions" << std::endl;
             lerr << "Simulation domain  grid dimensions = " << dom_dims << std::endl;
-            lerr << "VTK file grid dimensions = " << IJK{Nx/(*grid_subdiv),Ny/(*grid_subdiv),Nz/(*grid_subdiv)} << std::endl;
+            lerr << "VTK file grid dimensions = " << IJK{Nx/cell_subdiv,Ny/cell_subdiv,Nz/cell_subdiv} << std::endl;
             std::abort();
           }
         } else if (keyword == "POINT_DATA") {
@@ -163,7 +168,7 @@ namespace exanb
 
         // Position in the global VTK grid
         IJK vtk_location;
-        if (*grid_ordering == "C-order")
+        if ( *grid_ordering == StructuredGridOrdering::C_ORDER )
           {
             // In row-major ('C' style), flatten_array is generated as :
             // for i in range(Nx):
@@ -174,12 +179,12 @@ namespace exanb
             // i = idx // (Ny * Nz)
             // j = (idx % (Ny * Nz)) // Nz
             // k = idx % Nz
-            size_t i = idx / ( Ny * Nz );
-            size_t j = ( idx % ( Ny * Nz ) / Nz );
-            size_t k = idx % Nz;
+            ssize_t i = idx / ( Ny * Nz );
+            ssize_t j = ( idx % ( Ny * Nz ) / Nz );
+            ssize_t k = idx % Nz;
             vtk_location = IJK { i, j, k };
           }
-        else if (*grid_ordering == "F-order")
+        else if ( *grid_ordering == StructuredGridOrdering::F_ORDER )
           {
             // In column-major ('F' style), flatten_array is generated as :
             // for k in range(Nz):
@@ -190,9 +195,9 @@ namespace exanb
             // k = N // (Ny * Nx)
             // j = (N % (Ny * Nx)) // Nx
             // i = N % Nx
-            size_t k = idx / ( Ny * Nx );
-            size_t j = ( idx % ( Ny * Nx ) / Nx );
-            size_t i = idx % Nx;
+            ssize_t k = idx / ( Ny * Nx );
+            ssize_t j = ( idx % ( Ny * Nx ) / Nx );
+            ssize_t i = idx % Nx;
             vtk_location = IJK { i, j, k };            
           }
         //        IJK vtk_location = IJK { idx / (Nz * Ny), (idx / Nz) % Ny, idx % Nz };
@@ -221,7 +226,7 @@ namespace exanb
     inline std::string documentation() const override final
     {
       return R"EOF(
-This operator reads a scalar field from an external .vtk file (structured grid) and assigns the scalar value to the points on a Cartesian grid aligned with the simulation domain. The grid dimensions on which the scalar field is defined needs to be either the same of the domain grid or a multiple (using grid_subdiv) of it. In addition, using grid_ordering (default = "F-order"), one can specify how the input .vtk file was written, e.g. using "F-order" or "C-order". This operators outputs a grid_cell_values data structure that can be subsequently used as a mask for example to populate the domain with particles.
+This operator reads a scalar field from an external .vtk file (structured grid) and assigns the scalar value to the points on a Cartesian grid aligned with the simulation domain. The grid dimensions on which the scalar field is defined needs to be either the same of the domain grid or a multiple (using grid_subdiv) of it. In addition, using grid_ordering (default = "F_ORDER"), one can specify how the input .vtk file was written, e.g. using "F_ORDER" or "C_ORDER". This operators outputs a grid_cell_values data structure that can be subsequently used as a mask for example to populate the domain with particles.
 
 Usage example:
 
@@ -229,7 +234,7 @@ Usage example:
       field_name: "MASK1"
       file_name: "points_40x40x40.vtk"
       grid_subdiv: 4
-      grid_ordering: "F-order"
+      grid_ordering: F_ORDER
   - lattice:
       structure: BCC
       types: [ W, W ]

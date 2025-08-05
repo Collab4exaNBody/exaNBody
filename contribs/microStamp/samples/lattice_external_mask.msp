@@ -47,7 +47,7 @@ input_data:
       field_name: "MASK1"
       file_name: "points_120x100x70_Forder.vtk" # generate this file using contribs/paraview/generate_vtk_grid.py
       grid_subdiv: 2
-      grid_ordering: "F-order"
+      grid_ordering: F_ORDER
   - lattice:
       structure: BCC
       types: [ W, W ]
