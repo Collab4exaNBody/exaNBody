@@ -11,9 +11,9 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: false
+    debug: true
   debug:
-    filter: [ ".*particle_types" , ".*particle_type_add_properties" ]
+    filter: [ ".*read_cell_values" , ".*particle_types" , ".*particle_type_add_properties" ]
   profiling:
     summary: true
 

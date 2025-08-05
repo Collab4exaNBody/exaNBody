@@ -63,7 +63,7 @@ namespace exanb
       {
         fatal_error() << "Cannot consider field_dim > 1. For now, the external field should be scalar." << std::endl;
       }
-      
+            
       if( grid->dimension() != grid_cell_values->grid_dims() )
       {
         ldbg << "Update cell values grid dimension to "<< grid->dimension() << " , existing values are discarded" << std::endl;
@@ -93,8 +93,8 @@ namespace exanb
       
       if( ! grid_cell_values->has_field(*field_name) )
         {
-          ldbg << "Create cell field "<< *field_name << " subdiv="<<cell_subdiv<<" ncomps="<<ncomps<< std::endl;
-          ldbg << std::endl;
+          ldbg << "Create cell field "<< *field_name << " subdiv="<<cell_subdiv<<" ncomps="<<ncomps<< std::endl
+               << std::endl;
           grid_cell_values->add_field(*field_name,cell_subdiv,ncomps);
         }
       assert( size_t(cell_subdiv) == grid_cell_values->field(*field_name).m_subdiv );
@@ -128,10 +128,9 @@ namespace exanb
           lineStream >> Nx >> Ny >> Nz;
           
           if ( (dom_dims.i != (Nx/cell_subdiv) ) || (dom_dims.j != (Ny/cell_subdiv) ) || (dom_dims.k != (Nz/cell_subdiv) ) ) {
-            lerr << "VTK file grid dimensions (without subdiv) are not equal to simulation domain grid dimensions" << std::endl;
-            lerr << "Simulation domain  grid dimensions = " << dom_dims << std::endl;
-            lerr << "VTK file grid dimensions = " << IJK{Nx/cell_subdiv,Ny/cell_subdiv,Nz/cell_subdiv} << std::endl;
-            std::abort();
+            fatal_error() << "VTK file grid dimensions (without subdiv) are not equal to simulation domain grid dimensions" << std::endl
+                          << "Simulation domain  grid dimensions = " << dom_dims << std::endl
+                          << "VTK file grid dimensions = " << IJK{Nx/cell_subdiv,Ny/cell_subdiv,Nz/cell_subdiv} << std::endl;
           }
         } else if (keyword == "POINT_DATA") {
           lineStream >> pointCount;
@@ -146,15 +145,16 @@ namespace exanb
             throw std::runtime_error(std::string("Dimension != 1. Field should be scalar."));
         } else if (line.find("LOOKUP_TABLE") != std::string::npos) {
           lookup_table_found = true;
-          lout << "LOOKUP_TABLE found" << std::endl;
+          ldbg << "LOOKUP_TABLE found" << std::endl;
           break;
         }
       }
     
       if (!lookup_table_found) {
-        lerr << "LOOKUP_TABLE not found in the file." << std::endl;
-        std::abort();
+        fatal_error() << "LOOKUP_TABLE not found in the file." << std::endl;
       }
+      
+      ldbg << "Using " << to_cstr( *grid_ordering ) << " cell ordering"<< std::endl;
       
       const IJK gcv_grid = grid_cell_values->grid_dims();
       
@@ -162,8 +162,7 @@ namespace exanb
       for (ssize_t idx = 0; idx < pointCount; ++idx) {
         double value;
         if (!(file >> value)) {
-          std::cerr << "Failed to read data from the file." << std::endl;
-          std::abort();
+          fatal_error() << "Failed to read data from the file." << std::endl;
         }
 
         // Position in the global VTK grid

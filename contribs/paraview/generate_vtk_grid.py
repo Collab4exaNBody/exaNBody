@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk
