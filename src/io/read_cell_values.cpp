@@ -49,6 +49,7 @@ namespace exanb
     ADD_SLOT( std::string      , field_name       , INPUT , REQUIRED , DocString{"(YAML: string) Name of the field."});
     ADD_SLOT( int              , field_dim        , INPUT , 1, DocString{"(YAML: int) Field dimension."});
     ADD_SLOT( std::string      , file_name        , INPUT , REQUIRED , DocString{"(YAML: string) Name of the file."});
+    ADD_SLOT( std::string      , grid_ordering    , INPUT , "F-order" , DocString{"(YAML: string) Ordering style."});
 
   public:  
 
@@ -161,7 +162,41 @@ namespace exanb
         }
 
         // Position in the global VTK grid
-        IJK vtk_location = IJK { idx / (Nz * Ny), (idx / Nz) % Ny, idx % Nz };
+        IJK vtk_location;
+        if (*grid_ordering == "C-order")
+          {
+            // In row-major ('C' style), flatten_array is generated as :
+            // for i in range(Nx):
+            //    for j in range(Ny):
+            //        for k in range(Nz):
+            //            N = i * Ny * Nz + j * Nz + k
+            // i,j,k index can be recovered as :
+            // i = idx // (Ny * Nz)
+            // j = (idx % (Ny * Nz)) // Nz
+            // k = idx % Nz
+            size_t i = idx / ( Ny * Nz );
+            size_t j = ( idx % ( Ny * Nz ) / Nz );
+            size_t k = idx % Nz;
+            vtk_location = IJK { i, j, k };
+          }
+        else if (*grid_ordering == "F-order")
+          {
+            // In column-major ('F' style), flatten_array is generated as :
+            // for k in range(Nz):
+            //    for j in range(Ny):
+            //        forik in range(Nx):
+            //            N = k * Ny * Nx + j * Nx + i
+            // i,j,k index can be recovered as :
+            // k = N // (Ny * Nx)
+            // j = (N % (Ny * Nx)) // Nx
+            // i = N % Nx
+            size_t k = idx / ( Ny * Nx );
+            size_t j = ( idx % ( Ny * Nx ) / Nx );
+            size_t i = idx % Nx;
+            vtk_location = IJK { i, j, k };            
+          }
+        //        IJK vtk_location = IJK { idx / (Nz * Ny), (idx / Nz) % Ny, idx % Nz };
+        
         // Position in the global domain grid
         IJK dom_location = vtk_location / subcell_grid;
         // Position in the MPI domain grid
@@ -186,7 +221,7 @@ namespace exanb
     inline std::string documentation() const override final
     {
       return R"EOF(
-This operator reads a scalar field from an external .vtk file (structured grid) and assigns the scalar value to the points on a Cartesian grid aligned with the simulation domain. The dimensions of the scalar field need to be either the same of the domain grid or a multiple (using subdiv) of it. This operators outputs a grid_cell_values data structure that can be subsequently used as a mask for example to populate the domain with particles.
+This operator reads a scalar field from an external .vtk file (structured grid) and assigns the scalar value to the points on a Cartesian grid aligned with the simulation domain. The grid dimensions on which the scalar field is defined needs to be either the same of the domain grid or a multiple (using grid_subdiv) of it. In addition, using grid_ordering (default = "F-order"), one can specify how the input .vtk file was written, e.g. using "F-order" or "C-order". This operators outputs a grid_cell_values data structure that can be subsequently used as a mask for example to populate the domain with particles.
 
 Usage example:
 
@@ -194,6 +229,7 @@ Usage example:
       field_name: "MASK1"
       file_name: "points_40x40x40.vtk"
       grid_subdiv: 4
+      grid_ordering: "F-order"
   - lattice:
       structure: BCC
       types: [ W, W ]

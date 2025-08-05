@@ -2,7 +2,39 @@ import numpy as np
 import vtk
 from vtk.util.numpy_support import numpy_to_vtk
 
-def write_vtk_structured_points(filename, data_array, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0)):
+def write_ovito_grid(filename, data_array, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), ordering='F'):
+    """
+    Writes a 3D NumPy array to a VTK structured points file.
+
+    Parameters:
+        filename (str): The output VTK file name (e.g., 'points.vtk').
+        data_array (np.ndarray): A 3D NumPy array of shape (Nx, Ny, Nz).
+        origin (tuple): The origin of the grid (default is (0.0, 0.0, 0.0)).
+        spacing (tuple): The spacing between grid points (default is (1.0, 1.0, 1.0)).
+    """
+    if len(data_array.shape) != 3:
+        raise ValueError("Input array must be 3D.")
+
+    Nx, Ny, Nz = data_array.shape
+
+    ofile = open(filename,'w')
+    ofile.write('ITEM: TIMESTEP\n')
+    ofile.write('0\n')
+    ofile.write('ITEM: BOX BOUNDS pp pp pp\n')
+    ofile.write('0 %d\n' %(Nx))
+    ofile.write('0 %d\n' %(Ny))
+    ofile.write('0 %d\n' %(Nz))
+    ofile.write('ITEM: DIMENSION\n')
+    ofile.write('3\n')
+    ofile.write('ITEM: GRID SIZE nx ny nz\n')
+    ofile.write('%d %d %d\n' %(Nx,Ny,Nz))
+    ofile.write('ITEM: GRID CELLS MASK\n')
+    data_array = data_array.ravel(order=ordering)
+    for data in data_array:
+        ofile.write('%5.8f\n' %(data))
+    ofile.close()
+
+def write_vtk_structured_points(filename, data_array, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), ordering='F'):
     """
     Writes a 3D NumPy array to a VTK structured points file.
 
@@ -24,7 +56,7 @@ def write_vtk_structured_points(filename, data_array, origin=(0.0, 0.0, 0.0), sp
     structured_points.SetSpacing(spacing)
 
     # Convert the NumPy array to a VTK array
-    vtk_data_array = numpy_to_vtk(data_array.ravel(order='F'), deep=True)
+    vtk_data_array = numpy_to_vtk(data_array.ravel(order=ordering), deep=True)
     vtk_data_array.SetName("ScalarData")
 
     # Add the data to the structured points
@@ -35,8 +67,6 @@ def write_vtk_structured_points(filename, data_array, origin=(0.0, 0.0, 0.0), sp
     writer.SetFileName(filename)
     writer.SetInputData(structured_points)
     writer.Write()
-
-import numpy as np
 
 import numpy as np
 
@@ -78,7 +108,7 @@ def populate_3d_array_with_spheres(Nx, Ny, Nz, num_spheres, mean_radius, radius_
         print(cx,cy,cz)
         
         # Random radius from Gaussian distribution
-        radius = max(1, np.random.normal(mean_radius*Nx, np.sqrt(radius_variance*Nx)))
+        radius = max(1, np.random.normal(mean_radius*min(Nx,Ny,Nz), np.sqrt(radius_variance*Nx)))
 
         # Fill the sphere into the array
         for x in range(Nx):
@@ -98,11 +128,13 @@ def populate_3d_array_with_spheres(Nx, Ny, Nz, num_spheres, mean_radius, radius_
 # Example usage
 if __name__ == "__main__":
     # Create a sample 3D NumPy array
-    Nx, Ny, Nz = 10,10,10
-    num_spheres = 1
-    mean_radius = 0.4
+    Nx, Ny, Nz = 120,100,70
+    num_spheres = 10
+    mean_radius = 0.25
     radius_variance = 0.1
     data = populate_3d_array_with_spheres(Nx, Ny, Nz, num_spheres, mean_radius, radius_variance, seed=165)
 
     # Write the data to a VTK file
-    write_vtk_structured_points("points_%dx%dx%d.vtk" %(Nx,Ny,Nz), data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0))
+    ordering='F'
+    write_vtk_structured_points("points_%dx%dx%d_%sorder.vtk" %(Nx,Ny,Nz,ordering), data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0),ordering=ordering)
+    write_ovito_grid("points_%dx%dx%d_%sorder.grid" %(Nx,Ny,Nz,ordering), data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), ordering=ordering)
