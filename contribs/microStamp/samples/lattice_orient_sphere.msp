@@ -39,11 +39,11 @@ input_data:
           quadric:
             shape: sphere
             transform:
-              - scale: [ 40 ang , 40 ang , 40 ang ] 
+              - scale: [ 25 ang , 40 ang , 40 ang ] 
               - translate: [ 50 ang , 50 ang , 50 ang ]
   - domain:
-      cell_size: 10.0 ang
-      grid_dims: [ 10 , 10 , 10 ]
+      cell_size: 2.0 ang
+      grid_dims: [ 50 , 50 , 50 ]
       bounds: [ [ 0.0 ang , 0.0 ang , 0.0 ang ] , [ 100.0 ang , 100.0 ang , 100.0 ang ] ]
       periodic: [ true , true , true ]
       expandable: false
@@ -52,12 +52,17 @@ input_data:
   - lattice:
       structure: BCC
       types: [ A, A]
-      size: [ 3. ang , 3. ang , 3. ang ]
+      size: [ 2. ang , 2. ang , 2. ang ]
 #      rotation_matrix: [ [0.8090, 0., 0.5878], [0., 1., 0.], [-0.5878, 0., 0.8090] ]
-      rotation_axis: [1,0,0]
-      rotation_angle: -30.0 degree
+#      rotation_axis: [1,0,0]
+#      rotation_angle: 40. degree
       region: SPHERE
-  - gaussian_noise_r: { sigma: 0.2 ang }
+  - lattice:
+      structure: BCC
+      types: [ A, A]
+      size: [ 2. ang , 2. ang , 2. ang ]
+      region: not SPHERE  
+  - gaussian_noise_r: { sigma: 0.1 ang }
 
 # pretty logo banner
 logo_banner:

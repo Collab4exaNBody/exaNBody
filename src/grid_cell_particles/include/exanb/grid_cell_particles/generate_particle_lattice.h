@@ -47,6 +47,43 @@ namespace exanb
   // size : vector containing a, b, c lengths of the lattice
   // repeats : number of repetition along three laboratory directions
 
+  static inline Vec3d compute_lattice_replication(const AABB& dom_bounds, const Mat3d& M) {
+
+    Vec3d lo = dom_bounds.bmin;
+    Vec3d hi = dom_bounds.bmax;
+    std::array<Vec3d, 8> corners = {Vec3d{lo.x, lo.y, lo.z},
+                                    Vec3d{hi.x, lo.y, lo.z},
+                                    Vec3d{lo.x, hi.y, lo.z},
+                                    Vec3d{hi.x, hi.y, lo.z},
+                                    Vec3d{lo.x, lo.y, hi.z},
+                                    Vec3d{hi.x, lo.y, hi.z},
+                                    Vec3d{lo.x, hi.y, hi.z},
+                                    Vec3d{hi.x, hi.y, hi.z}};
+    
+    Mat3d M_inv = inverse(M);
+
+    double min_x = +1e9, max_x = -1e9;
+    double min_y = +1e9, max_y = -1e9;
+    double min_z = +1e9, max_z = -1e9;
+    Vec3d origin = { 0., 0., 0. };
+    
+    for (const auto& corner : corners) {
+      Vec3d p_local = M_inv * (corner - origin);
+      min_x = std::min(min_x, p_local.x);
+      max_x = std::max(max_x, p_local.x);
+      min_y = std::min(min_y, p_local.y);
+      max_y = std::max(max_y, p_local.y);
+      min_z = std::min(min_z, p_local.z);
+      max_z = std::max(max_z, p_local.z);
+    }
+
+    int Nx = static_cast<int>(std::ceil(max_x)) - static_cast<int>(std::floor(min_x));
+    int Ny = static_cast<int>(std::ceil(max_y)) - static_cast<int>(std::floor(min_y));
+    int Nz = static_cast<int>(std::ceil(max_z)) - static_cast<int>(std::floor(min_z));
+
+    return {Nx, Ny, Nz};
+  }
+  
   static inline bool live_or_die_void_porosity(const Vec3d& pos, const std::vector<Vec3d>& void_center, const std::vector<double>& void_radius)
   {
     for (size_t i=0; i < void_center.size(); i++)
@@ -235,51 +272,35 @@ namespace exanb
     const AABB grid_bounds = grid.grid_bounds();
     Vec3d lab_lo = domain.xform() * grid_bounds.bmin;
     Vec3d lab_hi = domain.xform() * grid_bounds.bmax;
-    Vec3d lab_width = lab_hi-lab_lo;
     
-    Vec3d motif_lo = Vec3d{0., 0., 0.};
-    Vec3d motif_hi = Vec3d{lattice_size.x, lattice_size.y, lattice_size.z};
-    Vec3d motif_width = motif_hi-motif_lo;
-
-    Vec3d rot_motif_lo = lattice.m_rotmat * motif_lo;
-    Vec3d rot_motif_hi = lattice.m_rotmat * motif_hi;
+    AABB dom_bounds = { lab_lo, lab_hi };
+    Vec3d reps = compute_lattice_replication(dom_bounds, lattice.m_rotmat);
     
-    Vec3d corner0 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0.,             0.,             0.};
-    Vec3d corner1 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x,             0.,             0.};
-    Vec3d corner2 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0., rot_motif_hi.y,             0.};
-    Vec3d corner3 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0.,             0., rot_motif_hi.z};
-    Vec3d corner4 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x, rot_motif_hi.y,             0.};
-    Vec3d corner5 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x,             0., rot_motif_hi.z};
-    Vec3d corner6 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{            0., rot_motif_hi.y, rot_motif_hi.z};
-    Vec3d corner7 = Vec3d{rot_motif_lo.x, rot_motif_lo.y, rot_motif_lo.z} + Vec3d{rot_motif_hi.x, rot_motif_hi.y, rot_motif_hi.z};        
+    std::cout << "REPS = " << reps << std::endl;
 
     
-    double xmin = std::min({corner0.x,corner1.x,corner2.x,corner3.x,corner4.x,corner5.x,corner6.x,corner7.x});
-    double xmax = std::max({corner0.x,corner1.x,corner2.x,corner3.x,corner4.x,corner5.x,corner6.x,corner7.x});
+    // IJK lattice_lo = { static_cast<ssize_t>( std::floor(lab_lo.x / lattice_size.x ) )
+    //                    , static_cast<ssize_t>( std::floor(lab_lo.y / lattice_size.y ) )
+    //                    , static_cast<ssize_t>( std::floor(lab_lo.z / lattice_size.z ) ) };
+    // IJK lattice_hi = { static_cast<ssize_t>( std::floor(lab_hi.x / lattice_size.x ) )
+    //                    , static_cast<ssize_t>( std::floor(lab_hi.y / lattice_size.y ) )
+    //                    , static_cast<ssize_t>( std::floor(lab_hi.z / lattice_size.z ) ) };
+
+    IJK lattice_lo = { -static_cast<ssize_t>( std::floor(reps.x/2 ) ),
+                       -static_cast<ssize_t>( std::floor(reps.y/2 ) ),
+                       -static_cast<ssize_t>( std::floor(reps.z/2 ) ) };
+    IJK lattice_hi = {  static_cast<ssize_t>( std::floor(reps.x/2 ) ),
+                        static_cast<ssize_t>( std::floor(reps.y/2 ) ),
+                        static_cast<ssize_t>( std::floor(reps.z/2 ) ) };
     
-    double ymin = std::min({corner0.y,corner1.y,corner2.y,corner3.y,corner4.y,corner5.y,corner6.y,corner7.y});    
-    double ymax = std::max({corner0.y,corner1.y,corner2.y,corner3.y,corner4.y,corner5.y,corner6.y,corner7.y});
-    
-    double zmin = std::min({corner0.z,corner1.z,corner2.z,corner3.z,corner4.z,corner5.z,corner6.z,corner7.z});
-    double zmax = std::max({corner0.z,corner1.z,corner2.z,corner3.z,corner4.z,corner5.z,corner6.z,corner7.z});
-    
-    AABB new_motif_bounds  = { { xmin, ymin, zmin } , { xmax, ymax, zmax } };
-    Vec3d new_motif_width  = Vec3d{xmax-xmin, ymax-ymin, zmax-zmin};
-    
-    std::cout << "lab_lo = " << lab_lo << std::endl;
-    std::cout << "lab_hi = " << lab_hi << std::endl;
-    IJK lattice_lo = { static_cast<ssize_t>( (lab_lo.x-xmin) / new_motif_width.x )
-      , static_cast<ssize_t>( (lab_lo.y-ymin) / new_motif_width.y )
-      , static_cast<ssize_t>( (lab_lo.z-zmin) / new_motif_width.z ) };
-    IJK lattice_hi = { static_cast<ssize_t>( (lab_hi.x-xmax) / new_motif_width.x )
-      , static_cast<ssize_t>( (lab_hi.y-ymax) / new_motif_width.y )
-      , static_cast<ssize_t>( (lab_hi.z-zmax) / new_motif_width.z ) };
     ssize_t i_start = lattice_lo.i - 1;
     ssize_t i_end   = lattice_hi.i + 1;
     ssize_t j_start = lattice_lo.j - 1;
     ssize_t j_end   = lattice_hi.j + 1;
     ssize_t k_start = lattice_lo.k - 1;
     ssize_t k_end   = lattice_hi.k + 1;
+    lout << "lattice start     = "<< i_start<<" , "<<j_start<<" , "<<k_start <<std::endl;
+    lout << "lattice end       = "<< i_end<<" , "<<j_end<<" , "<<k_end <<std::endl;
 
 #   pragma omp parallel
     {
@@ -292,7 +313,7 @@ namespace exanb
       		{
 	          for (size_t l=0; l<n_particles_cell;l++)
     		    {
-              Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size );// + position_shift;
+              Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
               Mat3d rot = lattice.m_rotmat;
               Vec3d lab_pos_rot = rot * lab_pos;
               
@@ -303,7 +324,7 @@ namespace exanb
         			{          			
                 grid_pos = inv_xform * lab_pos_rot;
 
-                if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos_rot,void_centers,void_radiuses) )
+                if( particle_filter(grid_pos,no_id) && live_or_die_void_porosity(lab_pos,void_centers,void_radiuses) )
 	              {
 	              	assert( min_distance_between( grid_pos, grid.cell_bounds(loc) ) <= grid.cell_size()/2.0 );
 	              	size_t cell_i = grid_ijk_to_index(local_grid_dim, loc);
