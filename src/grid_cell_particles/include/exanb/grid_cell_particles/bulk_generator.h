@@ -261,7 +261,7 @@ namespace exanb
       
       generate_particle_lattice( ldbg, *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
                                  , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                                 , lattice, *shift, *deterministic_noise
+                                 , lattice, *deterministic_noise, *shift
                                  , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
 
