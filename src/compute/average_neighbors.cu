@@ -32,6 +32,53 @@ under the License.
 #include <exanb/particle_neighbors/chunk_neighbors.h> // for MAX_PARTICLE_NEIGHBORS constant
 #include <exanb/core/particle_type_properties.h>
 
+#include <sstream>
+#include <string>
+#include <unistd.h>  // for isatty, fileno
+#include <cstdio>    // for stdout
+#include <regex>
+#include <sstream>
+
+namespace ansi {
+
+  inline bool& enable_colors() {
+    static bool enabled = isatty(fileno(stdout));
+    return enabled;
+  }
+
+  // Text styles
+  inline std::string bold(const std::string& text) {
+    return enable_colors() ? "\033[1m" + text + "\033[0m" : text;
+  }
+  inline std::string underline(const std::string& text) {
+    return enable_colors() ? "\033[4m" + text + "\033[0m" : text;
+  }
+
+  // Foreground colors
+  inline std::string red(const std::string& text) {
+    return enable_colors() ? "\033[31m" + text + "\033[0m" : text;
+  }
+  inline std::string green(const std::string& text) {
+    return enable_colors() ? "\033[32m" + text + "\033[0m" : text;
+  }
+  inline std::string yellow(const std::string& text) {
+    return enable_colors() ? "\033[33m" + text + "\033[0m" : text;
+  }
+  inline std::string blue(const std::string& text) {
+    return enable_colors() ? "\033[34m" + text + "\033[0m" : text;
+  }
+  inline std::string magenta(const std::string& text) {
+    return enable_colors() ? "\033[35m" + text + "\033[0m" : text;
+  }
+  inline std::string cyan(const std::string& text) {
+    return enable_colors() ? "\033[36m" + text + "\033[0m" : text;
+  }
+  inline std::string white(const std::string& text) {
+    return enable_colors() ? "\033[37m" + text + "\033[0m" : text;
+  }
+  
+}  // namespace ansi
+
 // this allows for parallel compilation of templated operator for each available field set
 namespace exanb
 {  
@@ -219,26 +266,53 @@ namespace exanb
 
     inline std::string documentation() const override final
     {
-      return R"EOF(
 
-Averaging a per-particle scalar field over neighboring particles in a sphere with a user-specified cutoff radius. Both the field to be average (nbh_field) and the resulting one (avg_field) are user-specified strings.
+      using namespace ansi;
+      
+      std::ostringstream doc;
+      
+      doc << "\n"
+          << bold(blue("Averaging a per-particle scalar field"))
+          << " over neighboring particles in a sphere with a user-specified cutoff radius.\n"
+          << "Both the field to be averaged (" << cyan("nbh_field") << ") and the resulting one ("
+          << cyan("avg_field") << ") are user-specified strings.\n\n"
+          << bold(green("Usage example:\n\n"))
+          << green("average_neighbors_scalar") << ":\n"
+          << "  " << cyan("nbh_field") << ": mass\n"
+          << "  " << cyan("avg_field") << ": avg_mass\n"
+          << "  " << cyan("rcut") << ": 8.0 ang\n"
+          << "  " << cyan("weight_function") << ": [ 1.0 , 0.0 , -0.01 ] "
+          << yellow("# => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle\n\n")
+          << green("average_neighbors_scalar") << ":\n"
+          << "  " << cyan("nbh_field") << ": charge\n"
+          << "  " << cyan("avg_field") << ": avg_charge\n"
+          << "  " << cyan("rcut") << ": 12.0 ang\n"
+          << "  " << cyan("weight_function") << ": [ 1.0 , 0.0 , -0.01 ] "
+          << yellow("# => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle\n");
+      
+           return doc.str();
+      
+    }
+  //       return R"EOF(
 
-Usage example:
+// Averaging a per-particle scalar field over neighboring particles in a sphere with a user-specified cutoff radius. Both the field to be average (nbh_field) and the resulting one (avg_field) are user-specified strings.
 
-average_neighbors_scalar:
-  nbh_field: mass
-  avg_field: avg_mass
-  rcut: 8.0 ang
-  weight_function: [ 1.0 , 0.0 , -0.01] # => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle
+// Usage example:
 
-average_neighbors_scalar:
-  nbh_field: charge
-  avg_field: avg_charge
-  rcut: 12.0 ang
-  weight_function: [ 1.0 , 0.0 , -0.01] # => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle
+// average_neighbors_scalar:
+//   nbh_field: mass
+//   avg_field: avg_mass
+//   rcut: 8.0 ang
+//   weight_function: [ 1.0 , 0.0 , -0.01] # => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle
 
-)EOF";
-    }    
+// average_neighbors_scalar:
+//   nbh_field: charge
+//   avg_field: avg_charge
+//   rcut: 12.0 ang
+//   weight_function: [ 1.0 , 0.0 , -0.01] # => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle
+
+// )EOF";
+//     }    
   };
 
   // === register factories ===  
