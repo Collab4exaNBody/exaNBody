@@ -264,13 +264,10 @@ namespace exanb
       execute_on_field_set( GridFieldSet{} );
     }
 
-    inline std::string documentation() const override final
+    onika::FormattedText formatted_documentation() const override final
     {
-
-      using namespace ansi;
-      
       std::ostringstream doc;
-      
+      using namespace ansi;
       doc << "\n"
           << bold(blue("Averaging a per-particle scalar field"))
           << " over neighboring particles in a sphere with a user-specified cutoff radius.\n"
@@ -290,9 +287,41 @@ namespace exanb
           << "  " << cyan("weight_function") << ": [ 1.0 , 0.0 , -0.01 ] "
           << yellow("# => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle\n");
       
-           return doc.str();
-      
+      return {onika::TEXT_FORMAT_ANSI, doc.str()};
+
     }
+      
+    // inline std::string documentation() const override final
+    // {
+
+    //   using namespace ansi;
+    //   using namespace onika;
+    //   std::ostringstream doc;
+      
+    //   doc << "\n"
+    //       << bold(blue("Averaging a per-particle scalar field"))
+    //       << " over neighboring particles in a sphere with a user-specified cutoff radius.\n"
+    //       << "Both the field to be averaged (" << cyan("nbh_field") << ") and the resulting one ("
+    //       << cyan("avg_field") << ") are user-specified strings.\n\n"
+    //       << bold(green("Usage example:\n\n"))
+    //       << green("average_neighbors_scalar") << ":\n"
+    //       << "  " << cyan("nbh_field") << ": mass\n"
+    //       << "  " << cyan("avg_field") << ": avg_mass\n"
+    //       << "  " << cyan("rcut") << ": 8.0 ang\n"
+    //       << "  " << cyan("weight_function") << ": [ 1.0 , 0.0 , -0.01 ] "
+    //       << yellow("# => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle\n\n")
+    //       << green("average_neighbors_scalar") << ":\n"
+    //       << "  " << cyan("nbh_field") << ": charge\n"
+    //       << "  " << cyan("avg_field") << ": avg_charge\n"
+    //       << "  " << cyan("rcut") << ": 12.0 ang\n"
+    //       << "  " << cyan("weight_function") << ": [ 1.0 , 0.0 , -0.01 ] "
+    //       << yellow("# => 1 + 0.0 r - 0.01 r^2, r being the distance to the central particle\n");
+      
+    //   //           return doc.str();
+    //   LogStreamWrapper out
+    //   out << FormattedText{TEXT_FORMAT_ANSI, doc.str()} << std::endl;
+    //   return out.str();
+    // }
   //       return R"EOF(
 
 // Averaging a per-particle scalar field over neighboring particles in a sphere with a user-specified cutoff radius. Both the field to be average (nbh_field) and the resulting one (avg_field) are user-specified strings.
