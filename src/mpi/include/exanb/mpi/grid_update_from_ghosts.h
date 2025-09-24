@@ -367,7 +367,7 @@ namespace exanb
       parallel_execution_queue().wait( recv_unpack_async[p] );
     }
 
-#if 1
+#if 0
     {
       static constexpr const char* memTypeStr[] = { "Unregistered" , "Host" , "Device" , "Managed" };
       auto * sendbuf_ptr = ghost_comm_buffers.sendbuf_ptr(0);
