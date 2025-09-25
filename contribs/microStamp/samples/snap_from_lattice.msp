@@ -54,7 +54,8 @@ input_data:
       structure: BCC
       types: [ W , W]
       size: [ 3.5 ang , 3.5 ang , 3.5 ang ]
-      noise: 0.1 ang
+  - gaussian_noise_r:
+      sigma: 0.1 ang
 #  
   # - particle_types:
   #     particle_type_map: { W: 0 , Be: 1 }
