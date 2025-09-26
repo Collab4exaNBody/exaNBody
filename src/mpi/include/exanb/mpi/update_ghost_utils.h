@@ -87,15 +87,56 @@ namespace exanb
       }
     };
 
+    struct UpdateGhostMpiBuffer
+    {
+      onika::memory::CudaMMVector<uint8_t> m_managed_buffer;
+      onika::cuda::CudaDeviceStorage<uint8_t> m_device_buffer;
+      onika::cuda::CudaDevice * m_cuda_device = nullptr;
+
+      inline uint8_t* data() { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get() ; }
+      inline const uint8_t* data() const { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get(); }
+      
+      inline size_t size() const
+      {
+        if( m_cuda_device == nullptr ) return m_managed_buffer.size();
+        else if( m_device_buffer.m_shared != nullptr ) return m_device_buffer.m_shared->m_array_size;
+        return 0;
+      }
+      
+      inline void clear()
+      {
+        m_managed_buffer.clear();
+        m_managed_buffer.shrink_to_fit();
+        m_device_buffer.reset();
+      }
+      
+      inline void resize(size_t sz)
+      {
+        if( m_cuda_device != nullptr )
+        {
+          m_managed_buffer.clear();
+          if( m_device_buffer.get() == nullptr || sz != m_device_buffer.m_shared->m_array_size )
+          {
+            m_device_buffer = onika::cuda::CudaDeviceStorage<uint8_t>::New( *m_cuda_device , sz );
+          }
+        }
+        else
+        {
+          m_managed_buffer.resize( sz );
+        }
+      }
+    };
+
     struct UpdateGhostsScratch
     {
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       std::vector<size_t> send_buffer_offsets;
       std::vector<size_t> recv_buffer_offsets;
       std::vector< int > send_pack_async;
-      std::vector< int > recv_unpack_async;    
-      onika::memory::CudaMMVector<uint8_t> send_buffer;
-      onika::memory::CudaMMVector<uint8_t> recv_buffer;
+      std::vector< int > recv_unpack_async;
+      
+      UpdateGhostMpiBuffer send_buffer;
+      UpdateGhostMpiBuffer recv_buffer;
             
       inline void initialize_partners(int nprocs)
       {
@@ -105,8 +146,23 @@ namespace exanb
         recv_unpack_async.resize( nprocs );
       }
 
-      inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components )
+      inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
       {
+        static constexpr size_t MPI_BUFFER_ALIGN = onika::memory::GenericHostAllocator::DefaultAlignBytes;
+        static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
+        static constexpr size_t MPI_BUFFER_ALIGN_MASK = ~ MPI_BUFFER_ALIGN_PAD;
+        if( alloc_on_device != send_buffer.m_cuda_device )
+        {
+          send_buffer.clear();
+          send_buffer.m_cuda_device = alloc_on_device;
+        }
+        
+        if( alloc_on_device != recv_buffer.m_cuda_device )
+        {
+          recv_buffer.clear();
+          recv_buffer.m_cuda_device = alloc_on_device;
+        }        
+        
         int nprocs = comm_scheme.m_partner.size();
         initialize_partners( nprocs );
         recv_buffer_offsets[0] = 0;
@@ -123,7 +179,8 @@ namespace exanb
           }
           assert( particles_to_receive == particles_to_receive_chk );
 #         endif
-          const size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+          /*const*/ size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+          receive_size = ( receive_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
           
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
@@ -135,7 +192,8 @@ namespace exanb
           }
           assert( particles_to_send == particles_to_send_chk );
 #         endif
-          const size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+          /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+          send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
 
           recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + receive_size;
           send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;

@@ -23,6 +23,8 @@ under the License.
 #include <onika/cuda/cuda_math.h>
 #include <cmath>
 
+#include <md/snap/snap_add_functors.h>
+
 namespace md
 {
   using namespace exanb;
@@ -56,6 +58,7 @@ namespace md
     */
   }
 
+  template<class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_yi_contribution_alt( // READ ONLY
                                       int nelements, int twojmax, int idxu_max, int idxz_max
@@ -72,7 +75,12 @@ namespace md
                                     , double * __restrict__ const ylist_r
                                     , double * __restrict__ const ylist_i
                                       // ORIGINAL PARAMETERS
-                                    , const double * __restrict__ const beta)
+                                    , const double * __restrict__ const beta
+                                      // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
+                                    , int THREAD_IDX = 0
+                                    , int BLOCK_SIZE = 1
+                                    , AccumFuncT merge_func = {}
+                                    )
   {
 //    int jju;
 //    double betaj;
@@ -83,7 +91,7 @@ namespace md
     for (int elem1 = 0; elem1 < nelements; elem1++)
       for (int elem2 = 0; elem2 < nelements; elem2++)
       {
-        for (int jjz = 0; jjz < idxz_max; jjz++)
+        for (int jjz = THREAD_IDX; jjz < idxz_max; jjz += BLOCK_SIZE )
         {
           const int j1 = IDXZ_ALT(jjz).j1;
           const int j2 = IDXZ_ALT(jjz).j2;
@@ -173,9 +181,9 @@ namespace md
               betaj *= (j1 + 1) / (j + 1.0);
             
             assert( jju_map < idxu_max_alt );
-            YLIST_R(elem3 * idxu_max_alt + jju_map) += betaj * ztmp_r;
-            YLIST_I(elem3 * idxu_max_alt + jju_map) += betaj * ztmp_i;
-          }      
+            merge_func( YLIST_R(elem3 * idxu_max_alt + jju_map) , betaj * ztmp_r );
+            merge_func( YLIST_I(elem3 * idxu_max_alt + jju_map) , betaj * ztmp_i );
+          }
           
         } // end loop over jjz
       }

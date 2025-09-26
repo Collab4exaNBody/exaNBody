@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <md/snap/snap_compute_buffer.h>
+#include <md/snap/snap_add_functors.h>
 
 #include <onika/cuda/cuda.h>
 #include <onika/cuda/cuda_math.h>
@@ -34,15 +35,23 @@ namespace md
   using namespace exanb;
 
   ONIKA_HOST_DEVICE_FUNC
-  static inline void snap_uarraytot_zero( int nelements, int idxu_max, double * __restrict__ ulisttot_r, double * __restrict__ ulisttot_i )
+  static inline void snap_uarraytot_zero( int nelements
+                                        , int idxu_max
+                                        , double * __restrict__ ulisttot_r
+                                        , double * __restrict__ ulisttot_i
+                                          // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
+                                        , int THREAD_IDX = 0
+                                        , int BLOCK_SIZE = 1
+                                        )
   {
     const int N = idxu_max * nelements;
-    for(int i=0;i<N;++i)
+    for(int i=THREAD_IDX ; i<N ; i+=BLOCK_SIZE)
     {
       ULISTTOT_R(i) = 0.0;
       ULISTTOT_I(i) = 0.0;
     }
   }
+
 
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_uarraytot_init_wself( // READ ONLY
@@ -55,11 +64,15 @@ namespace md
                                         , double * __restrict__ ulisttot_r
                                         , double * __restrict__ ulisttot_i
                                           // ORIGINAL PARAMETERS
-                                        , int ielem ) 
+                                        , int ielem
+                                          // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
+                                        , int THREAD_IDX = 0
+                                        , int BLOCK_SIZE = 1
+                                        ) 
   {
     for (int jelem = 0; jelem < nelements; jelem++)
     {
-      for (int j = 0; j <= twojmax; j++)
+      for (int j=THREAD_IDX; j<=twojmax; j+=BLOCK_SIZE )
       {
         int jju = IDXU_BLOCK(j);
         for (int mb = 0; mb <= j; mb++)
@@ -221,7 +234,7 @@ namespace md
     }
   }
 
-  template<class SnapXSForceExtStorageT>
+  template<class SnapXSForceExtStorageT, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
                                    int twojmax
@@ -229,14 +242,15 @@ namespace md
                                  , double const * __restrict__ rootpqarray
                                  , double * __restrict__ ulisttot_r 
                                  , double * __restrict__ ulisttot_i
-                                 , SnapXSForceExtStorageT& ext )
+                                 , SnapXSForceExtStorageT& ext
+                                 , AccumFuncT merge_func = {} )
   {
     const int idxu_max = SUM_INT_SQR(twojmax+1);
     snap_compute_uarray( twojmax, rootpqarray, ext.m_U_array.r(), ext.m_U_array.i(), x,y,z,z0,r );
     snap_add_uarraytot( twojmax, 0, idxu_max, sfac_wj, ext.m_U_array.r(), ext.m_U_array.i(), ulisttot_r, ulisttot_i );
   }
 
-  template<class SnapXSForceExtStorageT,int twojmax>
+  template<class SnapXSForceExtStorageT,int twojmax, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
                                    onika::IntConst<twojmax> _twojmax_
@@ -244,7 +258,8 @@ namespace md
                                  , double const * __restrict__ rootpqarray
                                  , double * __restrict__ ulisttot_r 
                                  , double * __restrict__ ulisttot_i
-                                 , SnapXSForceExtStorageT& ext )
+                                 , SnapXSForceExtStorageT& ext
+                                 , AccumFuncT merge_func = {} )
   {  
     const double r0inv = 1.0 / sqrt(r * r + z0 * z0);
     const double a_r = r0inv * z0;
@@ -266,7 +281,7 @@ namespace md
 #   define BAKE_U_BLEND(c,var) const auto c##_##var = ( conj(c) * var )
 #   define U_BLEND(c,var) c##_##var
 #   define U_ASSIGN(var,expr) var = expr
-#   define U_STORE(var,jju) ULISTTOT_R(jju) += sfac_wj * var.r ; ULISTTOT_I(jju) += sfac_wj * var.i
+#   define U_STORE(var,jju) merge_func( ULISTTOT_R(jju) , sfac_wj * var.r ) ; merge_func( ULISTTOT_I(jju) , sfac_wj * var.i )
 
 #   else
 
@@ -285,7 +300,7 @@ namespace md
 #   define CONJ_U_I(var) -var##_i
 #   define U_ASSIGN_R(var,expr) var##_r = expr
 #   define U_ASSIGN_I(var,expr) var##_i = expr
-#   define U_STORE(var,jju) ULISTTOT_R(jju) += sfac_wj * var##_r ; ULISTTOT_I(jju) += sfac_wj * var##_i
+#   define U_STORE(var,jju) merge_func( ULISTTOT_R(jju) , sfac_wj * var##_r ) ; merge_func( ULISTTOT_I(jju) , sfac_wj * var##_i )
 
 #   endif
 
