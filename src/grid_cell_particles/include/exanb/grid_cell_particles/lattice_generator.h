@@ -82,6 +82,7 @@ namespace exanb
     ADD_SLOT( StringVector     , types        , INPUT , REQUIRED , DocString{"(YAML: list) List of types. Must be consistent with the required crystal structure. (SC:1 | BCC:2 | FCC,2BCT,HCP:4 | c-DIA,h-DIA,graphite:8)"} );
     ADD_SLOT( Vec3d            , size         , INPUT , REQUIRED , DocString{"(YAML: Vec3d) Vector with crystal unit cell lengths."} );
     ADD_SLOT( Vec3dVector      , positions    , INPUT , OPTIONAL , DocString{"(YAML: list of Vec3d) Only when structure CUSTOM is required. List of positions of individual atoms. Must be consistent with number of types provided."} );
+    ADD_SLOT( bool             , deterministic_noise , INPUT , false );
     ADD_SLOT( Vec3d            , shift        , INPUT , Vec3d{0.0,0.0,0.0} , DocString{"(YAML: Vec3d) Vector for shifting atomic positions in the unit cell."} );
 
     // Variables related to the special geometry, here a cylinder inside/outside which we keep/remove the particles. WARNING : be careful with the PBC    
@@ -237,10 +238,10 @@ namespace exanb
       mock_particle_type_map.clear();
       if( particle_type_map.has_value() ) mock_particle_type_map = *particle_type_map;
       
-      generate_particle_lattice( *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
-                               , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
-                                 , lattice, *shift
-                               , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
+      generate_particle_lattice( ldbg, *mpi, *domain, *grid, mock_particle_type_map, particle_regions.get_pointer(), region.get_pointer()
+                                 , grid_cell_values.get_pointer(), grid_cell_mask_name.get_pointer(), grid_cell_mask_value.get_pointer(), user_source_term, *user_threshold
+                                 , lattice, *deterministic_noise, *shift
+                                 , *void_mode, *void_center, *void_radius, *void_porosity, *void_mean_diameter, ParticleTypeField{} );
     }
 
     inline std::string documentation() const override final
