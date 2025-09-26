@@ -17,21 +17,26 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/mpi/simple_cost_model.h>
-#include <exanb/core/make_grid_variant_operator.h>
+#pragma once
 
-namespace exanb
+#include <onika/cuda/cuda.h>
+
+namespace md
 {
-
-  template<class GridT> using SimpleCostModelTmpl = SimpleCostModel<GridT>;
-
-  // === register factory ===
-  ONIKA_AUTORUN_INIT(simple_cost_model)
+  
+  template<bool UseAtomic>
+  struct SwitchableAtomicAccumFunctor
   {
-    OperatorNodeFactory::instance()->register_factory(
-      "simple_cost_model",
-      make_grid_variant_operator< SimpleCostModelTmpl > );
-  }
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () ( T & x , const T & y ) const
+    {
+      if constexpr ( UseAtomic ) { ONIKA_CU_BLOCK_ATOMIC_ADD( x , y ); }
+      else { x += y; }
+    }
+  };
 
+  using SimpleAccumFunctor = SwitchableAtomicAccumFunctor<false>;
+  using AtomicAccumFunctor = SwitchableAtomicAccumFunctor<true>;
 }
-

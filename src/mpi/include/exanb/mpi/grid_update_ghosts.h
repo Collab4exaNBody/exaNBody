@@ -433,7 +433,7 @@ namespace exanb
       gridp->rebuild_particle_offsets();
     }
 
-#if 1
+#if 0
     {
       static constexpr const char* memTypeStr[] = { "Unregistered" , "Host" , "Device" , "Managed" };
       auto * sendbuf_ptr = ghost_comm_buffers.sendbuf_ptr(0);

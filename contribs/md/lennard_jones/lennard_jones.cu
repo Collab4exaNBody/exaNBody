@@ -56,6 +56,7 @@ namespace md
   }
 
   // interaction potential compute functor
+  template<bool SharedComputeBuffer=false>
   struct alignas(onika::memory::DEFAULT_ALIGNMENT) LennardJonesForceFunctor
   {
     // potential function parameters
@@ -64,7 +65,7 @@ namespace md
     // concrete type of computation buffer and particle container may vary,
     // we use templates here to adapat to various situations
     template<class ComputePairBufferT, class CellParticlesT> 
-    inline void operator () (
+    ONIKA_HOST_DEVICE_FUNC inline void operator () (
       size_t n,                          // number of neighbor particles
       const ComputePairBufferT& buffer,  // neighbors buffer
       double& fx,                        // central particle's force/X reference
@@ -73,26 +74,31 @@ namespace md
       CellParticlesT* cells              // arrays of all cells, in case we need to chase for additional particle informations
       ) const
     {
-      // local energy and force contributions to the particle
-      double _fx = 0.;
-      double _fy = 0.;
-      double _fz = 0.;
+      assert( buffer.count == n );
 
-#     pragma omp simd reduction(+:_fx,_fy,_fz)
-      for(size_t i=0;i<n;i++)
+      // local energy and force contributions to the particle
+      double tl_fx = 0.0;
+      double tl_fy = 0.0;
+      double tl_fz = 0.0;
+      
+      const size_t loop_start = SharedComputeBuffer ? ONIKA_CU_THREAD_IDX : 0;
+      const size_t loop_increment = SharedComputeBuffer ? ONIKA_CU_BLOCK_SIZE : 1;
+
+      for(size_t i=loop_start;i<n;i+=loop_increment)
       {
         const double r = std::sqrt(buffer.d2[i]);
         double pair_e=0.0, pair_de=0.0;
         lj_compute_energy( m_params, r, pair_e, pair_de );
         const auto interaction_weight = buffer.nbh_data.get(i);
         pair_de *= interaction_weight / r;        
-        _fx += pair_de * buffer.drx[i];  // force is energy derivative multiplied by rij vector, sum force contributions for all neighbor particles
-        _fy += pair_de * buffer.dry[i];
-        _fz += pair_de * buffer.drz[i];
+        tl_fx += pair_de * buffer.drx[i];  // force is energy derivative multiplied by rij vector, sum force contributions for all neighbor particles
+        tl_fy += pair_de * buffer.dry[i];
+        tl_fz += pair_de * buffer.drz[i];
       }
-      fx += _fx;
-      fy += _fy;
-      fz += _fz;
+      
+      ONIKA_CU_ATOMIC_ADD( fx , tl_fx );
+      ONIKA_CU_ATOMIC_ADD( fy , tl_fy );
+      ONIKA_CU_ATOMIC_ADD( fz , tl_fz );
     }
 
     // ComputeBuffer less computation without virial
@@ -125,12 +131,12 @@ namespace exanb
 {
 
   // specialize functor traits to allow Cuda execution space
-  template<>
-  struct ComputePairTraits< md::LennardJonesForceFunctor >
+  template<bool SharedComputeBuffer>
+  struct ComputePairTraits< md::LennardJonesForceFunctor<SharedComputeBuffer> >
   {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
     static inline constexpr bool ComputeBufferCompatible = true;
-    static inline constexpr bool BufferLessCompatible = true;
+    static inline constexpr bool BlockSharedComputeBuffer = SharedComputeBuffer;
+    static inline constexpr bool BufferLessCompatible = ! SharedComputeBuffer;
     static inline constexpr bool CudaCompatible = true;
   };
 
@@ -169,6 +175,7 @@ namespace md
     ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance"} );
     ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
     ADD_SLOT( bool                      , ghost           , INPUT        , false , DocString{"Enables computation in ghost cells"});
+    ADD_SLOT( bool                      , experimental_ccb, INPUT        , false , DocString{"Enables collabortaive (all threads in a block) computation of forces for a single atom"});
     ADD_SLOT( Domain                    , domain          , INPUT        , REQUIRED , DocString{"Simulation domain"});
     ADD_SLOT( double                    , rcut_max        , INPUT_OUTPUT , 0.0 , DocString{"Updated max rcut"});
     ADD_SLOT( GridT                     , grid            , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
@@ -189,11 +196,20 @@ namespace md
       ComputePairOptionalLocks<false> cp_locks {};
       exanb::GridChunkNeighborsLightWeightIt<false> nbh_it{ *chunk_neighbors };
       auto force_buf = make_compute_pair_buffer<ComputeBuffer>();
-      LennardJonesForceFunctor force_op = { *config };
 
       LinearXForm cp_xform { domain->xform() };
       auto optional = make_compute_pair_optional_args( nbh_it, ComputePairNullWeightIterator{} , cp_xform, cp_locks );
-      compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , compute_field_set , parallel_execution_context() );      
+
+      if( *experimental_ccb )
+      {
+        LennardJonesForceFunctor<true> force_op = { *config };
+        compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , compute_field_set , parallel_execution_context() );      
+      }
+      else
+      {
+        LennardJonesForceFunctor<false> force_op = { *config };
+        compute_cell_particle_pairs( *grid, *rcut, *ghost, optional, force_buf, force_op , compute_field_set , parallel_execution_context() );      
+      }
     }
 
   };

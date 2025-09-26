@@ -44,14 +44,15 @@ namespace exanb
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
-    onika::UIntConst<1> CS,
-    onika::BoolConst<Symmetric> ,
-    PosFieldsT pos_fields,
-    onika::BoolConst<PreferComputeBuffer> ,
+    onika::UIntConst<1> CS ,
+    ComputeParticlePairOpts< Symmetric, PreferComputeBuffer , false > ,
+//    onika::BoolConst<Symmetric> ,
+//    onika::BoolConst<PreferComputeBuffer> ,
+    PosFieldsT pos_fields ,
     std::index_sequence<FieldIndex...>
     )
   {
-    static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
+    // static constexpr bool requires_block_synchronous_call = false; //compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
     using exanb::chunknbh_stream_info;
       
@@ -61,7 +62,7 @@ namespace exanb
     static constexpr bool has_particle_ctx   = compute_pair_traits::has_particle_context_v<FuncT>;
     
     static constexpr bool use_compute_buffer = PreferComputeBuffer && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
-    static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
+    // static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
     static constexpr size_t nbh_fields_count = onika::tuple_size_const_v< NbhFields >;
@@ -148,8 +149,6 @@ namespace exanb
 
     while( p_a < cell_a_particles )
     {
-      //printf("cell %05d , p %05d , r=%g,%g,%g\n",int(cell_a),int(p_a),rx_a[p_a],ry_a[p_a],rz_a[p_a]);
-
       // --- particle processing start code ---
       if constexpr ( use_compute_buffer ) { tab.part = p_a; tab.count = 0; }
       if constexpr ( has_particle_start ) { func(tab,cells,cell_a,p_a,ComputePairParticleContextStart{}); }
@@ -195,7 +194,7 @@ namespace exanb
               {
                 compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
               }
-              tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
+              tab.process_neighbor(tab , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
             }
             if constexpr ( ! use_compute_buffer )
             {
