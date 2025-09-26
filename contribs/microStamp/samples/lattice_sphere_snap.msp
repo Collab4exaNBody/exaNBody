@@ -11,9 +11,9 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: false
+    debug: true
   debug:
-    filter: [ ".*particle_types" , ".*particle_type_add_properties" ]
+    filter: [ ".*debug_particle" , ".*lattice" , ".*particle_types" , ".*particle_type_add_properties" ]
   profiling:
     summary: true
 
@@ -25,12 +25,12 @@ global:
   simulation_dump_frequency: 100
   simulation_end_iteration: 1000
 
-
 write_xyz:
-  fields: [ mass , charge , processor_id , force , vel ]
+  fields: [ id ]
 
 #dump_data: dump_data_xyz
-dump_data:
+dump_data: nop
+xx_dump_data:
   - average_neighbors_scalar:
       nbh_field: mass
       avg_field: density
@@ -44,7 +44,15 @@ snap_force_generic:
     param: "WBe_Wood_PRB2019.snapparam"
     coef: "WBe_Wood_PRB2019.snapcoeff"
 
-compute_force: snap_force_generic
+dump_debug:
+#  - timestep_file: "debug_%09d.xyz"
+#  - write_xyz: { fields: [ id ] }
+  - timestep_file: "debug_%09d.txt"
+  - debug_particle
+
+compute_force:
+#  - dump_debug
+  - snap_force_generic
 
 compute_force_epilog:
   - divide_force_by_type_scalar: mass
@@ -130,4 +138,11 @@ logo_banner:
 
 simulation: default_simulation
 
+simulation_epilog:
+  - check_values:
+      file: deterministic_lattice.dat
+      samples: 4096
+      pos_threshold: 1.e-10
+      acc_threshold: 1.e-10
+      vel_threshold: 1.e-10
 
