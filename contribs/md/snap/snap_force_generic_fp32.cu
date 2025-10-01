@@ -24,12 +24,12 @@ under the License.
 namespace md
 {
 
-  template<class GridT> using SnapForceGenericTmpl = SnapForceGenericFP64<GridT>;
+  template<class GridT> using SnapForceGenericFP32Tmpl = SnapForceGenericFP32<GridT>;
 
   // === register factories ===  
-  ONIKA_AUTORUN_INIT(snap_force_generic)
+  ONIKA_AUTORUN_INIT(snap_force_generic_fp32)
   {
-    OperatorNodeFactory::instance()->register_factory( "snap_force_generic" ,make_grid_variant_operator< SnapForceGenericTmpl > );
+    OperatorNodeFactory::instance()->register_factory( "snap_force_generic_fp32" ,make_grid_variant_operator< SnapForceGenericFP32Tmpl > );
   }
 
 }

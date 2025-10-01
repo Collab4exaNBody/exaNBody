@@ -264,8 +264,8 @@ under the License.
       //snap_zero_yi_array( snaconf.nelements, snaconf.idxu_max_alt, buf.ext.m_Y_array.r(), buf.ext.m_Y_array.i() );
       {
         auto N = snaconf.idxu_max_alt * snaconf.nelements;
-        double * __restrict__ ylist_r = buf.ext.m_Y_array.r();
-        double * __restrict__ ylist_i = buf.ext.m_Y_array.i();
+        auto * __restrict__ ylist_r = buf.ext.m_Y_array.r();
+        auto * __restrict__ ylist_i = buf.ext.m_Y_array.i();
         for(int i=snap_coop_thread_idx; i<N; i+=snap_coop_block_size)
         {
           YLIST_R(i) = 0.0;

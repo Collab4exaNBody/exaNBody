@@ -37,16 +37,16 @@ namespace md
 {
   using namespace exanb;
 
-  template<class SnapXSForceExtStorageT>
+  template<class RijRealT, class RootPQRealT, class ForceRealT, class SnapXSForceExtStorageT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void add_nbh_contrib_to_force(
                  int twojmax, int idxu_max, int jelem
-               , double wj_jj, double rcutij_jj, double sinnerij_jj, double dinnerij_jj
-               , double x, double y, double z, double z0, double r, double rsq
-               , double const * __restrict__ rootpqarray
+               , RijRealT wj_jj, RijRealT rcutij_jj, RijRealT sinnerij_jj, RijRealT dinnerij_jj
+               , RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r, RijRealT rsq
+               , RootPQRealT const * __restrict__ rootpqarray
                , int const * __restrict__ y_jju_map, int idxu_max_alt
-               , double rmin0, double rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag
-               , double * __restrict__ fij
+               , RijRealT rmin0, RijRealT rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag
+               , ForceRealT * __restrict__ fij
                , SnapXSForceExtStorageT& ext )
   {
 //    printf("generic add_nbh_contrib_to_force\n");

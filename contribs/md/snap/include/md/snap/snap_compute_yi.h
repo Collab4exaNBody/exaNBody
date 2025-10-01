@@ -29,8 +29,9 @@ namespace md
 {
   using namespace exanb;
 
+  template<class YiRealT>
   ONIKA_HOST_DEVICE_FUNC
-  static inline void snap_zero_yi_array( int nelements, int idxu_max, double * __restrict__ ylist_r, double * __restrict__ ylist_i )
+  static inline void snap_zero_yi_array( int nelements, int idxu_max, YiRealT * __restrict__ ylist_r, YiRealT * __restrict__ ylist_i )
   {
     const int N = idxu_max * nelements;
     for(int i=0;i<N;++i)
@@ -58,24 +59,24 @@ namespace md
     */
   }
 
-  template<class AccumFuncT = SimpleAccumFunctor>
+  template<class CgRealT, class UiRealT, class YiRealT, class BetaRealT, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_yi_contribution_alt( // READ ONLY
                                       int nelements, int twojmax, int idxu_max, int idxz_max
                                     , SnapInternal::SNA_ZINDICES_ALT const * __restrict__ const idxz_alt
                                     , int const * __restrict__ const idxcg_block
-                                    , const double * __restrict__ const cglist
+                                    , const CgRealT * __restrict__ const cglist
                                     , const int * __restrict__ const y_jju_map, int idxu_max_alt
-                                    , double const * __restrict__ const ulisttot_r
-                                    , double const * __restrict__ const ulisttot_i
+                                    , UiRealT const * __restrict__ const ulisttot_r
+                                    , UiRealT const * __restrict__ const ulisttot_i
                                     , int idxb_max
                                     , int const * __restrict__ idxb_block
                                     , bool bnorm_flag
                                       // WRITE ONLY
-                                    , double * __restrict__ const ylist_r
-                                    , double * __restrict__ const ylist_i
+                                    , YiRealT * __restrict__ const ylist_r
+                                    , YiRealT * __restrict__ const ylist_i
                                       // ORIGINAL PARAMETERS
-                                    , const double * __restrict__ const beta
+                                    , const BetaRealT * __restrict__ const beta
                                       // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
                                     , int THREAD_IDX = 0
                                     , int BLOCK_SIZE = 1
@@ -106,10 +107,10 @@ namespace md
 
           assert( jju_map != -1 );
 
-          const double * __restrict__ const cgblock = cglist + IDXZ_ALT(jjz).idx_cgblock; //idxcg_block_j1_j2_j;
+          const CgRealT * __restrict__ const cgblock = cglist + IDXZ_ALT(jjz).idx_cgblock; //idxcg_block_j1_j2_j;
 
-          double ztmp_r = 0.0;
-          double ztmp_i = 0.0;
+          YiRealT ztmp_r = 0.0;
+          YiRealT ztmp_i = 0.0;
 
           int jju1 = IDXU_BLOCK(j1) + (j1 + 1) * mb1min;
           int jju2 = IDXU_BLOCK(j2) + (j2 + 1) * mb2max;
@@ -117,8 +118,8 @@ namespace md
                     
           for (int ib = 0; ib < nb; ib++)
           {
-            double suma1_r = 0.0;
-            double suma1_i = 0.0;
+            YiRealT suma1_r = 0.0;
+            YiRealT suma1_i = 0.0;
 
             int ma1 = ma1min;
             int ma2 = ma2max;
@@ -157,7 +158,7 @@ namespace md
           const int jjb = IDXZ_ALT(jjz).jjb;
           
           for (int elem3 = 0; elem3 < nelements; elem3++) {
-            double betaj = 0.0;
+            BetaRealT betaj = 0.0;
             // pick out right beta value
             if (j >= j1) {
               //const int jjb = IDXB_BLOCK(j1,j2,j);
@@ -190,22 +191,23 @@ namespace md
 
   }
 
+  template<class CgRealT, class UiRealT, class YiRealT, class BetaRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_yi_contribution( // READ ONLY
                                       int nelements, int twojmax, int idxu_max, int idxz_max
                                     , SnapInternal::SNA_ZINDICES const * __restrict__ const idxz
                                     , int const * __restrict__ const idxcg_block
-                                    , const double * __restrict__ const cglist
-                                    , double const * __restrict__ const ulisttot_r
-                                    , double const * __restrict__ const ulisttot_i
+                                    , const CgRealT * __restrict__ const cglist
+                                    , UiRealT const * __restrict__ const ulisttot_r
+                                    , UiRealT const * __restrict__ const ulisttot_i
                                     , int idxb_max
                                     , int const * __restrict__ idxb_block
                                     , bool bnorm_flag
                                       // WRITE ONLY
-                                    , double * __restrict__ const ylist_r
-                                    , double * __restrict__ const ylist_i
+                                    , YiRealT * __restrict__ const ylist_r
+                                    , YiRealT * __restrict__ const ylist_i
                                       // ORIGINAL PARAMETERS
-                                    , const double * __restrict__ const beta)
+                                    , const BetaRealT * __restrict__ const beta)
   {
 //    int jju;
 //    double betaj;
@@ -226,18 +228,18 @@ namespace md
             const int mb2max = IDXZ(jjz).mb2max;
             const int nb = IDXZ(jjz).nb;
 
-            const double * __restrict__ const cgblock = cglist + IDXCG_BLOCK(j1,j2,j);
+            const CgRealT * __restrict__ const cgblock = cglist + IDXCG_BLOCK(j1,j2,j);
 
-            double ztmp_r = 0.0;
-            double ztmp_i = 0.0;
+            YiRealT ztmp_r = 0.0;
+            YiRealT ztmp_i = 0.0;
 
             int jju1 = IDXU_BLOCK(j1) + (j1 + 1) * mb1min;
             int jju2 = IDXU_BLOCK(j2) + (j2 + 1) * mb2max;
             int icgb = mb1min * (j2 + 1) + mb2max;
             for (int ib = 0; ib < nb; ib++) {
 
-              double suma1_r = 0.0;
-              double suma1_i = 0.0;
+              YiRealT suma1_r = 0.0;
+              YiRealT suma1_i = 0.0;
 
               int ma1 = ma1min;
               int ma2 = ma2max;
@@ -273,7 +275,7 @@ namespace md
 
           const int jju = IDXZ(jjz).jju;
           for (int elem3 = 0; elem3 < nelements; elem3++) {
-            double betaj = 0.0;
+            BetaRealT betaj = 0.0;
             // pick out right beta value
             if (j >= j1) {
               const int jjb = IDXB_BLOCK(j1,j2,j);
@@ -304,22 +306,23 @@ namespace md
 
   }
 
+  template<class CgRealT, class UiRealT, class YiRealT, class BetaRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_compute_yi( // READ ONLY
                                       int nelements, int twojmax, int idxu_max, int idxz_max
                                     , SnapInternal::SNA_ZINDICES const * __restrict__ idxz
                                     , int const * __restrict__ const idxcg_block
-                                    , const double * __restrict__ cglist
-                                    , double const * __restrict__ ulisttot_r
-                                    , double const * __restrict__ ulisttot_i
+                                    , const CgRealT * __restrict__ cglist
+                                    , UiRealT const * __restrict__ ulisttot_r
+                                    , UiRealT const * __restrict__ ulisttot_i
                                     , int idxb_max
                                     , int const * __restrict__ idxb_block
                                     , bool bnorm_flag
                                       // WRITE ONLY
-                                    , double * __restrict__ ylist_r
-                                    , double * __restrict__ ylist_i
+                                    , YiRealT * __restrict__ ylist_r
+                                    , YiRealT * __restrict__ ylist_i
                                       // ORIGINAL PARAMETERS
-                                    , const double * __restrict__ beta)
+                                    , const BetaRealT * __restrict__ beta)
   {
     snap_zero_yi_array( nelements, idxu_max, ylist_r, ylist_i );
     snap_add_yi_contribution( nelements, twojmax, idxu_max, idxz_max, idxz, idxcg_block, cglist, ulisttot_r, ulisttot_i, idxb_max, idxb_block, bnorm_flag, ylist_r, ylist_i, beta );

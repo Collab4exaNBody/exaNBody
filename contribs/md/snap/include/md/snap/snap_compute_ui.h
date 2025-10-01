@@ -54,17 +54,17 @@ namespace md
   }
 
 
-  template<class RealT>
+  template<class RijRealT, class UiRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_uarraytot_init_wself( // READ ONLY
                                           int nelements
                                         , int twojmax
                                         , int idxu_max
-                                        , RealT wself
+                                        , RijRealT wself
                                         , bool wselfall_flag
                                           // WRITE ONLY
-                                        , RealT * __restrict__ ulisttot_r
-                                        , RealT * __restrict__ ulisttot_i
+                                        , UiRealT * __restrict__ ulisttot_r
+                                        , UiRealT * __restrict__ ulisttot_i
                                           // ORIGINAL PARAMETERS
                                         , int ielem
                                           // OPTIONAL PARAMETERS FOR THREAD TEAM COLLABORATION
@@ -91,17 +91,17 @@ namespace md
   }
 
 
-  template<class RealT>
+  template<class RijRealT, class UiRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_zero_uarraytot_with_wself( // READ ONLY
                                           int nelements
                                         , int twojmax
                                         , int idxu_max
-                                        , RealT wself
+                                        , RijRealT wself
                                         , bool wselfall_flag
                                           // WRITE ONLY
-                                        , RealT * __restrict__ ulisttot_r
-                                        , RealT * __restrict__ ulisttot_i
+                                        , UiRealT * __restrict__ ulisttot_r
+                                        , UiRealT * __restrict__ ulisttot_i
                                           // ORIGINAL PARAMETERS
                                         , int ielem ) 
   {
@@ -109,24 +109,24 @@ namespace md
     snap_uarraytot_init_wself( nelements, twojmax, idxu_max, wself, wselfall_flag, ulisttot_r, ulisttot_i, ielem );
   }
 
-  template<class RealT>
+  template<class RootPQRealT, class UiRealT, class RijRealT>
   ONIKA_HOST_DEVICE_FUNC
   inline void snap_compute_uarray( // READ ONLY
                                    int twojmax
-                                 , RealT const * __restrict__ rootpqarray
+                                 , RootPQRealT const * __restrict__ rootpqarray
                                    // WRITE ONLY
-                                 , RealT * __restrict__ ulist_r_ij_jj // = ulist_r_ij + jj offset = ULIST_R_J(jj), accessed through ULIST_R_JJ(i)
-                                 , RealT * __restrict__ ulist_i_ij_jj // = ulist_i_ij_jj + jj offset, accessed with ULIST_I_JJ(i)
+                                 , UiRealT * __restrict__ ulist_r_ij_jj // = ulist_r_ij + jj offset = ULIST_R_J(jj), accessed through ULIST_R_JJ(i)
+                                 , UiRealT * __restrict__ ulist_i_ij_jj // = ulist_i_ij_jj + jj offset, accessed with ULIST_I_JJ(i)
                                    // ORIGINAL PARAMETERS
-                                 , RealT x, RealT y, RealT z, RealT z0, RealT r )
+                                 , RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r )
   {
-    RealT r0inv;
-    RealT a_r, b_r, a_i, b_i;
-    RealT rootpq;
+    RijRealT r0inv;
+    RijRealT a_r, b_r, a_i, b_i;
+    RootPQRealT rootpq;
 
     // compute Cayley-Klein parameters for unit quaternion
 
-    r0inv = 1.0 / sqrt(r * r + z0 * z0);
+    r0inv = RijRealT(1.0) / sqrt(r * r + z0 * z0);
     a_r = r0inv * z0;
     a_i = -r0inv * z;
     b_r = r0inv * y;
@@ -219,18 +219,18 @@ namespace md
     return sfac;
   }
 
-  template<class RealT>
+  template<class RijRealT , class UiRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_uarraytot( // READ ONLY
                                          int twojmax
                                        , int jelem
                                        , int idxu_max
-                                       , RealT sfac_wj
-                                       , RealT const * __restrict__ ulist_r_ij_jj
-                                       , RealT const * __restrict__ ulist_i_ij_jj
+                                       , RijRealT sfac_wj
+                                       , UiRealT const * __restrict__ ulist_r_ij_jj
+                                       , UiRealT const * __restrict__ ulist_i_ij_jj
                                          // WRITE ONLY
-                                       , RealT * __restrict__ ulisttot_r
-                                       , RealT * __restrict__ ulisttot_i )
+                                       , UiRealT * __restrict__ ulisttot_r
+                                       , UiRealT * __restrict__ ulisttot_i )
   {
     // const int N = SUM_INT_SQR(twojmax+1); // = idxu_max
     for (int jju = 0; jju < idxu_max ; ++jju)
@@ -240,14 +240,14 @@ namespace md
     }
   }
 
-  template<class SnapXSForceExtStorageT, class AccumFuncT = SimpleAccumFunctor>
+  template<class RijRealT, class RootPQRealT, class UiRealT, class SnapXSForceExtStorageT, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
                                    int twojmax
-                                 , double sfac_wj, double x, double y, double z, double z0, double r
-                                 , double const * __restrict__ rootpqarray
-                                 , double * __restrict__ ulisttot_r 
-                                 , double * __restrict__ ulisttot_i
+                                 , RijRealT sfac_wj, RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r
+                                 , RootPQRealT const * __restrict__ rootpqarray
+                                 , UiRealT * __restrict__ ulisttot_r 
+                                 , UiRealT * __restrict__ ulisttot_i
                                  , SnapXSForceExtStorageT& ext
                                  , AccumFuncT merge_func = {} )
   {
@@ -256,24 +256,24 @@ namespace md
     snap_add_uarraytot( twojmax, 0, idxu_max, sfac_wj, ext.m_U_array.r(), ext.m_U_array.i(), ulisttot_r, ulisttot_i );
   }
 
-  template<class RealT, class SnapXSForceExtStorageT,int twojmax, class AccumFuncT = SimpleAccumFunctor>
+  template<class RijRealT, class RootPQRealT, class UiRealT, class SnapXSForceExtStorageT,int twojmax, class AccumFuncT = SimpleAccumFunctor>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_add_nbh_contrib_to_uarraytot(
                                    onika::IntConst<twojmax> _twojmax_
-                                 , RealT sfac_wj, RealT x, RealT y, RealT z, RealT z0, RealT r
-                                 , RealT const * __restrict__ rootpqarray
-                                 , RealT * __restrict__ ulisttot_r 
-                                 , RealT * __restrict__ ulisttot_i
+                                 , RijRealT sfac_wj, RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r
+                                 , RootPQRealT const * __restrict__ rootpqarray
+                                 , UiRealT * __restrict__ ulisttot_r 
+                                 , UiRealT * __restrict__ ulisttot_i
                                  , SnapXSForceExtStorageT& ext
                                  , AccumFuncT merge_func = {} )
   {  
-    const RealT r0inv = 1.0 / sqrt(r * r + z0 * z0);
-    const RealT a_r = r0inv * z0;
-    const RealT a_i = -r0inv * z;
-    const RealT b_r = r0inv * y;
-    const RealT b_i = -r0inv * x;
+    const RijRealT r0inv = RijRealT(1.0) / sqrt(r * r + z0 * z0);
+    const RijRealT a_r = r0inv * z0;
+    const RijRealT a_i = -r0inv * z;
+    const RijRealT b_r = r0inv * y;
+    const RijRealT b_i = -r0inv * x;
 
-#   define CONST_DECLARE(var,value) static constexpr RealT var = value
+#   define CONST_DECLARE(var,value) static constexpr RootPQRealT var = value
 
 #   ifdef SNAP_AUTOGEN_COMPLEX_MATH
 
@@ -292,12 +292,12 @@ namespace md
 #   else
 
     // version that uses only scalar arithmetic
-    [[maybe_unused]] static constexpr RealT U_ZERO_R = 0.;
-    [[maybe_unused]] static constexpr RealT U_ZERO_I = 0.;
-    [[maybe_unused]] static constexpr RealT U_UNIT_R = 1.;
-    [[maybe_unused]] static constexpr RealT U_UNIT_I = 0.;
-#   define U_DECLARE(var) RealT var##_r , var##_i
-#   define BAKE_U_BLEND(c,var) const RealT c##_##var##_r = c##_r * var##_r + c##_i * var##_i , c##_##var##_i = c##_r * var##_i - c##_i * var##_r
+    [[maybe_unused]] static constexpr UiRealT U_ZERO_R = 0.;
+    [[maybe_unused]] static constexpr UiRealT U_ZERO_I = 0.;
+    [[maybe_unused]] static constexpr UiRealT U_UNIT_R = 1.;
+    [[maybe_unused]] static constexpr UiRealT U_UNIT_I = 0.;
+#   define U_DECLARE(var) UiRealT var##_r , var##_i
+#   define BAKE_U_BLEND(c,var) const UiRealT c##_##var##_r = c##_r * var##_r + c##_i * var##_i , c##_##var##_i = c##_r * var##_i - c##_i * var##_r
 #   define U_BLEND_R(c,var) c##_##var##_r
 #   define U_BLEND_I(c,var) c##_##var##_i
 #   define CONJ_R(r_expr) (r_expr)

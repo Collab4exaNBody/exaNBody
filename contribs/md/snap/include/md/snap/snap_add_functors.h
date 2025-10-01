@@ -27,12 +27,12 @@ namespace md
   template<bool UseAtomic>
   struct SwitchableAtomicAccumFunctor
   {
-    template<class T>
+    template<class AccumT, class ContribT>
     ONIKA_HOST_DEVICE_FUNC
     ONIKA_ALWAYS_INLINE
-    void operator () ( T & x , const T & y ) const
+    void operator () ( AccumT & x , const ContribT & y ) const
     {
-      if constexpr ( UseAtomic ) { ONIKA_CU_BLOCK_ATOMIC_ADD( x , y ); }
+      if constexpr ( UseAtomic ) { ONIKA_CU_BLOCK_ATOMIC_ADD( x , AccumT(y) ); }
       else { x += y; }
     }
   };
