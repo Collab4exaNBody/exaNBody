@@ -66,10 +66,6 @@ namespace exanb
       chunk_neighbors.m_alloc.set_gpu_addressable_allocation( gpu_enabled );
 
       bool build_particle_offset = config.build_particle_offset;
-      if( gpu_enabled && !build_particle_offset ) // specialization for chunk_size=1 now suports list traversal without offset table
-      {
-        lout << "INFO: use of chunk neighbors without 'build_particle_offset' flag with supported, but is discouraged for optimal performance<" << std::endl;
-      }
       if( ! build_particle_offset )
       {
         ldbg << "INFO: no particle offset" << std::endl;

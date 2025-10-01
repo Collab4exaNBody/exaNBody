@@ -167,6 +167,14 @@ namespace exanb
       return AABB{ m_origin+(m_offset*m_cell_size) , m_origin+((m_offset+m_dimension)*m_cell_size) }; 
     }
 
+    // get spatial bounds of the grid without surrounding ghost cells layer(s)
+    inline AABB grid_bounds_no_ghost() const 
+    {
+      const IJK start_loc = m_offset + ghost_layers();
+      const IJK end_loc = ( m_offset + m_dimension ) - ( 2 * ghost_layers() );
+      return AABB{ m_origin+(start_loc*m_cell_size) , m_origin+(end_loc*m_cell_size) }; 
+    }
+
     // get particle parametric coords inside cell
     inline Vec3d particle_pcoord(const IJK& cell, const Vec3d& r) const
     {
