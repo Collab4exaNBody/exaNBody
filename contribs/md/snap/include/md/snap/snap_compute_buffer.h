@@ -24,13 +24,14 @@ under the License.
 namespace md
 {
 
-  template<class SizeT>
+  template<class SizeT  class RealT = double >
   struct SnapXSTemporaryComplexArray
   {
+    using real_t = RealT;
     static inline constexpr int Size = 0;
   
     SizeT m_array_size = {};
-    double * __restrict__ m_ptr = nullptr;
+    real_t * __restrict__ m_ptr = nullptr;
     
     ONIKA_HOST_DEVICE_FUNC
     inline void reset()
@@ -48,32 +49,32 @@ namespace md
     ONIKA_HOST_DEVICE_FUNC
     inline void alloc_array()
     {
-      if( m_ptr == nullptr ) m_ptr = new double [ m_array_size * 2 ];
+      if( m_ptr == nullptr ) m_ptr = new real_t [ m_array_size * 2 ];
     }
     
     ONIKA_HOST_DEVICE_FUNC
-    inline double * __restrict__ r()
+    inline real_t * __restrict__ r()
     {
       alloc_array();
       return m_ptr;
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline double * __restrict__ i()
+    inline real_t * __restrict__ i()
     {
       alloc_array();
       return m_ptr + m_array_size;
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline const double * __restrict__ r() const
+    inline const real_t * __restrict__ r() const
     {
       assert( m_ptr != nullptr );
       return m_ptr;
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline const double * __restrict__ i() const
+    inline const real_t * __restrict__ i() const
     {
       assert( m_ptr != nullptr );
       return m_ptr + m_array_size;
@@ -87,11 +88,13 @@ namespace md
     }
   };
 
-  template<int _SZ>
-  struct SnapXSTemporaryComplexArray< onika::IntConst<_SZ> >
+  template<int _SZ, class RealT>
+  struct SnapXSTemporaryComplexArray< onika::IntConst<_SZ> , RealT >
   {
+    using real_t = RealT;
+    
     static inline constexpr int Size = _SZ;
-    double m_storage[ Size * 2 ];
+    real_t m_storage[ Size * 2 ];
 
     ONIKA_HOST_DEVICE_FUNC
     inline void reset()
@@ -108,25 +111,25 @@ namespace md
     inline void alloc_array() {}
 
     ONIKA_HOST_DEVICE_FUNC
-    inline double * __restrict__ r()
+    inline real_t * __restrict__ r()
     {
       return m_storage;
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline double * __restrict__ i()
+    inline real_t * __restrict__ i()
     {
       return m_storage + Size;
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline const double * __restrict__ r() const
+    inline const real_t * __restrict__ r() const
     {
       return m_storage;
     }
 
     ONIKA_HOST_DEVICE_FUNC
-    inline const double * __restrict__ i() const
+    inline const real_t * __restrict__ i() const
     {
       return m_storage + Size;
     }
