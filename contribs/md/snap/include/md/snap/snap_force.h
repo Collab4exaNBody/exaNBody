@@ -88,7 +88,7 @@ namespace md
 
     template<class SnapConfParamT>
     using ComputeBuffer = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
-                                            , SnapXSForceExtStorage<SnapConfParamT,ComputeBufferRealT>, DefaultComputePairBufferAppendFunc
+                                            , SnapXSForceExtStorage<SnapConfParamT/*,ComputeBufferRealT*/>, DefaultComputePairBufferAppendFunc
                                             , exanb::MAX_PARTICLE_NEIGHBORS, ComputePairBuffer2Weights
                                             , FieldSet<field::_type> >;
 
