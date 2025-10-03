@@ -29,22 +29,22 @@ namespace md
   using namespace exanb;
 
   // Bispectrum evaluation operator
-  template<class SnapConfParamT>
-  struct BispectrumOp 
+  template<class RealT, class SnapConfParamT>
+  struct BispectrumOpRealT
   {
     const SnapConfParamT snaconf;
         
     const size_t * const __restrict__ cell_particle_offset = nullptr;
-    const double * const __restrict__ beta = nullptr;
-    double * const __restrict__ bispectrum = nullptr;
+    const RealT * const __restrict__ beta = nullptr;
+    RealT * const __restrict__ bispectrum = nullptr;
     
-    const double * const __restrict__ coeffelem = nullptr;
+    const RealT * const __restrict__ coeffelem = nullptr;
     const long ncoeff = 0;
     
-    const double * const __restrict__ wjelem = nullptr; // data of m_factor in snap_ctx
-    const double * const __restrict__ radelem = nullptr;
-    const double * const __restrict__ sinnerelem = nullptr;
-    const double * const __restrict__ dinnerelem = nullptr;
+    const RealT * const __restrict__ wjelem = nullptr; // data of m_factor in snap_ctx
+    const RealT * const __restrict__ radelem = nullptr;
+    const RealT * const __restrict__ sinnerelem = nullptr;
+    const RealT * const __restrict__ dinnerelem = nullptr;
     const double rcutfac = 0.0;
     const bool eflag = false;
     const bool quadraticflag = false;
@@ -117,7 +117,7 @@ namespace md
           dinnerij_jj = 0.5*(dinnerelem[itype]+dinnerelem[jtype]);
         }
         const double wj_jj = wjelem[jtype];
-        const double sfac_jj = snap_compute_sfac( snaconf.rmin0, snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
+        const double sfac_jj = snap_compute_sfac( double(snaconf.rmin0), snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
         //snap_add_uarraytot( snaconf.twojmax, jelem, snaconf.idxu_max, sfac_jj*wj_jj, Ui_array_r, Ui_array_i, UiTot_array_r /*snabuf.ulisttot_r*/, UiTot_array_i /*snabuf.ulisttot_i*/ );
         snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext );
@@ -144,12 +144,14 @@ namespace md
     
   };
 
+//  template<class SnapConfParamT>
+//  using BispectrumOp =  BispectrumOpRealT<double,SnapConfParamT>;
 }
 
 namespace exanb
 {
-  template<class SnapConfParamT>
-  struct ComputePairTraits< md::BispectrumOp<SnapConfParamT> >
+  template<class RealT, class SnapConfParamT>
+  struct ComputePairTraits< md::BispectrumOpRealT<RealT,SnapConfParamT> >
   {
     static inline constexpr bool RequiresBlockSynchronousCall = false;
     static inline constexpr bool ComputeBufferCompatible      = true;

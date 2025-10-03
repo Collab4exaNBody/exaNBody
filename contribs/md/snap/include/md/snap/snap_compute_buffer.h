@@ -139,7 +139,7 @@ namespace md
   template<class SnapConfT , class RealT = double>
   struct SnapXSForceExtStorage
   {  
-    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > , RealT > m_UTot_array = {};
+    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max     * SnapConfT{}.nelements ) > > , RealT > m_UTot_array = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max_alt * SnapConfT{}.nelements ) > > , RealT > m_Y_array    = {};
     // dynamically allocated only if needed for non specific cases (specialized implementations do not use these arrays)
     SnapXSTemporaryComplexArray<int,RealT> m_U_array    = {};
@@ -164,12 +164,12 @@ namespace md
     }
   };
 
-  template<class SnapConfT>
+  template<class SnapConfT, class RealT = double>
   struct SnapBSExtStorage
   {  
-    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max                         ) > > > m_U_array    = {};
-    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > > m_UTot_array = {};
-    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxz_max * SnapConfT{}.ndoubles  ) > > > m_Z_array    = {};
+    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max                         ) > > , RealT > m_U_array    = {};
+    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > , RealT > m_UTot_array = {};
+    SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxz_max * SnapConfT{}.ndoubles  ) > > , RealT > m_Z_array    = {};
 
     ONIKA_HOST_DEVICE_FUNC
     inline void reset()

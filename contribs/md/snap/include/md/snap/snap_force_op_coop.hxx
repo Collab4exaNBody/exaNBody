@@ -24,23 +24,23 @@ under the License.
 # endif
 
   // Force operator
-  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT>
-  struct SnapXSForceOp<SnapConfParamT,ComputeBufferT,CellParticlesT,SNAP_COOP_COMPUTE>
+  template<class RealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT>
+  struct SnapXSForceOpRealT<RealT,SnapConfParamT,ComputeBufferT,CellParticlesT,SNAP_COOP_COMPUTE>
   {
     const SnapConfParamT snaconf;
     
     const size_t * const __restrict__ cell_particle_offset = nullptr;
-    const double * const __restrict__ beta = nullptr;
-    const double * const __restrict__ bispectrum = nullptr;
+    const RealT * const __restrict__ beta = nullptr;
+    const RealT * const __restrict__ bispectrum = nullptr;
     
-    const double * const __restrict__ coeffelem = nullptr;
+    const RealT * const __restrict__ coeffelem = nullptr;
     const unsigned int coeffelem_size = 0;
     const unsigned int ncoeff = 0;
    
-    const double * const __restrict__ wjelem = nullptr; // data of m_factor in snap_ctx
-    const double * const __restrict__ radelem = nullptr;
-    const double * const __restrict__ sinnerelem = nullptr;
-    const double * const __restrict__ dinnerelem = nullptr;
+    const RealT * const __restrict__ wjelem = nullptr; // data of m_factor in snap_ctx
+    const RealT * const __restrict__ radelem = nullptr;
+    const RealT * const __restrict__ sinnerelem = nullptr;
+    const RealT * const __restrict__ dinnerelem = nullptr;
     const double rcutfac = 0.0;
     const bool eflag = false;
     const bool quadraticflag = false;
@@ -224,7 +224,7 @@ under the License.
         }
       }
 
-      const double* __restrict__ betaloc = coeffelem + itype * (snaconf.ncoeff + 1 ) + 1;
+      const auto * __restrict__ betaloc = coeffelem + itype * (snaconf.ncoeff + 1 ) + 1;
       //const int idxu_max = snaconf.idxu_max; // used by macro ULIST_J_A
       
       snap_uarraytot_zero( snaconf.nelements, snaconf.idxu_max, buf.ext.m_UTot_array.r(), buf.ext.m_UTot_array.i() , snap_coop_thread_idx, snap_coop_block_size );
@@ -254,7 +254,7 @@ under the License.
           dinnerij_jj = 0.5*(dinnerelem[itype]+dinnerelem[jtype]);
         }
         const double wj_jj = wjelem[jtype];
-        const double sfac_jj = snap_compute_sfac( snaconf.rmin0, snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
+        const double sfac_jj = snap_compute_sfac( double(snaconf.rmin0), snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
         snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext , CoopAccumFunc{} );
       }
@@ -356,7 +356,7 @@ under the License.
         {
           double _en = 0.;
           const long bispectrum_ii_offset = snaconf.ncoeff * ( cell_particle_offset[buf.cell] + buf.part );
-          const double * const coeffi = coeffelem /*[itype]*/;
+          const auto * const coeffi = coeffelem /*[itype]*/;
 	        double evdwl = coeffi[itype * (snaconf.ncoeff + 1)];
 
           for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++)

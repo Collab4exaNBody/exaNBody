@@ -65,13 +65,21 @@ namespace md
 
   template<
       class GridT
-    , class ComputeBufferRealT = double
+    , class SnapRealT = double
     , class EpFieldT = unused_field_id_t 
     , class VirialFieldT = unused_field_id_t 
     , class = AssertGridHasFields< GridT, field::_fx ,field::_fy ,field::_fz >
     >
   class SnapForceRealT : public OperatorNode
   {
+    // floating point precision configuration
+    using ComputeBufferRealT = SnapRealT;
+    using ConstantsRealT     = SnapRealT;
+    using ForceRealT       = SnapRealT;
+    using BSRealT  = SnapRealT;
+    
+    using SnapContext = SnapXSContextRealT<ConstantsRealT>;
+
     // ========= I/O slots =======================
     ADD_SLOT( MPI_Comm              , mpi               , INPUT , REQUIRED);
     ADD_SLOT( SnapParms             , parameters        , INPUT , REQUIRED );
@@ -90,7 +98,7 @@ namespace md
     ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );
     ADD_SLOT( bool                  , scb_mode          , INPUT , false , DocString{"if true, enables block-wide collaborative computation of atom forces"} );
     
-    ADD_SLOT( SnapXSContext        , snap_ctx          , PRIVATE );
+    ADD_SLOT( SnapContext           , snap_ctx          , PRIVATE );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_cell_particle_pairs
     static inline constexpr bool SnapUseWeights = false;
@@ -104,7 +112,7 @@ namespace md
 
     template<class SnapConfParamT>
     using ComputeBufferBS = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
-                                            , SnapBSExtStorage<SnapConfParamT>, DefaultComputePairBufferAppendFunc
+                                            , SnapBSExtStorage<SnapConfParamT,ComputeBufferRealT>, DefaultComputePairBufferAppendFunc
                                             , exanb::MAX_PARTICLE_NEIGHBORS, ComputePairBuffer2Weights
                                             , FieldSet<field::_type> >;
 
@@ -113,6 +121,10 @@ namespace md
     // compile time constant indicating if grid has virial field
     static inline constexpr bool has_virial_field = GridHasField<GridT,VirialFieldT>::value;
     static inline constexpr bool has_energy_field = GridHasField<GridT,EpFieldT>::value;
+
+    // template shortcuts
+    template<int I> using ICST = onika::IntConst<I>;
+    template<int jm> using ROParamsMonoElem = SnapInternal::ReadOnlySnapParametersRealT<ConstantsRealT,ICST<jm>,ICST<1>,has_energy_field>;
 
     // attributes processed during computation
     using ComputeFields = std::conditional_t< has_virial_field
@@ -146,7 +158,7 @@ namespace md
         snap_ctx->m_rcut = snap_ctx->m_config.rcutfac(); // because LAMMPS uses angstrom while exastamp uses nm
       }
 
-      *rcut_max = std::max( *rcut_max , snap_ctx->m_rcut );
+      *rcut_max = std::max( double(*rcut_max) , double(snap_ctx->m_rcut) );
       
       size_t n_cells = grid->number_of_cells();
       if( n_cells==0 )
@@ -201,7 +213,7 @@ namespace md
 
       if( snap_ctx->sna == nullptr )
       {
-        snap_ctx->sna = new SnapInternal::SNA( new SnapInternal::Memory()
+        snap_ctx->sna = new SnapInternal::SNARealT<ConstantsRealT>( new SnapInternal::Memory()
                                           , snap_ctx->m_config.rfac0() 
                                           , snap_ctx->m_config.twojmax() 
                                           , snap_ctx->m_config.rmin0()
@@ -280,7 +292,7 @@ namespace md
           snap_ctx->m_bispectrum.clear();
           snap_ctx->m_bispectrum.resize( total_particles * ncoeff );
 
-          BispectrumOp<SnapConfParamsT> bispectrum_op {
+          BispectrumOpRealT<BSRealT,SnapConfParamsT> bispectrum_op {
                              snapconf,
                              grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
                              snap_ctx->m_coefs.data(), ncoeff,
@@ -307,7 +319,7 @@ namespace md
         using CellsAccessorT = std::remove_cv_t<std::remove_reference_t<decltype(grid->cells_accessor())> >;
         using CPBufT = ComputeBuffer<SnapConfParamsT>;
         ldbg << "max neighbors = " << CPBufT::MaxNeighbors << std::endl;
-        SnapXSForceOp<SnapConfParamsT,CPBufT,CellsAccessorT,c_use_coop_compute.value> force_op {
+        SnapXSForceOpRealT<ForceRealT,SnapConfParamsT,CPBufT,CellsAccessorT,c_use_coop_compute.value> force_op {
                            snapconf,
                            grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
                            snap_ctx->m_coefs.data(), static_cast<unsigned int>(snap_ctx->m_coefs.size()), static_cast<unsigned int>(ncoeff),
@@ -326,21 +338,21 @@ namespace md
       
       bool fallback_to_generic = false;
       const int JMax = snap_ctx->sna->twojmax / 2;
-      static constexpr onika::BoolConst<true> use_coop_compute = {};
-      static constexpr onika::BoolConst<false> dont_use_coop_compute = {};
+      static constexpr onika::BoolConst<true> use_shared_compute_buffer = {};
+      static constexpr onika::BoolConst<false> no_shared_compute_buffer = {};
 
       if( snap_ctx->sna->nelements == 1 )
       {
         if( *scb_mode )
         {
-               if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
-          else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , use_coop_compute );
+               if( JMax == 3 ) snap_compute_specialized_snapconf( ROParamsMonoElem<3>(snap_ctx->sna) , use_shared_compute_buffer );
+          else if( JMax == 4 ) snap_compute_specialized_snapconf( ROParamsMonoElem<4>(snap_ctx->sna) , use_shared_compute_buffer );
           else fallback_to_generic = true;
         }
         else
         {
-               if( JMax == 3 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<3>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , dont_use_coop_compute );
-          else if( JMax == 4 ) snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters< onika::IntConst<4>, onika::IntConst<1>, has_energy_field >(snap_ctx->sna) , dont_use_coop_compute );
+               if( JMax == 3 ) snap_compute_specialized_snapconf( ROParamsMonoElem<3>(snap_ctx->sna) , no_shared_compute_buffer );
+          else if( JMax == 4 ) snap_compute_specialized_snapconf( ROParamsMonoElem<4>(snap_ctx->sna) , no_shared_compute_buffer );
           else fallback_to_generic = true;
         }
       }
@@ -351,7 +363,7 @@ namespace md
       
       if( fallback_to_generic )
       {
-        snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParameters<int,int,has_energy_field>( snap_ctx->sna ) , dont_use_coop_compute );
+        snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParametersRealT<ConstantsRealT,int,int,has_energy_field>( snap_ctx->sna ) , no_shared_compute_buffer );
       }
       
       ldbg << "Snap DONE (JMax="<<JMax<<",generic="<<std::boolalpha<<fallback_to_generic<<")"<<std::endl; 
