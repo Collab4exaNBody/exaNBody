@@ -138,7 +138,9 @@ namespace md
 
   template<class SnapConfT , class RealT = double>
   struct SnapXSForceExtStorage
-  {  
+  {
+    using BufferRealType = RealT;
+    
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max     * SnapConfT{}.nelements ) > > , RealT > m_UTot_array = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max_alt * SnapConfT{}.nelements ) > > , RealT > m_Y_array    = {};
     // dynamically allocated only if needed for non specific cases (specialized implementations do not use these arrays)
@@ -167,6 +169,8 @@ namespace md
   template<class SnapConfT, class RealT = double>
   struct SnapBSExtStorage
   {  
+    using BufferRealType = RealT;
+
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max                         ) > > , RealT > m_U_array    = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > , RealT > m_UTot_array = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxz_max * SnapConfT{}.ndoubles  ) > > , RealT > m_Z_array    = {};

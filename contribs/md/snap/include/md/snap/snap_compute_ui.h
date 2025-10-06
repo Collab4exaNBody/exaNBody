@@ -48,8 +48,8 @@ namespace md
     const int N = idxu_max * nelements;
     for(int i=THREAD_IDX ; i<N ; i+=BLOCK_SIZE)
     {
-      ULISTTOT_R(i) = 0.0;
-      ULISTTOT_I(i) = 0.0;
+      ULISTTOT_R(i) = static_cast<RealT>(0.0);
+      ULISTTOT_I(i) = static_cast<RealT>(0.0);
     }
   }
 
@@ -126,7 +126,7 @@ namespace md
 
     // compute Cayley-Klein parameters for unit quaternion
 
-    r0inv = RijRealT(1.0) / sqrt(r * r + z0 * z0);
+    r0inv = static_cast<RijRealT>(1.0) / sqrt(r * r + z0 * z0);
     a_r = r0inv * z0;
     a_i = -r0inv * z;
     b_r = r0inv * y;
@@ -136,8 +136,8 @@ namespace md
     //double* ulist_r = ulist_r_ij[jj];
     //double* ulist_i = ulist_i_ij[jj];
 
-    ULIST_R_JJ(0) = 1.0;
-    ULIST_I_JJ(0) = 0.0;
+    ULIST_R_JJ(0) = static_cast<UiRealT>(1.0);
+    ULIST_I_JJ(0) = static_cast<UiRealT>(0.0);
 
     for (int j = 1; j <= twojmax; j++) {
       int jju = IDXU_BLOCK(j);
@@ -146,8 +146,8 @@ namespace md
       // fill in left side of matrix layer from previous layer
 
       for (int mb = 0; 2*mb <= j; mb++) {
-        ULIST_R_JJ(jju) = 0.0;
-        ULIST_I_JJ(jju) = 0.0;
+        ULIST_R_JJ(jju) = static_cast<UiRealT>(0.0);
+        ULIST_I_JJ(jju) = static_cast<UiRealT>(0.0);
 
         for (int ma = 0; ma < j; ma++) {
           rootpq = ROOTPQARRAY(j - ma,j - mb);
@@ -199,21 +199,21 @@ namespace md
 
     // calculate sfac = sfac_outer
 
-    if (switch_flag == 0) sfac = 1.0;
-    else if (r <= rmin0) sfac = 1.0;
-    else if (r > rcut) sfac = 0.0;
+    if (switch_flag == 0) sfac = static_cast<RealT>(1.0);
+    else if (r <= rmin0) sfac = static_cast<RealT>(1.0);
+    else if (r > rcut) sfac = static_cast<RealT>(0.0);
     else {
       RealT rcutfac = M_PI / (rcut - rmin0);
-      sfac = 0.5 * (cos((r - rmin0) * rcutfac) + 1.0);
+      sfac = static_cast<RealT>(0.5) * (cos((r - rmin0) * rcutfac) + static_cast<RealT>(1.0));
     }
 
     // calculate sfac *= sfac_inner, rarely visited
 
     if (switch_inner_flag == 1 && r < sinner + dinner) {
       if (r > sinner - dinner) {
-        RealT rcutfac = (M_PI/2) / dinner;
-        sfac *= 0.5 * (1.0 - cos( (M_PI/2) + (r - sinner) * rcutfac));
-      } else sfac = 0.0;
+        RealT rcutfac = static_cast<RealT>(M_PI/2) / dinner;
+        sfac *= static_cast<RealT>(0.5) * ( static_cast<RealT>(1.0) - cos( static_cast<RealT>(M_PI/2) + (r - sinner) * rcutfac));
+      } else sfac = static_cast<RealT>(0.0);
     }
 
     return sfac;
@@ -267,13 +267,13 @@ namespace md
                                  , SnapXSForceExtStorageT& ext
                                  , AccumFuncT merge_func = {} )
   {  
-    const RijRealT r0inv = RijRealT(1.0) / sqrt(r * r + z0 * z0);
+    const RijRealT r0inv = static_cast<RijRealT>(1.0) / sqrt(r * r + z0 * z0);
     const RijRealT a_r = r0inv * z0;
     const RijRealT a_i = -r0inv * z;
     const RijRealT b_r = r0inv * y;
     const RijRealT b_i = -r0inv * x;
 
-#   define CONST_DECLARE(var,value) static constexpr RootPQRealT var = value
+#   define CONST_DECLARE(var,value) static constexpr RootPQRealT var = static_cast<RootPQRealT>(value)
 
 #   ifdef SNAP_AUTOGEN_COMPLEX_MATH
 
@@ -306,7 +306,7 @@ namespace md
 #   define CONJ_U_I(var) -var##_i
 #   define U_ASSIGN_R(var,expr) var##_r = expr
 #   define U_ASSIGN_I(var,expr) var##_i = expr
-#   define U_STORE(var,jju) merge_func( ULISTTOT_R(jju) , sfac_wj * var##_r ) ; merge_func( ULISTTOT_I(jju) , sfac_wj * var##_i )
+#   define U_STORE(var,jju) merge_func( ULISTTOT_R(jju) , static_cast<UiRealT>(sfac_wj) * var##_r ) ; merge_func( ULISTTOT_I(jju) , static_cast<UiRealT>(sfac_wj) * var##_i )
 
 #   endif
 
