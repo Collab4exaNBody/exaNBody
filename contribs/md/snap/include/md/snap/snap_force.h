@@ -292,7 +292,7 @@ namespace md
           snap_ctx->m_bispectrum.clear();
           snap_ctx->m_bispectrum.resize( total_particles * ncoeff );
 
-          BispectrumOpRealT<BSRealT,SnapConfParamsT> bispectrum_op {
+          BispectrumOpRealT<BSRealT,BSRealT,SnapConfParamsT> bispectrum_op {
                              snapconf,
                              grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
                              snap_ctx->m_coefs.data(), ncoeff,
@@ -319,7 +319,7 @@ namespace md
         using CellsAccessorT = std::remove_cv_t<std::remove_reference_t<decltype(grid->cells_accessor())> >;
         using CPBufT = ComputeBuffer<SnapConfParamsT>;
         ldbg << "max neighbors = " << CPBufT::MaxNeighbors << std::endl;
-        SnapXSForceOpRealT<ForceRealT,SnapConfParamsT,CPBufT,CellsAccessorT,c_use_coop_compute.value> force_op {
+        SnapXSForceOpRealT<ForceRealT,ForceRealT,SnapConfParamsT,CPBufT,CellsAccessorT,c_use_coop_compute.value> force_op {
                            snapconf,
                            grid->cell_particle_offset_data(), snap_ctx->m_beta.data(), snap_ctx->m_bispectrum.data(),
                            snap_ctx->m_coefs.data(), static_cast<unsigned int>(snap_ctx->m_coefs.size()), static_cast<unsigned int>(ncoeff),

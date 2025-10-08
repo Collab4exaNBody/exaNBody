@@ -131,7 +131,6 @@ namespace md
     const RijRealT sfac  = wj_jj * snap_compute_sfac ( rmin0, switch_flag, switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
     const RijRealT dsfac = wj_jj * snap_compute_dsfac( rmin0, switch_flag, switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
-
     const RijRealT da_x_r = da_r[0];
     const RijRealT da_x_i = da_i[0];
     

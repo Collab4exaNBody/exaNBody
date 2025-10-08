@@ -46,7 +46,7 @@ namespace md
   using namespace exanb;
 
   // Force operator
-  template<class RealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
+  template<class RealT, class RijRealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
   struct SnapXSForceOpRealT;
 
 # undef SNAP_COOP_COMPUTE
@@ -67,8 +67,8 @@ namespace md
 
 namespace exanb
 {
-  template<class RealT, class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute >
-  struct ComputePairTraits< md::SnapXSForceOpRealT<RealT,SnapConfParamT,CPBufT,CellParticlesT,CoopCompute> >
+  template<class RealT, class RijRealT, class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute >
+  struct ComputePairTraits< md::SnapXSForceOpRealT<RealT,RijRealT,SnapConfParamT,CPBufT,CellParticlesT,CoopCompute> >
   {
     static inline constexpr bool ComputeBufferCompatible      = true;
     static inline constexpr bool BlockSharedComputeBuffer     = CoopCompute;
