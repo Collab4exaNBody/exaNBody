@@ -35,6 +35,9 @@ under the License.
 #include <algorithm>
 #include <sstream>
 
+#include <fstream>
+#include <string>
+
 namespace exanb
 {
 
@@ -70,6 +73,9 @@ namespace exanb
           const uint64_t* __restrict__ part_ids = cells[i][field::id];
           bool is_ghost_cell = grid->is_ghost_cell( loc );
           size_t n_part = cells[i].size();
+
+          std::ofstream fichier("debug_particle.txt", std::ios::app);
+
           for(size_t j=0;j<n_part;j++)
           {
             if( ( ids.empty() || std::binary_search( ids.begin(), ids.end(), part_ids[j] ) ) && ( (*ghost) || !is_ghost_cell ) )
@@ -81,6 +87,13 @@ namespace exanb
               oss<<"----"<<std::endl<<"cell = " << loc <<std::endl;
               print_particle( oss , cells[i][j] );
               oss<<"------------------------------------------";
+              
+              // 23/09/25 MG: Ecriture d'un fichier contenant le print associé à une ou des particules 
+              // Si déjà existant, cécessité de supprimer le fichier de debug de sortie avant de lancer un nouveau calcul 
+              // Solution qui fonctionne mais pas idéale 
+              print_particle( fichier , cells[i][j] );
+              fichier << std::endl; 
+
 #             pragma omp critical
               {
                 dbg_items[ part_ids[j] ].push_back( oss.str() );

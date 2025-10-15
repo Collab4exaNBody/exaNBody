@@ -27,6 +27,8 @@ under the License.
 #include <onika/cuda/cuda_math.h>
 
 // TODO: use integer arithmetic when possible
+using namespace onika; 
+using namespace math; 
 
 namespace exanb
 {

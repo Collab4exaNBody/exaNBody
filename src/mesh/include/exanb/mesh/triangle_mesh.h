@@ -115,6 +115,16 @@ namespace exanb
     {
       return { m_triangles[i][0] , m_triangles[i][1] , m_triangles[i][2] };
     }
+
+    // ONIKA_HOST_DEVICE_FUNC
+    // inline int dimension(size_t i) const
+    // {
+    //   int dim = 0; 
+    //   if (m_vertices[m_triangles[i][2]] == 0.0) dim = 2; 
+    //   else dim = 3; 
+    //   return dim; 
+    // }
+
   };
 
   inline TriangleMeshRO read_only_view( const TriangleMesh& other )
