@@ -57,6 +57,9 @@ namespace exanb
       MPI_Comm_size( *mpi , &nprocs );
       assert( rank < nprocs );
 
+      if ( cc_table->size() < 1 ) {
+        lerr << "CC table size < 1, no CC detected" << std::endl;
+      }
       ldbg << "CC table size = "<< cc_table->size() << std::endl;
 
       std::set<std::string> enabled_custom_fields;

@@ -12,56 +12,35 @@ configuration:
       energy: joule
   logging:
     debug: false
-  profiling:
-    summary: true
 
 global:
-  dt: 0.1e-3 ps
+  dt: 1.0e-3 ps
   rcut_max: 8.0 ang
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 10
   simulation_dump_frequency: -1
-  simulation_end_iteration: 100
+  simulation_end_iteration: 20
+  deterministic_noise: true
 
-final_dump: nop
-
-snap_force_generic:
-  parameters:
-    nt: 2
-    param: "WBe_Wood_PRB2019.snapparam"
-    coef: "WBe_Wood_PRB2019.snapcoeff"
-
-compute_force: snap_force_generic
-
-+first_iteration:
-  - grid_stats
-  - chunk_neighbors_stats
-  - memory_stats
-
-replicate_domain:
-  repeat: [ 1 , 1 , 1 ]
+compute_force: nop
 
 input_data:
+  - particle_types:
+      particle_type_map: { W: 0 }
+  - particle_type_add_properties:
+      W: { mass: 183.84 Da , z: 74 }
   - domain:
-      cell_size: 7.0 ang
+      cell_size: 10.0 ang
       grid_dims: [ 10 , 10 , 10 ]
-      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 70.0 ang , 70.0 ang , 70.0 ang ] ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 100.0 ang , 100.0 ang , 100.0 ang ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
   - init_rcb_grid
   - lattice:
-      structure: BCC
-      types: [ W , W]
-      size: [ 3.5 ang , 3.5 ang , 3.5 ang ]
-  - gaussian_noise_r:
-      sigma: 0.1 ang
-#  
-  # - particle_types:
-  #     particle_type_map: { W: 0 , Be: 1 }
-  # - read_dump:
-  #     filename: "particles_000001001.dump"
-  - replicate_domain
+      structure: SC
+      types: [ W ]
+      size: [ 5. ang , 5. ang , 5. ang ]
 
 # pretty logo banner
 logo_banner:
@@ -69,4 +48,11 @@ logo_banner:
 
 simulation: default_simulation
 
+simulation_epilog:
+  - check_values:
+      file: deterministic_lattice.dat
+      samples: 200
+      pos_threshold: 1.e-10
+      acc_threshold: 1.e-10
+      vel_threshold: 1.e-10
 

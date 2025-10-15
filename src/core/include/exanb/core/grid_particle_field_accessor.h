@@ -22,6 +22,8 @@ under the License.
 #include <onika/soatl/field_id.h>
 #include <onika/soatl/field_combiner.h>
 #include <onika/flat_tuple.h>
+#include <onika/type_utils.h>
+#include <exanb/core/grid_fields.h>
 
 namespace exanb
 {

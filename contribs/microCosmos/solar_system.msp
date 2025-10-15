@@ -36,6 +36,7 @@ compute_force:
 input_data:
   - particle_types:
       verbose: true
+      particle_type_map: { Meteor: 0, Asteroid: 1, Moon: 2, Planet: 3 }
       particle_type_properties:
         Meteor:   { mass: 1.e3 kg , radius: 15 m }
         Asteroid: { mass: 1.e4 kg , radius: 30 m }
@@ -69,20 +70,21 @@ input_data:
         - [  0.5  , 0.5  , 0.5  ]
         - [  0.55 , 0.55 , 0.55 ]
       size: [ 1950 m , 1950 m , 1950 m ]
-      noise: 1 m
+  - gaussian_noise_r:
+      sigma: 1 m
   - lattice:
       structure: BCC
       types: [ Meteor, Asteroid ]
       size: [ 150 m , 150 m , 150 m ]
-      noise: 1 m
-      noise_cutoff: 2 m
+  - gaussian_noise_r:
+      sigma: 1 m
+      sigma_cut: 2 m
       region: not ( PLANET or MOON )
   - set_velocity:
       value: [ 1.5 m/s , 0 , 0 ]
       region: MOON
   - gaussian_noise_v:
       sigma: 2 m/s
-      dt: 1
       region: not ( PLANET or MOON )
 
 dump_data: dump_data_paraview
