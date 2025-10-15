@@ -11,9 +11,9 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: false
+    debug: true
   debug:
-    filter: [ ".*particle_types" , ".*particle_type_add_properties" ]
+    filter: [ ".*debug_particle" , ".*lattice" , ".*particle_types" , ".*particle_type_add_properties" ]
   profiling:
     summary: true
 
@@ -22,15 +22,15 @@ global:
   rcut_max: 8.0 ang
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 10
-  simulation_dump_frequency: 5
-  simulation_end_iteration: 1000
-
+  simulation_dump_frequency: 1
+  simulation_end_iteration: 3
 
 write_xyz:
-  fields: [ mass , charge , processor_id , force , vel ]
+  fields: [ id ]
 
 #dump_data: dump_data_xyz
-dump_data:
+dump_data: nop
+xx_dump_data:
   - average_neighbors_scalar:
       nbh_field: mass
       avg_field: density
@@ -44,7 +44,15 @@ snap_force_generic:
     param: "WBe_Wood_PRB2019.snapparam"
     coef: "WBe_Wood_PRB2019.snapcoeff"
 
-compute_force: snap_force_generic
+dump_debug:
+#  - timestep_file: "debug_%09d.xyz"
+#  - write_xyz: { fields: [ id ] }
+  - timestep_file: "debug_%09d.txt"
+  - debug_particle
+
+compute_force:
+#  - dump_debug
+  - snap_force_generic
 
 compute_force_epilog:
   - divide_force_by_type_scalar: mass
@@ -106,15 +114,17 @@ input_data:
       structure: SC
       types: [ W ]
       size: [ 5. ang , 5. ang , 5. ang ]
-      noise: 0.1 ang
-      noise_cutoff: 0.4 ang
+  - gaussian_noise_r:
+      sigma: 0.1 ang
+      sigma_cut: 0.4 ang
       region: PLANE1 or PLANE2 or BOX
   - lattice:
       structure: SC
       types: [ Be ]
       size: [ 4. ang , 4. ang , 4. ang ]
-      noise: 0.1 ang
-      noise_cutoff: 0.4 ang
+  - gaussian_noise_r:
+      sigma: 0.1 ang
+      sigma_cut: 0.4 ang
       region: SPHERE and not ( PLANE1b or PLANE2b )
   - gaussian_noise_v
   - scale_v: 1000 m/s
@@ -128,4 +138,11 @@ logo_banner:
 
 simulation: default_simulation
 
+simulation_epilog:
+  - check_values:
+      file: deterministic_lattice.dat
+      samples: 4096
+      pos_threshold: 1.e-10
+      acc_threshold: 1.e-10
+      vel_threshold: 1.e-10
 

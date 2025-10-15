@@ -56,11 +56,12 @@ namespace md
 
   template<
       class GridT
+    , class ComputeBufferRealT = double
     , class EpFieldT = unused_field_id_t 
     , class VirialFieldT = unused_field_id_t 
     , class = AssertGridHasFields< GridT, field::_fx ,field::_fy ,field::_fz >
     >
-  class SnapNewForce : public OperatorNode
+  class SnapForceRealT : public OperatorNode
   {
     // ========= I/O slots =======================
     ADD_SLOT( MPI_Comm              , mpi               , INPUT , REQUIRED);
@@ -87,7 +88,7 @@ namespace md
 
     template<class SnapConfParamT>
     using ComputeBuffer = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
-                                            , SnapXSForceExtStorage<SnapConfParamT>, DefaultComputePairBufferAppendFunc
+                                            , SnapXSForceExtStorage<SnapConfParamT/*,ComputeBufferRealT*/>, DefaultComputePairBufferAppendFunc
                                             , exanb::MAX_PARTICLE_NEIGHBORS, ComputePairBuffer2Weights
                                             , FieldSet<field::_type> >;
 
@@ -336,4 +337,9 @@ namespace md
 
   };
 
+  template<class GridT, class EpFieldT = unused_field_id_t , class VirialFieldT = unused_field_id_t>
+  using SnapForceGenericFP64 = SnapForceRealT<GridT,double,EpFieldT,VirialFieldT>;
+
+  template<class GridT, class EpFieldT = unused_field_id_t , class VirialFieldT = unused_field_id_t>
+  using SnapForceGenericFP32 = SnapForceRealT<GridT,float,EpFieldT,VirialFieldT>;
 }

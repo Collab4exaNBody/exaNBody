@@ -17,21 +17,19 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/mpi/simple_cost_model.h>
+#include <md/snap/snap_force.h>
 #include <exanb/core/make_grid_variant_operator.h>
+#include <onika/cpp_utils.h>
 
-namespace exanb
+namespace md
 {
 
-  template<class GridT> using SimpleCostModelTmpl = SimpleCostModel<GridT>;
+  template<class GridT> using SnapForceGenericFP32Tmpl = SnapForceGenericFP32<GridT>;
 
-  // === register factory ===
-  ONIKA_AUTORUN_INIT(simple_cost_model)
+  // === register factories ===  
+  ONIKA_AUTORUN_INIT(snap_force_generic_fp32)
   {
-    OperatorNodeFactory::instance()->register_factory(
-      "simple_cost_model",
-      make_grid_variant_operator< SimpleCostModelTmpl > );
+    OperatorNodeFactory::instance()->register_factory( "snap_force_generic_fp32" ,make_grid_variant_operator< SnapForceGenericFP32Tmpl > );
   }
 
 }
-
