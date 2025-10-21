@@ -35,6 +35,11 @@ add_custom_target(SnapAutoGen
   DEPENDS MakeSnapAutoGen
   BYPRODUCTS ${mdSnap_GENERATED_SOURCES})
 
+option(SNAP_USE_FAST_DIV_J_PLUS_ONE "Snap uses fast /(j+1) approximation" OFF)
+if(SNAP_USE_FAST_DIV_J_PLUS_ONE)
+  set(mdSnap_COMPILE_DEFINITIONS SNAP_USE_FAST_DIV_J_PLUS_ONE=1)
+endif()
+
 set(mdSnap_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
 set(mdSnap_INCLUDE_DIRS ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR})
 set(ONIKA_BUILD_mdSnap_DEFAULT ON)

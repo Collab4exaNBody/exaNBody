@@ -83,6 +83,30 @@ namespace md
                                     , AccumFuncT merge_func = {}
                                     )
   {
+#   ifdef SNAP_USE_FAST_DIV_J_PLUS_ONE
+    static constexpr YiRealT rcp_j_plus_one[16] = { 
+        static_cast<YiRealT>(1.0/1.0)
+      , static_cast<YiRealT>(1.0/2.0) 
+      , static_cast<YiRealT>(1.0/3.0) 
+      , static_cast<YiRealT>(1.0/4.0) 
+      , static_cast<YiRealT>(1.0/5.0) 
+      , static_cast<YiRealT>(1.0/6.0) 
+      , static_cast<YiRealT>(1.0/7.0) 
+      , static_cast<YiRealT>(1.0/8.0) 
+      , static_cast<YiRealT>(1.0/9.0) 
+      , static_cast<YiRealT>(1.0/10.0) 
+      , static_cast<YiRealT>(1.0/11.0) 
+      , static_cast<YiRealT>(1.0/12.0) 
+      , static_cast<YiRealT>(1.0/13.0) 
+      , static_cast<YiRealT>(1.0/14.0) 
+      , static_cast<YiRealT>(1.0/15.0) 
+      , static_cast<YiRealT>(1.0/16.0) 
+      };
+#   define SNAP_DIV_J_PLUS_ONE(x,j) ( (x) * rcp_j_plus_one[j] )
+#   else
+#   define SNAP_DIV_J_PLUS_ONE(x,j) ( (x) / (j+static_cast<YiRealT>(1.0)) )
+#   endif
+    
 //    int jju;
 //    double betaj;
 //    int itriple;
@@ -109,8 +133,8 @@ namespace md
 
           const CgRealT * __restrict__ const cgblock = cglist + IDXZ_ALT(jjz).idx_cgblock; //idxcg_block_j1_j2_j;
 
-          YiRealT ztmp_r = 0.0;
-          YiRealT ztmp_i = 0.0;
+          YiRealT ztmp_r = static_cast<YiRealT>(0.0);
+          YiRealT ztmp_i = static_cast<YiRealT>(0.0);
 
           int jju1 = IDXU_BLOCK(j1) + (j1 + 1) * mb1min;
           int jju2 = IDXU_BLOCK(j2) + (j2 + 1) * mb2max;
@@ -118,8 +142,8 @@ namespace md
                     
           for (int ib = 0; ib < nb; ib++)
           {
-            YiRealT suma1_r = 0.0;
-            YiRealT suma1_i = 0.0;
+            YiRealT suma1_r = static_cast<YiRealT>(0.0);
+            YiRealT suma1_i = static_cast<YiRealT>(0.0);
 
             int ma1 = ma1min;
             int ma2 = ma2max;
@@ -151,14 +175,14 @@ namespace md
           // account for multiplicity of 1, 2, or 3
 
           if (bnorm_flag) {
-            ztmp_i /= j+1;
-            ztmp_r /= j+1;
+            ztmp_i = SNAP_DIV_J_PLUS_ONE(ztmp_i,j);
+            ztmp_r = SNAP_DIV_J_PLUS_ONE(ztmp_r,j); ;
           }
 
           const int jjb = IDXZ_ALT(jjz).jjb;
           
           for (int elem3 = 0; elem3 < nelements; elem3++) {
-            BetaRealT betaj = 0.0;
+            BetaRealT betaj = static_cast<BetaRealT>(0.0);
             // pick out right beta value
             if (j >= j1) {
               //const int jjb = IDXB_BLOCK(j1,j2,j);
@@ -179,7 +203,9 @@ namespace md
             }
 
             if (!bnorm_flag && j1 > j)
-              betaj *= (j1 + 1) / (j + 1.0);
+            {
+              betaj = SNAP_DIV_J_PLUS_ONE( betaj*(j1+1) , j );
+            }
             
             assert( jju_map < idxu_max_alt );
             merge_func( YLIST_R(elem3 * idxu_max_alt + jju_map) , betaj * ztmp_r );
@@ -230,16 +256,16 @@ namespace md
 
             const CgRealT * __restrict__ const cgblock = cglist + IDXCG_BLOCK(j1,j2,j);
 
-            YiRealT ztmp_r = 0.0;
-            YiRealT ztmp_i = 0.0;
+            YiRealT ztmp_r = static_cast<YiRealT>(0.0);
+            YiRealT ztmp_i = static_cast<YiRealT>(0.0);
 
             int jju1 = IDXU_BLOCK(j1) + (j1 + 1) * mb1min;
             int jju2 = IDXU_BLOCK(j2) + (j2 + 1) * mb2max;
             int icgb = mb1min * (j2 + 1) + mb2max;
             for (int ib = 0; ib < nb; ib++) {
 
-              YiRealT suma1_r = 0.0;
-              YiRealT suma1_i = 0.0;
+              YiRealT suma1_r = static_cast<YiRealT>(0.0);
+              YiRealT suma1_i = static_cast<YiRealT>(0.0);
 
               int ma1 = ma1min;
               int ma2 = ma2max;
@@ -275,7 +301,7 @@ namespace md
 
           const int jju = IDXZ(jjz).jju;
           for (int elem3 = 0; elem3 < nelements; elem3++) {
-            BetaRealT betaj = 0.0;
+            BetaRealT betaj = static_cast<BetaRealT>(0.0);
             // pick out right beta value
             if (j >= j1) {
               const int jjb = IDXB_BLOCK(j1,j2,j);
@@ -296,7 +322,7 @@ namespace md
             }
 
             if (!bnorm_flag && j1 > j)
-              betaj *= (j1 + 1) / (j + 1.0);
+              betaj *= (j1 + 1) / (j + static_cast<BetaRealT>(1.0));
 
             YLIST_R(elem3 * idxu_max + jju) += betaj * ztmp_r;
             YLIST_I(elem3 * idxu_max + jju) += betaj * ztmp_i;
