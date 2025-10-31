@@ -37,7 +37,7 @@ namespace exanb
   public:
     inline void execute() override final
     {
-      if( ! global_cuda_ctx()->has_devices() || ! global_cuda_ctx()->global_gpu_enable() )
+      if( global_cuda_ctx() == nullptr || ! global_cuda_ctx()->has_devices() || ! global_cuda_ctx()->global_gpu_enable() )
       {
         update_ghost_config->gpu_buffer_pack = false;
       }
