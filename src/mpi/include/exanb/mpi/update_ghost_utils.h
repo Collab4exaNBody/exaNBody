@@ -130,6 +130,7 @@ namespace exanb
     struct UpdateGhostsScratch
     {
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
+      
       std::vector<size_t> send_buffer_offsets;
       std::vector<size_t> recv_buffer_offsets;
       std::vector< int > send_pack_async;
@@ -138,6 +139,10 @@ namespace exanb
       UpdateGhostMpiBuffer send_buffer;
       UpdateGhostMpiBuffer recv_buffer;
             
+      std::vector< MPI_Request > requests;
+      std::vector< int > partner_idx;
+      int total_requests = 0;
+
       inline void initialize_partners(int nprocs)
       {
         send_buffer_offsets.assign( nprocs + 1 , 0  );
@@ -163,7 +168,7 @@ namespace exanb
           recv_buffer.m_cuda_device = alloc_on_device;
         }        
         
-        int nprocs = comm_scheme.m_partner.size();
+        const int nprocs = comm_scheme.m_partner.size();
         initialize_partners( nprocs );
         recv_buffer_offsets[0] = 0;
         send_buffer_offsets[0] = 0;
@@ -196,7 +201,7 @@ namespace exanb
           send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
 
           recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + receive_size;
-          send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;
+          send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;          
         }
       
         if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
@@ -208,6 +213,27 @@ namespace exanb
         {
           send_buffer.clear();
           send_buffer.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
+        } 
+      }
+ 
+      inline void init_requests(const GhostCommunicationScheme& comm_scheme , int rank)
+      {
+        const int nprocs = comm_scheme.m_partner.size();
+
+        requests.assign( 2 * nprocs , MPI_REQUEST_NULL );
+        partner_idx.assign( 2 * nprocs , -1 );
+        total_requests = 0;
+
+        // rebuild partner index map from requests indices in request array
+        for(int p=0;p<nprocs;p++)
+        {
+          if( p != rank && recvbuf_size(p) > 0 )
+          partner_idx[total_requests++] = p;
+        }
+        for(int p=0;p<nprocs;p++)
+        {
+          if( p != rank && sendbuf_size(p) > 0 )
+          partner_idx[total_requests++] = nprocs + p;
         }
       }
       
@@ -217,7 +243,31 @@ namespace exanb
 
       inline size_t recvbuf_size(int p) const { return recv_buffer_offsets[p+1] - recv_buffer_offsets[p]; } 
       inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + recv_buffer_offsets[p]; } 
-      inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); } 
+      inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); }
+      
+      inline int number_of_requests() const { return total_requests; }
+      inline MPI_Request* requests_data() { return requests.data(); }
+      inline MPI_Request* request_ptr(int req_idx) { return & requests[req_idx]; }
+      inline int partner_rank_from_request_index(int req_idx) const
+      {
+        const int p = partner_idx[req_idx];
+        const int np = send_pack_async.size();
+        return (p < np) ? p : (p - np);
+      }
+      inline bool request_index_is_recv(int req_idx) const
+      {
+        const int np = send_pack_async.size();
+        return partner_idx[req_idx] < np;
+      }
+      inline bool request_index_is_send(int req_idx) const { return ! request_index_is_recv(req_idx); }
+      inline void swap_requests(int req_a, int req_b)
+      {
+        if( req_a != req_b )
+        {
+          std::swap( requests[req_a] , requests[req_b] );
+          std::swap( partner_idx[req_a] , partner_idx[req_b] );
+        }
+      }
     };
 
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
