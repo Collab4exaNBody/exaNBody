@@ -135,21 +135,18 @@ namespace exanb
     CellsAccessorT cells_accessor = { nullptr , nullptr };
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
     // reverse order begins here, before the code is the same as in update_ghosts.h
-    
-    // initialize MPI requests for both sends and receives
-    std::vector< MPI_Request > requests( 2 * nprocs , MPI_REQUEST_NULL );
-    std::vector< int > partner_idx( 2 * nprocs , -1 );
-    int total_requests = 0;
-    //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
+
+    static constexpr bool reverse_comm = true;
 
     // ***************** send/receive bufer resize ******************
     ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType), cell_scalar_components, alloc_on_device  );
-    auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
-    auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
+    ghost_comm_buffers.init_requests( comm_scheme, rank, reverse_comm );
 
-    assert( send_pack_async.size() == size_t(nprocs) );
-    assert( recv_unpack_async.size() == size_t(nprocs) );
-    int parallel_concurrent_lane = 0;
+    auto & send_info   = ghost_comm_buffers.partner_send_info;
+    auto & recv_info = ghost_comm_buffers.partner_recv_info;
+
+    assert( send_info.size() == size_t(nprocs) );
+    assert( recv_info.size() == size_t(nprocs) );
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs );
@@ -161,11 +158,15 @@ namespace exanb
       send_staging.resize( ghost_comm_buffers.recvbuf_total_size() );
       send_buf_ptr = send_staging.data();
     }
+
+    unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
     {
       if( ghost_comm_buffers.recvbuf_size(p) > 0 )
       {
+        assert( recv_info[p].buffer_offset + ghost_comm_buffers.recvbuf_size(p) <= ghost_comm_buffers.recvbuf_total_size() );
         if( p != rank ) { ++ active_send_packs; }
+        
         const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                              , comm_scheme.m_partner[p].m_receive_offset.data()
@@ -180,14 +181,15 @@ namespace exanb
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
+
         if( async_buffer_pack )
         {
-          send_pack_async[p] = parallel_concurrent_lane++;
-          parallel_execution_queue() << onika::parallel::set_lane(send_pack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
+          send_info[p].async_lane = parallel_concurrent_lane++;
+          parallel_execution_queue() << onika::parallel::set_lane( send_info[p].async_lane ) << std::move(parallel_op) << onika::parallel::flush;
         }
         else
         {
-          send_pack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;
+          send_info[p].async_lane = onika::parallel::UNDEFINED_EXECUTION_LANE;
         }
       }
     }
@@ -195,6 +197,7 @@ namespace exanb
     // number of flying messages
     int active_sends = 0;
     int active_recvs = 0;
+    int request_count = 0;
 
     // ***************** async receive start ******************
     uint8_t* recv_buf_ptr = ghost_comm_buffers.send_buffer.data();
@@ -208,11 +211,12 @@ namespace exanb
     {
       if( p!=rank && ghost_comm_buffers.sendbuf_size(p) > 0 )
       {
+        assert( send_info[p].buffer_offsets + ghost_comm_buffers.sendbuf_size(p) <= ghost_comm_buffers.sendbuf_total_size() );
         ++ active_recvs;
-        partner_idx[ total_requests ] = p;
-        MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers.send_buffer_offsets[p], ghost_comm_buffers.sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-        //ldbg << "async recv #"<<total_requests<<" partner #"<<p << std::endl;
-        ++ total_requests;          
+        assert( ghost_comm_buffers.partner_rank_from_request_index(request_count) == p );
+        assert( ghost_comm_buffers.request_index_is_recv(request_count) );
+        MPI_Irecv( (char*) recv_buf_ptr + send_info[p].buffer_offsets, ghost_comm_buffers.sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(request_count) );
+        ++ request_count;          
       }
     }
 

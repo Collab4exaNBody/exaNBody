@@ -127,29 +127,43 @@ namespace exanb
       }
     };
 
+    struct UpdateGhostPartnerCommInfo
+    {
+      size_t buffer_offset = 0;
+      size_t buffer_size = 0;
+      int request_idx = -1;
+      int async_lane = -1;
+    };
+
     struct UpdateGhostsScratch
     {
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       
-      std::vector<size_t> send_buffer_offsets;
-      std::vector<size_t> recv_buffer_offsets;
-      std::vector< int > send_pack_async;
-      std::vector< int > recv_unpack_async;
+      std::vector<UpdateGhostPartnerCommInfo> partner_comm_info;
       
       UpdateGhostMpiBuffer send_buffer;
       UpdateGhostMpiBuffer recv_buffer;
             
       std::vector< MPI_Request > requests;
-      std::vector< int > partner_idx;
+      std::vector<int> request_to_partner_idx;
+      int active_requests = 0;
       int total_requests = 0;
+      int m_num_procs = 0;
 
-      inline void initialize_partners(int nprocs)
+      inline int num_procs() const { return m_num_procs; }
+
+      inline void initialize_number_of_partners(int np)
       {
-        send_buffer_offsets.assign( nprocs + 1 , 0  );
-        recv_buffer_offsets.assign( nprocs + 1 , 0  );
-        send_pack_async.resize( nprocs );
-        recv_unpack_async.resize( nprocs );
+        // first nprocs elements are reserved for receives from partners
+        // last nprocs elements are reserved for sends to partners
+        m_num_procs = np;
+        partner_comm_info.assign( 2 * np , UpdateGhostPartnerCommInfo{} );
       }
+      
+      inline UpdateGhostPartnerCommInfo& partner_recv_info(int p) { return partner_comm_info[p]; }
+      inline const UpdateGhostPartnerCommInfo& partner_recv_info(int p) const { return partner_comm_info[p]; }
+      inline UpdateGhostPartnerCommInfo& partner_send_info(int p) { return partner_comm_info[num_procs()+p]; }
+      inline const UpdateGhostPartnerCommInfo& partner_send_info(int p) const { return partner_comm_info[num_procs()+p]; }
 
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
       {
@@ -169,9 +183,10 @@ namespace exanb
         }        
         
         const int nprocs = comm_scheme.m_partner.size();
-        initialize_partners( nprocs );
-        recv_buffer_offsets[0] = 0;
-        send_buffer_offsets[0] = 0;
+        assert( nprocs == num_procs() );
+        initialize_number_of_partners( nprocs );
+        size_t recv_buffer_offset = 0;
+        size_t send_buffer_offset = 0;
         for(int p=0;p<nprocs;p++)
         {   
           const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
@@ -184,8 +199,8 @@ namespace exanb
           }
           assert( particles_to_receive == particles_to_receive_chk );
 #         endif
-          /*const*/ size_t receive_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
-          receive_size = ( receive_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
+          /*const*/ size_t recv_buffer_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+          recv_buffer_size = ( recv_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
           
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
@@ -200,8 +215,13 @@ namespace exanb
           /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
           send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
 
-          recv_buffer_offsets[p+1] = recv_buffer_offsets[p] + receive_size;
-          send_buffer_offsets[p+1] = send_buffer_offsets[p] + send_buffer_size;          
+          partner_recv_info[p].buffer_offset = recv_buffer_offset;
+          partner_recv_info[p].buffer_size = recv_buffer_size;
+          recv_buffer_offset += recv_buffer_size;
+          
+          partner_send_info[p].buffer_offset = send_buffer_offset;
+          partner_send_info[p].buffer_size = send_buffer_size;   
+          send_buffer_offset += send_buffer_size
         }
       
         if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
@@ -216,57 +236,89 @@ namespace exanb
         } 
       }
  
-      inline void init_requests(const GhostCommunicationScheme& comm_scheme , int rank)
+      inline void init_requests( int rank )
       {
-        const int nprocs = comm_scheme.m_partner.size();
+        const int nprocs = num_procs(); //comm_scheme.m_partner.size();
 
         requests.assign( 2 * nprocs , MPI_REQUEST_NULL );
-        partner_idx.assign( 2 * nprocs , -1 );
-        total_requests = 0;
+        request_to_partner_idx.assign( 2 * nprocs , -1 );
+        active_requests = 0;
 
         // rebuild partner index map from requests indices in request array
         for(int p=0;p<nprocs;p++)
         {
           if( p != rank && recvbuf_size(p) > 0 )
-          partner_idx[total_requests++] = p;
+          {
+            partner_recv_info(p).request_idx = active_requests;
+            request_to_partner_idx[active_requests++] = p;
+          }
         }
         for(int p=0;p<nprocs;p++)
         {
           if( p != rank && sendbuf_size(p) > 0 )
-          partner_idx[total_requests++] = nprocs + p;
+          {
+            partner_send_info(p).request_idx = active_requests;
+            request_to_partner_idx[active_requests++] = nprocs + p;
+          }
         }
+        total_requests = active_requests;
+      }
+
+      inline void free_requests()
+      {
+        for(auto & req : requests) MPI_Request_free( & req );
+        requests.clear();
+      }
+
+      inline void reactivate_requests()
+      {
+        active_requests = total_requests;
       }
       
-      inline size_t sendbuf_size(int p) const { return send_buffer_offsets[p+1] - send_buffer_offsets[p]; } 
-      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_buffer_offsets[p]; }
-      inline size_t sendbuf_total_size() const { return send_buffer_offsets.back(); } 
+      inline size_t sendbuf_size(int p) const { return partner_send_info(p).buffer_size; } 
+      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + partner_send_info(p).buffer_offset; }
+      inline size_t sendbuf_total_size() const { return partner_send_info(num_procs()-1).buffer_offset + partner_send_info(num_procs()-1).buffer_size; } 
 
-      inline size_t recvbuf_size(int p) const { return recv_buffer_offsets[p+1] - recv_buffer_offsets[p]; } 
-      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + recv_buffer_offsets[p]; } 
-      inline size_t recvbuf_total_size() const { return recv_buffer_offsets.back(); }
+      inline size_t recvbuf_size(int p) const { return partner_recv_info(p).buffer_size; } 
+      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + partner_recv_info(p).buffer_offset; } 
+      inline size_t recvbuf_total_size() const { return partner_recv_info(num_procs()-1).buffer_offset + partner_recv_info(num_procs()-1).buffer_size; }
+
+      // inline void start_send( MPI_Comm comm, int dst, int tag  ... );
       
       inline int number_of_requests() const { return total_requests; }
+      inline int number_of_active_requests() const { return active_requests; }
       inline MPI_Request* requests_data() { return requests.data(); }
       inline MPI_Request* request_ptr(int req_idx) { return & requests[req_idx]; }
       inline int partner_rank_from_request_index(int req_idx) const
       {
-        const int p = partner_idx[req_idx];
-        const int np = send_pack_async.size();
+        const int p = request_to_partner_idx[req_idx];
+        const int np = num_procs();
         return (p < np) ? p : (p - np);
       }
       inline bool request_index_is_recv(int req_idx) const
       {
-        const int np = send_pack_async.size();
-        return partner_idx[req_idx] < np;
+        const int np = num_procs();
+        return request_to_partner_idx[req_idx] < np;
       }
       inline bool request_index_is_send(int req_idx) const { return ! request_index_is_recv(req_idx); }
-      inline void swap_requests(int req_a, int req_b)
+      
+      // swap request to end of active requests and decreases active request count
+      inline void deactivate_request(int req_idx)
       {
-        if( req_a != req_b )
+        assert( req_idx < active_requests && active_requests > 0 );
+        if( req_idx != (active_requests-1) )
         {
-          std::swap( requests[req_a] , requests[req_b] );
-          std::swap( partner_idx[req_a] , partner_idx[req_b] );
+          std::swap( requests[req_idx] , requests[active_requests-1] );
+          std::swap( request_to_partner_idx[req_idx] , request_to_partner_idx[active_requests-1] );
+          partner_comm_info[request_to_partner_idx[req_idx          ]].request_idx = req_idx;
+          partner_comm_info[request_to_partner_idx[active_requests-1]].request_idx = active_requests-1;
         }
+        -- active_requests;
+      }
+      
+      inline ~UpdateGhostsScratch()
+      {
+        free_requests();
       }
     };
 
