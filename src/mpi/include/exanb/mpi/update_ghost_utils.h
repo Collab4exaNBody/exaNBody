@@ -159,12 +159,12 @@ namespace exanb
         m_num_procs = np;
         partner_comm_info.assign( 2 * np , UpdateGhostPartnerCommInfo{} );
       }
+ 
+      inline UpdateGhostPartnerCommInfo& recv_info(int p) { return partner_comm_info[p]; }
+      inline const UpdateGhostPartnerCommInfo& recv_info(int p) const { return partner_comm_info[p]; }
+      inline UpdateGhostPartnerCommInfo& send_info(int p) { return partner_comm_info[num_procs()+p]; }
+      inline const UpdateGhostPartnerCommInfo& send_info(int p) const { return partner_comm_info[num_procs()+p]; 
       
-      inline UpdateGhostPartnerCommInfo& partner_recv_info(int p) { return partner_comm_info[p]; }
-      inline const UpdateGhostPartnerCommInfo& partner_recv_info(int p) const { return partner_comm_info[p]; }
-      inline UpdateGhostPartnerCommInfo& partner_send_info(int p) { return partner_comm_info[num_procs()+p]; }
-      inline const UpdateGhostPartnerCommInfo& partner_send_info(int p) const { return partner_comm_info[num_procs()+p]; }
-
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
       {
         static constexpr size_t MPI_BUFFER_ALIGN = onika::memory::GenericHostAllocator::DefaultAlignBytes;
@@ -205,7 +205,7 @@ namespace exanb
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
 #         ifndef NDEBUG
-          size_t particles_to_send_chk = 0;
+          size_t particles_to_partner_send_chk = 0;
           for(size_t i=0;i<cells_to_send;i++)
           {
             particles_to_send_chk += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
@@ -215,13 +215,13 @@ namespace exanb
           /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
           send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
 
-          partner_recv_info[p].buffer_offset = recv_buffer_offset;
-          partner_recv_info[p].buffer_size = recv_buffer_size;
+          recv_info(p).buffer_offset = recv_buffer_offset;
+          recv_info(p).buffer_size = recv_buffer_size;
           recv_buffer_offset += recv_buffer_size;
           
-          partner_send_info[p].buffer_offset = send_buffer_offset;
-          partner_send_info[p].buffer_size = send_buffer_size;   
-          send_buffer_offset += send_buffer_size
+          send_info(p).buffer_offset = send_buffer_offset;
+          send_info(p).buffer_size = send_buffer_size;   
+          send_buffer_offset += send_buffer_size;
         }
       
         if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
@@ -249,7 +249,7 @@ namespace exanb
         {
           if( p != rank && recvbuf_size(p) > 0 )
           {
-            partner_recv_info(p).request_idx = active_requests;
+            recv_info(p).request_idx = active_requests;
             request_to_partner_idx[active_requests++] = p;
           }
         }
@@ -257,7 +257,7 @@ namespace exanb
         {
           if( p != rank && sendbuf_size(p) > 0 )
           {
-            partner_send_info(p).request_idx = active_requests;
+            send_info(p).request_idx = active_requests;
             request_to_partner_idx[active_requests++] = nprocs + p;
           }
         }
@@ -275,11 +275,9 @@ namespace exanb
         active_requests = total_requests;
       }
       
-      inline size_t sendbuf_size(int p) const { return partner_send_info(p).buffer_size; } 
-      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + partner_send_info(p).buffer_offset; }
-      inline size_t sendbuf_total_size() const { return partner_send_info(num_procs()-1).buffer_offset + partner_send_info(num_procs()-1).buffer_size; } 
+      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_info(p).buffer_offset; }
+      inline size_t sendbuf_total_size() const { return send_info(num_procs()-1).buffer_offset + send_info(num_procs()-1).buffer_size; } 
 
-      inline size_t recvbuf_size(int p) const { return partner_recv_info(p).buffer_size; } 
       inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + partner_recv_info(p).buffer_offset; } 
       inline size_t recvbuf_total_size() const { return partner_recv_info(num_procs()-1).buffer_offset + partner_recv_info(num_procs()-1).buffer_size; }
 
@@ -320,6 +318,7 @@ namespace exanb
       {
         free_requests();
       }
+ 
     };
 
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >

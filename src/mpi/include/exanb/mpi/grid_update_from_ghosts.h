@@ -134,22 +134,13 @@ namespace exanb
 
     CellsAccessorT cells_accessor = { nullptr , nullptr };
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
-    // reverse order begins here, before the code is the same as in update_ghosts.h
 
-    static constexpr bool reverse_comm = true;
-
-    // ***************** send/receive bufer resize ******************
-    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType), cell_scalar_components, alloc_on_device  );
-    ghost_comm_buffers.init_requests( comm_scheme, rank, reverse_comm );
-
-    auto & send_info   = ghost_comm_buffers.partner_send_info;
-    auto & recv_info = ghost_comm_buffers.partner_recv_info;
-
-    assert( send_info.size() == size_t(nprocs) );
-    assert( recv_info.size() == size_t(nprocs) );
+    // ***************** send/receive buffers resize ******************
+    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device );
+    ghost_comm_buffers.init_requests( rank );
 
     // ***************** send bufer packing start ******************
-    std::vector<PackGhostFunctor> m_pack_functors( nprocs );
+    std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
     uint8_t* send_buf_ptr = ghost_comm_buffers.recv_buffer.data();
     std::vector<uint8_t> send_staging;
     int active_send_packs = 0;
@@ -164,7 +155,8 @@ namespace exanb
     {
       if( ghost_comm_buffers.recvbuf_size(p) > 0 )
       {
-        assert( recv_info[p].buffer_offset + ghost_comm_buffers.recvbuf_size(p) <= ghost_comm_buffers.recvbuf_total_size() );
+        auto & recv_info = ghost_comm_buffers.recv_info(p);
+        assert( recv_info.buffer_offset + recv_info.buffer_size <= ghost_comm_buffers.recvbuf_total_size() );
         if( p != rank ) { ++ active_send_packs; }
         
         const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
@@ -176,7 +168,7 @@ namespace exanb
                                              , cell_scalars
                                              , ghost_comm_buffers.recvbuf_size(p)
                                              , sizeof_ParticleTuple
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr 
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + recv_info.buffer_offset ) : nullptr 
                                              , update_fields };
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
@@ -184,12 +176,12 @@ namespace exanb
 
         if( async_buffer_pack )
         {
-          send_info[p].async_lane = parallel_concurrent_lane++;
-          parallel_execution_queue() << onika::parallel::set_lane( send_info[p].async_lane ) << std::move(parallel_op) << onika::parallel::flush;
+          recv_info.async_lane = parallel_concurrent_lane++;
+          parallel_execution_queue() << onika::parallel::set_lane( recv_info.async_lane ) << std::move(parallel_op) << onika::parallel::flush;
         }
         else
         {
-          send_info[p].async_lane = onika::parallel::UNDEFINED_EXECUTION_LANE;
+          recv_info.async_lane = onika::parallel::UNDEFINED_EXECUTION_LANE;
         }
       }
     }
@@ -209,24 +201,24 @@ namespace exanb
     }
     for(int p=0;p<nprocs;p++)
     {
-      if( p!=rank && ghost_comm_buffers.sendbuf_size(p) > 0 )
+      auto & send_info = ghost_comm_buffers.partner_send_info(p);
+      if( p!=rank && send_info.buffer_size > 0 )
       {
-        assert( send_info[p].buffer_offsets + ghost_comm_buffers.sendbuf_size(p) <= ghost_comm_buffers.sendbuf_total_size() );
+        assert( send_info.request_idx != -1 );
+        assert( ghost_comm_buffers.request_index_is_send(send_info.request_idx) );
+        assert( send_info.buffer_offset + send_info.buffer_size <= ghost_comm_buffers.sendbuf_total_size() );
+        assert( ghost_comm_buffers.partner_rank_from_request_index(send_info.request_idx) == p );
+        MPI_Irecv( (char*) recv_buf_ptr + send_info.buffer_offset, send_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(send_info.request_idx) );
         ++ active_recvs;
-        assert( ghost_comm_buffers.partner_rank_from_request_index(request_count) == p );
-        assert( ghost_comm_buffers.request_index_is_recv(request_count) );
-        MPI_Irecv( (char*) recv_buf_ptr + send_info[p].buffer_offsets, ghost_comm_buffers.sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(request_count) );
         ++ request_count;          
       }
     }
 
-    /*** optional synchronization : wait for all send buffers to be packed before moving on ***/
+    // ***************** initiate buffer sends ******************
     if( serialize_pack_send )
     {
       for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( send_pack_async[p] ); }
     }
-
-    // ***************** initiate buffer sends ******************
     std::vector<bool> message_sent( nprocs , false );
     while( active_sends < active_send_packs )
     {
@@ -235,13 +227,12 @@ namespace exanb
         if( p!=rank && !message_sent[p] && ghost_comm_buffers.recvbuf_size(p)>0 )
         {
           bool ready = true;
-          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( send_pack_async[p] ); }
+          auto & recv_info = ghost_comm_buffers.partner_recv_info(p).async_lane;
+          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status(  ); }
           if( ready )
           {
-            ++ active_sends;
-            partner_idx[ total_requests ] = nprocs+p;
             MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers.recv_buffer_offsets[p] , ghost_comm_buffers.recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-            // ldbg << "async send #"<<total_requests<<" partner #"<<p << std::endl;
+            ++ active_sends;
             ++ total_requests;          
             message_sent[p] = true;
           }
