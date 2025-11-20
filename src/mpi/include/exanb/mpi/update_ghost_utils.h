@@ -163,7 +163,7 @@ namespace exanb
       inline UpdateGhostPartnerCommInfo& recv_info(int p) { return partner_comm_info[p]; }
       inline const UpdateGhostPartnerCommInfo& recv_info(int p) const { return partner_comm_info[p]; }
       inline UpdateGhostPartnerCommInfo& send_info(int p) { return partner_comm_info[num_procs()+p]; }
-      inline const UpdateGhostPartnerCommInfo& send_info(int p) const { return partner_comm_info[num_procs()+p]; 
+      inline const UpdateGhostPartnerCommInfo& send_info(int p) const { return partner_comm_info[num_procs()+p]; }
       
       inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
       {
@@ -247,18 +247,20 @@ namespace exanb
         // rebuild partner index map from requests indices in request array
         for(int p=0;p<nprocs;p++)
         {
-          if( p != rank && recvbuf_size(p) > 0 )
+          if( p != rank && recv_info(p).buffer_size > 0 )
           {
             recv_info(p).request_idx = active_requests;
-            request_to_partner_idx[active_requests++] = p;
+            request_to_partner_idx[active_requests] = p;
+            ++ active_requests;
           }
         }
         for(int p=0;p<nprocs;p++)
         {
-          if( p != rank && sendbuf_size(p) > 0 )
+          if( p != rank && send_info(p).buffer_size > 0 )
           {
             send_info(p).request_idx = active_requests;
-            request_to_partner_idx[active_requests++] = nprocs + p;
+            request_to_partner_idx[active_requests] = nprocs + p;
+            ++ active_requests;
           }
         }
         total_requests = active_requests;
@@ -278,10 +280,8 @@ namespace exanb
       inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_info(p).buffer_offset; }
       inline size_t sendbuf_total_size() const { return send_info(num_procs()-1).buffer_offset + send_info(num_procs()-1).buffer_size; } 
 
-      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + partner_recv_info(p).buffer_offset; } 
-      inline size_t recvbuf_total_size() const { return partner_recv_info(num_procs()-1).buffer_offset + partner_recv_info(num_procs()-1).buffer_size; }
-
-      // inline void start_send( MPI_Comm comm, int dst, int tag  ... );
+      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + recv_info(p).buffer_offset; } 
+      inline size_t recvbuf_total_size() const { return recv_info(num_procs()-1).buffer_offset + recv_info(num_procs()-1).buffer_size; }
       
       inline int number_of_requests() const { return total_requests; }
       inline int number_of_active_requests() const { return active_requests; }
@@ -543,7 +543,7 @@ namespace exanb
           {
             m_cell_scalars[cell_i*m_cell_scalar_components+c] = gcv[c];
           }
-        }              
+        }
       }
     };
 

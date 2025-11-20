@@ -186,9 +186,9 @@ namespace exanb
     unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
     {
-      if( ghost_comm_buffers.sendbuf_size(p) > 0 )
+      auto & send_info = ghost_comm_buffers.send_info(p);
+      if( send_info.buffer_size > 0 )
       {
-        auto & send_info = ghost_comm_buffers.send_info(p);
         assert( send_info.buffer_offset + send_info.buffer_size <= ghost_comm_buffers.sendbuf_total_size() );
         if( p != rank ) { ++ active_send_packs; }
 
@@ -198,7 +198,7 @@ namespace exanb
                                              , cell_scalars
                                              , cell_scalar_components
                                              , ghost_comm_buffers.sendbuf_ptr(p)
-                                             , ghost_comm_buffers.sendbuf_size(p)
+                                             , send_info.buffer_size
                                              , sizeof_ParticleTuple
                                              , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + send_info.buffer_offset ) : nullptr
                                              , ghost_boundary
@@ -234,7 +234,7 @@ namespace exanb
     }
     for(int p=0;p<nprocs;p++)
     {
-      auto & recv_info = ghost_comm_buffers.partner_recv_info(p);
+      auto & recv_info = ghost_comm_buffers.recv_info(p);
       if( p!=rank && recv_info.buffer_size > 0 )
       {
         assert( recv_info.request_idx != -1 );
@@ -248,17 +248,16 @@ namespace exanb
     }
 
     // ***************** initiate buffer sends ******************
-    ... tu es ici ...
     if( serialize_pack_send )
     {
-      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( ghost_comm_buffers.partner_send_info(p).async_lane ); }
+      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( ghost_comm_buffers.send_info(p).async_lane ); }
     }
     std::vector<bool> message_sent( nprocs , false );
     while( active_sends < active_send_packs )
     {
       for(int p=0;p<nprocs;p++)
       {
-        auto & send_info = ghost_comm_buffers.partner_send_info(p);
+        auto & send_info = ghost_comm_buffers.send_info(p);
         if( p!=rank && !message_sent[p] && send_info.buffer_size > 0 )
         {
           bool ready = true;
@@ -280,15 +279,14 @@ namespace exanb
     assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
     ldbg << "UpdateGhosts : total active requests = "<<ghost_comm_buffers.number_of_requests()<<std::endl;
 
-    std::vector<UnpackGhostFunctor> m_unpack_functors( nprocs , UnpackGhostFunctor{} );
-
+    std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
     size_t ghost_cells_recv=0 , ghost_cells_self=0;
 
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
       const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();        
-      auto & recv_info = ghost_comm_buffers.partner_recv_info(p);
+      auto & recv_info = ghost_comm_buffers.recv_info(p);
 
       // re-allocate cells before they receive particles
       if( CreateParticles )
@@ -308,30 +306,30 @@ namespace exanb
       if( p != rank ) ghost_cells_recv += cells_to_receive;
       else ghost_cells_self += cells_to_receive;
 
-      m_unpack_functors[p] = UnpackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data()
-                                        , comm_scheme.m_partner[p].m_receive_offset.data()
-                                        , (p!=rank) ? ghost_comm_buffers.recvbuf_ptr(p) : ghost_comm_buffers.sendbuf_ptr(p)
-                                        , cells_accessor 
-                                        , cell_scalar_components 
-                                        , cell_scalars
-                                        , recv_info.buffer_size
-                                        , sizeof_ParticleTuple
-                                        , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + recv_info.buffer_offset ) : nullptr
-                                        , update_fields
-#                                       ifndef NDEBUG
-                                        , ghost_layers
-                                        , grid_dims
-                                        , grid_start_position
-                                        , cell_size
-#                                       endif
-                                        };
+      unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_receives.data()
+                                              , comm_scheme.m_partner[p].m_receive_offset.data()
+                                              , (p!=rank) ? ghost_comm_buffers.recvbuf_ptr(p) : ghost_comm_buffers.sendbuf_ptr(p)
+                                              , cells_accessor 
+                                              , cell_scalar_components 
+                                              , cell_scalars
+                                              , recv_info.buffer_size
+                                              , sizeof_ParticleTuple
+                                              , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + recv_info.buffer_offset ) : nullptr
+                                              , update_fields
+#                                             ifndef NDEBUG
+                                              , ghost_layers
+                                              , grid_dims
+                                              , grid_start_position
+                                              , cell_size
+#                                             endif
+                                              };
                                         
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
-      auto parallel_op = block_parallel_for( cells_to_receive, m_unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
+      auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
 
       if( async_buffer_pack )
       {
-        recv_info.async_lane = parallel_concurrent_lane++;
+        recv_info.async_lane = parallel_concurrent_lane ++;
         parallel_execution_queue() << onika::parallel::set_lane( recv_info.async_lane ) << std::move(parallel_op) << onika::parallel::flush;
       }
       else
@@ -342,7 +340,7 @@ namespace exanb
     // *** end of packet decoding lamda ***
 
     // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
-    if( ghost_comm_buffers.send_info(rank).buffer_size > 0 ) ...
+    if( ghost_comm_buffers.send_info(rank).buffer_size > 0 )
     {
       if( ghost_comm_buffers.send_info(rank).buffer_size != ghost_comm_buffers.recv_info(rank).buffer_size )
       {
@@ -400,7 +398,7 @@ namespace exanb
         {
           fatal_error() << "bad request index "<<reqidx<<std::endl;
         }
-        const int p = ghost_comm_buffers.partner_rank_from_request_index(reqidx); // partner_idx[ reqidx ]; // get the original request index ( [0;nprocs-1] for receives, [nprocs;2*nprocs-1] for sends )
+        const int p = ghost_comm_buffers.partner_rank_from_request_index(reqidx); 
         assert( p >= 0 && p < nprocs );
         if( ghost_comm_buffers.request_index_is_recv(reqidx) ) // it's a receive
         {
@@ -409,11 +407,10 @@ namespace exanb
         }
         else // it's a send
         {
-          //const int p = reqidx - nprocs;
           -- active_sends;
         }
 
-        ghost_comm_buffers.deactivate_request( reqidx , request_count-1 );
+        ghost_comm_buffers.deactivate_request( reqidx );
         -- request_count;
         assert( request_count == ghost_comm_buffers.number_of_active_requests() );
       }
