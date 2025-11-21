@@ -181,7 +181,7 @@ namespace exanb
         , size_t sizeof_GridCellValueType 
         , size_t cell_scalar_components 
         , onika::cuda::CudaDevice * alloc_on_device
-        /*, bool use_host_staging_buffer*/ )
+        , bool use_host_staging_buffer )
       {
         static constexpr size_t MPI_BUFFER_ALIGN = onika::memory::GenericHostAllocator::DefaultAlignBytes;
         static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
@@ -252,6 +252,17 @@ namespace exanb
           lout << "scheme UID "<<comm_scheme.uid()<<" -> cached resource UID "<< m_comm_scheme_uid<<std::endl;
         } */
 
+        if( use_host_staging_buffer )
+        {
+          send_staging.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
+          recv_staging.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
+        }
+        else
+        {
+          send_staging.clear();
+          recv_staging.clear();
+        }
+
         if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
         {
           recv_buffer.clear();
@@ -262,6 +273,16 @@ namespace exanb
           send_buffer.clear();
           send_buffer.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
         } 
+      }
+  
+      inline uint8_t * mpi_send_buffer()
+      {
+        return send_staging.empty() ? send_buffer.data() : send_staging.data() ;
+      }
+
+      inline uint8_t * mpi_recv_buffer()
+      {
+        return recv_staging.empty() ? recv_buffer.data() : recv_staging.data() ;
       }
  
       inline void initialize_requests( int rank )

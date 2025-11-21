@@ -169,21 +169,23 @@ namespace exanb
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
 
     // ***************** send/receive buffers resize ******************
-    ghost_comm_buffers.update_from_comm_scheme( comm_scheme, rank, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device /*, staging_buffer*/ );
+    ghost_comm_buffers.update_from_comm_scheme( comm_scheme, rank, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device , staging_buffer );
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
-    uint8_t* send_buf_ptr = ghost_comm_buffers.send_buffer.data();
-    std::vector<uint8_t> send_staging;
+    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
+    // std::vector<uint8_t> send_staging;
     int active_send_packs = 0;
-
+/*
     if( staging_buffer )
     {
       send_staging.resize( ghost_comm_buffers.sendbuf_total_size() );
       send_buf_ptr = send_staging.data();
     }
-
+*/
+    ... work in progress ...
+    
     unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
     {
