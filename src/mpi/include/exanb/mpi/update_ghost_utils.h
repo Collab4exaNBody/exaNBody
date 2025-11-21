@@ -139,17 +139,25 @@ namespace exanb
     {
       static constexpr size_t BUFFER_GUARD_SIZE = 4096;
       
+      int64_t m_comm_scheme_uid = -1;
+      
       std::vector<UpdateGhostPartnerCommInfo> partner_comm_info;
       
       UpdateGhostMpiBuffer send_buffer;
+      std::vector<uint8_t> send_staging; // host only staging buffer
+
       UpdateGhostMpiBuffer recv_buffer;
+      std::vector<uint8_t> recv_staging; // host only staging buffer
             
       std::vector< MPI_Request > requests;
       std::vector<int> request_to_partner_idx;
+
       int active_requests = 0;
       int total_requests = 0;
       int m_num_procs = 0;
 
+      inline int64_t comm_scheme_uid() const { return m_comm_scheme_uid; }
+  
       inline int num_procs() const { return m_num_procs; }
 
       inline void initialize_number_of_partners(int np)
@@ -165,7 +173,15 @@ namespace exanb
       inline UpdateGhostPartnerCommInfo& send_info(int p) { return partner_comm_info[num_procs()+p]; }
       inline const UpdateGhostPartnerCommInfo& send_info(int p) const { return partner_comm_info[num_procs()+p]; }
       
-      inline void resize_buffers(const GhostCommunicationScheme& comm_scheme , size_t sizeof_CellParticlesUpdateData , size_t sizeof_ParticleTuple , size_t sizeof_GridCellValueType , size_t cell_scalar_components , onika::cuda::CudaDevice * alloc_on_device = nullptr )
+      inline void update_from_comm_scheme(
+          const GhostCommunicationScheme& comm_scheme
+        , int rank
+        , size_t sizeof_CellParticlesUpdateData 
+        , size_t sizeof_ParticleTuple 
+        , size_t sizeof_GridCellValueType 
+        , size_t cell_scalar_components 
+        , onika::cuda::CudaDevice * alloc_on_device
+        /*, bool use_host_staging_buffer*/ )
       {
         static constexpr size_t MPI_BUFFER_ALIGN = onika::memory::GenericHostAllocator::DefaultAlignBytes;
         static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
@@ -175,55 +191,67 @@ namespace exanb
           send_buffer.clear();
           send_buffer.m_cuda_device = alloc_on_device;
         }
-        
+
         if( alloc_on_device != recv_buffer.m_cuda_device )
         {
           recv_buffer.clear();
           recv_buffer.m_cuda_device = alloc_on_device;
-        }        
-        
-        const int nprocs = comm_scheme.m_partner.size();
-        initialize_number_of_partners( nprocs );
-        assert( nprocs == num_procs() );
-        size_t recv_buffer_offset = 0;
-        size_t send_buffer_offset = 0;
-        for(int p=0;p<nprocs;p++)
-        {   
-          const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
-          const size_t particles_to_receive = comm_scheme.m_partner[p].m_particles_to_receive;
-#         ifndef NDEBUG
-          size_t particles_to_receive_chk = 0;
-          for(size_t i=0;i<cells_to_receive;i++)
-          {
-            particles_to_receive_chk += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
-          }
-          assert( particles_to_receive == particles_to_receive_chk );
-#         endif
-          /*const*/ size_t recv_buffer_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
-          recv_buffer_size = ( recv_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
-          
-          const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
-          const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
-#         ifndef NDEBUG
-          size_t particles_to_send_chk = 0;
-          for(size_t i=0;i<cells_to_send;i++)
-          {
-            particles_to_send_chk += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
-          }
-          assert( particles_to_send == particles_to_send_chk );
-#         endif
-          /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
-          send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
-
-          recv_info(p).buffer_offset = recv_buffer_offset;
-          recv_info(p).buffer_size = recv_buffer_size;
-          recv_buffer_offset += recv_buffer_size;
-          
-          send_info(p).buffer_offset = send_buffer_offset;
-          send_info(p).buffer_size = send_buffer_size;   
-          send_buffer_offset += send_buffer_size;
         }
-      
+
+        if( comm_scheme.uid() > comm_scheme_uid() )
+        {
+          const int nprocs = comm_scheme.m_partner.size();
+          initialize_number_of_partners( nprocs );
+          assert( nprocs == num_procs() );
+          size_t recv_buffer_offset = 0;
+          size_t send_buffer_offset = 0;
+          for(int p=0;p<nprocs;p++)
+          {   
+            const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
+            const size_t particles_to_receive = comm_scheme.m_partner[p].m_particles_to_receive;
+  #         ifndef NDEBUG
+            size_t particles_to_receive_chk = 0;
+            for(size_t i=0;i<cells_to_receive;i++)
+            {
+              particles_to_receive_chk += ghost_cell_receive_info(comm_scheme.m_partner[p].m_receives[i]).m_n_particles;
+            }
+            assert( particles_to_receive == particles_to_receive_chk );
+  #         endif
+            /*const*/ size_t recv_buffer_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+            recv_buffer_size = ( recv_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
+            
+            const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
+            const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
+  #         ifndef NDEBUG
+            size_t particles_to_send_chk = 0;
+            for(size_t i=0;i<cells_to_send;i++)
+            {
+              particles_to_send_chk += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
+            }
+            assert( particles_to_send == particles_to_send_chk );
+  #         endif
+            /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+            send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
+
+            recv_info(p).buffer_offset = recv_buffer_offset;
+            recv_info(p).buffer_size = recv_buffer_size;
+            recv_buffer_offset += recv_buffer_size;
+            
+            send_info(p).buffer_offset = send_buffer_offset;
+            send_info(p).buffer_size = send_buffer_size;   
+            send_buffer_offset += send_buffer_size;
+          }
+          
+          initialize_requests( rank );
+          
+          m_comm_scheme_uid = comm_scheme.generate_uid();
+          // lout << "scheme UID "<<comm_scheme.uid()<<" -> updated resource UID "<< m_comm_scheme_uid<<std::endl;
+        }
+        /* else
+        {
+          lout << "scheme UID "<<comm_scheme.uid()<<" -> cached resource UID "<< m_comm_scheme_uid<<std::endl;
+        } */
+
         if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
         {
           recv_buffer.clear();
@@ -236,7 +264,7 @@ namespace exanb
         } 
       }
  
-      inline void init_requests( int rank )
+      inline void initialize_requests( int rank )
       {
         const int nprocs = num_procs(); //comm_scheme.m_partner.size();
 
@@ -268,13 +296,23 @@ namespace exanb
 
       inline void free_requests()
       {
-        for(auto & req : requests) if( req != MPI_REQUEST_NULL ) MPI_Request_free( & req );
+        for(auto & req : requests)
+        {
+          if( req != MPI_REQUEST_NULL )
+          {
+            MPI_Request_free( & req );
+          }
+        }
         requests.clear();
       }
 
       inline void reactivate_requests()
       {
         active_requests = total_requests;
+      }
+
+      inline void start_send_request(int p)
+      {
       }
       
       inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_info(p).buffer_offset; }
@@ -316,6 +354,7 @@ namespace exanb
       
       inline ~UpdateGhostsScratch()
       {
+        // lout <<"free comm resources UID = "<<m_comm_scheme_uid<<std::endl;
         free_requests();
       }
  

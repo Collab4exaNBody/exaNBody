@@ -136,8 +136,8 @@ namespace exanb
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
 
     // ***************** send/receive buffers resize ******************
-    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device );
-    ghost_comm_buffers.init_requests( rank );
+    ghost_comm_buffers.update_from_comm_scheme( comm_scheme, rank, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device );
+    ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
