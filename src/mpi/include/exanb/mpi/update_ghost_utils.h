@@ -183,8 +183,8 @@ namespace exanb
         }        
         
         const int nprocs = comm_scheme.m_partner.size();
-        assert( nprocs == num_procs() );
         initialize_number_of_partners( nprocs );
+        assert( nprocs == num_procs() );
         size_t recv_buffer_offset = 0;
         size_t send_buffer_offset = 0;
         for(int p=0;p<nprocs;p++)
@@ -205,7 +205,7 @@ namespace exanb
           const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
           const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
 #         ifndef NDEBUG
-          size_t particles_to_partner_send_chk = 0;
+          size_t particles_to_send_chk = 0;
           for(size_t i=0;i<cells_to_send;i++)
           {
             particles_to_send_chk += comm_scheme.m_partner[p].m_sends[i].m_particle_i.size();
@@ -268,7 +268,7 @@ namespace exanb
 
       inline void free_requests()
       {
-        for(auto & req : requests) MPI_Request_free( & req );
+        for(auto & req : requests) if( req != MPI_REQUEST_NULL ) MPI_Request_free( & req );
         requests.clear();
       }
 
