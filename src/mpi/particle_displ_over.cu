@@ -43,7 +43,6 @@ namespace exanb
     const Vec3d m_origin = { 0.0 , 0.0 , 0.0 };
     const double m_cell_size = 0.0;
     const double m_threshold_sqr = 0.0;
-    const double m_threshold_sqr_lab = 0.0;
     const Mat3d xform_tpre;
     const Mat3d xform_tcur;
 
@@ -55,14 +54,12 @@ namespace exanb
       Vec3d pos_tpre = Vec3d{restore_u32_double(rb[j*3+0],cell_origin.x,m_cell_size), restore_u32_double(rb[j*3+1],cell_origin.y,m_cell_size), restore_u32_double(rb[j*3+2],cell_origin.z,m_cell_size)};
       Vec3d pos_tcur = Vec3d{rx, ry, rz};
 
-      const double true_threshold_sqr = xform_evolved ? m_threshold_sqr_lab : m_threshold_sqr;
-      
       if constexpr (xform_evolved) {
         pos_tpre = xform_tpre * pos_tpre;
         pos_tcur = xform_tcur * pos_tcur;
       }
 
-      if( onika::math::norm2(pos_tcur-pos_tpre) >= true_threshold_sqr )
+      if( onika::math::norm2(pos_tcur-pos_tpre) >= m_threshold_sqr )
       {
         ++ count_over_dist2;
       }
@@ -134,13 +131,15 @@ sets result output to true if at least one particle has moved further than thres
       const Mat3d xform_tpre = backup_r->m_xform;
       const Mat3d xform_tcur = domain->xform();
       bool has_xform_evolved = !onika::math::is_identity( xform_tpre * inverse( xform_tcur ) );
+      const double max_dist2 = max_dist * max_dist;
+      const double max_dist2_lab = max_dist_lab * max_dist_lab;
+      const double threshold_sqr = has_xform_evolved ? max_dist2_lab : max_dist2;
       ldbg << "max dist       = " << max_dist << std::endl;
       ldbg << "max dist_lab   = " << max_dist_lab << std::endl;
       ldbg << "previous XForm = " << backup_r->m_xform << std::endl;
       ldbg << "current XForm  = " << domain->xform() << std::endl;      
       ldbg << "evolved XForm  = " << has_xform_evolved << std::endl;
-      const double max_dist2 = max_dist * max_dist;
-      const double max_dist2_lab = max_dist_lab * max_dist_lab;
+      
       const double cell_size = grid->cell_size();
 
       particle_displ_comm->m_comm = *mpi;
@@ -162,10 +161,10 @@ sets result output to true if at least one particle has moved further than thres
         auto user_cb = onika::parallel::ParallelExecutionCallback{ reduction_end_callback , & (*particle_displ_comm) };
 
         if (has_xform_evolved) {
-          ReduceMaxDisplacementFunctor<true> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 , max_dist2_lab, xform_tpre, xform_tcur };
+          ReduceMaxDisplacementFunctor<true> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , threshold_sqr, xform_tpre, xform_tcur };
           reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() , user_cb );
         } else {
-          ReduceMaxDisplacementFunctor<false> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 , max_dist2_lab, xform_tpre, xform_tcur };
+          ReduceMaxDisplacementFunctor<false> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , threshold_sqr, xform_tpre, xform_tcur };
           reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() , user_cb );
         }
         particle_displ_comm->start_mpi_async_request();
@@ -175,10 +174,10 @@ sets result output to true if at least one particle has moved further than thres
       {    
         ldbg << "Nb part moved over "<< max_dist <<" (local) = " << particle_displ_comm->m_particles_over << std::endl;
         if (has_xform_evolved) {
-          ReduceMaxDisplacementFunctor<true> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 , max_dist2_lab, xform_tpre, xform_tcur };
+          ReduceMaxDisplacementFunctor<true> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , threshold_sqr, xform_tpre, xform_tcur };
           reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() );
         } else {
-          ReduceMaxDisplacementFunctor<false> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , max_dist2 , max_dist2_lab, xform_tpre, xform_tcur };
+          ReduceMaxDisplacementFunctor<false> func = { backup_r->m_data.data() , grid->offset() , grid->origin() , cell_size , threshold_sqr, xform_tpre, xform_tcur };
           reduce_cell_particles( *grid , false , func , particle_displ_comm->m_particles_over , reduce_field_set , parallel_execution_context() );
         }
         MPI_Allreduce( & ( particle_displ_comm->m_particles_over ) , & ( particle_displ_comm->m_all_particles_over ) , 1 , MPI_UNSIGNED_LONG_LONG , MPI_SUM , comm );
