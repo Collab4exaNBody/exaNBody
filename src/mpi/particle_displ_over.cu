@@ -131,15 +131,14 @@ sets result output to true if at least one particle has moved further than thres
       // interest for auto here, is to be able to easily switch between single and double precision floats if needed.
       const double max_dist = *threshold;
       const double max_dist_lab = *threshold_lab;
-      std::cout << "max dist     = " << max_dist << std::endl;
-      std::cout << "max dist_lab = " << max_dist_lab << std::endl;
-      std::cout << "XForm_pre    = " << backup_r->m_xform << std::endl;
-      std::cout << "XForm_cur    = " << domain->xform() << std::endl;
-
       const Mat3d xform_tpre = backup_r->m_xform;
       const Mat3d xform_tcur = domain->xform();
       bool has_xform_evolved = !onika::math::is_identity( xform_tpre * inverse( xform_tcur ) );
-      std::cout << "XForm has evolved = " << has_xform_evolved << std::endl;
+      ldbg << "max dist       = " << max_dist << std::endl;
+      ldbg << "max dist_lab   = " << max_dist_lab << std::endl;
+      ldbg << "previous XForm = " << backup_r->m_xform << std::endl;
+      ldbg << "current XForm  = " << domain->xform() << std::endl;      
+      ldbg << "evolved XForm  = " << has_xform_evolved << std::endl;
       const double max_dist2 = max_dist * max_dist;
       const double max_dist2_lab = max_dist_lab * max_dist_lab;
       const double cell_size = grid->cell_size();
