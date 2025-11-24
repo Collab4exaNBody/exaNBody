@@ -134,38 +134,32 @@ namespace exanb
 
     CellsAccessorT cells_accessor = { nullptr , nullptr };
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
-    // reverse order begins here, before the code is the same as in update_ghosts.h
-    
-    // initialize MPI requests for both sends and receives
-    std::vector< MPI_Request > requests( 2 * nprocs , MPI_REQUEST_NULL );
-    std::vector< int > partner_idx( 2 * nprocs , -1 );
-    int total_requests = 0;
-    //for(size_t i=0;i<total_requests;i++) { requests[i] = MPI_REQUEST_NULL; }
 
-    // ***************** send/receive bufer resize ******************
-    ghost_comm_buffers.resize_buffers( comm_scheme, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType), cell_scalar_components, alloc_on_device  );
-    auto & send_pack_async   = ghost_comm_buffers.send_pack_async;
-    auto & recv_unpack_async = ghost_comm_buffers.recv_unpack_async;
-
-    assert( send_pack_async.size() == size_t(nprocs) );
-    assert( recv_unpack_async.size() == size_t(nprocs) );
-    int parallel_concurrent_lane = 0;
+    // ***************** send/receive buffers resize ******************
+    ghost_comm_buffers.update_from_comm_scheme( comm_scheme, rank, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device, staging_buffer );
+    ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
-    std::vector<PackGhostFunctor> m_pack_functors( nprocs );
-    uint8_t* send_buf_ptr = ghost_comm_buffers.recv_buffer.data();
-    std::vector<uint8_t> send_staging;
+    std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
+    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_recv_buffer();
     int active_send_packs = 0;
+/*
+    std::vector<uint8_t> send_staging;
     if( staging_buffer )
     {
       send_staging.resize( ghost_comm_buffers.recvbuf_total_size() );
       send_buf_ptr = send_staging.data();
     }
+*/
+    unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
     {
-      if( ghost_comm_buffers.recvbuf_size(p) > 0 )
+      auto & recv_info = ghost_comm_buffers.recv_info(p);
+      if( recv_info.buffer_size > 0 )
       {
+        assert( recv_info.buffer_offset + recv_info.buffer_size <= ghost_comm_buffers.recvbuf_total_size() );
         if( p != rank ) { ++ active_send_packs; }
+        
         const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
         m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                              , comm_scheme.m_partner[p].m_receive_offset.data()
@@ -173,21 +167,22 @@ namespace exanb
                                              , cells_accessor
                                              , cell_scalar_components
                                              , cell_scalars
-                                             , ghost_comm_buffers.recvbuf_size(p)
+                                             , recv_info.buffer_size
                                              , sizeof_ParticleTuple
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + ghost_comm_buffers.recv_buffer_offsets[p] ) : nullptr 
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_buf_ptr + recv_info.buffer_offset ) : nullptr 
                                              , update_fields };
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
+
         if( async_buffer_pack )
         {
-          send_pack_async[p] = parallel_concurrent_lane++;
-          parallel_execution_queue() << onika::parallel::set_lane(send_pack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
+          recv_info.async_lane = parallel_concurrent_lane++;
+          parallel_execution_queue() << onika::parallel::set_lane( recv_info.async_lane ) << std::move(parallel_op) << onika::parallel::flush;
         }
         else
         {
-          send_pack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;
+          recv_info.async_lane = onika::parallel::UNDEFINED_EXECUTION_LANE;
         }
       }
     }
@@ -195,177 +190,194 @@ namespace exanb
     // number of flying messages
     int active_sends = 0;
     int active_recvs = 0;
+    int request_count = 0;
 
     // ***************** async receive start ******************
-    uint8_t* recv_buf_ptr = ghost_comm_buffers.send_buffer.data();
+    uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
+/*
     std::vector<uint8_t> recv_staging;
     if( staging_buffer )
     {
       recv_staging.resize( ghost_comm_buffers.sendbuf_total_size() );
       recv_buf_ptr = recv_staging.data();
     }
+*/
     for(int p=0;p<nprocs;p++)
     {
-      if( p!=rank && ghost_comm_buffers.sendbuf_size(p) > 0 )
+      auto & send_info = ghost_comm_buffers.send_info(p);
+      if( p!=rank && send_info.buffer_size > 0 )
       {
+        assert( send_info.request_idx != -1 );
+        assert( ghost_comm_buffers.request_index_is_send(send_info.request_idx) );
+        assert( send_info.buffer_offset + send_info.buffer_size <= ghost_comm_buffers.sendbuf_total_size() );
+        assert( ghost_comm_buffers.partner_rank_from_request_index(send_info.request_idx) == p );
+        MPI_Irecv( (char*) recv_buf_ptr + send_info.buffer_offset, send_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(send_info.request_idx) );
         ++ active_recvs;
-        partner_idx[ total_requests ] = p;
-        MPI_Irecv( (char*) recv_buf_ptr + ghost_comm_buffers.send_buffer_offsets[p], ghost_comm_buffers.sendbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-        //ldbg << "async recv #"<<total_requests<<" partner #"<<p << std::endl;
-        ++ total_requests;          
+        ++ request_count;          
       }
     }
 
-    /*** optional synchronization : wait for all send buffers to be packed before moving on ***/
+    // ***************** initiate buffer sends ******************
     if( serialize_pack_send )
     {
-      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( send_pack_async[p] ); }
+      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( ghost_comm_buffers.recv_info(p).async_lane ); }
     }
-
-    // ***************** initiate buffer sends ******************
     std::vector<bool> message_sent( nprocs , false );
     while( active_sends < active_send_packs )
     {
       for(int p=0;p<nprocs;p++)
       {
-        if( p!=rank && !message_sent[p] && ghost_comm_buffers.recvbuf_size(p)>0 )
+        auto & recv_info = ghost_comm_buffers.recv_info(p);
+        if( p!=rank && !message_sent[p] && recv_info.buffer_size > 0 )
         {
           bool ready = true;
-          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( send_pack_async[p] ); }
+          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( recv_info.async_lane ); }
           if( ready )
           {
+            MPI_Isend( (char*) send_buf_ptr + recv_info.buffer_offset , recv_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(recv_info.request_idx) );
+            assert( ghost_comm_buffers.partner_rank_from_request_index(recv_info.request_idx) == p );
+            assert( ghost_comm_buffers.request_index_is_recv(recv_info.request_idx) );
             ++ active_sends;
-            partner_idx[ total_requests ] = nprocs+p;
-            MPI_Isend( (char*) send_buf_ptr + ghost_comm_buffers.recv_buffer_offsets[p] , ghost_comm_buffers.recvbuf_size(p), MPI_CHAR, p, comm_tag, comm, & requests[total_requests] );
-            // ldbg << "async send #"<<total_requests<<" partner #"<<p << std::endl;
-            ++ total_requests;          
+            ++ request_count;
             message_sent[p] = true;
           }
         }
       }
     }
-    assert( active_sends == active_send_packs );
 
+    assert( ghost_comm_buffers.number_of_requests() == request_count );
+    assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
+    ldbg << "UpdateGhosts : total active requests = "<<ghost_comm_buffers.number_of_requests()<<std::endl;
 
     std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
-    size_t ghost_cells_recv = 0;
+    size_t ghost_cells_recv=0 , ghost_cells_self=0;
 
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
       const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
-      ghost_cells_recv += cells_to_receive;
+      auto & send_info = ghost_comm_buffers.send_info(p);
+      
+      if( p != rank ) ghost_cells_recv += cells_to_receive;
+      else ghost_cells_self += cells_to_receive;
+      
       unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
                                               , cells_accessor
                                               , cell_scalars
                                               , cell_scalar_components
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
-                                              , ghost_comm_buffers.sendbuf_size(p)
+                                              , send_info.buffer_size
                                               , sizeof_ParticleTuple
-                                              , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + ghost_comm_buffers.send_buffer_offsets[p] ) : nullptr
+                                              , ( staging_buffer && (p!=rank) ) ? ( recv_buf_ptr + send_info.buffer_offset ) : nullptr
                                               , ghost_boundary
                                               , UpdateValueFunctor{} 
                                               , update_fields };
-      // = parallel_execution_context(p);
+
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
-      auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts ); 
+      auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
+      
       if( async_buffer_pack )
       {
-        recv_unpack_async[p] = parallel_concurrent_lane ++;
-        parallel_execution_queue() << onika::parallel::set_lane(recv_unpack_async[p]) << std::move(parallel_op) << onika::parallel::flush;
+        send_info.async_lane = parallel_concurrent_lane ++;
+        parallel_execution_queue() << onika::parallel::set_lane( send_info.async_lane ) << std::move(parallel_op) << onika::parallel::flush;
       }
       else
       {
-        recv_unpack_async[p] = onika::parallel::UNDEFINED_EXECUTION_LANE;
+        send_info.async_lane = onika::parallel::UNDEFINED_EXECUTION_LANE;
       }
     };
     // *** end of packet decoding lamda ***
 
-
     // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
-    if( ghost_comm_buffers.recvbuf_size(rank) > 0 )
+    if( ghost_comm_buffers.recv_info(rank).buffer_size > 0 )
     {
-      if( ghost_comm_buffers.sendbuf_size(rank) != ghost_comm_buffers.recvbuf_size(rank) )
+      if( ghost_comm_buffers.recv_info(rank).buffer_size != ghost_comm_buffers.send_info(rank).buffer_size )
       {
-        fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers.recvbuf_size(rank)<<" receive="<<ghost_comm_buffers.sendbuf_size(rank)<<std::endl;
+        fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers.recv_info(rank).buffer_size<<" receive="<<ghost_comm_buffers.send_info(rank).buffer_size<<std::endl;
       }
-      ldbg << "UpdateFromGhosts: loopback buffer size="<<ghost_comm_buffers.sendbuf_size(rank)<<std::endl;
-      if( ! serialize_pack_send ) { parallel_execution_queue().wait( send_pack_async[rank] ); }
+      ldbg << "UpdateGhosts: loopback buffer size="<<ghost_comm_buffers.recv_info(rank).buffer_size<<std::endl;
+      if( ! serialize_pack_send ) { parallel_execution_queue().wait( ghost_comm_buffers.recv_info(rank).async_lane ); }
       process_receive_buffer(rank);
     }
 
-    // *** wait for flying messages to arrive ***
     if( wait_all )
     {
-      ldbg << "UpdateFromGhosts: MPI_Waitall, total_requests="<<total_requests<<std::endl;
-      MPI_Waitall( total_requests , requests.data() , MPI_STATUS_IGNORE );
+      ldbg << "UpdateFromGhosts: MPI_Waitall, active_requests / total_requests = "<<ghost_comm_buffers.number_of_active_requests()
+           <<" / "<<ghost_comm_buffers.number_of_requests() <<std::endl;
+      MPI_Waitall( ghost_comm_buffers.number_of_active_requests() , ghost_comm_buffers.requests_data() , MPI_STATUS_IGNORE );
       ldbg << "UpdateFromGhosts: MPI_Waitall done"<<std::endl;
     }
+
     while( active_sends>0 || active_recvs>0 )
     {
       int reqidx = MPI_UNDEFINED;
 
-      if( total_requests != ( active_sends + active_recvs ) )
+      if( request_count != ( active_sends + active_recvs ) )
       {
-        fatal_error() << "Inconsistent total_active_requests ("<<total_requests<<") != ( "<<active_sends<<" + "<<active_recvs<<" )" <<std::endl;
+        fatal_error() << "Inconsistent active_requests ("<<request_count<<") != ( "<<active_sends<<" + "<<active_recvs<<" )" <<std::endl;
       }
-      ldbg <<"UpdateFromGhosts: "<< active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<total_requests<<") :" ;
-      for(int i=0;i<total_requests;i++)
+      ldbg << "UpdateGhosts: "<< active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<request_count<<") :" ;
+      for(int i=0;i<request_count;i++)
       {
-        const int p = partner_idx[i];
-        ldbg << " REQ"<< i << "="<< ( (p < nprocs) ? "RECV-P" : "SEND-P" ) << ( (p < nprocs) ? p : (p - nprocs) );
+        ldbg << " REQ"<< i << "="<< ( ghost_comm_buffers.request_index_is_recv(i) ? "SEND-P" : "RECV-P" ) << ghost_comm_buffers.partner_rank_from_request_index(i);
       }
       ldbg << std::endl;
 
       if( wait_all )
       {
-        reqidx = total_requests-1; // process communication in reverse order
+        reqidx = request_count-1; // process communications in reverse order
       }
       else
       {
-        if( total_requests == 1 )
+        assert( request_count == ghost_comm_buffers.number_of_active_requests() );
+        if( request_count == 1 )
         {
-          MPI_Wait( requests.data() , MPI_STATUS_IGNORE );
+          MPI_Wait( ghost_comm_buffers.requests_data() , MPI_STATUS_IGNORE );
           reqidx = 0;
         }
         else
         {
-          MPI_Waitany( total_requests , requests.data() , &reqidx , MPI_STATUS_IGNORE );
+          MPI_Waitany( request_count , ghost_comm_buffers.requests_data() , &reqidx , MPI_STATUS_IGNORE );
         }
       }
       
       if( reqidx != MPI_UNDEFINED )
       {
-        if( reqidx<0 || reqidx >=total_requests )
+        if( reqidx<0 || reqidx >= request_count )
         {
           fatal_error() << "bad request index "<<reqidx<<std::endl;
         }
-        const int p = partner_idx[ reqidx ]; // get the original request index ( [0;nprocs-1] for receives, [nprocs;2*nprocs-1] for sends )
-        if( p < nprocs ) // it's a receive
+        const int p = ghost_comm_buffers.partner_rank_from_request_index(reqidx);
+        assert( p >= 0 && p < nprocs );
+        if( ghost_comm_buffers.request_index_is_send(reqidx) ) // it's a receive
         {
           process_receive_buffer(p);
           -- active_recvs;
         }
         else // it's a send
         {
-          //const int p = reqidx - nprocs;
           -- active_sends;
         }
         
-        requests[reqidx] = requests[total_requests-1];
-        partner_idx[reqidx] = partner_idx[total_requests-1];
-        -- total_requests;
+        ghost_comm_buffers.deactivate_request( reqidx );
+        -- request_count;
+        assert( request_count == ghost_comm_buffers.number_of_active_requests() );
       }
       else
       {
-        ldbg << "Warning: undefined request returned by MPI_Waitany"<<std::endl;
+        ldbg << "Warning: undefined request index returned by MPI_Waitany"<<std::endl;
       }
     }
 
     for(int p=0;p<nprocs;p++)
     {
-      parallel_execution_queue().wait( recv_unpack_async[p] );
+      parallel_execution_queue().wait( ghost_comm_buffers.send_info(p).async_lane );
     }
+
+//  if( CreateParticles )
+//  {
+//    gridp->rebuild_particle_offsets();
+//  }
 
 #if 0
     {
@@ -380,7 +392,7 @@ namespace exanb
     }
 #endif
 
-    ldbg << "--- end update_from_ghosts : received "<< ghost_cells_recv<<" ghost cells" << std::endl;
+    ldbg << "--- end update_from_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
   }
 
 
