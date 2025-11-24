@@ -29,12 +29,12 @@ namespace exanb
   {
     onika::cuda::CudaDevice * alloc_on_device = nullptr;
     long mpi_tag = 0;
-    bool gpu_buffer_pack = false;
-    bool async_buffer_pack = false;
-    bool staging_buffer = false;
+    bool gpu_buffer_pack = true;
+    bool async_buffer_pack = true;
+    bool staging_buffer = true;
     bool serialize_pack_send = true;
     bool wait_all = false;
-    bool device_side_buffer = false;
+    bool device_side_buffer = true;
   };
 }
 

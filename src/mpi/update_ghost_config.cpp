@@ -32,7 +32,7 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------
     ADD_SLOT( UpdateGhostConfig , update_ghost_config , INPUT_OUTPUT , UpdateGhostConfig{} );
-    ADD_SLOT( bool , verbose , INPUT , false );
+    ADD_SLOT( bool , verbose , INPUT , true );
     
   public:
     inline void execute() override final
