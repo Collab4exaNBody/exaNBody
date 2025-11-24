@@ -89,40 +89,96 @@ namespace exanb
 
     struct UpdateGhostMpiBuffer
     {
+      static constexpr size_t MPI_BUFFER_ALIGN = 4096;
+      static_assert( MPI_BUFFER_ALIGN >= onika::memory::GenericHostAllocator::DefaultAlignBytes );
+      static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
+      static constexpr size_t MPI_BUFFER_ALIGN_MASK = ~ MPI_BUFFER_ALIGN_PAD;
+
       onika::memory::CudaMMVector<uint8_t> m_managed_buffer;
       onika::cuda::CudaDeviceStorage<uint8_t> m_device_buffer;
+      std::vector<uint8_t> m_mpi_staging_buffer;
       onika::cuda::CudaDevice * m_cuda_device = nullptr;
 
-      inline uint8_t* data() { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get() ; }
-      inline const uint8_t* data() const { return m_cuda_device == nullptr ? m_managed_buffer.data() : m_device_buffer.get(); }
-      
-      inline size_t size() const
+      static inline constexpr std::ptrdiff_t aligned_ptr_diff(std::ptrdiff_t p)
       {
-        if( m_cuda_device == nullptr ) return m_managed_buffer.size();
-        else if( m_device_buffer.m_shared != nullptr ) return m_device_buffer.m_shared->m_array_size;
-        return 0;
+        return ( p + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
+      }
+
+      static inline constexpr uint8_t* aligned_ptr_base(uint8_t* ptr)
+      {
+        constexpr uint8_t* zero_ptr = nullptr;
+        return zero_ptr + aligned_ptr_diff( ptr - zero_ptr );
+      }
+
+      inline uint8_t* data()
+      {
+        uint8_t* payload_ptr = nullptr;
+        if( m_cuda_device != nullptr ) payload_ptr =  m_device_buffer.get();
+        else payload_ptr = m_managed_buffer.data();
+        return aligned_ptr_base(payload_ptr);
       }
       
-      inline void clear()
+      inline uint8_t* mpi_buffer()
+      {
+        if( m_mpi_staging_buffer.empty() ) return data();
+        else return aligned_ptr_base( m_mpi_staging_buffer.data() );
+      }
+      
+      inline size_t size() const // payload size
+      {
+        size_t sz = 0;
+        if( m_cuda_device == nullptr ) sz = m_managed_buffer.size();
+        else if( m_device_buffer.m_shared != nullptr ) sz = m_device_buffer.m_shared->m_array_size;
+        assert( m_mpi_staging_buffer.empty() || m_mpi_staging_buffer.size() == sz );
+        if( sz > 0 )
+        {
+          assert( sz > MPI_BUFFER_ALIGN );
+          sz -= MPI_BUFFER_ALIGN;
+        }
+        return sz;
+      }
+      
+      inline void clear() // actually releases resources
       {
         m_managed_buffer.clear();
         m_managed_buffer.shrink_to_fit();
         m_device_buffer.reset();
+        m_mpi_staging_buffer.clear();
+        m_mpi_staging_buffer.shrink_to_fit();
       }
       
-      inline void resize(size_t sz)
+      inline void resize(size_t req_sz, bool alloc_staging = false )
       {
-        if( m_cuda_device != nullptr )
+        if( req_sz > 0 )
         {
+          const size_t alloc_size = req_sz + MPI_BUFFER_ALIGN;
           m_managed_buffer.clear();
-          if( m_device_buffer.get() == nullptr || sz != m_device_buffer.m_shared->m_array_size )
+          if( m_cuda_device != nullptr )
           {
-            m_device_buffer = onika::cuda::CudaDeviceStorage<uint8_t>::New( *m_cuda_device , sz );
+            m_managed_buffer.shrink_to_fit();
+            if( m_device_buffer.get() == nullptr || alloc_size != m_device_buffer.m_shared->m_array_size )
+            {
+              m_device_buffer = onika::cuda::CudaDeviceStorage<uint8_t>::New( *m_cuda_device , alloc_size );
+            }
+          }
+          else
+          {
+            m_device_buffer.reset();
+            m_managed_buffer.resize( alloc_size );
+          }
+          m_mpi_staging_buffer.clear();
+          if( alloc_staging )
+          {
+            m_mpi_staging_buffer.resize( alloc_size );
+          }
+          else
+          {
+            m_mpi_staging_buffer.shrink_to_fit();
           }
         }
         else
         {
-          m_managed_buffer.resize( sz );
+          clear();
         }
       }
     };
@@ -136,18 +192,13 @@ namespace exanb
     };
 
     struct UpdateGhostsScratch
-    {
-      static constexpr size_t BUFFER_GUARD_SIZE = 4096;
-      
+    {      
       int64_t m_comm_scheme_uid = -1;
       
       std::vector<UpdateGhostPartnerCommInfo> partner_comm_info;
       
       UpdateGhostMpiBuffer send_buffer;
-      std::vector<uint8_t> send_staging; // host only staging buffer
-
       UpdateGhostMpiBuffer recv_buffer;
-      std::vector<uint8_t> recv_staging; // host only staging buffer
             
       std::vector< MPI_Request > requests;
       std::vector<int> request_to_partner_idx;
@@ -183,15 +234,12 @@ namespace exanb
         , onika::cuda::CudaDevice * alloc_on_device
         , bool use_host_staging_buffer )
       {
-        static constexpr size_t MPI_BUFFER_ALIGN = onika::memory::GenericHostAllocator::DefaultAlignBytes;
-        static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
-        static constexpr size_t MPI_BUFFER_ALIGN_MASK = ~ MPI_BUFFER_ALIGN_PAD;
         if( alloc_on_device != send_buffer.m_cuda_device )
         {
           send_buffer.clear();
           send_buffer.m_cuda_device = alloc_on_device;
         }
-
+        
         if( alloc_on_device != recv_buffer.m_cuda_device )
         {
           recv_buffer.clear();
@@ -217,8 +265,8 @@ namespace exanb
             }
             assert( particles_to_receive == particles_to_receive_chk );
   #         endif
-            /*const*/ size_t recv_buffer_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
-            recv_buffer_size = ( recv_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
+            std::ptrdiff_t recv_buffer_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
+            recv_buffer_size = UpdateGhostMpiBuffer::aligned_ptr_diff(recv_buffer_size);
             
             const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
             const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
@@ -230,8 +278,8 @@ namespace exanb
             }
             assert( particles_to_send == particles_to_send_chk );
   #         endif
-            /*const*/ size_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
-            send_buffer_size = ( send_buffer_size + MPI_BUFFER_ALIGN_PAD ) & MPI_BUFFER_ALIGN_MASK;
+            std::ptrdiff_t send_buffer_size = ( cells_to_send * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_send * sizeof_ParticleTuple );
+            send_buffer_size = UpdateGhostMpiBuffer::aligned_ptr_diff( send_buffer_size );
 
             recv_info(p).buffer_offset = recv_buffer_offset;
             recv_info(p).buffer_size = recv_buffer_size;
@@ -252,37 +300,19 @@ namespace exanb
           lout << "scheme UID "<<comm_scheme.uid()<<" -> cached resource UID "<< m_comm_scheme_uid<<std::endl;
         } */
 
-        if( use_host_staging_buffer )
-        {
-          send_staging.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
-          recv_staging.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
-        }
-        else
-        {
-          send_staging.clear();
-          recv_staging.clear();
-        }
-
-        if( ( recvbuf_total_size() + BUFFER_GUARD_SIZE ) > recv_buffer.size() )
-        {
-          recv_buffer.clear();
-          recv_buffer.resize( recvbuf_total_size() + BUFFER_GUARD_SIZE );
-        }
-        if( ( sendbuf_total_size() + BUFFER_GUARD_SIZE ) > send_buffer.size() )
-        {
-          send_buffer.clear();
-          send_buffer.resize( sendbuf_total_size() + BUFFER_GUARD_SIZE );
-        } 
+        // (re)allocate main packing/unpacking buffers if needed
+        if( recvbuf_total_size() > recv_buffer.size() ) recv_buffer.resize( recvbuf_total_size() , use_host_staging_buffer );
+        if( sendbuf_total_size() > send_buffer.size() ) send_buffer.resize( sendbuf_total_size() , use_host_staging_buffer );
       }
   
       inline uint8_t * mpi_send_buffer()
       {
-        return send_staging.empty() ? send_buffer.data() : send_staging.data() ;
+        return send_buffer.mpi_buffer();
       }
 
       inline uint8_t * mpi_recv_buffer()
       {
-        return recv_staging.empty() ? recv_buffer.data() : recv_staging.data() ;
+        return recv_buffer.mpi_buffer();
       }
  
       inline void initialize_requests( int rank )

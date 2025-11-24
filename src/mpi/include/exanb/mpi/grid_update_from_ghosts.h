@@ -136,20 +136,21 @@ namespace exanb
     if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
 
     // ***************** send/receive buffers resize ******************
-    ghost_comm_buffers.update_from_comm_scheme( comm_scheme, rank, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device );
+    ghost_comm_buffers.update_from_comm_scheme( comm_scheme, rank, sizeof(CellParticlesUpdateData) , sizeof_ParticleTuple , sizeof(GridCellValueType) , cell_scalar_components, alloc_on_device, staging_buffer );
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
-    uint8_t* send_buf_ptr = ghost_comm_buffers.recv_buffer.data();
-    std::vector<uint8_t> send_staging;
+    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_recv_buffer();
     int active_send_packs = 0;
+/*
+    std::vector<uint8_t> send_staging;
     if( staging_buffer )
     {
       send_staging.resize( ghost_comm_buffers.recvbuf_total_size() );
       send_buf_ptr = send_staging.data();
     }
-
+*/
     unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
     {
@@ -168,7 +169,7 @@ namespace exanb
                                              , cell_scalars
                                              , recv_info.buffer_size
                                              , sizeof_ParticleTuple
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + recv_info.buffer_offset ) : nullptr 
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_buf_ptr + recv_info.buffer_offset ) : nullptr 
                                              , update_fields };
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
@@ -192,13 +193,15 @@ namespace exanb
     int request_count = 0;
 
     // ***************** async receive start ******************
-    uint8_t* recv_buf_ptr = ghost_comm_buffers.send_buffer.data();
+    uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
+/*
     std::vector<uint8_t> recv_staging;
     if( staging_buffer )
     {
       recv_staging.resize( ghost_comm_buffers.sendbuf_total_size() );
       recv_buf_ptr = recv_staging.data();
     }
+*/
     for(int p=0;p<nprocs;p++)
     {
       auto & send_info = ghost_comm_buffers.send_info(p);
@@ -265,7 +268,7 @@ namespace exanb
                                               , (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p)
                                               , send_info.buffer_size
                                               , sizeof_ParticleTuple
-                                              , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + send_info.buffer_offset ) : nullptr
+                                              , ( staging_buffer && (p!=rank) ) ? ( recv_buf_ptr + send_info.buffer_offset ) : nullptr
                                               , ghost_boundary
                                               , UpdateValueFunctor{} 
                                               , update_fields };

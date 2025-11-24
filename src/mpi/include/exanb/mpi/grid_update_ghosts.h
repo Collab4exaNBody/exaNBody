@@ -174,17 +174,16 @@ namespace exanb
 
     // ***************** send bufer packing start ******************
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
-    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
-    // std::vector<uint8_t> send_staging;
+    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer(); // either packet encoding buffer or staging send buffer depending on 'staging_buffer'
     int active_send_packs = 0;
 /*
+    std::vector<uint8_t> send_staging;
     if( staging_buffer )
     {
       send_staging.resize( ghost_comm_buffers.sendbuf_total_size() );
       send_buf_ptr = send_staging.data();
     }
 */
-    ... work in progress ...
     
     unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
@@ -203,7 +202,7 @@ namespace exanb
                                              , ghost_comm_buffers.sendbuf_ptr(p)
                                              , send_info.buffer_size
                                              , sizeof_ParticleTuple
-                                             , ( staging_buffer && (p!=rank) ) ? ( send_staging.data() + send_info.buffer_offset ) : nullptr
+                                             , ( staging_buffer && (p!=rank) ) ? ( send_buf_ptr + send_info.buffer_offset ) : nullptr
                                              , ghost_boundary
                                              , update_fields };
 
@@ -228,13 +227,15 @@ namespace exanb
     int request_count = 0;
 
     // ***************** async receive start ******************
-    uint8_t* recv_buf_ptr = ghost_comm_buffers.recv_buffer.data();
+    uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_recv_buffer(); // either packet decoding buffer or staging recv buffer depending on 'staging_buffer'
+/*
     std::vector<uint8_t> recv_staging;
     if( staging_buffer )
     {
       recv_staging.resize( ghost_comm_buffers.recvbuf_total_size() );
       recv_buf_ptr = recv_staging.data();
     }
+*/
     for(int p=0;p<nprocs;p++)
     {
       auto & recv_info = ghost_comm_buffers.recv_info(p);
@@ -317,7 +318,7 @@ namespace exanb
                                               , cell_scalars
                                               , recv_info.buffer_size
                                               , sizeof_ParticleTuple
-                                              , ( staging_buffer && (p!=rank) ) ? ( recv_staging.data() + recv_info.buffer_offset ) : nullptr
+                                              , ( staging_buffer && (p!=rank) ) ? ( recv_buf_ptr + recv_info.buffer_offset ) : nullptr
                                               , update_fields
 #                                             ifndef NDEBUG
                                               , ghost_layers
@@ -326,7 +327,7 @@ namespace exanb
                                               , cell_size
 #                                             endif
                                               };
-                                        
+
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
       auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
 
