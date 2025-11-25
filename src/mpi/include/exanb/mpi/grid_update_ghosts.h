@@ -79,10 +79,10 @@ namespace exanb
     const UpdateGhostConfig& config,
     std::integral_constant<bool,CreateParticles> )
   {
-    auto [_alloc_on_device,comm_tag,_gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all,_device_side_buffer] = config;
+    auto [_alloc_on_device,comm_tag,_gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
     auto alloc_on_device = _alloc_on_device;
     auto gpu_buffer_pack = _gpu_buffer_pack;
-    if( CreateParticles || !gpu_buffer_pack )
+    if( CreateParticles )
     {
       alloc_on_device = nullptr;
       gpu_buffer_pack = false;

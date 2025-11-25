@@ -69,9 +69,9 @@ namespace exanb
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
     ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
-    ADD_SLOT( UpdateGhostConfig    , update_ghost_config , INPUT, UpdateGhostConfig{} );
+    ADD_SLOT( UpdateGhostConfig        , update_ghost_config , INPUT, UpdateGhostConfig{} );
 
-    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
+    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers , PRIVATE );
 
   public:
     inline void execute() override final
@@ -81,11 +81,17 @@ namespace exanb
 
       using onika::cuda::make_const_span;
       
-      if( update_ghost_config->device_side_buffer && update_ghost_config->alloc_on_device == nullptr )
+      auto upd_config = *update_ghost_config;
+      if( upd_config.gpu_buffer_pack && upd_config.alloc_on_device == nullptr )
       {
         if( global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
         {
-          update_ghost_config->alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
+          upd_config.alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
+        }
+        else
+        {
+          upd_config.gpu_buffer_pack = false;
+          upd_config.alloc_on_device = nullptr;
         }
       }
       
@@ -110,7 +116,7 @@ namespace exanb
 
       grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
                           *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
-                          *update_ghost_config, std::integral_constant<bool,CreateParticles>{} );
+                          upd_config, std::integral_constant<bool,CreateParticles>{} );
     }
 
     inline std::string documentation() const override final
