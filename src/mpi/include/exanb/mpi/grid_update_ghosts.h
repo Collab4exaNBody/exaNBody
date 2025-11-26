@@ -176,15 +176,6 @@ namespace exanb
     std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
     uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer(); // either packet encoding buffer or staging send buffer depending on 'staging_buffer'
     int active_send_packs = 0;
-/*
-    std::vector<uint8_t> send_staging;
-    if( staging_buffer )
-    {
-      send_staging.resize( ghost_comm_buffers.sendbuf_total_size() );
-      send_buf_ptr = send_staging.data();
-    }
-*/
-    
     unsigned int parallel_concurrent_lane = 0;
     for(int p=0;p<nprocs;p++)
     {
@@ -228,14 +219,6 @@ namespace exanb
 
     // ***************** async receive start ******************
     uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_recv_buffer(); // either packet decoding buffer or staging recv buffer depending on 'staging_buffer'
-/*
-    std::vector<uint8_t> recv_staging;
-    if( staging_buffer )
-    {
-      recv_staging.resize( ghost_comm_buffers.recvbuf_total_size() );
-      recv_buf_ptr = recv_staging.data();
-    }
-*/
     for(int p=0;p<nprocs;p++)
     {
       auto & recv_info = ghost_comm_buffers.recv_info(p);
