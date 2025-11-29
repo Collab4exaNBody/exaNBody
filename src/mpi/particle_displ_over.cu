@@ -196,6 +196,28 @@ sets result output to true if at least one particle has moved further than thres
       particle_displ_comm->start_mpi_async_request();
     }
 
+    // -----------------------------------------------
+    // -----------------------------------------------
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+Computes the displacement each particle has done between its current position and its backup position. This is done in grid space unless the domain is deforming then it's done in physical space. The result (boolean) is set to true if the maximum displacement is greater than the required threshold (threshold or threshold_lab).
+
+Usage example:
+
+trigger_move_particles:
+  rebind: { threshold: max_displ , threshold_lab: max_displ_lab, result: do_move_particles }
+  body:
+    - particle_displ_over
+
+mytest:
+  - nbh_dist
+  - trigger_move_particles
+
+This example first calls nbh_dist which outputs max_displ and max_displ_lab. The rebind method is used to assign max_displ and max_displ_lab values to threshold and threshold_lab respectively, taken as input by particle_displ_over. The rebind method also allows to assign the result value (output from particle_displ_over) to the boolean trigger_move_particles.
+)EOF";
+    }
+    
   };
     
  // === register factories ===  
