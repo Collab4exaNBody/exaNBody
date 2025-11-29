@@ -86,6 +86,26 @@ namespace exanb
       }
     }
 
+    // -----------------------------------------------
+    // -----------------------------------------------
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+Compute neighborhood distance in grid space (nbh_dist) and physical space (nbh_dist_lab).
+Also computes maximum particle move tolerance in grid space (max_displ) and physical space (max_displ_lab).
+Finally, it also computes the ghost layers size (ghost_dist), a constant scaling of of (nbh_dist) using scale factor (nbh_ghost_scale).
+
+This operator needs (rcut_max) and (rcut_inc) to be defined before. When dealing with molecule, it also requires (bond_max_dist) and (bond_max_stretch) as additional parameters. In addition, the domain needs to be defined before and the (verbose) parameter allows information to be printed to the screen.
+
+Usage example:
+
+input_data:
+  - nbh_dist:
+      verbose: true
+)EOF";
+    }
+    
+
   };
 
   // === register factories ===  
