@@ -170,7 +170,7 @@ namespace exanb
         else if constexpr ( std::is_same_v<field_type,Quaternion> )
         {
           const T v = ( conv != 1.0 ) ? static_cast<T>( in_v * conv ) : in_v;
-          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v.w, v.x , v.y , v.z );
+          return onika::format_string_buffer( buf, bufsize, format_for_value(v) , v.w , v.x , v.y , v.z );
         }
         else if constexpr ( is_array_of_integral_v<field_type,4> )
         {
