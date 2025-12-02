@@ -24,7 +24,7 @@ under the License.
 namespace md
 {
 
-  template<class GridT> using SnapForceGenericTmpl = SnapForceGenericFP64<GridT>;
+  template<class GridT> using SnapForceGenericTmpl = SnapForceGeneric<GridT>;
 
   // === register factories ===  
   ONIKA_AUTORUN_INIT(snap_force_generic)

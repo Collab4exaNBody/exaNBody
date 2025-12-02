@@ -35,9 +35,14 @@ add_custom_target(SnapAutoGen
   DEPENDS MakeSnapAutoGen
   BYPRODUCTS ${mdSnap_GENERATED_SOURCES})
 
-option(SNAP_USE_FAST_DIV_J_PLUS_ONE "Snap uses fast /(j+1) approximation" OFF)
-if(SNAP_USE_FAST_DIV_J_PLUS_ONE)
-  set(mdSnap_COMPILE_DEFINITIONS SNAP_USE_FAST_DIV_J_PLUS_ONE=1)
+option(SNAP_FP32_MATH "Snap single precision math" ON)
+if(SNAP_FP32_MATH)
+  set(mdSnap_COMPILE_DEFINITIONS ${mdSnap_COMPILE_DEFINITIONS} SNAP_FP32_MATH=1)
+endif()
+
+option(SNAP_FAST_DIV_J_PLUS_ONE "Snap uses fast /(j+1) approximation" OFF)
+if(SNAP_FAST_DIV_J_PLUS_ONE)
+  set(mdSnap_COMPILE_DEFINITIONS ${mdSnap_COMPILE_DEFINITIONS} SNAP_FAST_DIV_J_PLUS_ONE=1)
 endif()
 
 set(mdSnap_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)

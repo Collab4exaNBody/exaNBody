@@ -371,9 +371,12 @@ namespace md
 
   };
 
+# ifdef SNAP_FP32_MATH
   template<class GridT, class EpFieldT = unused_field_id_t , class VirialFieldT = unused_field_id_t>
-  using SnapForceGenericFP64 = SnapForceRealT<GridT,double,EpFieldT,VirialFieldT>;
-
+  using SnapForceGeneric = SnapForceRealT<GridT,float,EpFieldT,VirialFieldT>;
+# else
+# define SNAP_FP64_MATH 1
   template<class GridT, class EpFieldT = unused_field_id_t , class VirialFieldT = unused_field_id_t>
-  using SnapForceGenericFP32 = SnapForceRealT<GridT,float,EpFieldT,VirialFieldT>;
+  using SnapForceGeneric = SnapForceRealT<GridT,double,EpFieldT,VirialFieldT>;
+# endif
 }

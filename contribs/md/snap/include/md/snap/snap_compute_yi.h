@@ -83,7 +83,7 @@ namespace md
                                     , AccumFuncT merge_func = {}
                                     )
   {
-#   ifdef SNAP_USE_FAST_DIV_J_PLUS_ONE
+#   ifdef SNAP_FAST_DIV_J_PLUS_ONE
     static constexpr YiRealT rcp_j_plus_one[16] = { 
         static_cast<YiRealT>(1.0/1.0)
       , static_cast<YiRealT>(1.0/2.0) 
