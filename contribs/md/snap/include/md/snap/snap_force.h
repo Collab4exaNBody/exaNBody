@@ -95,14 +95,18 @@ namespace md
     ADD_SLOT( ParticleTypeMap       , particle_type_map , INPUT , OPTIONAL ); // to reorder material indices if needed, to match indices used in snap parameters
 
     ADD_SLOT( long                  , timestep          , INPUT , REQUIRED , DocString{"Iteration number"} );
-    ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );
-    ADD_SLOT( bool                  , scb_mode          , INPUT , false , DocString{"if true, enables block-wide collaborative computation of atom forces"} );
-    
+    ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );    
+
     ADD_SLOT( SnapContext           , snap_ctx          , PRIVATE );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_cell_particle_pairs
     static inline constexpr bool SnapUseWeights = false;
     static inline constexpr bool SnapUseNeighbors = true;
+#   ifdef SNAP_SHARED_COMPUTE_BUFFER
+    static inline constexpr bool SnapSharedComputeBuffer = true;
+#   else
+    static inline constexpr bool SnapSharedComputeBuffer = false;
+#   endif
 
     template<class SnapConfParamT>
     using ComputeBuffer = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
@@ -338,23 +342,11 @@ namespace md
       
       bool fallback_to_generic = false;
       const int JMax = snap_ctx->sna->twojmax / 2;
-      static constexpr onika::BoolConst<true> use_shared_compute_buffer = {};
-      static constexpr onika::BoolConst<false> no_shared_compute_buffer = {};
-
       if( snap_ctx->sna->nelements == 1 )
       {
-        if( *scb_mode )
-        {
-               if( JMax == 3 ) snap_compute_specialized_snapconf( ROParamsMonoElem<3>(snap_ctx->sna) , use_shared_compute_buffer );
-          else if( JMax == 4 ) snap_compute_specialized_snapconf( ROParamsMonoElem<4>(snap_ctx->sna) , use_shared_compute_buffer );
-          else fallback_to_generic = true;
-        }
-        else
-        {
-               if( JMax == 3 ) snap_compute_specialized_snapconf( ROParamsMonoElem<3>(snap_ctx->sna) , no_shared_compute_buffer );
-          else if( JMax == 4 ) snap_compute_specialized_snapconf( ROParamsMonoElem<4>(snap_ctx->sna) , no_shared_compute_buffer );
-          else fallback_to_generic = true;
-        }
+             if( JMax == 3 ) snap_compute_specialized_snapconf( ROParamsMonoElem<3>(snap_ctx->sna) , onika::BoolConst<SnapSharedComputeBuffer>{} );
+        else if( JMax == 4 ) snap_compute_specialized_snapconf( ROParamsMonoElem<4>(snap_ctx->sna) , onika::BoolConst<SnapSharedComputeBuffer>{} );
+        else fallback_to_generic = true;
       }
       else
       {
@@ -363,7 +355,7 @@ namespace md
       
       if( fallback_to_generic )
       {
-        snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParametersRealT<ConstantsRealT,int,int,has_energy_field>( snap_ctx->sna ) , no_shared_compute_buffer );
+        snap_compute_specialized_snapconf( SnapInternal::ReadOnlySnapParametersRealT<ConstantsRealT,int,int,has_energy_field>( snap_ctx->sna ) , onika::FalseType{} );
       }
       
       ldbg << "Snap DONE (JMax="<<JMax<<",generic="<<std::boolalpha<<fallback_to_generic<<")"<<std::endl; 
@@ -379,4 +371,8 @@ namespace md
   template<class GridT, class EpFieldT = unused_field_id_t , class VirialFieldT = unused_field_id_t>
   using SnapForceGeneric = SnapForceRealT<GridT,double,EpFieldT,VirialFieldT>;
 # endif
+
+  // for backward compatibility only, to be removed during next release
+  template<class GridT, class EpFieldT = unused_field_id_t , class VirialFieldT = unused_field_id_t>
+  using SnapForceGenericFP64 = SnapForceGeneric<GridT,EpFieldT,VirialFieldT>;
 }
