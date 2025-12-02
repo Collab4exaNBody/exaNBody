@@ -90,8 +90,8 @@ namespace exanb
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
-    using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
-    using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,UpdateFuncT,FieldAccTupleT>;
+    using PackGhostFunctor = typename UpdateGhostsScratchT::PackGhostFunctor;
+    using UnpackGhostFunctor = typename UpdateGhostsScratchT::UnpackGhostFunctor;
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
@@ -140,7 +140,7 @@ namespace exanb
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
-    std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
+    //std::vector<PackGhostFunctor> m_pack_functors( nprocs , PackGhostFunctor{} );
     uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_recv_buffer();
     int active_send_packs = 0;
     unsigned int parallel_concurrent_lane = 0;
@@ -153,7 +153,7 @@ namespace exanb
         if( p != rank ) { ++ active_send_packs; }
         
         const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
-        m_pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
+        ghost_comm_buffers.pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                              , comm_scheme.m_partner[p].m_receive_offset.data()
                                              , ghost_comm_buffers.recvbuf_ptr(p)
                                              , cells_accessor
@@ -165,7 +165,7 @@ namespace exanb
                                              , update_fields };
         
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
-        auto parallel_op = block_parallel_for( cells_to_send, m_pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
+        auto parallel_op = block_parallel_for( cells_to_send, ghost_comm_buffers.pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
 
         if( async_buffer_pack )
         {
@@ -206,13 +206,13 @@ namespace exanb
     {
       for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( ghost_comm_buffers.recv_info(p).async_lane ); }
     }
-    std::vector<bool> message_sent( nprocs , false );
+    //std::vector<bool> message_sent( nprocs , false );
     while( active_sends < active_send_packs )
     {
       for(int p=0;p<nprocs;p++)
       {
         auto & recv_info = ghost_comm_buffers.recv_info(p);
-        if( p!=rank && !message_sent[p] && recv_info.buffer_size > 0 )
+        if( p!=rank && !ghost_comm_buffers.message_sent[p] && recv_info.buffer_size > 0 )
         {
           bool ready = true;
           if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( recv_info.async_lane ); }
@@ -223,7 +223,7 @@ namespace exanb
             assert( ghost_comm_buffers.request_index_is_recv(recv_info.request_idx) );
             ++ active_sends;
             ++ request_count;
-            message_sent[p] = true;
+            ghost_comm_buffers.message_sent[p] = true;
           }
         }
       }
@@ -233,7 +233,7 @@ namespace exanb
     assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
     ldbg << "UpdateGhosts : total active requests = "<<ghost_comm_buffers.number_of_requests()<<std::endl;
 
-    std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
+    //std::vector<UnpackGhostFunctor> unpack_functors( nprocs , UnpackGhostFunctor{} );
     size_t ghost_cells_recv=0 , ghost_cells_self=0;
 
     // *** packet decoding process lambda ***
@@ -245,7 +245,7 @@ namespace exanb
       if( p != rank ) ghost_cells_recv += cells_to_receive;
       else ghost_cells_self += cells_to_receive;
       
-      unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
+      ghost_comm_buffers.unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
                                               , cells_accessor
                                               , cell_scalars
                                               , cell_scalar_components
@@ -258,7 +258,7 @@ namespace exanb
                                               , update_fields };
 
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
-      auto parallel_op = block_parallel_for( cells_to_receive, unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
+      auto parallel_op = block_parallel_for( cells_to_receive, ghost_comm_buffers.unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
       
       if( async_buffer_pack )
       {

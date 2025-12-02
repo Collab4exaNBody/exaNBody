@@ -65,21 +65,29 @@ namespace exanb
     // -----------------------------------------------
     // Operator slots
     // -----------------------------------------------
-    ADD_SLOT( MPI_Comm                 , mpi               , INPUT , MPI_COMM_WORLD );
-    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT_OUTPUT , OPTIONAL );
-    ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
-    ADD_SLOT( Domain                   , domain            , INPUT );
-    ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
-    ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
+    ADD_SLOT( MPI_Comm                 , mpi                , INPUT , MPI_COMM_WORLD );
+    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme  , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( GridT                    , grid               , INPUT_OUTPUT);
+    ADD_SLOT( Domain                   , domain             , INPUT );
+    ADD_SLOT( GridCellValues           , grid_cell_values   , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( StringVector             , opt_fields         , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
-    ADD_SLOT( UpdateGhostConfig    , update_ghost_config , INPUT, UpdateGhostConfig{} );
+    ADD_SLOT( UpdateGhostConfig        , update_ghost_config, INPUT, UpdateGhostConfig{} );
 
-    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
+    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers , PRIVATE );
 
   public:
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
     inline void execute() override final
     {
+      using GridCellValueType = typename GridCellValues::GridCellValueType;
+      using UpdateValueFunctor = UpdateFuncT;
+      using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+      static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
+      static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
+      using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid->cells_accessor() ) > >;
+
+
       if( ! ghost_comm_scheme.has_value() ) return;
       if( grid->number_of_particles() == 0 ) return;
       if( ! grid->has_allocated_fields( FieldSetT{} ) )
@@ -106,8 +114,18 @@ namespace exanb
       auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); };
       auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
 
+      using FieldAccTupleT = std::remove_cv_t< std::remove_reference_t< decltype( update_fields ) > >;
+      using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+      using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,UpdateFuncT,FieldAccTupleT>;
+      using UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<PackGhostFunctor,UnpackGhostFunctor>;
+      if( ghost_comm_buffers->m_comm_resources == nullptr )
+      {
+        ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
+      }
+      UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
-                        *ghost_comm_buffers, pecfunc,peqfunc, update_fields,*update_ghost_config, UpdateFuncT{} );
+                        *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, UpdateFuncT{} );
     }
 
   };

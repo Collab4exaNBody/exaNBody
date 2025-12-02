@@ -76,6 +76,14 @@ namespace exanb
   public:
     inline void execute() override final
     {
+      using CellParticles = typename GridT::CellParticles;
+      using ParticleFullTuple = typename CellParticles::TupleValueType;
+      using GridCellValueType = typename GridCellValues::GridCellValueType;
+      using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+      static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
+      static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
+      using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid->cells_accessor() ) > >;
+
       if( ! ghost_comm_scheme.has_value() ) return;
       if( grid->number_of_particles() == 0 ) return;
 
@@ -114,8 +122,18 @@ namespace exanb
       
       auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
 
+      using FieldAccTupleT = std::remove_cv_t< std::remove_reference_t< decltype( update_fields ) > >;
+      using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+      using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT>;
+      using UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<PackGhostFunctor,UnpackGhostFunctor>;
+      if( ghost_comm_buffers->m_comm_resources == nullptr )
+      {
+        ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
+      }
+      UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+
       grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
-                          *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
+                          * ghost_scratch, pecfunc,peqfunc, update_fields,
                           upd_config, std::integral_constant<bool,CreateParticles>{} );
     }
 

@@ -177,17 +177,35 @@ namespace exanb
       int async_lane = -1;
     };
 
+
+
+    struct UpdateGhostsCommManagerBase
+    {
+      virtual ~UpdateGhostsCommManagerBase() = 0;
+    };
+
     struct UpdateGhostsScratch
-    {      
+    {
+      std::shared_ptr<UpdateGhostsCommManagerBase> m_comm_resources = nullptr;
+    };
+
+    template<class PackGhostFunctorT, class UnpackGhostFunctorT>
+    struct UpdateGhostsCommManager : public UpdateGhostsCommManagerBase
+    {
+      using PackGhostFunctor = PackGhostFunctorT;
+      using UnpackGhostFunctor = UnpackGhostFunctorT;
+      
       int64_t m_comm_scheme_uid = -1;
-      
-      std::vector<UpdateGhostPartnerCommInfo> partner_comm_info;
-      
+            
       UpdateGhostMpiBuffer send_buffer;
       UpdateGhostMpiBuffer recv_buffer;
             
+      std::vector<UpdateGhostPartnerCommInfo> partner_comm_info;
+      std::vector<PackGhostFunctor> pack_functors;
+      std::vector<UnpackGhostFunctor> unpack_functors;
       std::vector< MPI_Request > requests;
       std::vector<int> request_to_partner_idx;
+      std::vector<bool> message_sent;
 
       int active_requests = 0;
       int total_requests = 0;
@@ -203,6 +221,9 @@ namespace exanb
         // last nprocs elements are reserved for sends to partners
         m_num_procs = np;
         partner_comm_info.assign( 2 * np , UpdateGhostPartnerCommInfo{} );
+        pack_functors.assign( np , PackGhostFunctor{} );
+        unpack_functors.assign( np , UnpackGhostFunctor{} );
+        message_sent.assign( np , false );
       }
  
       inline UpdateGhostPartnerCommInfo& recv_info(int p) { return partner_comm_info[p]; }
@@ -346,7 +367,8 @@ namespace exanb
       inline void reactivate_requests()
       {
         active_requests = total_requests;
-      }
+        message_sent.assign( num_procs() , false );
+     }
 
       inline void start_send_request(int p)
       {
@@ -389,7 +411,7 @@ namespace exanb
         -- active_requests;
       }
       
-      inline ~UpdateGhostsScratch()
+      inline ~UpdateGhostsCommManager() override final
       {
         // lout <<"free comm resources UID = "<<m_comm_scheme_uid<<std::endl;
         free_requests();

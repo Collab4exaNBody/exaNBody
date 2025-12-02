@@ -65,7 +65,6 @@ namespace exanb
     ADD_SLOT( StringVector            , cc_avg_fields       , INPUT , StringVector{} ); 
 
     ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
-    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
         
   public:
 
@@ -73,6 +72,11 @@ namespace exanb
     // -----------------------------------------------
     inline void execute ()  override final
     {
+      using GridCellValueType = typename GridCellValues::GridCellValueType;
+      using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+      static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
+      static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
+ 
       // check that specified field exists
       if( ! grid_cell_values->has_field( *grid_cell_field ) )
       {
@@ -200,6 +204,21 @@ namespace exanb
       Grid< FieldSet<> > * null_grid_ptr = nullptr;
       onika::FlatTuple<> update_fields = {};
 
+      // functors to build update_ghost and update_from_ghost scratch objects
+      using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( null_grid_ptr->cells_accessor() ) > >;
+      using FieldAccTupleT = std::remove_cv_t< std::remove_reference_t< decltype( update_fields ) > >;
+      using FWD_PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+      static constexpr bool CreateParticles = false;
+      using FWD_UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT>;
+      using FWD_UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<FWD_PackGhostFunctor,FWD_UnpackGhostFunctor>;
+      FWD_UpdateGhostsCommManager fwd_ghost_scratch;
+
+      using UpdateFuncT = UpdateValueAdd;
+      using REV_PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+      using REV_UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,UpdateFuncT,FieldAccTupleT>;
+      using REV_UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<REV_PackGhostFunctor,REV_UnpackGhostFunctor>;
+      REV_UpdateGhostsCommManager rev_ghost_scratch;
+
       // does the projected cell value has values in the ghost area ?
       // create a unique label id for each cell satisfying selection criteria
       using ULongLong = unsigned long long;
@@ -230,7 +249,7 @@ namespace exanb
       {
         ldbg << "nonzero_ghost_subcells="<<nonzero_ghost_subcells<<", grid_update_from_ghosts with UpdateValueAdd merge functor"<<std::endl;
         grid_update_from_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                          *ghost_comm_buffers, pecfunc,peqfunc, update_fields, UpdateGhostConfig{} , UpdateValueAdd{} );
+                          rev_ghost_scratch, pecfunc,peqfunc, update_fields, UpdateGhostConfig{} , UpdateFuncT{} );
 #       pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
         for( ssize_t k=0 ; k < grid_dims.k ; k++)
         for( ssize_t j=0 ; j < grid_dims.j ; j++)
@@ -353,7 +372,7 @@ namespace exanb
       do
       {
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                            *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
+                            fwd_ghost_scratch, pecfunc,peqfunc, update_fields,
                             UpdateGhostConfig{} , std::integral_constant<bool,false>{} );
 
         ULongLong label_update_count = 0;
