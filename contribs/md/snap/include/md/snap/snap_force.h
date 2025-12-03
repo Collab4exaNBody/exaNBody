@@ -95,7 +95,8 @@ namespace md
     ADD_SLOT( ParticleTypeMap       , particle_type_map , INPUT , OPTIONAL ); // to reorder material indices if needed, to match indices used in snap parameters
 
     ADD_SLOT( long                  , timestep          , INPUT , REQUIRED , DocString{"Iteration number"} );
-    ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );    
+    ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );
+    ADD_SLOT( double                , check_bs_max_error, INPUT , 1.e-12 , DocString{"Maximum L2 error admitted when checking bispectrum values"} );
 
     ADD_SLOT( SnapContext           , snap_ctx          , PRIVATE );
 
@@ -315,7 +316,7 @@ namespace md
             std::ostringstream oss; oss << *bispectrumchkfile << "." << *timestep;
             std::string file_name = onika::data_file_path( oss.str() );
             ldbg << "bispectrumchkfile is set, checking bispectrum from file "<< file_name << std::endl;
-            snap_check_bispectrum(*mpi, *grid, file_name, ncoeff, snap_ctx->m_bispectrum.data() );
+            snap_check_bispectrum(*mpi, *grid, file_name, ncoeff, snap_ctx->m_bispectrum.data() , *check_bs_max_error );
           }
         }
         

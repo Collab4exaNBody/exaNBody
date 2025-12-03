@@ -123,6 +123,7 @@ namespace md
         {
           exanb::fatal_error() << "max L2 norm = "<<max_l2norm<<" , max error = "<<max_l2_error <<std::endl;
         }
+        exanb::lout << "max L2 norm = "<<max_l2norm<<" < "<<max_l2_error <<std::endl;
       }
     }
   }
