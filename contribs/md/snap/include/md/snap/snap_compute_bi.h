@@ -30,6 +30,7 @@ namespace md
   /* ----------------------------------------------------------------------
      compute Bi by summing conj(Ui)*Zi
   ------------------------------------------------------------------------- */
+  template<class ZiRealT, class UiRealT, class BZeroRealT, class BListRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_compute_bi( // READ ONLY
                                       int nelements, int idxz_max, int idxb_max, int idxu_max, int twojmax
@@ -37,14 +38,14 @@ namespace md
                                     , int const * __restrict__ idxz_block
                                     , SnapInternal::SNA_ZINDICES const * __restrict__ idxz
                                     , SnapInternal::SNA_BINDICES const * __restrict__ idxb
-                                    , double const * __restrict__ zlist_r
-                                    , double const * __restrict__ zlist_i
-                                    , double const * __restrict__ ulisttot_r
-                                    , double const * __restrict__ ulisttot_i
-                                    , double const * __restrict__ bzero
+                                    , ZiRealT const * __restrict__ zlist_r
+                                    , ZiRealT const * __restrict__ zlist_i
+                                    , UiRealT const * __restrict__ ulisttot_r
+                                    , UiRealT const * __restrict__ ulisttot_i
+                                    , BZeroRealT const * __restrict__ bzero
                                     , bool bzero_flag, bool wselfall_flag
                                       // WRITE ONLY
-                                    , double * __restrict__ blist
+                                    , BListRealT * __restrict__ blist
                                       // ORIGINAL PARAMETERS
                                     , int ielem)
   {
@@ -73,7 +74,7 @@ namespace md
 
             int jjz = IDXZ_BLOCK(j1,j2,j);
             int jju = IDXU_BLOCK(j);
-            double sumzu = 0.0;
+            BListRealT sumzu = 0.0;
             for (int mb = 0; 2 * mb < j; mb++)
               for (int ma = 0; ma <= j; ma++) {
                 sumzu += ULISTTOT_R(elem3*idxu_max+jju) * ZLIST_R(idouble*idxz_max+jjz) +

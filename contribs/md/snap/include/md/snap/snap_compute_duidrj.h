@@ -28,19 +28,20 @@ namespace md
 {
   using namespace exanb;
 
+  template<class RealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline double snap_compute_dsfac( // READ ONLY
-                                           double rmin0, bool switch_flag, bool switch_inner_flag
+                                           RealT rmin0, bool switch_flag, bool switch_inner_flag
                                            // ORIGINAL PARAMETERS
-                                         , double r, double rcut, double sinner, double dinner)
+                                         , RealT r, RealT rcut, RealT sinner, RealT dinner)
   {
-    double dsfac, sfac_outer, dsfac_outer, sfac_inner, dsfac_inner;
+    RealT dsfac, sfac_outer, dsfac_outer, sfac_inner, dsfac_inner;
     if (switch_flag == 0) dsfac_outer = 0.0;
     else if (r <= rmin0) dsfac_outer = 0.0;
     else if (r > rcut) dsfac_outer = 0.0;
     else {
-      double rcutfac = M_PI / (rcut - rmin0);
-      dsfac_outer = -0.5 * sin((r - rmin0) * rcutfac) * rcutfac;
+      RealT rcutfac = RealT(M_PI) / (rcut - rmin0);
+      dsfac_outer = RealT(-0.5) * sin((r - rmin0) * rcutfac) * rcutfac;
     }
 
     // some duplicated computation, but rarely visited
@@ -54,13 +55,13 @@ namespace md
         else if (r <= rmin0) sfac_outer = 1.0;
         else if (r > rcut) sfac_outer = 0.0;
         else {
-	        double rcutfac = M_PI / (rcut - rmin0);
-	        sfac_outer = 0.5 * (cos((r - rmin0) * rcutfac) + 1.0);
+	        RealT rcutfac = RealT(M_PI) / (rcut - rmin0);
+	        sfac_outer = RealT(0.5) * (cos((r - rmin0) * rcutfac) + RealT(1.0));
         }
 
         // calculate sfac_inner
 
-        double rcutfac = (M_PI/2) / dinner;
+        RealT rcutfac = (M_PI/2) / dinner;
         sfac_inner = 0.5 * (1.0 - cos( (M_PI/2) + (r - sinner) * rcutfac));
         dsfac_inner = 0.5 * rcutfac * sin( (M_PI/2) + (r - sinner) * rcutfac);
         dsfac = dsfac_outer*sfac_inner + sfac_outer*dsfac_inner;
@@ -74,37 +75,38 @@ namespace md
      Compute derivatives of Wigner U-functions for one neighbor
      see comments in compute_uarray()
   ------------------------------------------------------------------------- */
+  template<class UiRealT, class RootPQRealT, class RijRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_compute_duarray( // READ ONLY
                              int twojmax, int idxu_max
-                           , double const * __restrict__ ulist_r_ij_jj
-                           , double const * __restrict__ ulist_i_ij_jj
-                           , double const * __restrict__ rootpqarray
-                           , double sinnerij
-                           , double dinnerij
-                           , double rmin0, bool switch_flag, bool switch_inner_flag
+                           , UiRealT const * __restrict__ ulist_r_ij_jj
+                           , UiRealT const * __restrict__ ulist_i_ij_jj
+                           , RootPQRealT const * __restrict__ rootpqarray
+                           , RijRealT sinnerij
+                           , RijRealT dinnerij
+                           , RijRealT rmin0, bool switch_flag, bool switch_inner_flag
                              // WRITE ONLY
-                           , double * __restrict__ dulist_r, double * __restrict__ dulist_i
+                           , UiRealT * __restrict__ dulist_r, UiRealT * __restrict__ dulist_i
                              // ORIGINAL PARAMETERS
-                           , double x, double y, double z
-                           , double z0, double r, double dz0dr
-                           , double wj, double rcut )
+                           , RijRealT x, RijRealT y, RijRealT z
+                           , RijRealT z0, RijRealT r, RijRealT dz0dr
+                           , RijRealT wj, RijRealT rcut )
   {
-    const double sfac_wj  = wj * snap_compute_sfac ( rmin0, switch_flag, switch_inner_flag, r, rcut, sinnerij, dinnerij );
-    const double dsfac_wj = wj * snap_compute_dsfac( rmin0, switch_flag, switch_inner_flag, r, rcut, sinnerij, dinnerij );
+    const RijRealT sfac_wj  = wj * snap_compute_sfac ( rmin0, switch_flag, switch_inner_flag, r, rcut, sinnerij, dinnerij );
+    const RijRealT dsfac_wj = wj * snap_compute_dsfac( rmin0, switch_flag, switch_inner_flag, r, rcut, sinnerij, dinnerij );
 //    sfac *= wj;
 //    dsfac *= wj;
 
-    double r0inv;
-    double a_r, a_i, b_r, b_i;
-    double da_r[3], da_i[3], db_r[3], db_i[3];
-    double dz0[3], dr0inv[3], dr0invdr;
-    double rootpq;
+    RijRealT r0inv;
+    RijRealT a_r, a_i, b_r, b_i;
+    RijRealT da_r[3], da_i[3], db_r[3], db_i[3];
+    RijRealT dz0[3], dr0inv[3], dr0invdr;
+    RootPQRealT rootpq;
 
-    double rinv = 1.0 / r;
-    double ux = x * rinv;
-    double uy = y * rinv;
-    double uz = z * rinv;
+    RijRealT rinv = 1.0 / r;
+    RijRealT ux = x * rinv;
+    RijRealT uy = y * rinv;
+    RijRealT uz = z * rinv;
 
     r0inv = 1.0 / sqrt(r * r + z0 * z0);
     a_r = z0 * r0inv;
@@ -223,33 +225,34 @@ namespace md
   /* ----------------------------------------------------------------------
      calculate derivative of Ui w.r.t. atom j
   ------------------------------------------------------------------------- */
+  template<class RijRealT, class UiRealT, class RootPQRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_compute_duidrj( // READ ONLY
                                          int twojmax, int idxu_max
 //                                       , int const * __restrict__ idxu_block
 //                                       , int const * element
-                                       , double x
-                                       , double y
-                                       , double z
-                                       , double rcut
-                                       , double wj
-                                       , double const * __restrict__ ulist_r_ij_jj
-                                       , double const * __restrict__ ulist_i_ij_jj
-                                       , double const * __restrict__ rootpqarray
-                                       , double sinnerij
-                                       , double dinnerij
-                                       , double rmin0, double rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag                             
+                                       , RijRealT x
+                                       , RijRealT y
+                                       , RijRealT z
+                                       , RijRealT rcut
+                                       , RijRealT wj
+                                       , UiRealT const * __restrict__ ulist_r_ij_jj
+                                       , UiRealT const * __restrict__ ulist_i_ij_jj
+                                       , RootPQRealT const * __restrict__ rootpqarray
+                                       , RijRealT sinnerij
+                                       , RijRealT dinnerij
+                                       , RijRealT rmin0, RijRealT rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag                             
                                          // WRITE ONLY
-                                       , double * __restrict__ dulist_r
-                                       , double * __restrict__ dulist_i
+                                       , UiRealT * __restrict__ dulist_r
+                                       , UiRealT * __restrict__ dulist_i
                                        )
   {
-    double rsq, r, /*x, y, z,*/ z0, theta0, cs, sn;
-    double dz0dr;
+    RijRealT rsq, r, /*x, y, z,*/ z0, theta0, cs, sn;
+    RijRealT dz0dr;
 
     rsq = x * x + y * y + z * z;
     r = sqrt(rsq);
-    double rscale0 = rfac0 * M_PI / (rcut - rmin0);
+    RijRealT rscale0 = rfac0 * M_PI / (rcut - rmin0);
     theta0 = (r - rmin0) * rscale0;
     cs = cos(theta0);
     sn = sin(theta0);

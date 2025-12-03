@@ -91,14 +91,15 @@ namespace SnapInternal
     int16_t j;
   };
 
-  struct SNA
+  template<class RealT=double>
+  struct SNARealT
   {
-    SNA(Memory *, double, int, double, int, int, int, int, int, int, int);
+    SNARealT(Memory *, double, int, double, int, int, int, int, int, int, int);
     
     Memory* memory = nullptr;
 
     //SNA(LAMMPS *lmp) : Pointers(lmp){};
-    ~SNA();
+    ~SNARealT();
     void build_indexlist();
     void init();
 
@@ -141,17 +142,19 @@ namespace SnapInternal
     int chem_flag = 0;        // 1 for multi-element bispectrum components
     int wselfall_flag = 0;    // 1 for adding wself to all element labelings
 
-    double * __restrict__ bzero = nullptr;        // array of B values for isolated atoms
+    RealT * __restrict__ bzero = nullptr;        // array of B values for isolated atoms
     SNA_ZINDICES * __restrict__ idxz = nullptr;
     SNA_ZINDICES_ALT * __restrict__ idxz_alt = nullptr;
     SNA_BINDICES * __restrict__ idxb = nullptr;
-    double * __restrict__ rootpqarray = nullptr;
-    double *  __restrict__ cglist = nullptr;
+    RealT * __restrict__ rootpqarray = nullptr;
+    RealT *  __restrict__ cglist = nullptr;
     int *  __restrict__ idxcg_block = nullptr;
     int *  __restrict__ idxz_block = nullptr;
     int *  __restrict__ idxb_block = nullptr;
     int *  __restrict__ y_jju_map = nullptr; // size is idxu_max, stored indices are in [0;idxu_max_alt[
   };
+
+  using SNA = SNARealT<double>;
 
   static inline constexpr int compute_idxcg_max(int twojmax)
   {
@@ -247,8 +250,8 @@ namespace SnapInternal
     static inline onika::IntegralConst<T,value> check( const T& chkval ) { if( value != chkval ) exanb::fatal_error() << "bad initialization value" << std::endl; return {}; }
   };
 
-  template< class JMaxT , class NElementsT , bool _HasEnergyField = true>
-  struct ReadOnlySnapParameters
+  template< class RealT, class JMaxT , class NElementsT , bool _HasEnergyField = true>
+  struct ReadOnlySnapParametersRealT
   {
     static inline constexpr bool HasEneryField = _HasEnergyField;
   
@@ -270,9 +273,9 @@ namespace SnapInternal
 
 #   undef DEDUCED_AUTO_CONST_MEMBER
   
-    ReadOnlySnapParameters() = default;
+    ReadOnlySnapParametersRealT() = default;
   
-    inline ReadOnlySnapParameters( const SNA * sna )
+    inline ReadOnlySnapParametersRealT( const SNARealT<RealT> * sna )
       : jmax( InitialValue<JMaxT>::check( sna->twojmax / 2 ) )
       , nelements( InitialValue<NElementsT>::check( sna->nelements ) )
       , bzero ( sna->bzero )
@@ -308,12 +311,12 @@ namespace SnapInternal
       if( ncoeff    != sna->ncoeff    ) exanb::fatal_error() << "ncoeff : sna value ("<<sna->ncoeff<<") != "<<ncoeff<<std::endl;
     }
   
-    double const * const __restrict__ bzero = nullptr;
+    RealT const * const __restrict__ bzero = nullptr;
     SNA_ZINDICES const * const __restrict__ idxz = nullptr;
     SNA_ZINDICES_ALT const * const __restrict__ idxz_alt = nullptr;
     SNA_BINDICES const * const __restrict__ idxb = nullptr;
-    double const * const __restrict__ rootpqarray = nullptr;
-    double const * const __restrict__ cglist = nullptr;
+    RealT const * const __restrict__ rootpqarray = nullptr;
+    RealT const * const __restrict__ cglist = nullptr;
     int const * const __restrict__ idxcg_block = nullptr;
     int const * const __restrict__ idxz_block = nullptr;
     int const * const __restrict__ idxb_block = nullptr;
@@ -380,5 +383,8 @@ namespace SnapInternal
       return out;
     }
   };
+
+//  template<class JMaxT , class NElementsT , bool _HasEnergyField = true>
+//  using ReadOnlySnapParameters = ReadOnlySnapParametersRealT<double,JMaxT,NElementsT,_HasEnergyField>;
 
 }    // namespace SnapInternal

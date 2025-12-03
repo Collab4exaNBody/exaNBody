@@ -44,13 +44,14 @@ namespace exanb
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
-    onika::UIntConst<CS> nbh_chunk_size,
-    onika::BoolConst<Symmetric> ,
-    PosFieldsT pos_fields,
-    onika::BoolConst<PreferComputeBuffer> ,
+    onika::UIntConst<CS> nbh_chunk_size ,
+    ComputeParticlePairOpts< Symmetric, PreferComputeBuffer, false > ,
+//    onika::BoolConst<Symmetric> ,
+//    onika::BoolConst<PreferComputeBuffer> ,
+    PosFieldsT pos_fields ,
     std::index_sequence<FieldIndex...> )
   {
-    static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
+    // static constexpr bool requires_block_synchronous_call = false; //compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
     using exanb::chunknbh_stream_info;
     using onika::cuda::min;
@@ -61,7 +62,7 @@ namespace exanb
     static constexpr bool has_particle_ctx   = compute_pair_traits::has_particle_context_v<FuncT>;
     
     static constexpr bool use_compute_buffer = PreferComputeBuffer && compute_pair_traits::compute_buffer_compatible_v<FuncT>;
-    static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
+    //static_assert( use_compute_buffer || ( ! requires_block_synchronous_call ) , "incompatible functor configuration" );
 
     using NbhFields = typename OptionalArgsT::nbh_field_tuple_t;
     static constexpr size_t nbh_fields_count = onika::tuple_size_const_v< NbhFields >;
@@ -214,7 +215,7 @@ namespace exanb
                 {
                   compute_cell_particle_pairs_pack_nbh_fields( tab , cells , cell_b, p_b, optional.nbh_fields , std::make_index_sequence<nbh_fields_count>{} );
                 }
-                tab.process_neighbor(tab, dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
+                tab.process_neighbor(tab , dr, d2, cells, cell_b, p_b, optional.nbh_data.get(cell_a, p_a, p_nbh_index, nbh_data_ctx) );
               }
               if constexpr ( ! use_compute_buffer )
               {
@@ -266,7 +267,7 @@ namespace exanb
         static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
         static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
         static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
-        if( tab.count > 0 || requires_block_synchronous_call ) 
+        if( tab.count > 0 ) 
         {
           if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
           if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );

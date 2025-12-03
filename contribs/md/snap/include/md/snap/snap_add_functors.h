@@ -17,19 +17,26 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <md/snap/snap_force.h>
-#include <exanb/core/make_grid_variant_operator.h>
-#include <onika/cpp_utils.h>
+#pragma once
+
+#include <onika/cuda/cuda.h>
 
 namespace md
 {
-
-  template<class GridT> using SnapForceGenericFP32Tmpl = SnapForceGenericFP32<GridT>;
-
-  // === register factories ===  
-  ONIKA_AUTORUN_INIT(snap_force_generic_fp32)
+  
+  template<bool UseAtomic>
+  struct SwitchableAtomicAccumFunctor
   {
-    OperatorNodeFactory::instance()->register_factory( "snap_force_generic_fp32" ,make_grid_variant_operator< SnapForceGenericFP32Tmpl > );
-  }
+    template<class AccumT, class ContribT>
+    ONIKA_HOST_DEVICE_FUNC
+    ONIKA_ALWAYS_INLINE
+    void operator () ( AccumT & x , const ContribT & y ) const
+    {
+      if constexpr ( UseAtomic ) { ONIKA_CU_BLOCK_ATOMIC_ADD( x , AccumT(y) ); }
+      else { x += y; }
+    }
+  };
 
+  using SimpleAccumFunctor = SwitchableAtomicAccumFunctor<false>;
+  using AtomicAccumFunctor = SwitchableAtomicAccumFunctor<true>;
 }
