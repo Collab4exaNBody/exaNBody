@@ -99,6 +99,9 @@ namespace exanb
       const Domain& domain = *(this->domain);
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
 
+      // invalidate it's uid right now
+      comm_scheme.update_uid();
+
       // global information needed afterward to compute buffer sizes
       comm_scheme.m_grid_dims = grid.dimension();
       comm_scheme.m_cell_bytes = sizeof( CellParticlesUpdateData );
@@ -332,10 +335,10 @@ namespace exanb
       }
       /********************************************************************/
 
+      comm_scheme.update_uid();
+      ldbg << "UpdateGhostsCommScheme: UID = "<<comm_scheme.uid() << std::endl;
       ldbg << "UpdateGhostsCommScheme: --- end ghost_comm_scheme ---" << std::endl;
     }
-
-
 
     // ----------------------------------------------------        
     inline size_t partner_count_intersecting_cells(

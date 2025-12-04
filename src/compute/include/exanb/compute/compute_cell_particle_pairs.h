@@ -25,6 +25,8 @@ under the License.
 #include <exanb/compute/compute_cell_particle_pairs_chunk_cs1.h>
 #endif
 
+#include <exanb/compute/compute_cell_particle_pairs_chunk_scb.h>
+
 #include <exanb/compute/compute_pair_traits.h>
 #include <onika/log.h>
 #include <exanb/core/grid_cell_compute_profiler.h>
@@ -63,7 +65,10 @@ namespace exanb
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
       static constexpr bool gpu_exec = gpu_device_execution() ;
-      static constexpr onika::BoolConst< gpu_exec ? ( ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> > prefer_compute_buffer = {}; 
+      static constexpr bool prefer_shared_buffer = gpu_exec && compute_pair_traits::block_shared_buffer_v<FuncT> ;
+      static constexpr bool prefer_compute_buffer = gpu_exec ? ( prefer_shared_buffer || ! compute_pair_traits::buffer_less_compatible_v<FuncT> ) : compute_pair_traits::compute_buffer_compatible_v<FuncT> ;
+
+      static constexpr ComputeParticlePairOpts< symmetrical.value , prefer_compute_buffer , prefer_shared_buffer > cp_opts = {};
 
       const IJK cell_a_loc = { coord.x , coord.y , coord.z };
       const size_t cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
@@ -80,8 +85,8 @@ namespace exanb
       m_cell_profiler.start_cell_profiling(cell_a);
       compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2
                                       , m_cpbuf_factory, m_optional, m_func
-                                      , m_cpfields, m_cs, symmetrical, m_posfields
-                                      , prefer_compute_buffer, std::index_sequence<FieldIndex...>{} );
+                                      , m_cpfields, m_cs, cp_opts
+                                      , m_posfields , std::index_sequence<FieldIndex...>{} );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
     
@@ -151,7 +156,7 @@ namespace exanb
     using CellsPointerT = decltype(grid.cells()); // typename GridT::CellParticles;
     static constexpr bool has_external_or_optional_fields = ForceUseCellsAccessor || field_tuple_has_external_fields_v<FieldTupleT> || field_tuple_has_external_fields_v<PosFieldsT>;    
     using CellsAccessorT = std::conditional_t< has_external_or_optional_fields , std::remove_cv_t<std::remove_reference_t<decltype(grid.cells_accessor())> > , CellsPointerT >;
-    static constexpr bool requires_block_synchronous_call = compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
+    // static constexpr bool requires_block_synchronous_call = false; // compute_pair_traits::requires_block_synchronous_call_v<FuncT> ;
 
     const double rcut2 = rcut * rcut;
     const IJK dims = grid.dimension();
@@ -169,7 +174,7 @@ namespace exanb
       {
         if( exec_ctx->m_cuda_ctx->has_devices() )
         {
-          if( !requires_block_synchronous_call && optional.nbh.m_chunk_size>1 && compute_pair_traits::buffer_less_compatible_v<FuncT> )
+          if( optional.nbh.m_chunk_size>1 && compute_pair_traits::buffer_less_compatible_v<FuncT> )
           {
             if( XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE < bpfor_opts.max_block_size )
             {

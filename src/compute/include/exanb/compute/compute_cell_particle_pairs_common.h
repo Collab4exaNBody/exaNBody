@@ -57,10 +57,17 @@ namespace exanb
 
   template< class ComputeBufferT, class CellsT, class FieldAccessorTupleT, size_t ... FieldIndex >
   ONIKA_HOST_DEVICE_FUNC
-  static inline void compute_cell_particle_pairs_pack_nbh_fields( ComputeBufferT& tab, CellsT cells, size_t cell_b, size_t p_b, const FieldAccessorTupleT& nbh_fields , std::index_sequence<FieldIndex...> )
+  static inline void compute_cell_particle_pairs_pack_nbh_fields( ComputeBufferT& tab, int write_idx, CellsT cells, size_t cell_b, size_t p_b, const FieldAccessorTupleT& nbh_fields , std::index_sequence<FieldIndex...> )
   {
     using NbhTuple = typename ComputeBufferT::NbhFieldTuple;
-    tab.nbh_pt[tab.count] = NbhTuple { cells[cell_b][nbh_fields.get(onika::tuple_index_t<FieldIndex>{})][p_b] ... };
+    tab.nbh_pt[write_idx] = NbhTuple { cells[cell_b][nbh_fields.get(onika::tuple_index_t<FieldIndex>{})][p_b] ... };
+  }
+
+  template< class ComputeBufferT, class CellsT, class FieldAccessorTupleT, size_t ... FieldIndex >
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void compute_cell_particle_pairs_pack_nbh_fields( ComputeBufferT& tab, CellsT cells, size_t cell_b, size_t p_b, const FieldAccessorTupleT& nbh_fields , std::index_sequence<FieldIndex...> seq )
+  {
+    compute_cell_particle_pairs_pack_nbh_fields( tab, tab.count, cells, cell_b, p_b, nbh_fields, seq );
   }
 
   struct DelayedNeighborCompute
