@@ -182,7 +182,7 @@ namespace exanb
 
     struct UpdateGhostsCommManagerBase
     {
-      virtual ~UpdateGhostsCommManagerBase() = 0;
+      virtual inline ~UpdateGhostsCommManagerBase() {}
     };
 
     struct UpdateGhostsScratch
