@@ -29,6 +29,7 @@ under the License.
 #include <exanb/core/grid_fields.h>
 #include <onika/yaml/yaml_enum.h>
 #include <onika/soatl/field_id_tuple_utils.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 
 
 namespace exanb
@@ -195,6 +196,7 @@ namespace exanb
     {
       using PackGhostFunctor = PackGhostFunctorT;
       using UnpackGhostFunctor = UnpackGhostFunctorT;
+      using GridCellValueType = typename GridCellValues::GridCellValueType;
       
       int64_t m_comm_scheme_uid = -1;
             
@@ -233,15 +235,21 @@ namespace exanb
       inline const UpdateGhostPartnerCommInfo& send_info(int p) const { return partner_comm_info[num_procs()+p]; }
       
       inline void update_from_comm_scheme(
-          const GhostCommunicationScheme& comm_scheme
-        , int rank
-        , size_t sizeof_CellParticlesUpdateData 
-        , size_t sizeof_ParticleTuple 
-        , size_t sizeof_GridCellValueType 
-        , size_t cell_scalar_components 
+          int rank
+        , const GhostCommunicationScheme& comm_scheme
+        , auto & ghost_comm_buffers
+        , const auto & cells_accessor
+        , GridCellValueType * cell_scalars
+        , size_t cell_scalar_components
+        , const auto & update_fields
+        , const GhostBoundaryModifier& ghost_boundary
         , onika::cuda::CudaDevice * alloc_on_device
-        , bool mpi_staging )
+        , bool staging_buffer )
       {
+        constexpr size_t sizeof_CellParticlesUpdateData = sizeof(GhostCellParticlesUpdateData);
+        const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+        constexpr size_t sizeof_GridCellValueType = sizeof(GridCellValueType);
+
         if( alloc_on_device != send_buffer.m_cuda_device )
         {
           send_buffer.clear();
@@ -297,6 +305,12 @@ namespace exanb
             send_info(p).buffer_size = send_buffer_size;   
             send_buffer_offset += send_buffer_size;
           }
+
+          /*for(int p=0;p<nprocs;p++)
+          {
+            pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+            unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+          }*/
           
           initialize_requests( rank );
           
@@ -309,8 +323,8 @@ namespace exanb
         } */
 
         // (re)allocate main packing/unpacking buffers if needed
-        if( recvbuf_total_size() > recv_buffer.size() ) recv_buffer.resize( recvbuf_total_size() , mpi_staging );
-        if( sendbuf_total_size() > send_buffer.size() ) send_buffer.resize( sendbuf_total_size() , mpi_staging );
+        if( recvbuf_total_size() > recv_buffer.size() ) recv_buffer.resize( recvbuf_total_size() , staging_buffer );
+        if( sendbuf_total_size() > send_buffer.size() ) send_buffer.resize( sendbuf_total_size() , staging_buffer );
       }
   
       inline uint8_t * mpi_send_buffer()
