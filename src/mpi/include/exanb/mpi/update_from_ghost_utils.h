@@ -50,6 +50,48 @@ namespace exanb
       UpdateFuncT m_merge_func;
       FieldAccTuple m_fields = {};
 
+      inline void initialize( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+
+        auto & send_info = ghost_comm_buffers.send_info(p);
+        if( send_info.buffer_size > 0 )
+        {
+          m_sends = comm_scheme.m_partner[p].m_sends.data();
+          m_cells = cells_accessor;
+          m_cell_scalars = cell_scalars;
+          m_cell_scalar_components = cell_scalar_components;
+          m_data_ptr_base = (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p);
+          m_data_buffer_size = send_info.buffer_size;
+          sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+          m_staging_buffer_ptr = ( staging_buffer && (p!=rank) ) ? ( ghost_comm_buffers.mpi_send_buffer() + send_info.buffer_offset ) : nullptr ;
+          m_boundary = ghost_boundary;
+          m_merge_func = UpdateFuncT{};
+          m_fields = update_fields;
+        }
+        else
+        {
+          m_sends = nullptr;
+          m_cells = CellsAccessorT{};
+          m_cell_scalars = nullptr;
+          m_cell_scalar_components = 0;
+          m_data_ptr_base = nullptr;
+          m_data_buffer_size = 0;
+          sizeof_ParticleTuple = 0;
+          m_staging_buffer_ptr = nullptr;
+          m_boundary = GhostBoundaryModifier{};
+          m_merge_func = UpdateFuncT{};
+          m_fields = FieldAccTuple{};
+        }
+      }
+
       template<class fid, class T>
       ONIKA_HOST_DEVICE_FUNC
       inline T apply_field_boundary ( const GhostCellSendScheme& info, const onika::soatl::FieldId<fid>& field, const T& value) const
@@ -172,6 +214,45 @@ namespace exanb
       size_t sizeof_ParticleTuple = 0;
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
       FieldAccTuple m_fields = {};
+
+      inline void initialize( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        auto & recv_info = ghost_comm_buffers.recv_info(p);
+        if( recv_info.buffer_size > 0 )
+        {
+          m_receives = comm_scheme.m_partner[p].m_receives.data();
+          m_cell_offset = comm_scheme.m_partner[p].m_receive_offset.data();
+          m_data_ptr_base = ghost_comm_buffers.recvbuf_ptr(p);
+          m_cells = cells_accessor;
+          m_cell_scalar_components = cell_scalar_components;
+          m_cell_scalars = cell_scalars;
+          m_data_buffer_size = recv_info.buffer_size;
+          sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+          m_staging_buffer_ptr = ( staging_buffer && (p!=rank) ) ? ( ghost_comm_buffers.mpi_recv_buffer() + recv_info.buffer_offset ) : nullptr ;
+          m_fields = update_fields;
+        }
+        else
+        {
+          m_receives = nullptr;
+          m_cell_offset = nullptr; 
+          m_data_ptr_base = nullptr;
+          m_cells = CellsAccessorT{};
+          m_cell_scalar_components = 0;
+          m_cell_scalars = nullptr;
+          m_data_buffer_size = 0;
+          sizeof_ParticleTuple = 0;
+          m_staging_buffer_ptr = nullptr;
+          m_fields = FieldAccTuple{};
+        }
+      }
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {

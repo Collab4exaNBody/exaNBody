@@ -153,7 +153,8 @@ namespace exanb
         if( p != rank ) { ++ active_send_packs; }
         
         const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
-        ghost_comm_buffers.pack_functors[p] = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
+        ghost_comm_buffers.pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+        /* = PackGhostFunctor{ comm_scheme.m_partner[p].m_receives.data() 
                                              , comm_scheme.m_partner[p].m_receive_offset.data()
                                              , ghost_comm_buffers.recvbuf_ptr(p)
                                              , cells_accessor
@@ -163,7 +164,7 @@ namespace exanb
                                              , sizeof_ParticleTuple
                                              , ( staging_buffer && (p!=rank) ) ? ( send_buf_ptr + recv_info.buffer_offset ) : nullptr 
                                              , update_fields };
-        
+        */
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, ghost_comm_buffers.pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
 
@@ -245,7 +246,8 @@ namespace exanb
       if( p != rank ) ghost_cells_recv += cells_to_receive;
       else ghost_cells_self += cells_to_receive;
       
-      ghost_comm_buffers.unpack_functors[p] = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
+      ghost_comm_buffers.unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+      /* = UnpackGhostFunctor { comm_scheme.m_partner[p].m_sends.data()
                                               , cells_accessor
                                               , cell_scalars
                                               , cell_scalar_components
@@ -256,7 +258,7 @@ namespace exanb
                                               , ghost_boundary
                                               , UpdateValueFunctor{} 
                                               , update_fields };
-
+      */
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
       auto parallel_op = block_parallel_for( cells_to_receive, ghost_comm_buffers.unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
       

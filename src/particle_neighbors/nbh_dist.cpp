@@ -40,11 +40,12 @@ namespace exanb
     ADD_SLOT(double , nbh_dist          , INPUT_OUTPUT , DocString{"neighborhood distance, in grid space"} );
     ADD_SLOT(double , ghost_dist        , INPUT_OUTPUT , DocString{"thickness of ghost particle layer, in grid space"} );
     ADD_SLOT(double , max_displ         , INPUT_OUTPUT , DocString{"move threshold, in grid space, that must trigger a neighbor list update (verlet method)"} );
+    ADD_SLOT(double , max_displ_lab     , INPUT_OUTPUT , DocString{"move threshold, in lab space, that must trigger a neighbor list update (verlet method)"} );
 
     inline void execute () override final
     {
       *nbh_dist_lab = *rcut_max + *rcut_inc;
-      *max_displ = (*rcut_inc) / 2.0; 
+      *max_displ_lab = (*rcut_inc) / 2.0; 
       ldbg << "rcut_max+rcut_inc = " << *nbh_dist_lab << std::endl;
 
       const double min_scale = domain->xform_min_scale();
@@ -61,7 +62,7 @@ namespace exanb
       }
       
       *nbh_dist = (*nbh_dist_lab) / min_scale;  // lab space neighborhood distance => grid space distance
-      *max_displ /= max_scale; // lab space scaling => grid space scaling
+      *max_displ = (*max_displ_lab) / max_scale; // lab space scaling => grid space scaling
       const double bsdist = (*bond_max_dist) * ( 1. + (*bond_max_stretch) );
       const double bond_dist = ( bsdist + (*rcut_inc) ) / min_scale;
       
@@ -76,6 +77,7 @@ namespace exanb
         lout << "rcut_inc         = "<< *rcut_inc << std::endl;
         lout << "nbh_dist_lab     = "<< *nbh_dist_lab << std::endl;
         lout << "nbh_dist         = "<< *nbh_dist << std::endl;
+        lout << "max_displ_lab    = "<< *max_displ_lab << std::endl;
         lout << "max_displ        = "<< *max_displ << std::endl;
         lout << "bond_max_dist    = "<< *bond_max_dist << std::endl;
         lout << "bond_max_stretch = "<< *bond_max_stretch << std::endl;
@@ -83,6 +85,26 @@ namespace exanb
         lout << "=================================" << std::endl << std::endl;
       }
     }
+
+    // -----------------------------------------------
+    // -----------------------------------------------
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+Compute neighborhood distance in grid space (nbh_dist) and physical space (nbh_dist_lab).
+Also computes maximum particle move tolerance in grid space (max_displ) and physical space (max_displ_lab).
+Finally, it also computes the ghost layers size (ghost_dist), a constant scaling of of (nbh_dist) using scale factor (nbh_ghost_scale).
+
+This operator needs (rcut_max) and (rcut_inc) to be defined before. When dealing with molecule, it also requires (bond_max_dist) and (bond_max_stretch) as additional parameters. In addition, the domain needs to be defined before and the (verbose) parameter allows information to be printed to the screen.
+
+Usage example:
+
+input_data:
+  - nbh_dist:
+      verbose: true
+)EOF";
+    }
+    
 
   };
 
