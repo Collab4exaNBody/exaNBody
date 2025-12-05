@@ -92,6 +92,11 @@ namespace exanb
         }
       }
 
+      inline bool ready_for_execution() const
+      {
+        return m_data_ptr_base!=nullptr && m_sends!=nullptr;
+      }
+
       template<class fid, class T>
       ONIKA_HOST_DEVICE_FUNC
       inline T apply_field_boundary ( const GhostCellSendScheme& info, const onika::soatl::FieldId<fid>& field, const T& value) const
@@ -252,6 +257,11 @@ namespace exanb
           m_staging_buffer_ptr = nullptr;
           m_fields = FieldAccTuple{};
         }
+      }
+
+      inline bool ready_for_execution() const
+      {
+        return m_data_ptr_base!=nullptr && m_receives!=nullptr && m_cell_offset!=nullptr;
       }
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const

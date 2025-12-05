@@ -262,9 +262,11 @@ namespace exanb
           recv_buffer.m_cuda_device = alloc_on_device;
         }
 
+        const int nprocs = comm_scheme.m_partner.size();
+        bool rebuild_functors = false;
+        
         if( comm_scheme.uid() > comm_scheme_uid() )
         {
-          const int nprocs = comm_scheme.m_partner.size();
           initialize_number_of_partners( nprocs );
           assert( nprocs == num_procs() );
           size_t recv_buffer_offset = 0;
@@ -305,16 +307,11 @@ namespace exanb
             send_info(p).buffer_size = send_buffer_size;   
             send_buffer_offset += send_buffer_size;
           }
-
-          /*for(int p=0;p<nprocs;p++)
-          {
-            pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
-            unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
-          }*/
           
           initialize_requests( rank );
           
           m_comm_scheme_uid = comm_scheme.generate_uid();
+          rebuild_functors = true;
           // lout << "scheme UID "<<comm_scheme.uid()<<" -> updated resource UID "<< m_comm_scheme_uid<<std::endl;
         }
         /* else
@@ -323,8 +320,19 @@ namespace exanb
         } */
 
         // (re)allocate main packing/unpacking buffers if needed
-        if( recvbuf_total_size() > recv_buffer.size() ) recv_buffer.resize( recvbuf_total_size() , staging_buffer );
-        if( sendbuf_total_size() > send_buffer.size() ) send_buffer.resize( sendbuf_total_size() , staging_buffer );
+        if( recvbuf_total_size() > recv_buffer.size() ) { rebuild_functors=true; recv_buffer.resize( recvbuf_total_size() , staging_buffer ); }
+        if( sendbuf_total_size() > send_buffer.size() ) { rebuild_functors=true; send_buffer.resize( sendbuf_total_size() , staging_buffer ); }
+
+        /*
+        if( rebuild_functors )
+        {
+          for(int p=0;p<nprocs;p++)
+          {
+            pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+            unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+          }
+        }
+        */
       }
   
       inline uint8_t * mpi_send_buffer()
@@ -489,6 +497,11 @@ namespace exanb
         }
       }
 
+      inline bool ready_for_execution() const
+      {
+        return m_data_ptr_base!=nullptr && m_sends!=nullptr ;
+      }
+
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
@@ -627,6 +640,11 @@ namespace exanb
           m_staging_buffer_ptr = nullptr;
           m_fields = FieldAccTuple{};
         }
+      }
+
+      inline bool ready_for_execution() const
+      {
+        return m_data_ptr_base!=nullptr && m_receives!=nullptr && m_cell_offset!=nullptr;
       }
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const

@@ -187,6 +187,7 @@ namespace exanb
 
         const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
         ghost_comm_buffers.pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+        assert( ghost_comm_buffers.pack_functors[p].ready_for_execution() );
 
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
         auto parallel_op = block_parallel_for( cells_to_send, ghost_comm_buffers.pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
@@ -285,7 +286,8 @@ namespace exanb
       else ghost_cells_self += cells_to_receive;
 
       ghost_comm_buffers.unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
-
+      assert( ghost_comm_buffers.unpack_functors[p].ready_for_execution() );
+      
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
       auto parallel_op = block_parallel_for( cells_to_receive, ghost_comm_buffers.unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts );
 
