@@ -51,8 +51,8 @@ namespace exanb
   static inline void concurent_add_contributions( CPLockT& cp_lock, Args& ... dst, const Args& ... src )
   {
     if constexpr (  LOCK ) { cp_lock.lock(); }
-    if constexpr ( !CPAA ) { ( ... , ( dst += src ) ); }
     if constexpr (  CPAA ) { ( ... , ( atomic_add_contribution(dst,src) ) ); }
+    else                   { ( ... , ( dst += src ) ); }
     if constexpr (  LOCK ) { cp_lock.unlock(); }
   }
 
