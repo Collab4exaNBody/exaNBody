@@ -137,7 +137,7 @@ under the License.
       double& fz,
       int type,
       CellParticlesT cells,
-      GridCellLocksT locks,
+      GridCellLocksT& locks,
       ParticleLockT& lock_a
       ) const
     {
@@ -156,7 +156,7 @@ under the License.
       double& fz,
       int type,
       CellParticlesT cells,
-      GridCellLocksT locks,
+      GridCellLocksT& locks,
       ParticleLockT& lock_a
       ) const
     {
@@ -178,14 +178,14 @@ under the License.
       int type,
       Mat3dT& virial ,
       CellParticlesT cells,
-      GridCellLocksT locks,
+      GridCellLocksT& locks,
       ParticleLockT& lock_a
       ) const
     {      
       using CoopAccumFunc = SwitchableAtomicAccumFunctor<SNAP_COOP_COMPUTE>;
       static constexpr bool compute_virial = std::is_same_v< Mat3dT , Mat3d >;
-      static constexpr bool CPAA = gpu_device_execution();
-      static constexpr bool LOCK = ! gpu_device_execution();
+      static constexpr bool CPAA = ( !SNAP_CPU_USE_LOCKS ) || gpu_device_execution() ;
+      static constexpr bool LOCK = SNAP_CPU_USE_LOCKS && ( !gpu_device_execution() );
 
       assert( ncoeff == static_cast<unsigned int>(snaconf.ncoeff) );
 
@@ -318,9 +318,9 @@ under the License.
         const RijRealT wj_jj = wjelem[jtype];
 
         RijRealT fij[3];
-	      fij[0]=static_cast<RijRealT>(0.);
-	      fij[1]=static_cast<RijRealT>(0.);
-	      fij[2]=static_cast<RijRealT>(0.);
+	      fij[0] = static_cast<RijRealT>(0.);
+	      fij[1] = static_cast<RijRealT>(0.);
+	      fij[2] = static_cast<RijRealT>(0.);
 
         add_nbh_contrib_to_force( snaconf.twojmax, snaconf.idxu_max, jelem , wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj , x, y, z, z0, r, rsq
                                 , snaconf.rootpqarray, snaconf.y_jju_map, snaconf.idxu_max_alt
@@ -344,18 +344,24 @@ under the License.
         
         size_t cell_b=0, p_b=0;
         buf.nbh.get(jj, cell_b, p_b);
+        
+//#       pragma omp critical(snap_update_contrib)
+        {
         concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> (
             locks[cell_b][p_b]
           , cells[cell_b][field::fx][p_b], cells[cell_b][field::fy][p_b], cells[cell_b][field::fz][p_b]
           , -fij[0]                      , -fij[1]                      , -fij[2] );
+        }
       }
       // ONIKA_CU_BLOCK_SYNC();
 
+//#     pragma omp critical(snap_update_contrib)
+      {
       if constexpr ( compute_virial )
         concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double,Mat3d> ( lock_a, fx, fy, fz, virial, _fx, _fy, _fz, _vir );
       else
         concurent_add_contributions<ParticleLockT,CPAA,LOCK,double,double,double> ( lock_a, fx, fy, fz, _fx, _fy, _fz );
-      
+      }      
       // ONIKA_CU_BLOCK_SYNC();
 
       if constexpr ( SnapConfParamT::HasEneryField ) if (eflag)

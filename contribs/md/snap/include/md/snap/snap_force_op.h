@@ -29,6 +29,10 @@ under the License.
 // tells if we use Complex arithmetic classes or unroll all to scalar expressions
 //#define SNAP_AUTOGEN_COMPLEX_MATH 1
 
+#ifndef SNAP_CPU_USE_LOCKS
+#define SNAP_CPU_USE_LOCKS false
+#endif
+
 #include <md/snap/snap_compute_buffer.h>
 #include <md/snap/snap_compute_ui.h>
 #include <md/snap/snap_compute_yi.h>

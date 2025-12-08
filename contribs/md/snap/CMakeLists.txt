@@ -50,6 +50,10 @@ if(SNAP_SHARED_COMPUTE_BUFFER)
   set(mdSnap_COMPILE_DEFINITIONS ${mdSnap_COMPILE_DEFINITIONS} SNAP_SHARED_COMPUTE_BUFFER=1)
 endif()
 
+option(SNAP_CPU_USE_LOCKS "Snap grouped contributions with spin locks" OFF)
+if(SNAP_CPU_USE_LOCKS)
+  set(mdSnap_COMPILE_DEFINITIONS ${mdSnap_COMPILE_DEFINITIONS} SNAP_CPU_USE_LOCKS=true)
+endif()
 
 set(mdSnap_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
 set(mdSnap_INCLUDE_DIRS ${mdSnap_GENERATED_SOURCES_INCLUDE_DIR})

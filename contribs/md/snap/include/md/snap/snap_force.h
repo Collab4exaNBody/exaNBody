@@ -281,13 +281,14 @@ namespace md
       }
 
       ldbg << "snap: quadratic="<<quadraticflag<<", eflag="<<eflag<<", ncoeff="<<ncoeff<<", ncoeffall="<<ncoeffall<<std::endl;
+ //     const int old_omp_max_threads = omp_get_max_threads();
 
       auto snap_compute_specialized_snapconf = [&]( const auto & snapconf , auto c_use_coop_compute )
       {
         using SnapConfParamsT = std::remove_cv_t< std::remove_reference_t< decltype( snapconf ) > >;
         //snapconf.to_stream( ldbg );
       
-        ComputePairOptionalLocks<true> cp_locks = { particle_locks->data() };
+        ComputePairOptionalLocks< SNAP_CPU_USE_LOCKS > cp_locks = { particle_locks->data() };
         auto optional = make_compute_pair_optional_args( nbh_it, cp_weight , cp_xform, cp_locks
                       , ComputePairTrivialCellFiltering{}, ComputePairTrivialParticleFiltering{}, grid->field_accessors_from_field_set(FieldSet<field::_type>{}) );
 
@@ -309,7 +310,6 @@ namespace md
           auto cp_fields = grid->field_accessors_from_field_set( compute_bispectrum_field_set );
           compute_cell_particle_pairs2( *grid, snap_ctx->m_rcut, *ghost, optional, bs_buf, bispectrum_op , cp_fields
                                       , DefaultPositionFields{}, parallel_execution_context() );
-
           // *********************************************        
           if( bispectrumchkfile.has_value() )
           {
@@ -336,7 +336,6 @@ namespace md
                            
         auto force_buf = make_compute_pair_buffer<CPBufT,ResetSnapCPBuf>();
         auto cp_fields = grid->field_accessors_from_field_set( compute_force_field_set );
-
         compute_cell_particle_pairs2( *grid, snap_ctx->m_rcut, *ghost, optional, force_buf, force_op , cp_fields
                                     , DefaultPositionFields{}, parallel_execution_context(), use_cells_accessor );
       };
