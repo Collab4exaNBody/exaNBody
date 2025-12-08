@@ -81,6 +81,7 @@ namespace exanb
         static const std::string int4 = "% 10d % 10d % 10d % 10d";
         static const std::string real = "% .10e";
         static const std::string real3 = "% .10e % .10e % .10e";
+        static const std::string real4 = "% .10e % .10e % .10e % .10e";        
         static const std::string real9 = "% .10e % .10e % .10e % .10e % .10e % .10e % .10e % .10e % .10e";
         static const std::string other = "%-8s";
         using field_type =std::remove_cv_t< std::remove_reference_t<T> >;
@@ -93,6 +94,10 @@ namespace exanb
         else if constexpr ( std::is_same_v<field_type,Vec3d> )
         {
           return real3;
+        }
+        else if constexpr ( std::is_same_v<field_type,Quaternion> )
+        {
+          return real4;
         }
         else if constexpr ( std::is_same_v<field_type,Mat3d> )
         {
