@@ -37,16 +37,16 @@ namespace md
 {
   using namespace exanb;
 
-  template<class SnapXSForceExtStorageT>
+  template<class RijRealT, class RootPQRealT, class ForceRealT, class SnapXSForceExtStorageT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void add_nbh_contrib_to_force(
                  int twojmax, int idxu_max, int jelem
-               , double wj_jj, double rcutij_jj, double sinnerij_jj, double dinnerij_jj
-               , double x, double y, double z, double z0, double r, double rsq
-               , double const * __restrict__ rootpqarray
+               , RijRealT wj_jj, RijRealT rcutij_jj, RijRealT sinnerij_jj, RijRealT dinnerij_jj
+               , RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r, RijRealT rsq
+               , RootPQRealT const * __restrict__ rootpqarray
                , int const * __restrict__ y_jju_map, int idxu_max_alt
-               , double rmin0, double rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag
-               , double * __restrict__ fij
+               , RijRealT rmin0, RijRealT rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag
+               , ForceRealT * __restrict__ fij
                , SnapXSForceExtStorageT& ext )
   {
 //    printf("generic add_nbh_contrib_to_force\n");
@@ -72,48 +72,50 @@ namespace md
                        , fij );
   }
 
-  template<class SnapXSForceExtStorageT, int twojmax>
+  template<int twojmax, class RijRealT, class RootPQRealT, class ForceRealT, class SnapXSForceExtStorageT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void add_nbh_contrib_to_force(
                  onika::IntConst<twojmax> _twojmax_, int idxu_max, int jelem
-               , double wj_jj, double rcutij_jj, double sinnerij_jj, double dinnerij_jj
-               , double x, double y, double z, double z0, double r, double rsq
-               , double const * __restrict__ rootpqarray
+               , RijRealT wj_jj, RijRealT rcutij_jj, RijRealT sinnerij_jj, RijRealT dinnerij_jj
+               , RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r, RijRealT rsq
+               , RootPQRealT const * __restrict__ rootpqarray
                , int const * __restrict__ y_jju_map, int idxu_max_alt
-               , double rmin0, double rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag
-               , double * __restrict__ fij
+               , RijRealT rmin0, RijRealT rfac0, bool switch_flag, bool switch_inner_flag, bool chem_flag
+               , ForceRealT * __restrict__ fij
                , SnapXSForceExtStorageT& ro_ext )
   {
+    using UiRealT = typename SnapXSForceExtStorageT::BufferRealType;
+    
 //    printf("specific add_nbh_contrib_to_force\n");
     const SnapXSForceExtStorageT& ext = ro_ext;
 
-    const double r0inv = 1.0 / sqrt(r * r + z0 * z0);
-    const double a_r = r0inv * z0;
-    const double a_i = -r0inv * z;
-    const double b_r = r0inv * y;
-    const double b_i = -r0inv * x;
+    const RijRealT r0inv = static_cast<RijRealT>(1.0) / sqrt(r * r + z0 * z0);
+    const RijRealT a_r = r0inv * z0;
+    const RijRealT a_i = -r0inv * z;
+    const RijRealT b_r = r0inv * y;
+    const RijRealT b_i = -r0inv * x;
 
-    const double rscale0 = rfac0 * M_PI / (rcutij_jj - rmin0);
-    const double dz0dr = z0 / r - (r*rscale0) * (rsq + z0 * z0) / rsq;
+    const RijRealT rscale0 = rfac0 * M_PI / (rcutij_jj - rmin0);
+    const RijRealT dz0dr = z0 / r - (r*rscale0) * (rsq + z0 * z0) / rsq;
 
-    double rinv = 1.0 / r;
-    double ux = x * rinv;
-    double uy = y * rinv;
-    double uz = z * rinv;
+    RijRealT rinv = 1.0 / r;
+    RijRealT ux = x * rinv;
+    RijRealT uy = y * rinv;
+    RijRealT uz = z * rinv;
 
-    const double dr0invdr = -pow(r0inv, 3.0) * (r + z0 * dz0dr);
+    const RijRealT dr0invdr = -pow(r0inv, 3) * (r + z0 * dz0dr);
 
-    double dr0inv[3];
-    dr0inv[0] = dr0invdr * ux;
-    dr0inv[1] = dr0invdr * uy;
-    dr0inv[2] = dr0invdr * uz;
+    const RijRealT dr0inv[3] = { dr0invdr * ux , dr0invdr * uy , dr0invdr * uz };
+    // dr0inv[0] = dr0invdr * ux;
+    // dr0inv[1] = dr0invdr * uy;
+    // dr0inv[2] = dr0invdr * uz;
 
-    double dz0[3];
-    dz0[0] = dz0dr * ux;
-    dz0[1] = dz0dr * uy;
-    dz0[2] = dz0dr * uz;
+    const RijRealT dz0[3] = { dz0dr * ux , dz0dr * uy , dz0dr * uz };
+    // dz0[0] = dz0dr * ux;
+    // dz0[1] = dz0dr * uy;
+    // dz0[2] = dz0dr * uz;
 
-    double da_r[3] , da_i[3] , db_r[3] , db_i[3];
+    RijRealT da_r[3] , da_i[3] , db_r[3] , db_i[3];
     for (int k = 0; k < 3; k++) {
       da_r[k] = dz0[k] * r0inv + z0 * dr0inv[k];
       da_i[k] = -z * dr0inv[k];
@@ -126,33 +128,32 @@ namespace md
     db_i[0] += -r0inv;
     db_r[1] += r0inv;
 
-    const double sfac  = wj_jj * snap_compute_sfac ( rmin0, switch_flag, switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
-    const double dsfac = wj_jj * snap_compute_dsfac( rmin0, switch_flag, switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
+    const RijRealT sfac  = wj_jj * snap_compute_sfac ( rmin0, switch_flag, switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
+    const RijRealT dsfac = wj_jj * snap_compute_dsfac( rmin0, switch_flag, switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
-
-    const double da_x_r = da_r[0];
-    const double da_x_i = da_i[0];
+    const RijRealT da_x_r = da_r[0];
+    const RijRealT da_x_i = da_i[0];
     
-    const double da_y_r = da_r[1];
-    const double da_y_i = da_i[1];
+    const RijRealT da_y_r = da_r[1];
+    const RijRealT da_y_i = da_i[1];
 
-    const double da_z_r = da_r[2];
-    const double da_z_i = da_i[2];
+    const RijRealT da_z_r = da_r[2];
+    const RijRealT da_z_i = da_i[2];
 
 
-    const double db_x_r = db_r[0];
-    const double db_x_i = db_i[0];
+    const RijRealT db_x_r = db_r[0];
+    const RijRealT db_x_i = db_i[0];
     
-    const double db_y_r = db_r[1];
-    const double db_y_i = db_i[1];
+    const RijRealT db_y_r = db_r[1];
+    const RijRealT db_y_i = db_i[1];
 
-    const double db_z_r = db_r[2];
-    const double db_z_i = db_i[2];
+    const RijRealT db_z_r = db_r[2];
+    const RijRealT db_z_i = db_i[2];
 
     const auto * __restrict__ Y_r = ext.m_Y_array.r() + jelem * idxu_max_alt;
     const auto * __restrict__ Y_i = ext.m_Y_array.i() + jelem * idxu_max_alt;
 
-#   define CONST_DECLARE(var,value) static constexpr double var = value
+#   define CONST_DECLARE(var,value) static constexpr RootPQRealT var = static_cast<RootPQRealT>(value)
 
 #   ifdef SNAP_AUTOGEN_COMPLEX_MATH
 
@@ -196,38 +197,38 @@ namespace md
 
 #   else
 
-    static constexpr double U_UNIT_R = 1.;
-    static constexpr double U_UNIT_I = 0.;
-    static constexpr double dU_ZERO_X_R = 0. ;
-    static constexpr double dU_ZERO_X_I = 0. ;
-    static constexpr double dU_ZERO_Y_R = 0. ;
-    static constexpr double dU_ZERO_Y_I = 0. ;
-    static constexpr double dU_ZERO_Z_R = 0. ;
-    static constexpr double dU_ZERO_Z_I = 0. ;
+    static constexpr UiRealT U_UNIT_R = static_cast<UiRealT>(1.);
+    static constexpr UiRealT U_UNIT_I = static_cast<UiRealT>(0.);
+    static constexpr UiRealT dU_ZERO_X_R = static_cast<UiRealT>(0.);
+    static constexpr UiRealT dU_ZERO_X_I = static_cast<UiRealT>(0.);
+    static constexpr UiRealT dU_ZERO_Y_R = static_cast<UiRealT>(0.);
+    static constexpr UiRealT dU_ZERO_Y_I = static_cast<UiRealT>(0.);
+    static constexpr UiRealT dU_ZERO_Z_R = static_cast<UiRealT>(0.);
+    static constexpr UiRealT dU_ZERO_Z_I = static_cast<UiRealT>(0.);
 
-#   define U_DECLARE(var)          double var##_r , var##_i
-#   define dU_DECLARE(var) double d##var##_x##_r , d##var##_x##_i , d##var##_y##_r , d##var##_y##_i , d##var##_z##_r , d##var##_z##_i
+#   define U_DECLARE(var)       UiRealT var##_r , var##_i
+#   define dU_DECLARE(var)      UiRealT d##var##_x##_r , d##var##_x##_i , d##var##_y##_r , d##var##_y##_i , d##var##_z##_r , d##var##_z##_i
 
-#   define BAKE_U_BLEND(c,var)     const double c##_##var##_r = c##_r * var##_r + c##_i * var##_i , \
-                                                c##_##var##_i = c##_r * var##_i - c##_i * var##_r ; \
-                                   const auto d##c##_d##var##_x##_r = d##c##_x##_r * var##_r + d##c##_x##_i * var##_i \
+#   define BAKE_U_BLEND(c,var)  const UiRealT c##_##var##_r = c##_r * var##_r + c##_i * var##_i , \
+                                              c##_##var##_i = c##_r * var##_i - c##_i * var##_r ; \
+                                const UiRealT d##c##_d##var##_x##_r = d##c##_x##_r * var##_r + d##c##_x##_i * var##_i \
                                                                     + c##_r * d##var##_x##_r + c##_i * d##var##_x##_i; \
-                                   const auto d##c##_d##var##_x##_i = d##c##_x##_r * var##_i - d##c##_x##_i * var##_r \
+                                const UiRealT d##c##_d##var##_x##_i = d##c##_x##_r * var##_i - d##c##_x##_i * var##_r \
                                                                     + c##_r * d##var##_x##_i - c##_i * d##var##_x##_r; \
-                                   const auto d##c##_d##var##_y##_r = d##c##_y##_r * var##_r + d##c##_y##_i * var##_i \
+                                const UiRealT d##c##_d##var##_y##_r = d##c##_y##_r * var##_r + d##c##_y##_i * var##_i \
                                                                     + c##_r * d##var##_y##_r + c##_i * d##var##_y##_i; \
-                                   const auto d##c##_d##var##_y##_i = d##c##_y##_r * var##_i - d##c##_y##_i * var##_r \
+                                const UiRealT d##c##_d##var##_y##_i = d##c##_y##_r * var##_i - d##c##_y##_i * var##_r \
                                                                     + c##_r * d##var##_y##_i - c##_i * d##var##_y##_r; \
-                                   const auto d##c##_d##var##_z##_r = d##c##_z##_r * var##_r + d##c##_z##_i * var##_i \
+                                const UiRealT d##c##_d##var##_z##_r = d##c##_z##_r * var##_r + d##c##_z##_i * var##_i \
                                                                     + c##_r * d##var##_z##_r + c##_i * d##var##_z##_i; \
-                                   const auto d##c##_d##var##_z##_i = d##c##_z##_r * var##_i - d##c##_z##_i * var##_r \
+                                const UiRealT d##c##_d##var##_z##_i = d##c##_z##_r * var##_i - d##c##_z##_i * var##_r \
                                                                     + c##_r * d##var##_z##_i - c##_i * d##var##_z##_r
-#   define U_BLEND_R(c,var)        c##_##var##_r
-#   define U_BLEND_I(c,var)        c##_##var##_i
-#   define CONJ_R(r_expr) (r_expr)
-#   define CONJ_U_R(var) var##_r
-#   define CONJ_I(i_expr) -(i_expr)
-#   define CONJ_U_I(var) -var##_i
+#   define U_BLEND_R(c,var)     c##_##var##_r
+#   define U_BLEND_I(c,var)     c##_##var##_i
+#   define CONJ_R(r_expr)       (r_expr)
+#   define CONJ_U_R(var)        var##_r
+#   define CONJ_I(i_expr)       -(i_expr)
+#   define CONJ_U_I(var)        -var##_i
 
 #   define U_ASSIGN_R(var,expr) var##_r = expr
 #   define U_ASSIGN_I(var,expr) var##_i = expr
@@ -253,12 +254,12 @@ namespace md
 #   define dU_BLEND_Z_I(c,var) d##c##_d##var##_z##_i
 
 #   define dU_POSTPROCESS(var,jju) \
-        d##var##_x##_r = dsfac * var##_r * ux + sfac * d##var##_x##_r; \
-        d##var##_x##_i = dsfac * var##_i * ux + sfac * d##var##_x##_i; \
-        d##var##_y##_r = dsfac * var##_r * uy + sfac * d##var##_y##_r; \
-        d##var##_y##_i = dsfac * var##_i * uy + sfac * d##var##_y##_i; \
-        d##var##_z##_r = dsfac * var##_r * uz + sfac * d##var##_z##_r; \
-        d##var##_z##_i = dsfac * var##_i * uz + sfac * d##var##_z##_i
+        d##var##_x##_r = static_cast<UiRealT>(dsfac) * var##_r * static_cast<UiRealT>(ux) + static_cast<UiRealT>(sfac) * d##var##_x##_r; \
+        d##var##_x##_i = static_cast<UiRealT>(dsfac) * var##_i * static_cast<UiRealT>(ux) + static_cast<UiRealT>(sfac) * d##var##_x##_i; \
+        d##var##_y##_r = static_cast<UiRealT>(dsfac) * var##_r * static_cast<UiRealT>(uy) + static_cast<UiRealT>(sfac) * d##var##_y##_r; \
+        d##var##_y##_i = static_cast<UiRealT>(dsfac) * var##_i * static_cast<UiRealT>(uy) + static_cast<UiRealT>(sfac) * d##var##_y##_i; \
+        d##var##_z##_r = static_cast<UiRealT>(dsfac) * var##_r * static_cast<UiRealT>(uz) + static_cast<UiRealT>(sfac) * d##var##_z##_r; \
+        d##var##_z##_i = static_cast<UiRealT>(dsfac) * var##_i * static_cast<UiRealT>(uz) + static_cast<UiRealT>(sfac) * d##var##_z##_i
 
 #   define dU_ASSIGN_X_R(var,expr) d##var##_x##_r = expr
 #   define dU_ASSIGN_X_I(var,expr) d##var##_x##_i = expr
@@ -273,9 +274,9 @@ namespace md
       fij[1] +=      d##var##_y##_r * Y_r[jju_map] + d##var##_y##_i * Y_i[jju_map];  \
       fij[2] +=      d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map] //; }while(0)
 #   define dU_STORE_FHALF(var,xxx,jju_map) /*do{*/ /*int jju_map=jju; if(y_jju_map!=nullptr) jju_map=y_jju_map[jju]; assert(jju_map!=-1);*/ \
-      fij[0] += 0.5*(d##var##_x##_r * Y_r[jju_map] + d##var##_x##_i * Y_i[jju_map]); \
-      fij[1] += 0.5*(d##var##_y##_r * Y_r[jju_map] + d##var##_y##_i * Y_i[jju_map]); \
-      fij[2] += 0.5*(d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map]) //; }while(0)
+      fij[0] += static_cast<UiRealT>(0.5)*(d##var##_x##_r * Y_r[jju_map] + d##var##_x##_i * Y_i[jju_map]); \
+      fij[1] += static_cast<UiRealT>(0.5)*(d##var##_y##_r * Y_r[jju_map] + d##var##_y##_i * Y_i[jju_map]); \
+      fij[2] += static_cast<UiRealT>(0.5)*(d##var##_z##_r * Y_r[jju_map] + d##var##_z##_i * Y_i[jju_map]) //; }while(0)
 
 #   endif
 
@@ -299,9 +300,9 @@ namespace md
 #     include <md/snap/compute_ui_jmax4.hxx>
     }
 
-    fij[0] *= 2.;
-    fij[1] *= 2.;
-    fij[2] *= 2.;
+    fij[0] *= static_cast<ForceRealT>(2.);
+    fij[1] *= static_cast<ForceRealT>(2.);
+    fij[2] *= static_cast<ForceRealT>(2.);
   }
 
 }

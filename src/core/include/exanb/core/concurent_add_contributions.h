@@ -29,21 +29,21 @@ namespace exanb
   ONIKA_HOST_DEVICE_FUNC
   static inline void atomic_add_contribution( double& dst, const double& src )
   {
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst , src );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst , src );
   }
 
   ONIKA_HOST_DEVICE_FUNC
   static inline void atomic_add_contribution( Mat3d & dst, const Mat3d& src )
   {
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m11 , src.m11 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m12 , src.m12 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m13 , src.m13 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m21 , src.m21 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m22 , src.m22 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m23 , src.m23 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m31 , src.m31 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m32 , src.m32 );
-    ONIKA_CU_BLOCK_ATOMIC_ADD( dst.m33 , src.m33 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m11 , src.m11 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m12 , src.m12 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m13 , src.m13 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m21 , src.m21 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m22 , src.m22 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m23 , src.m23 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m31 , src.m31 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m32 , src.m32 );
+    ONIKA_CU_INPLACE_ATOMIC_ADD( dst.m33 , src.m33 );
   }
 
   template<class CPLockT, bool CPAA, bool LOCK, class ... Args>
@@ -51,8 +51,8 @@ namespace exanb
   static inline void concurent_add_contributions( CPLockT& cp_lock, Args& ... dst, const Args& ... src )
   {
     if constexpr (  LOCK ) { cp_lock.lock(); }
-    if constexpr ( !CPAA ) { ( ... , ( dst += src ) ); }
     if constexpr (  CPAA ) { ( ... , ( atomic_add_contribution(dst,src) ) ); }
+    else                   { ( ... , ( dst += src ) ); }
     if constexpr (  LOCK ) { cp_lock.unlock(); }
   }
 

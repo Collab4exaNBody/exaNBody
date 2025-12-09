@@ -46,8 +46,8 @@ namespace md
   using namespace exanb;
 
   // Force operator
-  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
-  struct SnapXSForceOp;
+  template<class RealT, class RijRealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false, bool UseParticleLocks=false>
+  struct SnapXSForceOpRealT;
 
 # undef SNAP_COOP_COMPUTE
 # define SNAP_COOP_COMPUTE 0
@@ -60,12 +60,15 @@ namespace md
 # include <md/snap/snap_force_op_coop.hxx>
 
 # undef SNAP_COOP_COMPUTE
+
+//  template<class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
+//  using SnapXSForceOp = SnapXSForceOpRealT<double,SnapConfParamT,ComputeBufferT,CellParticlesT,CoopCompute>;
 }
 
 namespace exanb
 {
-  template<class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute >
-  struct ComputePairTraits< md::SnapXSForceOp<SnapConfParamT,CPBufT,CellParticlesT,CoopCompute> >
+  template<class RealT, class RijRealT, class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute, bool UseParticleLocks >
+  struct ComputePairTraits< md::SnapXSForceOpRealT<RealT,RijRealT,SnapConfParamT,CPBufT,CellParticlesT,CoopCompute,UseParticleLocks> >
   {
     static inline constexpr bool ComputeBufferCompatible      = true;
     static inline constexpr bool BlockSharedComputeBuffer     = CoopCompute;
