@@ -131,7 +131,8 @@ static inline double factorial(int n)
   return r;
 }
 
-SNA::SNA(Memory* mem, double rfac0_in, int twojmax_in,
+template<class RealT>
+SNARealT<RealT>::SNARealT(Memory* mem, double rfac0_in, int twojmax_in,
          double rmin0_in, int switch_flag_in, int bzero_flag_in,
          int chem_flag_in, int bnorm_flag_in, int wselfall_flag_in,
          int nelements_in, int switch_inner_flag_in)
@@ -176,15 +177,16 @@ SNA::SNA(Memory* mem, double rfac0_in, int twojmax_in,
 }
 
 /* ---------------------------------------------------------------------- */
-
-SNA::~SNA()
+template<class RealT>
+SNARealT<RealT>::~SNARealT()
 {  
   delete[] idxz;
   delete[] idxb;
   destroy_twojmax_arrays();
 }
 
-void SNA::build_indexlist()
+template<class RealT>
+void SNARealT<RealT>::build_indexlist()
 {
 
   // index list for cglist
@@ -379,13 +381,15 @@ void SNA::build_indexlist()
 
 /* ---------------------------------------------------------------------- */
 
-void SNA::init()
+template<class RealT>
+void SNARealT<RealT>::init()
 {
   init_clebsch_gordan();
   init_rootpqarray();
 }
 
-void SNA::create_twojmax_arrays()
+template<class RealT>
+void SNARealT<RealT>::create_twojmax_arrays()
 {
   //int jdimpq = twojmax + 2;
 
@@ -398,7 +402,8 @@ void SNA::create_twojmax_arrays()
 
 /* ---------------------------------------------------------------------- */
 
-void SNA::destroy_twojmax_arrays()
+template<class RealT>
+void SNARealT<RealT>::destroy_twojmax_arrays()
 {
   // configuration constants
   memory->destroy(rootpqarray);
@@ -420,7 +425,8 @@ void SNA::destroy_twojmax_arrays()
    the function delta given by VMK Eq. 8.2(1)
 ------------------------------------------------------------------------- */
 
-double SNA::deltacg(int j1, int j2, int j)
+template<class RealT>
+double SNARealT<RealT>::deltacg(int j1, int j2, int j)
 {
   double sfaccg = factorial((j1 + j2 + j) / 2 + 1);
   return sqrt(factorial((j1 + j2 - j) / 2) *
@@ -433,7 +439,8 @@ double SNA::deltacg(int j1, int j2, int j)
    the quasi-binomial formula VMK 8.2.1(3)
 ------------------------------------------------------------------------- */
 
-void SNA::init_clebsch_gordan()
+template<class RealT>
+void SNARealT<RealT>::init_clebsch_gordan()
 {
   double sum,dcg,sfaccg;
   int m, aa2, bb2, cc2;
@@ -498,7 +505,8 @@ void SNA::init_clebsch_gordan()
    format and notation follows VMK Table 8.11
 ------------------------------------------------------------------------- */
 
-void SNA::print_clebsch_gordan()
+template<class RealT>
+void SNARealT<RealT>::print_clebsch_gordan()
 {
   //if (comm->me) return;
 
@@ -532,7 +540,8 @@ void SNA::print_clebsch_gordan()
    the p = 0, q = 0 entries are allocated and skipped for convenience.
 ------------------------------------------------------------------------- */
 
-void SNA::init_rootpqarray()
+template<class RealT>
+void SNARealT<RealT>::init_rootpqarray()
 {
   for (int p = 1; p <= twojmax; p++)
     for (int q = 1; q <= twojmax; q++)
@@ -541,7 +550,8 @@ void SNA::init_rootpqarray()
 
 /* ---------------------------------------------------------------------- */
 
-void SNA::compute_ncoeff()
+template<class RealT>
+void SNARealT<RealT>::compute_ncoeff()
 {
   int ncount;
 
@@ -560,3 +570,7 @@ void SNA::compute_ncoeff()
   else
     ncoeff = ncount;
 }
+
+template class SNARealT<double>;
+template class SNARealT<float>;
+

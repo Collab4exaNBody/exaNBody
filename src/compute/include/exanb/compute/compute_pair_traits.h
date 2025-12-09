@@ -29,8 +29,9 @@ namespace exanb
   
   template<> struct ComputePairTraits<void> // this specialization defines defaults, as void cannot be a callable functor
   {
-    static inline constexpr bool RequiresBlockSynchronousCall = false;
+//    static inline constexpr bool RequiresBlockSynchronousCall = false; // obsolete, now replace by BlockSharedComputeBuffer
     static inline constexpr bool ComputeBufferCompatible      = true;
+    static inline constexpr bool BlockSharedComputeBuffer     = false;
     static inline constexpr bool BufferLessCompatible         = false;
     static inline constexpr bool CudaCompatible               = false;
     static inline constexpr bool HasParticleContextStart      = false;    
@@ -46,7 +47,8 @@ namespace exanb
 
   namespace compute_pair_traits
   {
-    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_block_synchronous_call_v , RequiresBlockSynchronousCall );
+//    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_block_synchronous_call_v , RequiresBlockSynchronousCall );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( block_shared_buffer_v             , BlockSharedComputeBuffer );
     COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( compute_buffer_compatible_v       , ComputeBufferCompatible );
     COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( buffer_less_compatible_v          , BufferLessCompatible );
     COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( cuda_compatible_v                 , CudaCompatible );
@@ -61,6 +63,14 @@ namespace exanb
   template<class FuncT> struct ComputePairDebugTraits
   {
     static inline constexpr void print_func( const FuncT & ) {}
+  };
+
+  template<bool _Symmetric=false, bool _UseComputeBuffer=true, bool _SharedComputeBuffer=false>
+  struct ComputeParticlePairOpts
+  {
+    static inline constexpr bool Symmetric = _Symmetric;
+    static inline constexpr bool UseComputeBuffer = _UseComputeBuffer;
+    static inline constexpr bool SharedComputeBuffer = _SharedComputeBuffer;
   };
 
 }

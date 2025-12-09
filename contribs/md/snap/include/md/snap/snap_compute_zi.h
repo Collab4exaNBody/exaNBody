@@ -30,19 +30,20 @@ namespace md
   /* ----------------------------------------------------------------------
      compute Zi by summing over products of Ui
   ------------------------------------------------------------------------- */
+  template<class CgRealT, class UiRealT, class ZiRealT>
   ONIKA_HOST_DEVICE_FUNC
   static inline void snap_compute_zi( // READ ONLY
                                       int nelements, int idxz_max, int idxu_max, int twojmax
 //                                    , int const * __restrict__ idxu_block
                                     , int const * __restrict__ const idxcg_block
                                     , SnapInternal::SNA_ZINDICES const * __restrict__ idxz
-                                    , const double * __restrict__ cglist
-                                    , double const * __restrict__ ulisttot_r
-                                    , double const * __restrict__ ulisttot_i
+                                    , const CgRealT * __restrict__ cglist
+                                    , UiRealT const * __restrict__ ulisttot_r
+                                    , UiRealT const * __restrict__ ulisttot_i
                                     , bool bnorm_flag
                                     // WRITE ONLY
-                                    , double * __restrict__ zlist_r
-                                    , double * __restrict__ zlist_i )
+                                    , ZiRealT * __restrict__ zlist_r
+                                    , ZiRealT * __restrict__ zlist_i )
   {
 
     int idouble = 0;
@@ -65,7 +66,7 @@ namespace md
           const int mb2max = IDXZ(jjz).mb2max;
           const int nb = IDXZ(jjz).nb;
 
-          const double * const __restrict__ cgblock = cglist + IDXCG_BLOCK(j1,j2,j);
+          const CgRealT * const __restrict__ cgblock = cglist + IDXCG_BLOCK(j1,j2,j);
 
           ZLIST_R(idouble*idxz_max+jjz) = 0.0;
           ZLIST_I(idouble*idxz_max+jjz) = 0.0;
@@ -75,8 +76,8 @@ namespace md
           int icgb = mb1min * (j2 + 1) + mb2max;
           for (int ib = 0; ib < nb; ib++) {
 
-            double suma1_r = 0.0;
-            double suma1_i = 0.0;
+            ZiRealT suma1_r = 0.0;
+            ZiRealT suma1_i = 0.0;
 
             //const double *u1_r = &ULISTTOT_R(elem1*idxu_max+jju1);
             //const double *u1_i = &ULISTTOT_I(elem1*idxu_max+jju1);

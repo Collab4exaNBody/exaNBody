@@ -164,6 +164,11 @@ namespace exanb
   {
     static inline constexpr bool use_locks = false;
     using CellParticleLocks = FakeCellParticleLocks;
+    ComputePairOptionalLocks() = default;
+    ComputePairOptionalLocks(const ComputePairOptionalLocks &) = default;
+    inline ComputePairOptionalLocks(const auto *) {}
+    ComputePairOptionalLocks& operator = (const ComputePairOptionalLocks&) = default;
+    ComputePairOptionalLocks& operator = (ComputePairOptionalLocks&&) = default;
     ONIKA_HOST_DEVICE_FUNC inline CellParticleLocks& operator [] (size_t) const
     {
       static CellParticleLocks foo{};

@@ -32,8 +32,8 @@ under the License.
 namespace md
 {
 
-  template<class GridT>
-  static inline void snap_check_bispectrum(MPI_Comm comm, const GridT& grid, const std::string& file_name, long ncoeff, const double* bispectrum, double max_l2_error = 1.e-12 )
+  template<class RealT, class GridT>
+  static inline void snap_check_bispectrum(MPI_Comm comm, const GridT& grid, const std::string& file_name, long ncoeff, const RealT* bispectrum, double max_l2_error = 1.e-12 )
   {
     using onika::yaml::yaml_load_file_abort_on_except;
 
@@ -123,6 +123,7 @@ namespace md
         {
           exanb::fatal_error() << "max L2 norm = "<<max_l2norm<<" , max error = "<<max_l2_error <<std::endl;
         }
+        exanb::lout << "max L2 norm = "<<max_l2norm<<" < "<<max_l2_error <<std::endl;
       }
     }
   }
