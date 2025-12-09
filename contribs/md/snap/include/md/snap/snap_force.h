@@ -109,6 +109,13 @@ namespace md
     static inline constexpr bool SnapSharedComputeBuffer = false;
 #   endif
 
+#   ifdef SNAP_CPU_USE_LOCKS
+    static inline constexpr bool UsePaticleLocks = true;
+#   else
+    static inline constexpr bool UsePaticleLocks = false;
+#   endif
+
+
     template<class SnapConfParamT>
     using ComputeBuffer = ComputePairBuffer2< SnapUseWeights, SnapUseNeighbors
                                             , SnapXSForceExtStorage<SnapConfParamT,ComputeBufferRealT>, DefaultComputePairBufferAppendFunc
@@ -288,7 +295,7 @@ namespace md
         using SnapConfParamsT = std::remove_cv_t< std::remove_reference_t< decltype( snapconf ) > >;
         //snapconf.to_stream( ldbg );
       
-        ComputePairOptionalLocks< SNAP_CPU_USE_LOCKS > cp_locks = { particle_locks->data() };
+        ComputePairOptionalLocks<UsePaticleLocks> cp_locks = { particle_locks->data() };
         auto optional = make_compute_pair_optional_args( nbh_it, cp_weight , cp_xform, cp_locks
                       , ComputePairTrivialCellFiltering{}, ComputePairTrivialParticleFiltering{}, grid->field_accessors_from_field_set(FieldSet<field::_type>{}) );
 

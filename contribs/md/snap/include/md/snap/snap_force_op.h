@@ -29,10 +29,6 @@ under the License.
 // tells if we use Complex arithmetic classes or unroll all to scalar expressions
 //#define SNAP_AUTOGEN_COMPLEX_MATH 1
 
-#ifndef SNAP_CPU_USE_LOCKS
-#define SNAP_CPU_USE_LOCKS false
-#endif
-
 #include <md/snap/snap_compute_buffer.h>
 #include <md/snap/snap_compute_ui.h>
 #include <md/snap/snap_compute_yi.h>
@@ -50,7 +46,7 @@ namespace md
   using namespace exanb;
 
   // Force operator
-  template<class RealT, class RijRealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false>
+  template<class RealT, class RijRealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool CoopCompute = false, bool UseParticleLocks=false>
   struct SnapXSForceOpRealT;
 
 # undef SNAP_COOP_COMPUTE
@@ -71,8 +67,8 @@ namespace md
 
 namespace exanb
 {
-  template<class RealT, class RijRealT, class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute >
-  struct ComputePairTraits< md::SnapXSForceOpRealT<RealT,RijRealT,SnapConfParamT,CPBufT,CellParticlesT,CoopCompute> >
+  template<class RealT, class RijRealT, class SnapConfParamT, class CPBufT, class CellParticlesT, bool CoopCompute, bool UseParticleLocks >
+  struct ComputePairTraits< md::SnapXSForceOpRealT<RealT,RijRealT,SnapConfParamT,CPBufT,CellParticlesT,CoopCompute,UseParticleLocks> >
   {
     static inline constexpr bool ComputeBufferCompatible      = true;
     static inline constexpr bool BlockSharedComputeBuffer     = CoopCompute;

@@ -52,7 +52,7 @@ endif()
 
 option(SNAP_CPU_USE_LOCKS "Snap grouped contributions with spin locks" OFF)
 if(SNAP_CPU_USE_LOCKS)
-  set(mdSnap_COMPILE_DEFINITIONS ${mdSnap_COMPILE_DEFINITIONS} SNAP_CPU_USE_LOCKS=true)
+  set(mdSnap_COMPILE_DEFINITIONS ${mdSnap_COMPILE_DEFINITIONS} SNAP_CPU_USE_LOCKS=1)
 endif()
 
 set(mdSnap_LINK_LIBRARIES exanbCompute exanbParticleNeighbors exanbCore)
