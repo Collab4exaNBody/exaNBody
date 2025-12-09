@@ -24,8 +24,8 @@ under the License.
 # endif
 
   // Force operator
-  template<class RealT, class RijRealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT>
-  struct SnapXSForceOpRealT<RealT,RijRealT,SnapConfParamT,ComputeBufferT,CellParticlesT,SNAP_COOP_COMPUTE>
+  template<class RealT, class RijRealT, class SnapConfParamT, class ComputeBufferT, class CellParticlesT, bool UsePaticleLocks>
+  struct SnapXSForceOpRealT<RealT,RijRealT,SnapConfParamT,ComputeBufferT,CellParticlesT,SNAP_COOP_COMPUTE,UsePaticleLocks>
   {
     const SnapConfParamT snaconf;
     
@@ -184,8 +184,8 @@ under the License.
     {      
       using CoopAccumFunc = SwitchableAtomicAccumFunctor<SNAP_COOP_COMPUTE>;
       static constexpr bool compute_virial = std::is_same_v< Mat3dT , Mat3d >;
-      static constexpr bool CPAA = ( !SNAP_CPU_USE_LOCKS ) || gpu_device_execution() ;
-      static constexpr bool LOCK = SNAP_CPU_USE_LOCKS && ( !gpu_device_execution() );
+      static constexpr bool CPAA = ( !UsePaticleLocks ) || gpu_device_execution() ;
+      static constexpr bool LOCK = UsePaticleLocks && ( !gpu_device_execution() );
 
       assert( ncoeff == static_cast<unsigned int>(snaconf.ncoeff) );
 
