@@ -87,7 +87,6 @@ namespace exanb
       static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
       using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid->cells_accessor() ) > >;
 
-
       if( ! ghost_comm_scheme.has_value() ) return;
       if( grid->number_of_particles() == 0 ) return;
       if( ! grid->has_allocated_fields( FieldSetT{} ) )
@@ -123,6 +122,10 @@ namespace exanb
         ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
       }
       UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+
+      ldbg << pathname() << " : ";
+      print_field_tuple( ldbg , update_fields );
+      ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
 
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
                         *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, UpdateFuncT{} );

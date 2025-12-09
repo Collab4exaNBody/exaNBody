@@ -92,6 +92,19 @@ namespace exanb
         }
       }
 
+      inline void update_parameters( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+      }
+
       inline bool ready_for_execution() const
       {
         return m_data_ptr_base!=nullptr && m_sends!=nullptr;
@@ -257,6 +270,19 @@ namespace exanb
           m_staging_buffer_ptr = nullptr;
           m_fields = FieldAccTuple{};
         }
+      }
+
+      inline void update_parameters( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
 
       inline bool ready_for_execution() const

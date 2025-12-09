@@ -250,20 +250,23 @@ namespace exanb
         const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
         constexpr size_t sizeof_GridCellValueType = sizeof(GridCellValueType);
 
+        bool rebuild_functors = false;
+
         if( alloc_on_device != send_buffer.m_cuda_device )
         {
           send_buffer.clear();
           send_buffer.m_cuda_device = alloc_on_device;
+          rebuild_functors = true;
         }
         
         if( alloc_on_device != recv_buffer.m_cuda_device )
         {
           recv_buffer.clear();
           recv_buffer.m_cuda_device = alloc_on_device;
+          rebuild_functors = true;
         }
 
         const int nprocs = comm_scheme.m_partner.size();
-        bool rebuild_functors = false;
         
         if( comm_scheme.uid() > comm_scheme_uid() )
         {
@@ -323,7 +326,6 @@ namespace exanb
         if( recvbuf_total_size() > recv_buffer.size() ) { rebuild_functors=true; recv_buffer.resize( recvbuf_total_size() , staging_buffer ); }
         if( sendbuf_total_size() > send_buffer.size() ) { rebuild_functors=true; send_buffer.resize( sendbuf_total_size() , staging_buffer ); }
 
-        /*
         if( rebuild_functors )
         {
           for(int p=0;p<nprocs;p++)
@@ -332,7 +334,15 @@ namespace exanb
             unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
           }
         }
-        */
+        else
+        {
+          for(int p=0;p<nprocs;p++)
+          {
+            pack_functors[p].update_parameters( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+            unpack_functors[p].update_parameters( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+          }
+        }
+        
       }
   
       inline uint8_t * mpi_send_buffer()
@@ -497,6 +507,19 @@ namespace exanb
         }
       }
 
+      inline void update_parameters( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+      }
+
       inline bool ready_for_execution() const
       {
         return m_data_ptr_base!=nullptr && m_sends!=nullptr ;
@@ -640,6 +663,19 @@ namespace exanb
           m_staging_buffer_ptr = nullptr;
           m_fields = FieldAccTuple{};
         }
+      }
+
+      inline void update_parameters( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
 
       inline bool ready_for_execution() const

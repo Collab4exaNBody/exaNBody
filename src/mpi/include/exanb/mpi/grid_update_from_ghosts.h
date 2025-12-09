@@ -97,10 +97,6 @@ namespace exanb
 
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
-    ldbg << "update from ghost : ";
-    print_field_tuple( ldbg , update_fields );
-    ldbg<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple<< std::endl;
-
     //int comm_tag = *mpi_tag;
     int nprocs = 1;
     int rank = 0;
@@ -153,7 +149,7 @@ namespace exanb
         if( p != rank ) { ++ active_send_packs; }
         
         const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
-        ghost_comm_buffers.pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+        // ghost_comm_buffers.pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
         assert( ghost_comm_buffers.pack_functors[p].ready_for_execution() );
 
         ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack ;
@@ -237,7 +233,7 @@ namespace exanb
       if( p != rank ) ghost_cells_recv += cells_to_receive;
       else ghost_cells_self += cells_to_receive;
       
-      ghost_comm_buffers.unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+      // ghost_comm_buffers.unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       assert( ghost_comm_buffers.unpack_functors[p].ready_for_execution() );
       
       ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = gpu_buffer_pack;
