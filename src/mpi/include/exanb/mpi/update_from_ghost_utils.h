@@ -39,6 +39,7 @@ namespace exanb
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellSendScheme * __restrict__ m_sends = nullptr;
+      size_t m_cell_count = 0;
       CellsAccessorT m_cells = {};
       GridCellValueType * __restrict__ m_cell_scalars = nullptr;
       size_t m_cell_scalar_components = 0;
@@ -65,6 +66,7 @@ namespace exanb
         if( send_info.buffer_size > 0 )
         {
           m_sends = comm_scheme.m_partner[p].m_sends.data();
+          m_cell_count = comm_scheme.m_partner[p].m_sends.size();
           m_cells = cells_accessor;
           m_cell_scalars = cell_scalars;
           m_cell_scalar_components = cell_scalar_components;
@@ -79,6 +81,7 @@ namespace exanb
         else
         {
           m_sends = nullptr;
+          m_cell_count = 0;
           m_cells = CellsAccessorT{};
           m_cell_scalars = nullptr;
           m_cell_scalar_components = 0;
@@ -104,6 +107,8 @@ namespace exanb
       {
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
+
+      inline size_t cell_count() const { return m_cell_count; }
 
       inline bool ready_for_execution() const
       {
@@ -223,6 +228,7 @@ namespace exanb
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * __restrict__ m_receives = nullptr;
+      size_t m_cell_count = 0;
       const uint64_t * __restrict__ m_cell_offset = nullptr; 
       uint8_t * __restrict__ m_data_ptr_base = nullptr;
       CellsAccessorT m_cells = {};
@@ -247,6 +253,7 @@ namespace exanb
         if( recv_info.buffer_size > 0 )
         {
           m_receives = comm_scheme.m_partner[p].m_receives.data();
+          m_cell_count = comm_scheme.m_partner[p].m_receives.size();
           m_cell_offset = comm_scheme.m_partner[p].m_receive_offset.data();
           m_data_ptr_base = ghost_comm_buffers.recvbuf_ptr(p);
           m_cells = cells_accessor;
@@ -260,6 +267,7 @@ namespace exanb
         else
         {
           m_receives = nullptr;
+          m_cell_count = 0;
           m_cell_offset = nullptr; 
           m_data_ptr_base = nullptr;
           m_cells = CellsAccessorT{};
@@ -284,6 +292,8 @@ namespace exanb
       {
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
+
+      inline size_t cell_count() const { return m_cell_count; }
 
       inline bool ready_for_execution() const
       {

@@ -176,7 +176,6 @@ namespace exanb
       size_t buffer_offset = 0;
       size_t buffer_size = 0;
       int request_idx = -1;
-      int async_lane = -1;
     };
 
 
@@ -208,6 +207,8 @@ namespace exanb
       std::vector<UnpackGhostFunctor> unpack_functors;
       std::vector< MPI_Request > requests;
       std::vector<int> request_to_partner_idx;
+      std::vector<int> pack_functor_lane;
+      std::vector<int> unpack_functor_lane;
       std::vector<bool> message_sent;
 
       int active_requests = 0;
@@ -227,6 +228,8 @@ namespace exanb
         pack_functors.assign( np , PackGhostFunctor{} );
         unpack_functors.assign( np , UnpackGhostFunctor{} );
         message_sent.assign( np , false );
+        pack_functor_lane.assign( np , onika::parallel::UNDEFINED_EXECUTION_LANE );
+        unpack_functor_lane.assign( np , onika::parallel::UNDEFINED_EXECUTION_LANE );
       }
  
       inline UpdateGhostPartnerCommInfo& recv_info(int p) { return partner_comm_info[p]; }
@@ -244,7 +247,8 @@ namespace exanb
         , const auto & update_fields
         , const GhostBoundaryModifier& ghost_boundary
         , onika::cuda::CudaDevice * alloc_on_device
-        , bool staging_buffer )
+        , bool staging_buffer
+        , bool concurrent_buffer_pack )
       {
         constexpr size_t sizeof_CellParticlesUpdateData = sizeof(GhostCellParticlesUpdateData);
         const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
@@ -308,7 +312,7 @@ namespace exanb
             
             send_info(p).buffer_offset = send_buffer_offset;
             send_info(p).buffer_size = send_buffer_size;   
-            send_buffer_offset += send_buffer_size;
+            send_buffer_offset += send_buffer_size;            
           }
           
           initialize_requests( rank );
@@ -328,10 +332,21 @@ namespace exanb
 
         if( rebuild_functors )
         {
+          int pack_next_lane = 0;
+          int unpack_next_lane = 0;
           for(int p=0;p<nprocs;p++)
           {
             pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+            if( pack_functors[p].ready_for_execution() )
+            {
+              pack_functor_lane[p] = concurrent_buffer_pack ? ( pack_next_lane++ ) : onika::parallel::DEFAULT_EXECUTION_LANE ;
+            }
+
             unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+            if( unpack_functors[p].ready_for_execution() )
+            {
+              unpack_functor_lane[p] = concurrent_buffer_pack ? ( unpack_next_lane++ ) : onika::parallel::DEFAULT_EXECUTION_LANE ;
+            }
           }
         }
         else
@@ -342,8 +357,42 @@ namespace exanb
             unpack_functors[p].update_parameters( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
           }
         }
-        
       }
+
+      // returns the number of mpi sends to perform on packed buffers
+      inline size_t start_pack_functors( const auto & peq_func, const auto & pec_func, int rank, bool allow_gpu_exec )
+      {
+        const int nprocs = num_procs();
+        size_t mpi_send_count = 0;
+        for(int p=0;p<nprocs;p++)
+        {
+          if( pack_functors[p].ready_for_execution() )
+          {
+            const size_t cells_to_send = pack_functors[p].cell_count();
+            assert( cells_to_send > 0 );
+            onika::parallel::BlockParallelForOptions par_for_opts = {};
+            par_for_opts.enable_gpu = allow_gpu_exec ;
+            peq_func() << onika::parallel::set_lane(pack_functor_lane[p]) 
+                       << onika::parallel::block_parallel_for( cells_to_send, pack_functors[p], pec_func("send_pack") , par_for_opts );
+            if( p != rank ) ++ mpi_send_count;
+          }
+        }
+        return mpi_send_count;
+      }
+
+      inline void start_unpack_functor( const auto & peq_func, const auto & pec_func, int p, bool allow_gpu_exec )
+      {
+        if( unpack_functors[p].ready_for_execution() )
+        {
+          const size_t cells_to_recv = unpack_functors[p].cell_count();
+          assert( cells_to_recv > 0 );
+          onika::parallel::BlockParallelForOptions par_for_opts = {};
+          par_for_opts.enable_gpu = allow_gpu_exec ;
+          peq_func() << onika::parallel::set_lane(unpack_functor_lane[p]) 
+                     << onika::parallel::block_parallel_for( cells_to_recv, unpack_functors[p], pec_func("recv_unpack") , par_for_opts );
+        }
+      }
+
   
       inline uint8_t * mpi_send_buffer()
       {
@@ -458,6 +507,7 @@ namespace exanb
       static constexpr size_t FieldCount = onika::tuple_size_const_v<FieldAccTuple>;
       using FieldIndexSeq = std::make_index_sequence< FieldCount >;
       const GhostCellSendScheme * m_sends = nullptr;
+      size_t m_cell_count = 0;
       CellsAccessorT m_cells = {};
       const GridCellValueType * m_cell_scalars = nullptr;
       size_t m_cell_scalar_components = 0;
@@ -482,6 +532,7 @@ namespace exanb
         if( send_info.buffer_size > 0 )
         {
           m_sends = comm_scheme.m_partner[p].m_sends.data();
+          m_cell_count = comm_scheme.m_partner[p].m_sends.size();
           m_cells = cells_accessor;
           m_cell_scalars = cell_scalars;
           m_cell_scalar_components = cell_scalar_components;
@@ -495,6 +546,7 @@ namespace exanb
         else
         {
           m_sends = nullptr;
+          m_cell_count = 0;
           m_cells = CellsAccessorT{};
           m_cell_scalars = nullptr;
           m_cell_scalar_components = 0;
@@ -519,6 +571,8 @@ namespace exanb
       {
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
+
+      inline size_t cell_count() const { return m_cell_count; }
 
       inline bool ready_for_execution() const
       {
@@ -616,6 +670,7 @@ namespace exanb
     {
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * m_receives = nullptr;
+      size_t m_cell_count = 0;
       const uint64_t * m_cell_offset = nullptr;
       uint8_t * m_data_ptr_base = nullptr;
       CellsAccessorT m_cells = {};
@@ -640,6 +695,7 @@ namespace exanb
         if( recv_info.buffer_size > 0 )
         {
           m_receives = comm_scheme.m_partner[p].m_receives.data();
+          m_cell_count = comm_scheme.m_partner[p].m_receives.size();
           m_cell_offset = comm_scheme.m_partner[p].m_receive_offset.data();
           m_data_ptr_base = (p!=rank) ? ghost_comm_buffers.recvbuf_ptr(p) : ghost_comm_buffers.sendbuf_ptr(p) ;
           m_cells = cells_accessor;
@@ -653,6 +709,7 @@ namespace exanb
         else
         {
           m_receives = nullptr;
+          m_cell_count = 0;
           m_cell_offset = nullptr;
           m_data_ptr_base = nullptr;
           m_cells = CellsAccessorT{};
@@ -677,6 +734,8 @@ namespace exanb
       {
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
+
+      inline size_t cell_count() const { return m_cell_count; }
 
       inline bool ready_for_execution() const
       {
