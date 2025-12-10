@@ -377,6 +377,7 @@ namespace exanb
             if( p != rank ) ++ mpi_send_count;
           }
         }
+        peq_func() << onika::parallel::flush;
         return mpi_send_count;
       }
 
@@ -389,11 +390,41 @@ namespace exanb
           onika::parallel::BlockParallelForOptions par_for_opts = {};
           par_for_opts.enable_gpu = allow_gpu_exec ;
           peq_func() << onika::parallel::set_lane(unpack_functor_lane[p]) 
-                     << onika::parallel::block_parallel_for( cells_to_recv, unpack_functors[p], pec_func("recv_unpack") , par_for_opts );
+                     << onika::parallel::block_parallel_for( cells_to_recv, unpack_functors[p], pec_func("recv_unpack") , par_for_opts )
+                     << onika::parallel::flush;
         }
       }
 
-  
+/*
+      inline void start_mpi_receives()
+      {
+        const int nprocs = num_procs();
+        for(int p=0;p<nprocs;p++)
+        {
+          ...
+          auto & recv_info = ghost_comm_buffers.recv_info(p);
+          if( p!=rank && recv_info.buffer_size > 0 )
+          {
+            assert( recv_info.request_idx != -1 );
+            assert( ghost_comm_buffers.request_index_is_recv(recv_info.request_idx) );
+            assert( recv_info.buffer_offset + recv_info.buffer_size <= ghost_comm_buffers.recvbuf_total_size() );
+            assert( ghost_comm_buffers.partner_rank_from_request_index(recv_info.request_idx) == p );
+            MPI_Irecv( (char*) recv_buf_ptr + recv_info.buffer_offset, recv_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(recv_info.request_idx) );
+            ++ active_recvs;
+            ++ request_count;
+          }
+        }
+
+      }
+*/
+
+      inline size_t process_received_buffer(const auto & peq_func, const auto & pec_func, auto * const cells, int p, bool allow_gpu_exec, const auto & cell_allocator, auto create_particles )
+      {
+        if constexpr ( create_particles ) { unpack_functors[p].resize_received_cells(cells,cell_allocator); }
+        start_unpack_functor( peq_func, pec_func, p, allow_gpu_exec );
+        return unpack_functors[p].cell_count();
+      };
+
       inline uint8_t * mpi_send_buffer()
       {
         return send_buffer.mpi_buffer();
@@ -572,6 +603,8 @@ namespace exanb
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
 
+      inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
+
       inline size_t cell_count() const { return m_cell_count; }
 
       inline bool ready_for_execution() const
@@ -735,11 +768,25 @@ namespace exanb
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
 
+      inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
+
       inline size_t cell_count() const { return m_cell_count; }
 
       inline bool ready_for_execution() const
       {
         return m_data_ptr_base!=nullptr && m_receives!=nullptr && m_cell_offset!=nullptr;
+      }
+
+      inline void resize_received_cells(auto * const cells, const auto & cell_allocator)
+      {
+        for(size_t i=0;i<m_cell_count;i++)
+        {
+          const auto cell_input = ghost_cell_receive_info(m_receives[i]);
+          const size_t cell_i = cell_input.m_cell_i;
+          const size_t n_particles = cell_input.m_n_particles;
+          assert( cells[cell_i].empty() );
+          cells[cell_i].resize( n_particles , cell_allocator );
+        }
       }
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream* stream ) const
@@ -749,7 +796,7 @@ namespace exanb
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size , stream->m_cu_stream ) );
         }        
       }
-    
+      
       inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )

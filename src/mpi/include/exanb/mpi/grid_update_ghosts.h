@@ -107,6 +107,7 @@ namespace exanb
       fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
     }
 
+    static constexpr onika::BoolConst<CreateParticles> create_cell_particles = {};
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     int nprocs = 1;
@@ -172,25 +173,8 @@ namespace exanb
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
-    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer(); // either packet encoding buffer or staging send buffer depending on 'staging_buffer'
-    int active_send_packs = 0;
-    for(int p=0;p<nprocs;p++)
-    {
-      auto & send_info = ghost_comm_buffers.send_info(p);
-      if( send_info.buffer_size > 0 )
-      {
-        assert( send_info.buffer_offset + send_info.buffer_size <= ghost_comm_buffers.sendbuf_total_size() );
-        if( p != rank ) { ++ active_send_packs; }
-        const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
-        assert( ghost_comm_buffers.pack_functors[p].ready_for_execution() );
-        ParForOpts par_for_opts = {};
-        par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
-        parallel_execution_queue() << onika::parallel::set_lane( ghost_comm_buffers.pack_functor_lane[p] ) 
-                                   << block_parallel_for( cells_to_send, ghost_comm_buffers.pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
-                                   
-      }
-    }
-    parallel_execution_queue() << onika::parallel::flush;
+    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer(); 
+    int active_send_packs = ghost_comm_buffers.start_pack_functors( parallel_execution_queue, parallel_execution_context, rank, (!CreateParticles) && gpu_buffer_pack );
 
     // number of flying messages
     int active_sends = 0;
@@ -253,32 +237,9 @@ namespace exanb
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
-      const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();        
-      auto & recv_info = ghost_comm_buffers.recv_info(p);
-
-      // re-allocate cells before they receive particles
-      if( CreateParticles )
-      {
-        for( auto cell_input_it : comm_scheme.m_partner[p].m_receives )
-        {
-          const auto cell_input = ghost_cell_receive_info(cell_input_it);
-          const size_t n_particles = cell_input.m_n_particles;
-          const size_t cell_i = cell_input.m_cell_i;
-          assert( gridp->is_ghost_cell(cell_i) );
-          assert( /*cell_i>=0 &&*/ cell_i<n_cells );
-          assert( cells[cell_i].empty() );
-          cells[cell_i].resize( n_particles , gridp->cell_allocator() );
-        }
-      }
-      
+      const size_t cells_to_receive = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,cells,p,gpu_buffer_pack,gridp->cell_allocator(), create_cell_particles );
       if( p != rank ) ghost_cells_recv += cells_to_receive;
       else ghost_cells_self += cells_to_receive;
-      
-      assert( ghost_comm_buffers.unpack_functors[p].ready_for_execution() );
-      ParForOpts par_for_opts = {}; par_for_opts.enable_gpu = (!CreateParticles) && gpu_buffer_pack ;
-      parallel_execution_queue() << onika::parallel::set_lane( ghost_comm_buffers.unpack_functor_lane[p] )
-                                 << block_parallel_for( cells_to_receive, ghost_comm_buffers.unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts )
-                                 << onika::parallel::flush;
     };
     // *** end of packet decoding lamda ***
 

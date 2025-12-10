@@ -95,6 +95,7 @@ namespace exanb
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
+    static constexpr onika::BoolConst<false> create_cell_particles = {};
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     int nprocs = 1;
@@ -102,6 +103,7 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
+    auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
     [[maybe_unused]] const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
 
@@ -135,23 +137,7 @@ namespace exanb
 
     // ***************** send bufer packing start ******************
     uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_recv_buffer();
-    int active_send_packs = 0;
-    for(int p=0;p<nprocs;p++)
-    {
-      auto & recv_info = ghost_comm_buffers.recv_info(p);
-      if( recv_info.buffer_size > 0 )
-      {
-        assert( recv_info.buffer_offset + recv_info.buffer_size <= ghost_comm_buffers.recvbuf_total_size() );
-        if( p != rank ) { ++ active_send_packs; }
-        const size_t cells_to_send = comm_scheme.m_partner[p].m_receives.size();
-        assert( ghost_comm_buffers.pack_functors[p].ready_for_execution() );
-        ParForOpts par_for_opts = {};
-        par_for_opts.enable_gpu = gpu_buffer_pack ;
-        parallel_execution_queue() << onika::parallel::set_lane( ghost_comm_buffers.pack_functor_lane[p] )
-                                   << block_parallel_for( cells_to_send, ghost_comm_buffers.pack_functors[p], parallel_execution_context("send_pack") , par_for_opts );
-      }
-    }
-    parallel_execution_queue() << onika::parallel::flush;
+    int active_send_packs = ghost_comm_buffers.start_pack_functors( parallel_execution_queue, parallel_execution_context, rank, gpu_buffer_pack );
 
     // number of flying messages
     int active_sends = 0;
@@ -211,17 +197,9 @@ namespace exanb
     // *** packet decoding process lambda ***
     auto process_receive_buffer = [&](int p)
     {
-      const size_t cells_to_receive = comm_scheme.m_partner[p].m_sends.size();
-      auto & send_info = ghost_comm_buffers.send_info(p);
-      
+      const size_t cells_to_receive = ghost_comm_buffers.process_received_buffer(parallel_execution_queue,parallel_execution_context,cells,p,gpu_buffer_pack,gridp->cell_allocator(),create_cell_particles);
       if( p != rank ) ghost_cells_recv += cells_to_receive;
       else ghost_cells_self += cells_to_receive;
-      assert( ghost_comm_buffers.unpack_functors[p].ready_for_execution() );
-      ParForOpts par_for_opts = {}; 
-      par_for_opts.enable_gpu = gpu_buffer_pack;
-      parallel_execution_queue() << onika::parallel::set_lane( ghost_comm_buffers.unpack_functor_lane[p] ) 
-                                 << block_parallel_for( cells_to_receive, ghost_comm_buffers.unpack_functors[p], parallel_execution_context("recv_unpack") , par_for_opts )
-                                 << onika::parallel::flush;
     };
     // *** end of packet decoding lamda ***
 
