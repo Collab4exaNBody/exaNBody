@@ -39,7 +39,7 @@ namespace exanb
     template<typename FieldSetT> struct FieldSetToParticleTuple;
     template<typename... field_ids> struct FieldSetToParticleTuple< FieldSet<field_ids...> > { using type = onika::soatl::FieldTuple<field_ids...>; };
     template<typename FieldSetT> using field_set_to_particle_tuple_t = typename FieldSetToParticleTuple<FieldSetT>::type;
-    
+
     template<class T, class FieldT>
     ONIKA_HOST_DEVICE_FUNC
     static inline T apply_particle_boundary( const T& v, const FieldT& f , const GhostBoundaryModifier& boundary , uint32_t flags )
@@ -67,7 +67,7 @@ namespace exanb
       if constexpr ( std::is_same_v<fid,field::_fx> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_X );
       if constexpr ( std::is_same_v<fid,field::_fy> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Y );
       if constexpr ( std::is_same_v<fid,field::_fz> ) return GhostBoundaryModifier::apply_vector_modifier( v , flags >> GhostBoundaryModifier::MASK_SHIFT_Z );
-      
+
       return v;
     }
 
@@ -75,13 +75,13 @@ namespace exanb
     {
       size_t m_cell_i;
       uint8_t m_particles[0];
-      
+
       ONIKA_HOST_DEVICE_FUNC
       inline void * particle_data(size_t sizeof_ParticleTuple, size_t idx)
       {
         return (void*) ( m_particles + ( sizeof_ParticleTuple * idx ) );
       }
-      
+
       ONIKA_HOST_DEVICE_FUNC
       inline const void * particle_data(size_t sizeof_ParticleTuple, size_t idx) const
       {
@@ -115,12 +115,12 @@ namespace exanb
       {
         return aligned_ptr_base( ( m_cuda_device != nullptr ) ? m_device_buffer.get() : m_host_buffer.data() );
       }
-      
+
       inline uint8_t* mpi_buffer()
       {
         return aligned_ptr_base( m_host_buffer.empty() ? m_device_buffer.get() : m_host_buffer.data() );
       }
-      
+
       inline size_t size() const // payload size
       {
         size_t sz = 0;
@@ -134,14 +134,14 @@ namespace exanb
         }
         return sz;
       }
-      
+
       inline void clear() // actually releases resources
       {
         m_device_buffer.reset();
         m_host_buffer.clear();
         m_host_buffer.shrink_to_fit();
       }
-      
+
       inline void resize(size_t req_sz, bool mpi_staging = false )
       {
         if( req_sz > 0 )
@@ -196,12 +196,12 @@ namespace exanb
       using PackGhostFunctor = PackGhostFunctorT;
       using UnpackGhostFunctor = UnpackGhostFunctorT;
       using GridCellValueType = typename GridCellValues::GridCellValueType;
-      
+
       int64_t m_comm_scheme_uid = -1;
-            
+
       UpdateGhostMpiBuffer send_buffer;
       UpdateGhostMpiBuffer recv_buffer;
-            
+
       std::vector<UpdateGhostPartnerCommInfo> partner_comm_info;
       std::vector<PackGhostFunctor> pack_functors;
       std::vector<UnpackGhostFunctor> unpack_functors;
@@ -216,7 +216,7 @@ namespace exanb
       int m_num_procs = 0;
 
       inline int64_t comm_scheme_uid() const { return m_comm_scheme_uid; }
-  
+
       inline int num_procs() const { return m_num_procs; }
 
       inline void initialize_number_of_partners(int np)
@@ -231,12 +231,12 @@ namespace exanb
         pack_functor_lane.assign( np , onika::parallel::UNDEFINED_EXECUTION_LANE );
         unpack_functor_lane.assign( np , onika::parallel::UNDEFINED_EXECUTION_LANE );
       }
- 
+
       inline UpdateGhostPartnerCommInfo& recv_info(int p) { return partner_comm_info[p]; }
       inline const UpdateGhostPartnerCommInfo& recv_info(int p) const { return partner_comm_info[p]; }
       inline UpdateGhostPartnerCommInfo& send_info(int p) { return partner_comm_info[num_procs()+p]; }
       inline const UpdateGhostPartnerCommInfo& send_info(int p) const { return partner_comm_info[num_procs()+p]; }
-      
+
       inline void update_from_comm_scheme(
           int rank
         , const GhostCommunicationScheme& comm_scheme
@@ -262,7 +262,7 @@ namespace exanb
           send_buffer.m_cuda_device = alloc_on_device;
           rebuild_functors = true;
         }
-        
+
         if( alloc_on_device != recv_buffer.m_cuda_device )
         {
           recv_buffer.clear();
@@ -271,7 +271,7 @@ namespace exanb
         }
 
         const int nprocs = comm_scheme.m_partner.size();
-        
+
         if( comm_scheme.uid() > comm_scheme_uid() )
         {
           initialize_number_of_partners( nprocs );
@@ -279,7 +279,7 @@ namespace exanb
           size_t recv_buffer_offset = 0;
           size_t send_buffer_offset = 0;
           for(int p=0;p<nprocs;p++)
-          {   
+          {
             const size_t cells_to_receive = comm_scheme.m_partner[p].m_receives.size();
             const size_t particles_to_receive = comm_scheme.m_partner[p].m_particles_to_receive;
   #         ifndef NDEBUG
@@ -292,7 +292,7 @@ namespace exanb
   #         endif
             std::ptrdiff_t recv_buffer_size = ( cells_to_receive * ( sizeof_CellParticlesUpdateData + sizeof_GridCellValueType * cell_scalar_components ) ) + ( particles_to_receive * sizeof_ParticleTuple );
             recv_buffer_size = UpdateGhostMpiBuffer::aligned_ptr_diff(recv_buffer_size);
-            
+
             const size_t cells_to_send = comm_scheme.m_partner[p].m_sends.size();
             const size_t particles_to_send = comm_scheme.m_partner[p].m_particles_to_send;
   #         ifndef NDEBUG
@@ -309,14 +309,14 @@ namespace exanb
             recv_info(p).buffer_offset = recv_buffer_offset;
             recv_info(p).buffer_size = recv_buffer_size;
             recv_buffer_offset += recv_buffer_size;
-            
+
             send_info(p).buffer_offset = send_buffer_offset;
-            send_info(p).buffer_size = send_buffer_size;   
-            send_buffer_offset += send_buffer_size;            
+            send_info(p).buffer_size = send_buffer_size;
+            send_buffer_offset += send_buffer_size;
           }
-          
+
           initialize_requests( rank );
-          
+
           m_comm_scheme_uid = comm_scheme.generate_uid();
           rebuild_functors = true;
           // lout << "scheme UID "<<comm_scheme.uid()<<" -> updated resource UID "<< m_comm_scheme_uid<<std::endl;
@@ -372,7 +372,7 @@ namespace exanb
             assert( cells_to_send > 0 );
             onika::parallel::BlockParallelForOptions par_for_opts = {};
             par_for_opts.enable_gpu = allow_gpu_exec ;
-            peq_func() << onika::parallel::set_lane(pack_functor_lane[p]) 
+            peq_func() << onika::parallel::set_lane(pack_functor_lane[p])
                        << onika::parallel::block_parallel_for( cells_to_send, pack_functors[p], pec_func("send_pack") , par_for_opts );
             if( p != rank ) ++ mpi_send_count;
           }
@@ -389,34 +389,36 @@ namespace exanb
           assert( cells_to_recv > 0 );
           onika::parallel::BlockParallelForOptions par_for_opts = {};
           par_for_opts.enable_gpu = allow_gpu_exec ;
-          peq_func() << onika::parallel::set_lane(unpack_functor_lane[p]) 
+          peq_func() << onika::parallel::set_lane(unpack_functor_lane[p])
                      << onika::parallel::block_parallel_for( cells_to_recv, unpack_functors[p], pec_func("recv_unpack") , par_for_opts )
                      << onika::parallel::flush;
         }
       }
 
-/*
-      inline void start_mpi_receives()
+      inline int start_mpi_receives(MPI_Comm comm, int comm_tag, int rank)
       {
+        static constexpr bool FWD = PackGhostFunctor::UpdateDirectionToGhost;
+        static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
         const int nprocs = num_procs();
+        const int partner_idx_start = FWD ? 0 : nprocs;
+        const size_t buf_total_size = FWD ? recvbuf_total_size() : sendbuf_total_size();
+        int active_recvs = 0;
         for(int p=0;p<nprocs;p++)
         {
-          ...
-          auto & recv_info = ghost_comm_buffers.recv_info(p);
-          if( p!=rank && recv_info.buffer_size > 0 )
+          const int partner_idx = partner_idx_start + p;
+          auto & partner_info = partner_comm_info[partner_idx];
+          if( p!=rank && unpack_functors[p].ready_for_execution() )
           {
-            assert( recv_info.request_idx != -1 );
-            assert( ghost_comm_buffers.request_index_is_recv(recv_info.request_idx) );
-            assert( recv_info.buffer_offset + recv_info.buffer_size <= ghost_comm_buffers.recvbuf_total_size() );
-            assert( ghost_comm_buffers.partner_rank_from_request_index(recv_info.request_idx) == p );
-            MPI_Irecv( (char*) recv_buf_ptr + recv_info.buffer_offset, recv_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(recv_info.request_idx) );
+            assert( partner_info.request_idx != -1 );
+            assert( request_to_partner_idx[partner_info.request_idx] == partner_idx );
+            assert( partner_info.buffer_offset + partner_info.buffer_size <= buf_total_size );
+            assert( partner_rank_from_request_index(partner_info.request_idx) == p );
+            MPI_Irecv( (char*) unpack_functors[p].mpi_buffer() + partner_info.buffer_offset, partner_info.buffer_size, MPI_CHAR, p, comm_tag, comm, request_ptr(partner_info.request_idx) );
             ++ active_recvs;
-            ++ request_count;
           }
         }
-
+        return active_recvs;
       }
-*/
 
       inline size_t process_received_buffer(const auto & peq_func, const auto & pec_func, auto * const cells, int p, bool allow_gpu_exec, const auto & cell_allocator, auto create_particles )
       {
@@ -434,7 +436,7 @@ namespace exanb
       {
         return recv_buffer.mpi_buffer();
       }
- 
+
       inline void initialize_requests( int rank )
       {
         const int nprocs = num_procs(); //comm_scheme.m_partner.size();
@@ -486,13 +488,13 @@ namespace exanb
       inline void start_send_request(int p)
       {
       }
-      
-      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_info(p).buffer_offset; }
-      inline size_t sendbuf_total_size() const { return send_info(num_procs()-1).buffer_offset + send_info(num_procs()-1).buffer_size; } 
 
-      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + recv_info(p).buffer_offset; } 
+      inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_info(p).buffer_offset; }
+      inline size_t sendbuf_total_size() const { return send_info(num_procs()-1).buffer_offset + send_info(num_procs()-1).buffer_size; }
+
+      inline uint8_t* recvbuf_ptr(int p) { return recv_buffer.data() + recv_info(p).buffer_offset; }
       inline size_t recvbuf_total_size() const { return recv_info(num_procs()-1).buffer_offset + recv_info(num_procs()-1).buffer_size; }
-      
+
       inline int number_of_requests() const { return total_requests; }
       inline int number_of_active_requests() const { return active_requests; }
       inline MPI_Request* requests_data() { return requests.data(); }
@@ -509,7 +511,7 @@ namespace exanb
         return request_to_partner_idx[req_idx] < np;
       }
       inline bool request_index_is_send(int req_idx) const { return ! request_index_is_recv(req_idx); }
-      
+
       // swap request to end of active requests and decreases active request count
       inline void deactivate_request(int req_idx)
       {
@@ -523,19 +525,20 @@ namespace exanb
         }
         -- active_requests;
       }
-      
+
       inline ~UpdateGhostsCommManager() override final
       {
         // lout <<"free comm resources UID = "<<m_comm_scheme_uid<<std::endl;
         free_requests();
       }
- 
+
     };
 
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
     struct GhostSendPackFunctor
     {
-      static constexpr size_t FieldCount = onika::tuple_size_const_v<FieldAccTuple>;
+      static inline constexpr bool UpdateDirectionToGhost = true;
+      static inline constexpr size_t FieldCount = onika::tuple_size_const_v<FieldAccTuple>;
       using FieldIndexSeq = std::make_index_sequence< FieldCount >;
       const GhostCellSendScheme * m_sends = nullptr;
       size_t m_cell_count = 0;
@@ -619,7 +622,7 @@ namespace exanb
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , stream->m_cu_stream ) );
         }
       }
-      
+
       inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
@@ -663,7 +666,7 @@ namespace exanb
 
       ONIKA_HOST_DEVICE_FUNC
       inline void operator () ( uint64_t i ) const
-      {      
+      {
         const size_t particle_offset = m_sends[i].m_send_buffer_offset;
         const size_t byte_offset = i * ( sizeof(CellParticlesUpdateData) + m_cell_scalar_components * sizeof(GridCellValueType) ) + particle_offset * sizeof_ParticleTuple;
         assert( byte_offset < m_data_buffer_size );
@@ -673,10 +676,10 @@ namespace exanb
         if( ONIKA_CU_THREAD_IDX == 0 )
         {
           data->m_cell_i = m_sends[i].m_partner_cell_i;
-        }        
+        }
         const size_t cell_i = m_sends[i].m_cell_i;
         const uint32_t cell_boundary_flags = m_sends[i].m_flags;
-                
+
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -701,6 +704,7 @@ namespace exanb
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, bool CreateParticles, class FieldAccTuple>
     struct GhostReceiveUnpackFunctor
     {
+      static inline constexpr bool UpdateDirectionToGhost = true;
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * m_receives = nullptr;
       size_t m_cell_count = 0;
@@ -794,9 +798,9 @@ namespace exanb
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size , stream->m_cu_stream ) );
-        }        
+        }
       }
-      
+
       inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )

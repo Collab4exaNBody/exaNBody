@@ -37,6 +37,7 @@ namespace exanb
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class UpdateFuncT, class FieldAccTuple>
     struct GhostSendUnpackFromReceiveBuffer
     {
+      static inline constexpr bool UpdateDirectionToGhost = false;
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellSendScheme * __restrict__ m_sends = nullptr;
       size_t m_cell_count = 0;
@@ -141,9 +142,9 @@ namespace exanb
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size , stream->m_cu_stream ) );
-        }        
+        }
       }
-      
+
       inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
@@ -174,7 +175,7 @@ namespace exanb
           using exanb::field_id_fom_acc_v;
           using FieldT = FieldOrSpanT;
           using ValueType = typename FieldT::value_type ;
-          ValueType * data = ( ValueType * ) data_vp;        
+          ValueType * data = ( ValueType * ) data_vp;
           m_merge_func( m_cells[cell_i][_f][part_i]
                       , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
                       , onika::TrueType{} );
@@ -203,8 +204,8 @@ namespace exanb
         const CellParticlesUpdateData * data = (const CellParticlesUpdateData*) data_ptr;
 
         assert( data->m_cell_i == m_sends[i].m_partner_cell_i );
-        
-        const size_t cell_i = m_sends[i].m_cell_i;        
+
+        const size_t cell_i = m_sends[i].m_cell_i;
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -228,10 +229,11 @@ namespace exanb
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
     struct GhostReceivePackToSendBuffer
     {
+      static inline constexpr bool UpdateDirectionToGhost = false;
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * __restrict__ m_receives = nullptr;
       size_t m_cell_count = 0;
-      const uint64_t * __restrict__ m_cell_offset = nullptr; 
+      const uint64_t * __restrict__ m_cell_offset = nullptr;
       uint8_t * __restrict__ m_data_ptr_base = nullptr;
       CellsAccessorT m_cells = {};
       size_t m_cell_scalar_components = 0;
@@ -270,7 +272,7 @@ namespace exanb
         {
           m_receives = nullptr;
           m_cell_count = 0;
-          m_cell_offset = nullptr; 
+          m_cell_offset = nullptr;
           m_data_ptr_base = nullptr;
           m_cells = CellsAccessorT{};
           m_cell_scalar_components = 0;
@@ -309,7 +311,7 @@ namespace exanb
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , stream->m_cu_stream ) );
-        }        
+        }
       }
 
       inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
@@ -364,7 +366,7 @@ namespace exanb
         const auto cell_input_it = m_receives[i];
         const auto cell_input = ghost_cell_receive_info(cell_input_it);
         const size_t cell_i = cell_input.m_cell_i;
-        
+
         if( ONIKA_CU_THREAD_IDX == 0 )
         {
           data->m_cell_i = cell_i; // this is my cell #, recipient will have to translate it to its own cell #
@@ -384,7 +386,7 @@ namespace exanb
           {
             gcv[c] = m_cell_scalars[cell_i*m_cell_scalar_components+c];
           }
-        }              
+        }
       }
     };
 

@@ -92,7 +92,7 @@ namespace exanb
     using ParticleFullTuple = typename CellParticles::TupleValueType;
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
-    
+
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
@@ -173,7 +173,7 @@ namespace exanb
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** send bufer packing start ******************
-    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer(); 
+    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
     int active_send_packs = ghost_comm_buffers.start_pack_functors( parallel_execution_queue, parallel_execution_context, rank, (!CreateParticles) && gpu_buffer_pack );
 
     // number of flying messages
@@ -182,7 +182,8 @@ namespace exanb
     int request_count = 0;
 
     // ***************** async receive start ******************
-    uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_recv_buffer(); // either packet decoding buffer or staging recv buffer depending on 'staging_buffer'
+
+    uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_recv_buffer();
     for(int p=0;p<nprocs;p++)
     {
       auto & recv_info = ghost_comm_buffers.recv_info(p);
@@ -197,6 +198,8 @@ namespace exanb
         ++ request_count;
       }
     }
+
+    //request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm,comm_tag,rank);
 
     // ***************** initiate buffer sends ******************
     if( serialize_pack_send )
@@ -262,7 +265,7 @@ namespace exanb
       MPI_Waitall( ghost_comm_buffers.number_of_active_requests() , ghost_comm_buffers.requests_data() , MPI_STATUS_IGNORE );
       ldbg << "UpdateFromGhosts: MPI_Waitall done"<<std::endl;
     }
-    
+
     while( active_sends>0 || active_recvs>0 )
     {
       int reqidx = MPI_UNDEFINED;
@@ -302,7 +305,7 @@ namespace exanb
         {
           fatal_error() << "bad request index "<<reqidx<<std::endl;
         }
-        const int p = ghost_comm_buffers.partner_rank_from_request_index(reqidx); 
+        const int p = ghost_comm_buffers.partner_rank_from_request_index(reqidx);
         assert( p >= 0 && p < nprocs );
         if( ghost_comm_buffers.request_index_is_recv(reqidx) ) // it's a receive
         {
@@ -322,7 +325,7 @@ namespace exanb
       {
         ldbg << "Warning: undefined request index returned by MPI_Waitany"<<std::endl;
       }
-    }      
+    }
 
     for(int p=0;p<nprocs;p++)
     {
@@ -334,7 +337,7 @@ namespace exanb
       gridp->rebuild_particle_offsets();
     }
 
-    ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
+    ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;
   }
 
   // version with a Grid reference instead of a pointer, for backward compatibility

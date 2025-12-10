@@ -47,7 +47,7 @@ namespace exanb
 {
 
 /*
-  This function updates some or all of the internal particle fields using values of neighbor subdomain's ghost particles 
+  This function updates some or all of the internal particle fields using values of neighbor subdomain's ghost particles
   This done following a previously computed communication scheme in reverse order. UpdateFuncT is the type of the functor
   responible to merge existing values with incoming values, default is simple addition.
   Communication consists of asynchronous MPI sends and receives, as well as packing and unpacking of data messages.
@@ -145,6 +145,7 @@ namespace exanb
     int request_count = 0;
 
     // ***************** async receive start ******************
+
     uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
     for(int p=0;p<nprocs;p++)
     {
@@ -157,9 +158,11 @@ namespace exanb
         assert( ghost_comm_buffers.partner_rank_from_request_index(send_info.request_idx) == p );
         MPI_Irecv( (char*) recv_buf_ptr + send_info.buffer_offset, send_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(send_info.request_idx) );
         ++ active_recvs;
-        ++ request_count;          
+        ++ request_count;
       }
     }
+
+    //request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm,comm_tag,rank);
 
     // ***************** initiate buffer sends ******************
     if( serialize_pack_send )
@@ -255,7 +258,7 @@ namespace exanb
           MPI_Waitany( request_count , ghost_comm_buffers.requests_data() , &reqidx , MPI_STATUS_IGNORE );
         }
       }
-      
+
       if( reqidx != MPI_UNDEFINED )
       {
         if( reqidx<0 || reqidx >= request_count )
@@ -273,7 +276,7 @@ namespace exanb
         {
           -- active_sends;
         }
-        
+
         ghost_comm_buffers.deactivate_request( reqidx );
         -- request_count;
         assert( request_count == ghost_comm_buffers.number_of_active_requests() );
@@ -289,7 +292,7 @@ namespace exanb
       parallel_execution_queue().wait( ghost_comm_buffers.unpack_functor_lane[p] );
     }
 
-    ldbg << "--- end update_from_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;  
+    ldbg << "--- end update_from_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;
   }
 
 
