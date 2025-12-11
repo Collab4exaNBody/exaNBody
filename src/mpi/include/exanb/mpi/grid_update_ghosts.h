@@ -209,7 +209,7 @@ namespace exanb
       ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,rank,gpu_buffer_pack );
     }
 
-    ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(rank,wait_all);
+    ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context,rank,wait_all,gpu_buffer_pack);
     /*
     if( wait_all )
     {

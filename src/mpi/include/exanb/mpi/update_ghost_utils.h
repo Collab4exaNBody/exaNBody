@@ -468,7 +468,7 @@ namespace exanb
         return started_sends;
       }
 
-      inline size_t wait_mpi_messages(int rank, bool wait_all)
+      inline size_t wait_mpi_messages(const auto & peq_func, const auto & pec_func, int rank, bool wait_all, bool gpu_buffer_pack)
       {
         static constexpr bool FWD = PackGhostFunctor::UpdateDirectionToGhost;
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
@@ -512,7 +512,7 @@ namespace exanb
             if( is_recv ) // it's a receive
             {
               assert( p != rank );
-              ghost_cells_recv += process_received_buffer(parallel_execution_queue, parallel_execution_context, p, gpu_buffer_pack);
+              ghost_cells_recv += process_received_buffer(peq_func, pec_func, p, gpu_buffer_pack);
             }
             deactivate_request( reqidx );
           }
