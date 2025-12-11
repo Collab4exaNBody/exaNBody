@@ -209,6 +209,8 @@ namespace exanb
       ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,rank,gpu_buffer_pack );
     }
 
+    ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(rank,wait_all);
+    /*
     if( wait_all )
     {
       ldbg << "UpdateFromGhosts: MPI_Waitall, active_requests / total_requests = "<<ghost_comm_buffers.number_of_active_requests()
@@ -278,6 +280,7 @@ namespace exanb
         ldbg << "Warning: undefined request index returned by MPI_Waitany"<<std::endl;
       }
     }
+    */
 
     for(int p=0;p<nprocs;p++)
     {

@@ -468,6 +468,62 @@ namespace exanb
         return started_sends;
       }
 
+      inline size_t wait_mpi_messages(int rank, bool wait_all)
+      {
+        static constexpr bool FWD = PackGhostFunctor::UpdateDirectionToGhost;
+        static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
+        const int nprocs = num_procs();
+        size_t ghost_cells_recv = 0;
+        if( wait_all )
+        {
+          std::cout << "UpdateFromGhosts: MPI_Waitall, active_requests / total_requests = " << number_of_active_requests()
+               <<" / "<< number_of_requests() <<std::endl;
+          MPI_Waitall( number_of_active_requests() , requests_data() , MPI_STATUS_IGNORE );
+          std::cout << "UpdateFromGhosts: MPI_Waitall done"<<std::endl;
+        }
+        while( number_of_active_requests() > 0 )
+        {
+          int reqidx = MPI_UNDEFINED;
+          if( wait_all )
+          {
+            reqidx = number_of_active_requests() - 1; // process communications in reverse order
+          }
+          else
+          {
+            if( number_of_active_requests() == 1 )
+            {
+              MPI_Wait( requests_data() , MPI_STATUS_IGNORE );
+              reqidx = 0;
+            }
+            else
+            {
+              MPI_Waitany( number_of_active_requests() , requests_data() , &reqidx , MPI_STATUS_IGNORE );
+            }
+          }
+          if( reqidx != MPI_UNDEFINED )
+          {
+            if( reqidx<0 || reqidx >= number_of_active_requests() )
+            {
+              fatal_error() << "bad request index "<<reqidx<<std::endl;
+            }
+            const int p = partner_rank_from_request_index(reqidx);
+            assert( p >= 0 && p < nprocs );
+            const bool is_recv = FWD ? request_index_is_recv(reqidx) : request_index_is_send(reqidx);
+            if( is_recv ) // it's a receive
+            {
+              assert( p != rank );
+              ghost_cells_recv += process_received_buffer(parallel_execution_queue, parallel_execution_context, p, gpu_buffer_pack);
+            }
+            deactivate_request( reqidx );
+          }
+          else
+          {
+            fatal_error() << "Undefined request index returned by MPI_Waitany"<<std::endl;
+          }
+        }
+        return ghost_cells_recv;
+      }
+
       inline uint8_t * mpi_send_buffer()
       {
         return send_buffer.mpi_buffer();
@@ -524,10 +580,6 @@ namespace exanb
       {
         active_requests = total_requests;
         message_sent.assign( num_procs() , false );
-     }
-
-      inline void start_send_request(int p)
-      {
       }
 
       inline uint8_t* sendbuf_ptr(int p) { return send_buffer.data() + send_info(p).buffer_offset; }
@@ -655,7 +707,7 @@ namespace exanb
 
       inline bool ready_for_execution() const
       {
-        return m_data_ptr_base!=nullptr && m_sends!=nullptr ;
+        return m_data_ptr_base!=nullptr && m_sends!=nullptr && m_data_buffer_size>0;
       }
 
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
