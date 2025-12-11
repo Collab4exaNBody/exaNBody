@@ -77,7 +77,7 @@ namespace exanb
     const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
     const UpdateGhostConfig& config,
-    std::integral_constant<bool,CreateParticles> )
+    std::integral_constant<bool,CreateParticles> create_cell_particles )
   {
     auto [_alloc_on_device,comm_tag,_gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
     auto alloc_on_device = _alloc_on_device;
@@ -107,7 +107,6 @@ namespace exanb
       fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
     }
 
-    static constexpr onika::BoolConst<CreateParticles> create_cell_particles = {};
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     int nprocs = 1;
@@ -172,6 +171,9 @@ namespace exanb
     ghost_comm_buffers.update_from_comm_scheme( rank, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, alloc_on_device, staging_buffer, async_buffer_pack );
     ghost_comm_buffers.reactivate_requests();
 
+    // ***************** resize cells if needed ******************
+    ghost_comm_buffers.resize_received_cells( cells, gridp->cell_allocator(), create_cell_particles );
+
     // ***************** send bufer packing start ******************
     uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
     int active_send_packs = ghost_comm_buffers.start_pack_functors( parallel_execution_queue, parallel_execution_context, rank, (!CreateParticles) && gpu_buffer_pack );
@@ -185,34 +187,12 @@ namespace exanb
     request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm,comm_tag,rank);
 
     // ***************** initiate buffer sends ******************
-    if( serialize_pack_send )
-    {
-      for(int p=0;p<nprocs;p++) { parallel_execution_queue().wait( ghost_comm_buffers.pack_functor_lane[p] ); }
-    }
-    //std::vector<bool> message_sent( nprocs , false );
+    if( serialize_pack_send ) parallel_execution_queue().wait();
     while( active_sends < active_send_packs )
     {
-      for(int p=0;p<nprocs;p++)
-      {
-        auto & send_info = ghost_comm_buffers.send_info(p);
-        if( p!=rank && !ghost_comm_buffers.message_sent[p] && send_info.buffer_size > 0 )
-        {
-          bool ready = true;
-          if( ! serialize_pack_send ) { ready = parallel_execution_queue().query_status( ghost_comm_buffers.pack_functor_lane[p] ); }
-          if( ready )
-          {
-            MPI_Isend( (char*) send_buf_ptr + send_info.buffer_offset , send_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(send_info.request_idx) );
-            assert( ghost_comm_buffers.partner_rank_from_request_index(send_info.request_idx) == p );
-            assert( ghost_comm_buffers.request_index_is_send(send_info.request_idx) );
-            ++ active_sends;
-            ++ request_count;
-            ghost_comm_buffers.message_sent[p] = true;
-          }
-        }
-      }
+      active_sends += ghost_comm_buffers.start_ready_mpi_sends(parallel_execution_queue, comm, comm_tag, rank, serialize_pack_send);
     }
-
-    // wait for p=rank send pack to finish
+    request_count += active_sends;
 
     assert( ghost_comm_buffers.number_of_requests() == request_count );
     assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
@@ -220,25 +200,13 @@ namespace exanb
 
     size_t ghost_cells_recv=0 , ghost_cells_self=0;
 
-    // *** packet decoding process lambda ***
-    auto process_receive_buffer = [&](int p)
-    {
-      const size_t cells_to_receive = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,cells,p,gpu_buffer_pack,gridp->cell_allocator(), create_cell_particles );
-      if( p != rank ) ghost_cells_recv += cells_to_receive;
-      else ghost_cells_self += cells_to_receive;
-    };
-    // *** end of packet decoding lamda ***
-
     // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
-    if( ghost_comm_buffers.send_info(rank).buffer_size > 0 )
+    if( ghost_comm_buffers.send_info(rank).buffer_size > 0 || ghost_comm_buffers.recv_info(rank).buffer_size > 0 )
     {
-      if( ghost_comm_buffers.send_info(rank).buffer_size != ghost_comm_buffers.recv_info(rank).buffer_size )
-      {
-        fatal_error() << "UpdateFromGhosts: inconsistent loopback communictation : send="<<ghost_comm_buffers.send_info(rank).buffer_size<<" receive="<<ghost_comm_buffers.recv_info(rank).buffer_size<<std::endl;
-      }
+      assert( ghost_comm_buffers.send_info(rank).buffer_size == ghost_comm_buffers.recv_info(rank).buffer_size );
       ldbg << "UpdateGhosts: loopback buffer size="<<ghost_comm_buffers.send_info(rank).buffer_size<<std::endl;
       if( ! serialize_pack_send ) { parallel_execution_queue().wait( ghost_comm_buffers.pack_functor_lane[rank] ); }
-      process_receive_buffer(rank);
+      ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,rank,gpu_buffer_pack );
     }
 
     if( wait_all )
@@ -292,7 +260,8 @@ namespace exanb
         assert( p >= 0 && p < nprocs );
         if( ghost_comm_buffers.request_index_is_recv(reqidx) ) // it's a receive
         {
-          process_receive_buffer(p);
+          assert( p != rank );
+          ghost_cells_recv += ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context, p, gpu_buffer_pack);
           -- active_recvs;
         }
         else // it's a send

@@ -332,20 +332,18 @@ namespace exanb
 
         if( rebuild_functors )
         {
-          int pack_next_lane = 0;
-          int unpack_next_lane = 0;
+          int next_lane = 0;
           for(int p=0;p<nprocs;p++)
           {
             pack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
             if( pack_functors[p].ready_for_execution() )
             {
-              pack_functor_lane[p] = concurrent_buffer_pack ? ( pack_next_lane++ ) : onika::parallel::DEFAULT_EXECUTION_LANE ;
+              pack_functor_lane[p] = concurrent_buffer_pack ? ( next_lane++ ) : onika::parallel::DEFAULT_EXECUTION_LANE ;
             }
-
             unpack_functors[p].initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
             if( unpack_functors[p].ready_for_execution() )
             {
-              unpack_functor_lane[p] = concurrent_buffer_pack ? ( unpack_next_lane++ ) : onika::parallel::DEFAULT_EXECUTION_LANE ;
+              unpack_functor_lane[p] = (p==rank) ? pack_functor_lane[p] : ( concurrent_buffer_pack ? ( next_lane++ ) : onika::parallel::DEFAULT_EXECUTION_LANE );
             }
           }
         }
@@ -409,6 +407,8 @@ namespace exanb
           auto & partner_info = partner_comm_info[partner_idx];
           if( p!=rank && unpack_functors[p].ready_for_execution() )
           {
+            assert( unpack_functors[p].buffer_size() > 0 );
+            assert( unpack_functors[p].buffer_size() == partner_info.buffer_size );
             assert( partner_info.request_idx != -1 );
             assert( request_to_partner_idx[partner_info.request_idx] == partner_idx );
             assert( partner_info.buffer_offset + partner_info.buffer_size <= buf_total_size );
@@ -420,12 +420,53 @@ namespace exanb
         return active_recvs;
       }
 
-      inline size_t process_received_buffer(const auto & peq_func, const auto & pec_func, auto * const cells, int p, bool allow_gpu_exec, const auto & cell_allocator, auto create_particles )
+      inline void resize_received_cells(auto * const cells, const auto & cell_allocator, auto create_particles )
       {
-        if constexpr ( create_particles ) { unpack_functors[p].resize_received_cells(cells,cell_allocator); }
+        if constexpr ( create_particles )
+        {
+          const int nprocs = num_procs();
+          for(int p=0;p<nprocs;p++)
+          {
+            unpack_functors[p].resize_received_cells(cells,cell_allocator);
+          }
+        }
+      }
+
+      inline size_t process_received_buffer(const auto & peq_func, const auto & pec_func, int p, bool allow_gpu_exec )
+      {
         start_unpack_functor( peq_func, pec_func, p, allow_gpu_exec );
         return unpack_functors[p].cell_count();
       };
+
+      inline int start_ready_mpi_sends(const auto & peq_func, MPI_Comm comm, int comm_tag, int rank, bool serialized_pack)
+      {
+        static constexpr bool FWD = PackGhostFunctor::UpdateDirectionToGhost;
+        static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
+        const int nprocs = num_procs();
+        const int partner_idx_start = FWD ? nprocs : 0;
+        const size_t buf_total_size = FWD ? sendbuf_total_size() : recvbuf_total_size();
+        int started_sends = 0;
+        for(int p=0;p<nprocs;p++)
+        {
+          const int partner_idx = partner_idx_start + p;
+          auto & partner_info = partner_comm_info[partner_idx];
+          if( p!=rank && !message_sent[p] && partner_info.buffer_size > 0 )
+          {
+            assert( pack_functors[p].buffer_size() == partner_info.buffer_size );
+            assert( partner_rank_from_request_index(partner_info.request_idx) == p );
+            assert( request_to_partner_idx[partner_info.request_idx] == partner_idx );
+            assert( partner_info.buffer_offset + partner_info.buffer_size <= buf_total_size );
+            const bool ready = serialized_pack ? true : peq_func().query_status( pack_functor_lane[p] );
+            if( ready )
+            {
+              MPI_Isend( (char*) pack_functors[p].mpi_buffer() , partner_info.buffer_size, MPI_CHAR, p, comm_tag, comm, request_ptr(partner_info.request_idx) );
+              message_sent[p] = true;
+              ++ started_sends;
+            }
+          }
+        }
+        return started_sends;
+      }
 
       inline uint8_t * mpi_send_buffer()
       {
@@ -606,6 +647,8 @@ namespace exanb
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
 
+      inline size_t buffer_size() const { return m_data_buffer_size; }
+
       inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
 
       inline size_t cell_count() const { return m_cell_count; }
@@ -771,6 +814,8 @@ namespace exanb
       {
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
+
+      inline size_t buffer_size() const { return m_data_buffer_size; }
 
       inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
 

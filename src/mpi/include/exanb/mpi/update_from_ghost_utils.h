@@ -109,6 +109,8 @@ namespace exanb
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
 
+      inline size_t buffer_size() const { return m_data_buffer_size; }
+
       inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
 
       inline size_t cell_count() const { return m_cell_count; }
@@ -296,6 +298,8 @@ namespace exanb
       {
         initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
       }
+
+      inline size_t buffer_size() const { return m_data_buffer_size; }
 
       inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
 
