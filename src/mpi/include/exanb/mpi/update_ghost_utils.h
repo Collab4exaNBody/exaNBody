@@ -413,7 +413,7 @@ namespace exanb
             assert( request_to_partner_idx[partner_info.request_idx] == partner_idx );
             assert( partner_info.buffer_offset + partner_info.buffer_size <= buf_total_size );
             assert( partner_rank_from_request_index(partner_info.request_idx) == p );
-            MPI_Irecv( (char*) unpack_functors[p].mpi_buffer() + partner_info.buffer_offset, partner_info.buffer_size, MPI_CHAR, p, comm_tag, comm, request_ptr(partner_info.request_idx) );
+            MPI_Irecv( (char*) unpack_functors[p].mpi_buffer(), partner_info.buffer_size, MPI_CHAR, p, comm_tag, comm, request_ptr(partner_info.request_idx) );
             ++ active_recvs;
           }
         }

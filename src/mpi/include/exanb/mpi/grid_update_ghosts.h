@@ -182,24 +182,7 @@ namespace exanb
     int request_count = 0;
 
     // ***************** async receive start ******************
-
-    uint8_t* recv_buf_ptr = ghost_comm_buffers.mpi_recv_buffer();
-    for(int p=0;p<nprocs;p++)
-    {
-      auto & recv_info = ghost_comm_buffers.recv_info(p);
-      if( p!=rank && recv_info.buffer_size > 0 )
-      {
-        assert( recv_info.request_idx != -1 );
-        assert( ghost_comm_buffers.request_index_is_recv(recv_info.request_idx) );
-        assert( recv_info.buffer_offset + recv_info.buffer_size <= ghost_comm_buffers.recvbuf_total_size() );
-        assert( ghost_comm_buffers.partner_rank_from_request_index(recv_info.request_idx) == p );
-        MPI_Irecv( (char*) recv_buf_ptr + recv_info.buffer_offset, recv_info.buffer_size, MPI_CHAR, p, comm_tag, comm, ghost_comm_buffers.request_ptr(recv_info.request_idx) );
-        ++ active_recvs;
-        ++ request_count;
-      }
-    }
-
-    //request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm,comm_tag,rank);
+    request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm,comm_tag,rank);
 
     // ***************** initiate buffer sends ******************
     if( serialize_pack_send )
