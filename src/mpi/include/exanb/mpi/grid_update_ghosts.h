@@ -198,9 +198,9 @@ namespace exanb
     assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
     ldbg << "UpdateGhosts : total active requests = "<<ghost_comm_buffers.number_of_requests()<<std::endl;
 
-    size_t ghost_cells_recv=0 , ghost_cells_self=0;
 
     // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
+    size_t ghost_cells_self=0;
     if( ghost_comm_buffers.send_info(rank).buffer_size > 0 || ghost_comm_buffers.recv_info(rank).buffer_size > 0 )
     {
       assert( ghost_comm_buffers.send_info(rank).buffer_size == ghost_comm_buffers.recv_info(rank).buffer_size );
@@ -209,7 +209,7 @@ namespace exanb
       ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,rank,gpu_buffer_pack );
     }
 
-    ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context,rank,wait_all,gpu_buffer_pack);
+    const size_t ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context,rank,wait_all,gpu_buffer_pack);
     /*
     if( wait_all )
     {
