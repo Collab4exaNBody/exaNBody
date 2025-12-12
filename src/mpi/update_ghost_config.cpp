@@ -42,12 +42,10 @@ namespace exanb
         update_ghost_config->gpu_buffer_pack = false;
         update_ghost_config->alloc_on_device = nullptr;
       }
-      
       if( ! update_ghost_config->gpu_buffer_pack )
       {
         update_ghost_config->staging_buffer = false;
       }
-      
       if( update_ghost_config->gpu_buffer_pack && update_ghost_config->alloc_on_device == nullptr )
       {
         update_ghost_config->alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );

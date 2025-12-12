@@ -28,6 +28,7 @@ under the License.
 #include <exanb/analytics/cc_info.h>
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 #include <exanb/mpi/grid_update_from_ghosts.h>
+#include <exanb/mpi/update_ghost_config.h>
 
 #include <mpi.h>
 #include <bit>
@@ -64,7 +65,8 @@ namespace exanb
     ADD_SLOT( StringVector            , cc_custom_fields    , INPUT , StringVector{} ); 
     ADD_SLOT( StringVector            , cc_avg_fields       , INPUT , StringVector{} ); 
 
-    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme , INPUT , REQUIRED );
+    ADD_SLOT( UpdateGhostConfig        , update_ghost_config , INPUT_OUTPUT , UpdateGhostConfig{} );
+    ADD_SLOT( GhostCommunicationScheme , ghost_comm_scheme   , INPUT        , REQUIRED );
         
   public:
 
@@ -249,7 +251,7 @@ namespace exanb
       {
         ldbg << "nonzero_ghost_subcells="<<nonzero_ghost_subcells<<", grid_update_from_ghosts with UpdateValueAdd merge functor"<<std::endl;
         grid_update_from_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                          rev_ghost_scratch, pecfunc,peqfunc, update_fields, UpdateGhostConfig{} , UpdateFuncT{} );
+                          rev_ghost_scratch, pecfunc,peqfunc, update_fields, *update_ghost_config );
 #       pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
         for( ssize_t k=0 ; k < grid_dims.k ; k++)
         for( ssize_t j=0 ; j < grid_dims.j ; j++)
@@ -372,8 +374,7 @@ namespace exanb
       do
       {
         grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
-                            fwd_ghost_scratch, pecfunc,peqfunc, update_fields,
-                            UpdateGhostConfig{} , std::integral_constant<bool,false>{} );
+                            fwd_ghost_scratch, pecfunc,peqfunc, update_fields, *update_ghost_config );
 
         ULongLong label_update_count = 0;
         label_update_passes = 0;

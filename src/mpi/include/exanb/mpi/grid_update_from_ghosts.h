@@ -63,7 +63,7 @@ namespace exanb
   serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
   gpu_packing allows pack/unpack operations to execute on the GPU
   */
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT, class FieldAccTupleT, class UpdateFuncT>
+  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT, class FieldAccTupleT, bool CreateParticles=false>
   static inline void grid_update_from_ghosts(
     LDBGT& ldbg,
     MPI_Comm comm,
@@ -75,17 +75,15 @@ namespace exanb
     const PECFuncT& parallel_execution_context,
     const PEQFuncT& parallel_execution_queue,
     const FieldAccTupleT& update_fields,
-
     const UpdateGhostConfig& config,
-
-    UpdateFuncT update_func )
+    std::integral_constant<bool,CreateParticles> create_cell_particles = {}
+    )
   {
     auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
 
     using GridCellValueType = typename GridCellValues::GridCellValueType;
-    using UpdateValueFunctor = UpdateFuncT;
-
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+    
     static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
@@ -95,7 +93,11 @@ namespace exanb
     using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
-    static constexpr onika::BoolConst<false> create_cell_particles = {};
+    if( create_cell_particles && gridp==nullptr )
+    {
+      fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
+    }
+
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     int nprocs = 1;
@@ -103,9 +105,34 @@ namespace exanb
     MPI_Comm_size(comm,&nprocs);
     MPI_Comm_rank(comm,&rank);
 
+    const size_t ghost_layers = (gridp!=nullptr) ? gridp->ghost_layers() : ( (grid_cell_values!=nullptr) ? grid_cell_values->ghost_layers() : 0 );
+    const IJK grid_dims = (gridp!=nullptr) ? gridp->dimension() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_dims() : IJK{0,0,0} );
+    const IJK grid_domain_offset = (gridp!=nullptr) ? gridp->offset() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_offset() : IJK{0,0,0} );
+    double cell_size = domain.cell_size();
+    const Vec3d grid_start_position = domain.origin() + ( grid_domain_offset * cell_size );
+    const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
+
+    if( gridp!=nullptr )
+    {
+      assert( n_cells == gridp->number_of_cells() );
+      assert( ghost_layers == gridp->ghost_layers() );
+      assert( grid_dims == gridp->dimension() );
+      assert( grid_domain_offset == gridp->offset() );
+      assert( grid_start_position == gridp->cell_position({0,0,0}) );
+    }
+    if( grid_cell_values!=nullptr )
+    {
+      assert( n_cells == grid_cell_values->number_of_cells() );
+      assert( ghost_layers == grid_cell_values->ghost_layers() );
+      assert( grid_dims == grid_cell_values->grid_dims() );
+      assert( grid_domain_offset == grid_cell_values->grid_offset() );
+    }
+    ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
+        <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
+        <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple<<std::endl;
+
     auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
-    [[maybe_unused]] const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
 
     // per cell scalar values, if any
     GridCellValueType* cell_scalars = nullptr;
@@ -162,9 +189,8 @@ namespace exanb
     assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
     ldbg << "UpdateGhosts : total active requests = "<<ghost_comm_buffers.number_of_requests()<<std::endl;
 
-    size_t ghost_cells_recv=0 , ghost_cells_self=0;
-
     // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
+    size_t ghost_cells_self=0;
     if( ghost_comm_buffers.send_info(rank).buffer_size > 0 || ghost_comm_buffers.recv_info(rank).buffer_size > 0 )
     {
       assert( ghost_comm_buffers.send_info(rank).buffer_size == ghost_comm_buffers.recv_info(rank).buffer_size );
@@ -173,111 +199,19 @@ namespace exanb
       ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,rank,gpu_buffer_pack );
     }
 
-    ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context,rank,wait_all,gpu_buffer_pack);
-    /*
-    if( wait_all )
-    {
-      ldbg << "UpdateFromGhosts: MPI_Waitall, active_requests / total_requests = "<<ghost_comm_buffers.number_of_active_requests()
-           <<" / "<<ghost_comm_buffers.number_of_requests() <<std::endl;
-      MPI_Waitall( ghost_comm_buffers.number_of_active_requests() , ghost_comm_buffers.requests_data() , MPI_STATUS_IGNORE );
-      ldbg << "UpdateFromGhosts: MPI_Waitall done"<<std::endl;
-    }
-
-    while( active_sends>0 || active_recvs>0 )
-    {
-      int reqidx = MPI_UNDEFINED;
-
-      if( request_count != ( active_sends + active_recvs ) )
-      {
-        fatal_error() << "Inconsistent active_requests ("<<request_count<<") != ( "<<active_sends<<" + "<<active_recvs<<" )" <<std::endl;
-      }
-      ldbg << "UpdateGhosts: "<< active_sends << " SENDS, "<<active_recvs<<" RECVS, (total "<<request_count<<") :" ;
-      for(int i=0;i<request_count;i++)
-      {
-        ldbg << " REQ"<< i << "="<< ( ghost_comm_buffers.request_index_is_recv(i) ? "SEND-P" : "RECV-P" ) << ghost_comm_buffers.partner_rank_from_request_index(i);
-      }
-      ldbg << std::endl;
-
-      if( wait_all )
-      {
-        reqidx = request_count-1; // process communications in reverse order
-      }
-      else
-      {
-        assert( request_count == ghost_comm_buffers.number_of_active_requests() );
-        if( request_count == 1 )
-        {
-          MPI_Wait( ghost_comm_buffers.requests_data() , MPI_STATUS_IGNORE );
-          reqidx = 0;
-        }
-        else
-        {
-          MPI_Waitany( request_count , ghost_comm_buffers.requests_data() , &reqidx , MPI_STATUS_IGNORE );
-        }
-      }
-
-      if( reqidx != MPI_UNDEFINED )
-      {
-        if( reqidx<0 || reqidx >= request_count )
-        {
-          fatal_error() << "bad request index "<<reqidx<<std::endl;
-        }
-        const int p = ghost_comm_buffers.partner_rank_from_request_index(reqidx);
-        assert( p >= 0 && p < nprocs );
-        if( ghost_comm_buffers.request_index_is_send(reqidx) ) // it's a receive
-        {
-          assert( p != rank );
-          ghost_cells_recv += ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context, p, gpu_buffer_pack);
-          -- active_recvs;
-        }
-        else // it's a send
-        {
-          -- active_sends;
-        }
-
-        ghost_comm_buffers.deactivate_request( reqidx );
-        -- request_count;
-        assert( request_count == ghost_comm_buffers.number_of_active_requests() );
-      }
-      else
-      {
-        ldbg << "Warning: undefined request index returned by MPI_Waitany"<<std::endl;
-      }
-    }
-    */
+    const size_t ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context,rank,wait_all,gpu_buffer_pack);
 
     for(int p=0;p<nprocs;p++)
     {
       parallel_execution_queue().wait( ghost_comm_buffers.unpack_functor_lane[p] );
     }
 
-    ldbg << "--- end update_from_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;
-  }
+    if( create_cell_particles )
+    {
+      gridp->rebuild_particle_offsets();
+    }
 
-
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT, class FieldAccTupleT, class UpdateFuncT>
-  static inline void grid_update_from_ghosts(
-    LDBGT& ldbg,
-    MPI_Comm comm,
-    GhostCommunicationScheme& comm_scheme,
-    GridT& grid,
-    const Domain& domain,
-    GridCellValues* grid_cell_values,
-    UpdateGhostsScratchT& ghost_comm_buffers,
-    const PECFuncT& parallel_execution_context,
-    const PEQFuncT& parallel_execution_queue,
-    const FieldAccTupleT& update_fields,
-    long comm_tag ,
-    bool gpu_buffer_pack ,
-    bool async_buffer_pack ,
-    bool staging_buffer ,
-    bool serialize_pack_send ,
-    bool wait_all,
-    UpdateFuncT update_func )
-  {
-    UpdateGhostConfig config = {nullptr,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all};
-    grid_update_from_ghosts(ldbg,comm,comm_scheme,&grid,domain,grid_cell_values,ghost_comm_buffers,
-                            parallel_execution_context,parallel_execution_queue,update_fields,config,update_func);
+    ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;
   }
 
 }

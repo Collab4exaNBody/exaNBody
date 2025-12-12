@@ -127,8 +127,9 @@ namespace exanb
       print_field_tuple( ldbg , update_fields );
       ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
 
+      std::integral_constant<bool,false> dont_create_cell_particles = {};
       grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
-                        *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, UpdateFuncT{} );
+                        *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
     }
 
   };
