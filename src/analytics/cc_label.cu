@@ -20,15 +20,20 @@ under the License.
 #include <onika/scg/operator.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/scg/operator_factory.h>
+
 #include <exanb/core/domain.h>
-#include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/grid_algorithm.h>
 #include <exanb/core/grid.h>
-#include <exanb/mpi/grid_update_ghosts.h>
 #include <exanb/analytics/cc_info.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
-#include <exanb/mpi/grid_update_from_ghosts.h>
+
 #include <exanb/mpi/update_ghost_config.h>
+#include <exanb/mpi/grid_update_ghosts.h>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
+#include <exanb/mpi/update_ghost_functors.h>
+#include <exanb/mpi/update_from_ghost_functors.h>
 
 #include <mpi.h>
 #include <bit>
@@ -250,7 +255,7 @@ namespace exanb
       if( nonzero_ghost_subcells > 0 )
       {
         ldbg << "nonzero_ghost_subcells="<<nonzero_ghost_subcells<<", grid_update_from_ghosts with UpdateValueAdd merge functor"<<std::endl;
-        grid_update_from_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
+        grid_update_ghosts( ::exanb::ldbg, *mpi, *ghost_comm_scheme, null_grid_ptr, *domain, grid_cell_values.get_pointer(),
                           rev_ghost_scratch, pecfunc,peqfunc, update_fields, *update_ghost_config );
 #       pragma omp parallel for collapse(3) schedule(static) reduction(+:nonzero_ghost_subcells)
         for( ssize_t k=0 ; k < grid_dims.k ; k++)

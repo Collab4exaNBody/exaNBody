@@ -22,26 +22,22 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 
-#include <mpi.h>
-#include <vector>
-#include <string>
-#include <list>
-#include <algorithm>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
 
 #include <mpi.h>
-#include <exanb/mpi/update_ghost_utils.h>
-#include <exanb/mpi/ghosts_comm_scheme.h>
 #include <onika/mpi/data_types.h>
 
 namespace exanb
 {
-  
+
   using namespace UpdateGhostsUtils;
 
 # ifndef NDEBUG

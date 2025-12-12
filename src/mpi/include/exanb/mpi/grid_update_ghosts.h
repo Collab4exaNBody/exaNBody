@@ -19,30 +19,27 @@ under the License.
 
 #pragma once
 
+#include <mpi.h>
+
+#include <onika/mpi/data_types.h>
 #include <onika/math/basic_types_stream.h>
+#include <onika/soatl/field_tuple.h>
+#include <onika/parallel/block_parallel_for.h>
+#include <onika/cuda/stl_adaptors.h>
+#include <onika/soatl/field_id_tuple_utils.h>
+
 #include <exanb/core/grid.h>
-#include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/domain.h>
-#include <onika/soatl/field_tuple.h>
 
-#include <vector>
-#include <string>
-#include <list>
-#include <algorithm>
-#include <tuple>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 
-#include <mpi.h>
-#include <exanb/mpi/update_ghost_utils.h>
-#include <exanb/mpi/ghosts_comm_scheme.h>
-#include <onika/mpi/data_types.h>
 #include <exanb/mpi/update_ghost_config.h>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
 
-#include <onika/parallel/block_parallel_for.h>
-#include <onika/cuda/stl_adaptors.h>
-#include <onika/soatl/field_id_tuple_utils.h>
 
 namespace exanb
 {

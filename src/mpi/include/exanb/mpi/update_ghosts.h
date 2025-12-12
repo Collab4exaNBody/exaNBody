@@ -24,28 +24,24 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+
 #include <exanb/core/grid.h>
-#include <exanb/grid_cell_particles/grid_cell_values.h>
+#include <exanb/core/domain.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 
-#include <onika/soatl/field_tuple.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 
-#include <vector>
-#include <string>
-#include <list>
-#include <algorithm>
-#include <tuple>
-#include <regex>
+#include <exanb/mpi/update_ghost_config.h>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
+#include <exanb/mpi/grid_update_ghosts.h>
+#include <exanb/mpi/update_ghost_functors.h>
 
 #include <mpi.h>
-#include <exanb/mpi/grid_update_ghosts.h>
-#include <onika/mpi/data_types.h>
-
-#include <onika/parallel/block_parallel_for.h>
-#include <onika/cuda/stl_adaptors.h>
+#include <regex>
 
 namespace exanb
 {

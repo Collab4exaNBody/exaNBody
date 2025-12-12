@@ -24,27 +24,24 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
-#include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/check_particles_inside_cell.h>
 
-#include <onika/soatl/field_tuple.h>
-
-#include <vector>
-#include <string>
-#include <regex>
-
-#include <mpi.h>
-#include <exanb/mpi/update_from_ghost_utils.h>
-#include <exanb/mpi/grid_update_from_ghosts.h>
-#include <onika/mpi/data_types.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 #include <exanb/grid_cell_particles/cell_particle_update_functor.h>
 
-#include <onika/parallel/block_parallel_for.h>
-#include <onika/cuda/stl_adaptors.h>
+#include <exanb/mpi/update_ghost_config.h>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
+#include <exanb/mpi/grid_update_ghosts.h>
+#include <exanb/mpi/update_from_ghost_functors.h>
+
+#include <mpi.h>
+#include <regex>
 
 namespace exanb
 {
@@ -128,7 +125,7 @@ namespace exanb
       ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
 
       std::integral_constant<bool,false> dont_create_cell_particles = {};
-      grid_update_from_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
+      grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
                         *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
     }
 
