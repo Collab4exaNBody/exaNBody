@@ -444,30 +444,43 @@ namespace exanb
         const int nprocs = num_procs();
         size_t ghost_cells_recv = 0;
 
-        if( wait_all ) { MPI_Waitall( number_of_active_requests() , requests_data() , MPI_STATUS_IGNORE ); }
+        if( wait_all )
+        {
+          MPI_Waitall( number_of_active_requests() , requests_data() , MPI_STATUS_IGNORE );
+        }
 
         while( number_of_active_requests() > 0 )
         {
           int reqidx = MPI_UNDEFINED;
-          
-          if( wait_all ) { reqidx = number_of_active_requests() - 1; }
-          else if( number_of_active_requests() == 1 ) { MPI_Wait(requests_data(),MPI_STATUS_IGNORE); reqidx = 0; }
-          else MPI_Waitany( number_of_active_requests() , requests_data() , &reqidx , MPI_STATUS_IGNORE );
-          
-          if( reqidx != MPI_UNDEFINED )
+          if( wait_all )
           {
-            if( reqidx<0 || reqidx >= number_of_active_requests() ) { fatal_error() << "bad request index "<<reqidx<<std::endl; }
-            const int p = partner_rank_from_request_index(reqidx);
-            assert( p >= 0 && p < nprocs );
-            const bool is_recv = FWD ? request_index_is_recv(reqidx) : request_index_is_send(reqidx);
-            if( is_recv )
-            {
-              assert( p != rank );
-              ghost_cells_recv += process_received_buffer(peq_func, pec_func, p, gpu_buffer_pack);
-            }
-            deactivate_request( reqidx );
+            reqidx = number_of_active_requests() - 1;
           }
-          else { fatal_error() << "Undefined request index returned by MPI_Waitany"<<std::endl; }
+          else
+          {
+            if( number_of_active_requests() == 1 )
+            {
+              MPI_Wait(requests_data(),MPI_STATUS_IGNORE);
+              reqidx = 0;
+            }
+            else
+            {
+              MPI_Waitany( number_of_active_requests() , requests_data() , &reqidx , MPI_STATUS_IGNORE );
+            }
+          }
+          
+          if( reqidx == MPI_UNDEFINED ) { fatal_error() << "Undefined request index returned by MPI_Waitany"<<std::endl; }
+          
+          if( reqidx<0 || reqidx >= number_of_active_requests() ) { fatal_error() << "bad request index "<<reqidx<<std::endl; }
+          const int p = partner_rank_from_request_index(reqidx);
+          assert( p >= 0 && p < nprocs );
+          const bool is_recv = FWD ? request_index_is_recv(reqidx) : request_index_is_send(reqidx);
+          if( is_recv )
+          {
+            assert( p != rank );
+            ghost_cells_recv += process_received_buffer(peq_func, pec_func, p, gpu_buffer_pack);
+          }
+          deactivate_request( reqidx );
         }
         
         return ghost_cells_recv;
