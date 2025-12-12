@@ -25,7 +25,6 @@ under the License.
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
-#include <exanb/mpi/update_ghost_utils.h>
 #include <onika/integral_constant.h>
 
 namespace exanb
@@ -37,8 +36,10 @@ namespace exanb
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class UpdateFuncT, class FieldAccTuple>
     struct GhostSendUnpackFromReceiveBuffer
     {
+      static inline constexpr bool UpdateDirectionToGhost = false;
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellSendScheme * __restrict__ m_sends = nullptr;
+      size_t m_cell_count = 0;
       CellsAccessorT m_cells = {};
       GridCellValueType * __restrict__ m_cell_scalars = nullptr;
       size_t m_cell_scalar_components = 0;
@@ -49,6 +50,74 @@ namespace exanb
       GhostBoundaryModifier m_boundary = {};
       UpdateFuncT m_merge_func;
       FieldAccTuple m_fields = {};
+
+      inline void initialize( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+
+        auto & send_info = ghost_comm_buffers.send_info(p);
+        if( send_info.buffer_size > 0 )
+        {
+          m_sends = comm_scheme.m_partner[p].m_sends.data();
+          m_cell_count = comm_scheme.m_partner[p].m_sends.size();
+          m_cells = cells_accessor;
+          m_cell_scalars = cell_scalars;
+          m_cell_scalar_components = cell_scalar_components;
+          m_data_ptr_base = (p!=rank) ? ghost_comm_buffers.sendbuf_ptr(p) : ghost_comm_buffers.recvbuf_ptr(p);
+          m_data_buffer_size = send_info.buffer_size;
+          sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+          m_staging_buffer_ptr = ( staging_buffer && (p!=rank) ) ? ( ghost_comm_buffers.mpi_send_buffer() + send_info.buffer_offset ) : nullptr ;
+          m_boundary = ghost_boundary;
+          m_merge_func = UpdateFuncT{};
+          m_fields = update_fields;
+        }
+        else
+        {
+          m_sends = nullptr;
+          m_cell_count = 0;
+          m_cells = CellsAccessorT{};
+          m_cell_scalars = nullptr;
+          m_cell_scalar_components = 0;
+          m_data_ptr_base = nullptr;
+          m_data_buffer_size = 0;
+          sizeof_ParticleTuple = 0;
+          m_staging_buffer_ptr = nullptr;
+          m_boundary = GhostBoundaryModifier{};
+          m_merge_func = UpdateFuncT{};
+          m_fields = FieldAccTuple{};
+        }
+      }
+
+      inline void update_parameters( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+      }
+
+      inline size_t buffer_size() const { return m_data_buffer_size; }
+
+      inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
+
+      inline size_t cell_count() const { return m_cell_count; }
+
+      inline bool ready_for_execution() const
+      {
+        return m_data_ptr_base!=nullptr && m_sends!=nullptr;
+      }
 
       template<class fid, class T>
       ONIKA_HOST_DEVICE_FUNC
@@ -74,9 +143,9 @@ namespace exanb
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size , stream->m_cu_stream ) );
-        }        
+        }
       }
-      
+
       inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
@@ -107,7 +176,7 @@ namespace exanb
           using exanb::field_id_fom_acc_v;
           using FieldT = FieldOrSpanT;
           using ValueType = typename FieldT::value_type ;
-          ValueType * data = ( ValueType * ) data_vp;        
+          ValueType * data = ( ValueType * ) data_vp;
           m_merge_func( m_cells[cell_i][_f][part_i]
                       , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
                       , onika::TrueType{} );
@@ -136,8 +205,8 @@ namespace exanb
         const CellParticlesUpdateData * data = (const CellParticlesUpdateData*) data_ptr;
 
         assert( data->m_cell_i == m_sends[i].m_partner_cell_i );
-        
-        const size_t cell_i = m_sends[i].m_cell_i;        
+
+        const size_t cell_i = m_sends[i].m_cell_i;
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
@@ -161,9 +230,11 @@ namespace exanb
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
     struct GhostReceivePackToSendBuffer
     {
+      static inline constexpr bool UpdateDirectionToGhost = false;
       using FieldIndexSeq = std::make_index_sequence< onika::tuple_size_const_v<FieldAccTuple> >;
       const GhostCellReceiveScheme * __restrict__ m_receives = nullptr;
-      const uint64_t * __restrict__ m_cell_offset = nullptr; 
+      size_t m_cell_count = 0;
+      const uint64_t * __restrict__ m_cell_offset = nullptr;
       uint8_t * __restrict__ m_data_ptr_base = nullptr;
       CellsAccessorT m_cells = {};
       size_t m_cell_scalar_components = 0;
@@ -173,12 +244,77 @@ namespace exanb
       uint8_t * __restrict__ m_staging_buffer_ptr = nullptr;
       FieldAccTuple m_fields = {};
 
+      inline void initialize( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        auto & recv_info = ghost_comm_buffers.recv_info(p);
+        if( recv_info.buffer_size > 0 )
+        {
+          m_receives = comm_scheme.m_partner[p].m_receives.data();
+          m_cell_count = comm_scheme.m_partner[p].m_receives.size();
+          m_cell_offset = comm_scheme.m_partner[p].m_receive_offset.data();
+          m_data_ptr_base = ghost_comm_buffers.recvbuf_ptr(p);
+          m_cells = cells_accessor;
+          m_cell_scalar_components = cell_scalar_components;
+          m_cell_scalars = cell_scalars;
+          m_data_buffer_size = recv_info.buffer_size;
+          sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+          m_staging_buffer_ptr = ( staging_buffer && (p!=rank) ) ? ( ghost_comm_buffers.mpi_recv_buffer() + recv_info.buffer_offset ) : nullptr ;
+          m_fields = update_fields;
+        }
+        else
+        {
+          m_receives = nullptr;
+          m_cell_count = 0;
+          m_cell_offset = nullptr;
+          m_data_ptr_base = nullptr;
+          m_cells = CellsAccessorT{};
+          m_cell_scalar_components = 0;
+          m_cell_scalars = nullptr;
+          m_data_buffer_size = 0;
+          sizeof_ParticleTuple = 0;
+          m_staging_buffer_ptr = nullptr;
+          m_fields = FieldAccTuple{};
+        }
+      }
+
+      inline void update_parameters( int rank, int p
+                            , const GhostCommunicationScheme& comm_scheme
+                            , auto& ghost_comm_buffers
+                            , const CellsAccessorT& cells_accessor
+                            , GridCellValueType * cell_scalars
+                            , size_t cell_scalar_components
+                            , const FieldAccTuple& update_fields
+                            , const GhostBoundaryModifier& ghost_boundary
+                            , bool staging_buffer )
+      {
+        initialize( rank, p, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, staging_buffer );
+      }
+
+      inline size_t buffer_size() const { return m_data_buffer_size; }
+
+      inline uint8_t * mpi_buffer() const { return ( m_staging_buffer_ptr != nullptr ) ? m_staging_buffer_ptr : m_data_ptr_base ; }
+
+      inline size_t cell_count() const { return m_cell_count; }
+
+      inline bool ready_for_execution() const
+      {
+        return m_data_ptr_base!=nullptr && m_receives!=nullptr && m_cell_offset!=nullptr;
+      }
+
       inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t , onika::parallel::ParallelExecutionStream* stream ) const
       {
         if( m_data_buffer_size > 0 && m_staging_buffer_ptr != nullptr && m_staging_buffer_ptr != m_data_ptr_base )
         {
           ONIKA_CU_CHECK_ERRORS( ONIKA_CU_MEMCPY( m_staging_buffer_ptr, m_data_ptr_base , m_data_buffer_size , stream->m_cu_stream ) );
-        }        
+        }
       }
 
       inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
@@ -233,7 +369,7 @@ namespace exanb
         const auto cell_input_it = m_receives[i];
         const auto cell_input = ghost_cell_receive_info(cell_input_it);
         const size_t cell_i = cell_input.m_cell_i;
-        
+
         if( ONIKA_CU_THREAD_IDX == 0 )
         {
           data->m_cell_i = cell_i; // this is my cell #, recipient will have to translate it to its own cell #
@@ -253,7 +389,7 @@ namespace exanb
           {
             gcv[c] = m_cell_scalars[cell_i*m_cell_scalar_components+c];
           }
-        }              
+        }
       }
     };
 
