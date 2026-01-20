@@ -141,7 +141,7 @@ namespace exanb
       
       if( rank == 0 ) 
       {
-        lout << "create directory " << outputDir << std::endl;
+        ldbg << "create directory " << outputDir << std::endl;
         
         // Remove the output directory if it exists
         fs::remove_all(outputDir);
@@ -155,7 +155,7 @@ namespace exanb
       if( rank == 0 ) 
       {
         std::string pvti_filename = outputDir + ".pvti" ;
-        lout << "write file "<<pvti_filename<<" ..."<<std::endl;
+        ldbg << "write file "<<pvti_filename<<" ..."<<std::endl;
         std::ofstream pvti( pvti_filename );
         pvti << "<VTKFile type=\"PImageData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n";
         if (*adjust_spacing) {
@@ -262,7 +262,6 @@ namespace exanb
           double subdiv_corr = 1.0;
           if (subdiv != -1) subdiv_corr = subdiv;
           const double spacing_x = xform.m11*cell_size/subdiv_corr;
-          std::cout << "spacing_x = " << spacing_x << std::endl;
           const double spacing_y = xform.m22*cell_size/subdiv_corr;
           const double spacing_z = xform.m33*cell_size/subdiv_corr;
           vti<<"  <ImageData WholeExtent=\""
