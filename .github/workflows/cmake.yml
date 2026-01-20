@@ -1,0 +1,45 @@
+name: CMake
+on: [push]
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        persist-credentials: false
+    - uses: actions/setup-node@v4
+    - name: Get Yaml cpp
+      run: sudo apt install libyaml-cpp-dev
+    - name: Install
+      run: sudo apt-get update && sudo apt-get install lcov
+#    - uses: mpi4py/setup-mpi@v1
+#      with: 
+#        mpi: openmpi
+    - name: Install MPI
+      run: sudo apt install mpich
+      
+    - name: Get Onika
+      run: git clone --depth 1 https://github.com/Collab4exaNBody/onika.git        
+    - name: Configure Onika
+      run: cmake -B ${{github.workspace}}/onika/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/onika/install
+      working-directory: ${{github.workspace}}/onika    
+    - name: Build Onika
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/onika/build --target install --config ${{env.BUILD_TYPE}} -j 2 
+      
+    - name: Configure CMake
+      run: cmake -DCMAKE_CXX_FLAGS="--coverage -g" -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install
+
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j 2
+
+    - name: Test Example
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
