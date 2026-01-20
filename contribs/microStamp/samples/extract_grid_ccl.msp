@@ -73,6 +73,6 @@ simulation:
   - write_output_file:
       rebind: { filename: outputfile }
       body:
-        - write_grid_vtk
+        - write_grid_vtk: { adjust_spacing: false }
         - write_cc_table
 
