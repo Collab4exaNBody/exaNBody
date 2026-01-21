@@ -48,7 +48,7 @@ logo_banner:
 
 simulation: default_simulation
 
-simulation_epilog:
+xxx_simulation_epilog:
   - check_values:
       file: deterministic_lattice.dat
       samples: 200

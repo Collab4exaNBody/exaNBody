@@ -27,18 +27,16 @@ jobs:
       run: cmake -B ${{github.workspace}}/onika/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/onika/install
       working-directory: ${{github.workspace}}/onika    
     - name: Build Onika
-      # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/onika/build --target install --config ${{env.BUILD_TYPE}} -j 8
       
     - name: Configure exaNBody
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install -DEXANB_BUILD_CONTRIB_MD=ON -DEXANB_BUILD_MICROSTAMP=ON -DEXANB_BUILD_CONTRIB_PI=ON -DEXANB_BUILD_MICROCOSMOS=ON -DSNAP_CPU_USE_LOCKS=ON -DSNAP_FP32_MATH=OFF
     - name: Build exaNBody
-      # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
 
-    # - name: Test Example
-    #   working-directory: ${{github.workspace}}/build
-    #   run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+    - name: Run exaNBody Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
 
     - name: Get exaStamp
       run: git clone --depth 1 https://github.com/Collab4exaNBody/exaStamp.git        
@@ -46,7 +44,13 @@ jobs:
       run: cmake -B ${{github.workspace}}/exaStamp/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DexaNBody_DIR=${{github.workspace}}/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/exaStamp/install
       working-directory: ${{github.workspace}}/exaStamp
     - name: Build exaStamp
-      # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/exaStamp/build --target install --config ${{env.BUILD_TYPE}} -j 8
-    
-    
+
+    - name: Get exaDEM
+      run: git clone --depth 1 https://github.com/Collab4exaNBody/exaDEM.git
+    - name: Configure exaDEM
+      run: cmake -B ${{github.workspace}}/exaDEM/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DexaNBody_DIR=${{github.workspace}}/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/exaDEM/install
+      working-directory: ${{github.workspace}}/exaDEM
+    - name: Build exaDEM
+      run: cmake --build ${{github.workspace}}/exaDEM/build --target install --config ${{env.BUILD_TYPE}} -j 8
+      

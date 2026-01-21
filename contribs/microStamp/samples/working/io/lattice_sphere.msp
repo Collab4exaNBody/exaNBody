@@ -71,7 +71,7 @@ input_data:
   - lattice:
       structure: BCC
       types: [ B , C ]
-      size: [ 15 ang , 15 ang , 15 ang ]
+      size: [ 15. ang , 15. ang , 15. ang ]
   - gaussian_noise_r:
       sigma: 0.1 ang
       sigma_cut: 0.4 ang
@@ -81,6 +81,8 @@ input_data:
   - shift_v:
       value: [ -1000 m/s , 0 , 0 ]
       region: SPHERE
+
+final_dump: nop
 
 # pretty logo banner
 logo_banner:

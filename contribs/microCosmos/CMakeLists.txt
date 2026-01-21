@@ -16,6 +16,6 @@
 # under the License.
 #
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/solar_system.msp DESTINATION share/examples)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samples/simple_example/solar_system.msp DESTINATION share/examples)
 
 
