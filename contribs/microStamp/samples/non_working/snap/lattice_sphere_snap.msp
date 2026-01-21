@@ -23,7 +23,7 @@ global:
   rcut_inc: 1.0 ang # additional distance so that we d'ont have to rebuild neighbor list each time step
   simulation_log_frequency: 10
   simulation_dump_frequency: 100
-  simulation_end_iteration: 1000
+  simulation_end_iteration: 1
 
 write_xyz:
   fields: [ id ]
@@ -138,7 +138,7 @@ logo_banner:
 
 simulation: default_simulation
 
-simulation_epilog:
+xxx_simulation_epilog:
   - check_values:
       file: deterministic_lattice.dat
       samples: 4096

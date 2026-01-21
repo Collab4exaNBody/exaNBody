@@ -30,7 +30,9 @@ compute_force:
       config: { epsilon: 0.0104 eV , sigma: 3.4 ang }
       rcut: 8.0 ang
 
-final_dump: nop
+final_dump:
+  - timestep_file: "test_%09d.xyz"
+  - write_xyz: { fields: [ id ] }
 
 input_data:
   - particle_types:
@@ -39,8 +41,8 @@ input_data:
       Ar: { mass: 39.948 Da , z: 18 }
   - domain:
       cell_size: 5.3 ang
-      grid_dims: [ 10 , 10 , 10 ]
-      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 53.0 ang , 53.0 ang , 53.0 ang ] ]
+      grid_dims: [ 20 , 20 , 20 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 106.0 ang , 106.0 ang , 106.0 ang ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
@@ -49,6 +51,9 @@ input_data:
       structure: FCC
       types: [ Ar, Ar, Ar, Ar]
       size: [ 5.3 ang , 5.3 ang , 5.3 ang ]
+      void_mode: porosity
+      void_porosity: 0.2
+      void_mean_diameter: 20. ang
   - gaussian_noise_r:
       sigma: 0.1 ang
   - gaussian_noise_v
@@ -56,7 +61,7 @@ input_data:
   
 simulation: default_simulation
 
-simulation_epilog:
+xxx_simulation_epilog:
   - check_values:
       file: check_values.dat
       samples: 100

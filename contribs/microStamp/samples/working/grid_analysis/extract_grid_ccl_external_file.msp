@@ -24,6 +24,13 @@ cc_label:
   cc_count_threshold: 1
   
 input_data:
+  - particle_regions:
+      - SPHERE:
+          quadric:
+            shape: sphere
+            transform:
+              - scale: [ 50 ang , 50 ang , 50 ang ] 
+              - translate: [ 250 ang , 250 ang , 250 ang ]
   - domain:
       cell_size: 5.0 ang
       grid_dims: [ 100 , 100 , 100 ]
@@ -32,11 +39,15 @@ input_data:
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
   - init_rcb_grid
-  - read_cell_values:
+  - set_cell_values:
       field_name: "myfield"
-      field_dim: 1
-      grid_subdiv: 1
-      file_name: "points_large.vtk"
+      region: SPHERE
+      value: [ 2. ]  
+  # - read_cell_values:
+  #     field_name: "myfield"
+  #     field_dim: 1
+  #     grid_subdiv: 1
+  #     file_name: "points_large.vtk"
   - lattice:
       structure: BCC
       types: [ Ta, Ta ]
@@ -66,7 +77,7 @@ simulation:
       body:
         - write_grid_vtk
         - timestep_file: "test_%09d.xyz"
-        - write_xyz_generic: { fields: [ id ] }
+        - write_xyz: { fields: [ id ] }
 #        - write_deformed_grid_vtk
 #        - write_cc_table
 

@@ -37,22 +37,22 @@ input_data:
       W: { mass: 183.84 Da , z: 74 , radius: 2. ang}
   - domain:
       cell_size: 10.0 ang
-      grid_dims: [60,50,35]
-      bounds: [[0 ang ,0 ang,0 ang],[600 ang, 500 ang, 350 ang]]
+      grid_dims: [30,20,10]
+      bounds: [[0 ang ,0 ang,0 ang],[300 ang, 200 ang, 100 ang]]
       xform: [[1.,0.,0.],[0.,1.,0.],[0.,0.,1.]]
       periodic: [true,true,true]
       expandable: false
   - init_rcb_grid
-  - read_cell_values:
-      field_name: "MASK1"
-      file_name: "points_120x100x70_Forder.vtk" # generate this file using contribs/paraview/generate_vtk_grid.py
-      grid_subdiv: 2
-      grid_ordering: F_ORDER
+  # - read_cell_values:
+  #     field_name: "MASK1"
+  #     file_name: "points_60x40x20_Forder.vtk" # generate this file using contribs/paraview/generate_vtk_grid.py
+  #     grid_subdiv: 2
+  #     grid_ordering: F_ORDER
   - lattice:
       structure: BCC
       types: [ W, W ]
       size: [ 5 ang , 5 ang , 5 ang ]
-      grid_cell_mask_name: MASK1
-      grid_cell_mask_value: 1
+#      grid_cell_mask_name: MASK1
+#      grid_cell_mask_value: 1
 
 simulation: default_simulation

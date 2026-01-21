@@ -130,8 +130,8 @@ def populate_3d_array_with_spheres(Nx, Ny, Nz, num_spheres, mean_radius, radius_
 # Example usage
 if __name__ == "__main__":
     # Create a sample 3D NumPy array
-    Nx, Ny, Nz = 120,100,70
-    num_spheres = 10
+    Nx, Ny, Nz = 60,40,20
+    num_spheres = 4
     mean_radius = 0.25
     radius_variance = 0.1
     data = populate_3d_array_with_spheres(Nx, Ny, Nz, num_spheres, mean_radius, radius_variance, seed=165)
@@ -139,4 +139,4 @@ if __name__ == "__main__":
     # Write the data to a VTK file
     ordering='F'
     write_vtk_structured_points("points_%dx%dx%d_%sorder.vtk" %(Nx,Ny,Nz,ordering), data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0),ordering=ordering)
-    write_ovito_grid("points_%dx%dx%d_%sorder.grid" %(Nx,Ny,Nz,ordering), data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), ordering=ordering)
+#    write_ovito_grid("points_%dx%dx%d_%sorder.grid" %(Nx,Ny,Nz,ordering), data, origin=(0.0, 0.0, 0.0), spacing=(1.0, 1.0, 1.0), ordering=ordering)
