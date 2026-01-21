@@ -39,3 +39,14 @@ jobs:
     # - name: Test Example
     #   working-directory: ${{github.workspace}}/build
     #   run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+
+    - name: Get exaStamp
+      run: git clone --depth 1 https://github.com/Collab4exaNBody/exaStamp.git        
+    - name: Configure exaStamp
+      run: cmake -B ${{github.workspace}}/exaStamp/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DexaNBody_DIR=${{github.workspace}}/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/exaStamp/install
+      working-directory: ${{github.workspace}}/exaStamp
+    - name: Build exaStamp
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/exaStamp/build --target install --config ${{env.BUILD_TYPE}} -j 8
+    
+    
