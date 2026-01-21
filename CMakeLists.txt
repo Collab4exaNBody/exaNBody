@@ -25,7 +25,7 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debu
 
 # main dependency and configuation variables
 set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
-set(ONIKA_RUN_WRAPPER ${XNB_APP_NAME})
+set(ONIKA_RUN_WRAPPER ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME})
 get_filename_component(XNB_ROOT_DIR ${CMAKE_INSTALL_PREFIX} ABSOLUTE)
 set(XNB_CMAKE_PACKAGE ${CMAKE_CURRENT_BINARY_DIR}/exanbody-config.cmake)
 find_package(onika REQUIRED)
@@ -219,6 +219,15 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody
   "${ONIKA_EXEC} \$*\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody DESTINATION bin)
 
+if(ONIKA_REGRESSION_TEST_ENABLE)
+  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/samples/working)
+# This folder contains the test cas that need to read local potential files not copied in the test generation. Next issue  
+#  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/samples/nonworking)  
+  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microCosmos/samples)
+# This folder needs to be cleaned! Some operators are obsolete and contained only in exaStamp : not accessible in exaNBody  
+#  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/regression)
+endif()
+
 # generate configuration files and scripts to run from build directory without install
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exaNBody
   "#!/bin/bash\n"
@@ -229,5 +238,3 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exaNBody
   "[ \$ONIKA_DEBUG ] && echo \"exaNBody build : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n"
   "${ONIKA_EXEC} \$*\n")
 file(CHMOD ${CMAKE_CURRENT_BINARY_DIR}/exaNBody FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
-
-
