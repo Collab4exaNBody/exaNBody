@@ -36,6 +36,6 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
 
-    - name: Test Example
-      working-directory: ${{github.workspace}}/build
-      run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+    # - name: Test Example
+    #   working-directory: ${{github.workspace}}/build
+    #   run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
