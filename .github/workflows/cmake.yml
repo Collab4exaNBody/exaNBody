@@ -31,8 +31,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/onika/build --target install --config ${{env.BUILD_TYPE}} -j 8
       
     - name: Configure exaNBody
-      run: cmake -B ${{github.workspace}}/exaNBody/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/exaNBody/install -DEXANB_BUILD_CONTRIB_MD=ON -DEXANB_BUILD_MICROSTAMP=ON -DEXANB_BUILD_CONTRIB_PI=ON -DEXANB_BUILD_MICROCOSMOS=ON -DSNAP_CPU_USE_LOCKS=ON -DSNAP_FP32_MATH=OFF
-      working-directory: ${{github.workspace}}/exaNBody
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install -DEXANB_BUILD_CONTRIB_MD=ON -DEXANB_BUILD_MICROSTAMP=ON -DEXANB_BUILD_CONTRIB_PI=ON -DEXANB_BUILD_MICROCOSMOS=ON -DSNAP_CPU_USE_LOCKS=ON -DSNAP_FP32_MATH=OFF
     - name: Build exaNBody
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
