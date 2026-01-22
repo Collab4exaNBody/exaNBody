@@ -33,8 +33,8 @@ input_data:
               - translate: [ 250 ang , 250 ang , 250 ang ]
   - domain:
       cell_size: 5.0 ang
-      grid_dims: [ 100 , 100 , 100 ]
-      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 500.0 ang , 500.0 ang , 500.0 ang ] ]
+      grid_dims: [ 10 , 10 , 10 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 50.0 ang , 50.0 ang , 50.0 ang ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
@@ -42,7 +42,7 @@ input_data:
   - set_cell_values:
       field_name: "myfield"
       region: SPHERE
-      value: [ 2. ]  
+      value: [ 2. ]
   # - read_cell_values:
   #     field_name: "myfield"
   #     field_dim: 1
@@ -52,6 +52,7 @@ input_data:
       structure: BCC
       types: [ Ta, Ta ]
       size: [ 3 ang , 3 ang , 3 ang ]
+      shift: [ 0.1 ang, 0.1 ang, 0.1 ang ]
       grid_cell_mask_name: myfield
       grid_cell_mask_value: 1.
 
@@ -72,12 +73,12 @@ simulation:
   - memory_stats
   - resize_grid_cell_values
   - cc_label
-  - write_output_file:
-      rebind: { filename: outputfile }
-      body:
-        - write_grid_vtk
-        - timestep_file: "test_%09d.xyz"
-        - write_xyz: { fields: [ id ] }
+  # - write_output_file:
+  #     rebind: { filename: outputfile }
+  #     body:
+  #       - write_grid_vtk
+  #       - timestep_file: "test_%09d.xyz"
+  #       - write_xyz: { fields: [ id ] }
 #        - write_deformed_grid_vtk
 #        - write_cc_table
 
