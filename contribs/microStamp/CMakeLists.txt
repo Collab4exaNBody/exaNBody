@@ -21,10 +21,8 @@ install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/samples DESTINATION share/microSta
 
 # Add regression tests for microStamp
 if(ONIKA_REGRESSION_TEST_ENABLE)
-  #  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/samples/working)
   file(GLOB_RECURSE POTENTIAL_FILES "${CMAKE_CURRENT_SOURCE_DIR}/potentials/*")
   file(COPY ${POTENTIAL_FILES} DESTINATION "${CMAKE_BINARY_DIR}/contribs/microStamp")
   AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/samples)
-#  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/regression)
 endif()
 
