@@ -16,26 +16,6 @@
 # under the License.
 #
 
-option(EXANB_BUILD_CONTRIB_MD "Build Molecular Dynamics contribs " OFF)
-if(EXANB_BUILD_CONTRIB_MD)
-  add_subdirectory(md)
-endif()
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/samples/working DESTINATION share/microStamp_examples)
 
-option(EXANB_BUILD_CONTRIB_PI "Build Planetary Interaction contribs " OFF)
-if(EXANB_BUILD_CONTRIB_PI)
-  add_subdirectory(pi)
-endif()
-
-option(EXANB_BUILD_MICROSTAMP "Build microStamp (MD) miniapp" OFF)
-if(EXANB_BUILD_MICROSTAMP)
-  add_subdirectory(microStamp)
-endif()
-
-option(EXANB_BUILD_MICROCOSMOS "Build microCosmos (Planets) miniapp" OFF)
-if(EXANB_BUILD_MICROCOSMOS)
-  add_subdirectory(microCosmos)
-endif()
-
-# export variable indicating that contribs have been built into exaNBody
-file(APPEND ${XNB_CMAKE_PACKAGE} "set(EXANB_BUILD_CONTRIB_MD ON)\n")
 
