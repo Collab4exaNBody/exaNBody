@@ -196,10 +196,24 @@ namespace exanb
 
   struct GhostCommunicationScheme
   {
+    // Communication bject's unique id :
+    // two identical communication mays have different uids,
+    // but two different communication objects cannot have the same uid
+    // this might be use to cache computations of structures/values derived from this object
+    int64_t m_uid = 0;
+    
     IJK m_grid_dims = { 0, 0, 0 };
     size_t m_particle_bytes = 0;
     size_t m_cell_bytes = 0;
     std::vector< GhostPartnerCommunicationScheme > m_partner;
+
+    static inline std::atomic<int64_t> s_uid_counter = 0;
+    static inline int64_t generate_uid() { return s_uid_counter.fetch_add( 1 ); }
+    inline void update_uid()
+    {
+      m_uid = generate_uid();
+    }
+    inline int64_t uid() const { return m_uid; }
   };
 
   template<class StreamT>
