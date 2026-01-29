@@ -219,15 +219,6 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody
   "${ONIKA_EXEC} \$*\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/exaNBody DESTINATION bin)
 
-if(ONIKA_REGRESSION_TEST_ENABLE)
-  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/samples/working)
-# This folder contains the test cas that need to read local potential files not copied in the test generation. Next issue  
-#  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/samples/nonworking)  
-  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microCosmos/samples)
-# This folder needs to be cleaned! Some operators are obsolete and contained only in exaStamp : not accessible in exaNBody  
-#  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/contribs/microStamp/regression)
-endif()
-
 # generate configuration files and scripts to run from build directory without install
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/exaNBody
   "#!/bin/bash\n"

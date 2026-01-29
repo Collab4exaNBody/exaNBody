@@ -25,18 +25,14 @@ global:
   simulation_dump_frequency: 100
   simulation_end_iteration: 1
 
-write_xyz:
-  fields: [ id ]
+final_dump: nop
 
-#dump_data: dump_data_xyz
-dump_data: nop
-xx_dump_data:
+dump_data:
   - average_neighbors_scalar:
       nbh_field: mass
       avg_field: density
       rcut: 8.0 ang
-#  - dump_data_paraview
-  - dump_data_xyz
+  - dump_data_paraview
 
 snap_force_generic:
   parameters:
@@ -45,8 +41,6 @@ snap_force_generic:
     coef: "WBe_Wood_PRB2019.snapcoeff"
 
 dump_debug:
-#  - timestep_file: "debug_%09d.xyz"
-#  - write_xyz: { fields: [ id ] }
   - timestep_file: "debug_%09d.txt"
   - debug_particle
 

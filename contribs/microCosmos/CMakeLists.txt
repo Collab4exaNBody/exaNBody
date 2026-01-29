@@ -16,6 +16,12 @@
 # under the License.
 #
 
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samples/simple_example/solar_system.msp DESTINATION share/examples)
+# Copy example folder for microCosmos
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/samples/simple_example DESTINATION share/microCosmos_examples)
+
+# Add regression tests for microCosmos
+if(ONIKA_REGRESSION_TEST_ENABLE)
+  AddRegressionTestDir(${CMAKE_CURRENT_SOURCE_DIR}/samples)
+endif()
 
 
