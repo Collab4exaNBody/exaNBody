@@ -22,26 +22,22 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 
-#include <mpi.h>
-#include <vector>
-#include <string>
-#include <list>
-#include <algorithm>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
 
 #include <mpi.h>
-#include <exanb/mpi/update_ghost_utils.h>
-#include <exanb/mpi/ghosts_comm_scheme.h>
 #include <onika/mpi/data_types.h>
 
 namespace exanb
 {
-  
+
   using namespace UpdateGhostsUtils;
 
 # ifndef NDEBUG
@@ -98,6 +94,9 @@ namespace exanb
       GridT& grid = *(this->grid);
       const Domain& domain = *(this->domain);
       GhostCommunicationScheme& comm_scheme = *ghost_comm_scheme;
+
+      // invalidate it's uid right now
+      comm_scheme.update_uid();
 
       // global information needed afterward to compute buffer sizes
       comm_scheme.m_grid_dims = grid.dimension();
@@ -332,10 +331,10 @@ namespace exanb
       }
       /********************************************************************/
 
+      comm_scheme.update_uid();
+      ldbg << "UpdateGhostsCommScheme: UID = "<<comm_scheme.uid() << std::endl;
       ldbg << "UpdateGhostsCommScheme: --- end ghost_comm_scheme ---" << std::endl;
     }
-
-
 
     // ----------------------------------------------------        
     inline size_t partner_count_intersecting_cells(

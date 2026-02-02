@@ -29,12 +29,11 @@ namespace exanb
   {
     onika::cuda::CudaDevice * alloc_on_device = nullptr;
     long mpi_tag = 0;
-    bool gpu_buffer_pack = false;
-    bool async_buffer_pack = false;
-    bool staging_buffer = false;
+    bool gpu_buffer_pack = true;
+    bool async_buffer_pack = true;
+    bool staging_buffer = true;
     bool serialize_pack_send = true;
     bool wait_all = false;
-    bool device_side_buffer = false;
   };
 }
 
@@ -44,20 +43,20 @@ namespace YAML
   template<> struct convert< exanb::UpdateGhostConfig >
   {
     static inline bool decode(const Node& node, exanb::UpdateGhostConfig & config)
-    {
+    {      
+      config = exanb::UpdateGhostConfig{};
+      if( node.IsNull() ) return true;
       if( ! node.IsMap() )
       {
         exanb::fatal_error() << "UpdateGhostConfig must be a map" << std::endl;
         return false;
       }
-      config = exanb::UpdateGhostConfig{};
       if(node["mpi_tag"])             config.mpi_tag             = node["mpi_tag"].as<int>();
       if(node["gpu_buffer_pack"])     config.gpu_buffer_pack     = node["gpu_buffer_pack"].as<bool>();
       if(node["async_buffer_pack"])   config.async_buffer_pack   = node["async_buffer_pack"].as<bool>();
       if(node["staging_buffer"])      config.staging_buffer      = node["staging_buffer"].as<bool>();
       if(node["serialize_pack_send"]) config.serialize_pack_send = node["serialize_pack_send"].as<bool>();
       if(node["wait_all"])            config.wait_all            = node["wait_all"].as<bool>();
-      if(node["device_side_buffer"])  config.device_side_buffer  = node["device_side_buffer"].as<bool>();
       return true;
     }
   };

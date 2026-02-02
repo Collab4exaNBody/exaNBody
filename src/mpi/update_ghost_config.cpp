@@ -32,7 +32,7 @@ namespace exanb
     // Operator slots
     // -----------------------------------------------
     ADD_SLOT( UpdateGhostConfig , update_ghost_config , INPUT_OUTPUT , UpdateGhostConfig{} );
-    ADD_SLOT( bool , verbose , INPUT , false );
+    ADD_SLOT( bool , verbose , INPUT , true );
     
   public:
     inline void execute() override final
@@ -40,30 +40,28 @@ namespace exanb
       if( global_cuda_ctx() == nullptr || ! global_cuda_ctx()->has_devices() || ! global_cuda_ctx()->global_gpu_enable() )
       {
         update_ghost_config->gpu_buffer_pack = false;
+        update_ghost_config->alloc_on_device = nullptr;
       }
-      
       if( ! update_ghost_config->gpu_buffer_pack )
       {
-        update_ghost_config->device_side_buffer = false;
+        update_ghost_config->staging_buffer = false;
       }
-      
-      if( update_ghost_config->device_side_buffer && update_ghost_config->alloc_on_device == nullptr )
+      if( update_ghost_config->gpu_buffer_pack && update_ghost_config->alloc_on_device == nullptr )
       {
         update_ghost_config->alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
       }
       
       if( *verbose )
       {
-        lout << "============ Update Ghhost Configuration =========" << std::endl
+        lout << "============ Update Ghost Configuration =========" << std::endl
              << "mpi_tag             = "<<update_ghost_config->mpi_tag<< std::endl
              << "gpu_buffer_pack     = "<<std::boolalpha << update_ghost_config->gpu_buffer_pack<< std::endl
              << "async_buffer_pack   = "<<std::boolalpha << update_ghost_config->async_buffer_pack<< std::endl
              << "staging_buffer      = "<<std::boolalpha << update_ghost_config->staging_buffer<< std::endl
              << "serialize_pack_send = "<<std::boolalpha << update_ghost_config->serialize_pack_send<< std::endl
              << "wait_all            = "<<std::boolalpha << update_ghost_config->wait_all<< std::endl
-             << "device_side_buffer  = "<<std::boolalpha << update_ghost_config->device_side_buffer<< std::endl
              << "alloc_on_device     = "<< (void*) update_ghost_config->alloc_on_device << std::endl
-             << "=================================================="<< std::endl << std::endl;
+             << "================================================="<< std::endl << std::endl;
       }
     }
 

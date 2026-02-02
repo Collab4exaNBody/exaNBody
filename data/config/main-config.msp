@@ -34,8 +34,10 @@ default_simulation:
   - logo_banner
   - mpi_comm_world
   - init_cuda
+  - update_ghost_config
   - global
   - unit_system
+  - update_ghost_config
   - input_data
   - nbh_dist
   - print_domain
@@ -52,6 +54,7 @@ test_simulation:
   - logo_banner
   - mpi_comm_world
   - init_cuda
+  - update_ghost_config
   - global
   - unit_system
   - memory_stats: { musage_threshold: 16 }
