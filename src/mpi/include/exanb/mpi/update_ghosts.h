@@ -24,28 +24,24 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+
 #include <exanb/core/grid.h>
-#include <exanb/grid_cell_particles/grid_cell_values.h>
+#include <exanb/core/domain.h>
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/core/particle_id_codec.h>
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 
-#include <onika/soatl/field_tuple.h>
+#include <exanb/grid_cell_particles/grid_cell_values.h>
 
-#include <vector>
-#include <string>
-#include <list>
-#include <algorithm>
-#include <tuple>
-#include <regex>
+#include <exanb/mpi/update_ghost_config.h>
+#include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghosts_comm_manager.h>
+#include <exanb/mpi/grid_update_ghosts.h>
+#include <exanb/mpi/update_ghost_functors.h>
 
 #include <mpi.h>
-#include <exanb/mpi/grid_update_ghosts.h>
-#include <onika/mpi/data_types.h>
-
-#include <onika/parallel/block_parallel_for.h>
-#include <onika/cuda/stl_adaptors.h>
+#include <regex>
 
 namespace exanb
 {
@@ -67,24 +63,41 @@ namespace exanb
     ADD_SLOT( GridT                    , grid              , INPUT_OUTPUT);
     ADD_SLOT( Domain                   , domain            , INPUT );
     ADD_SLOT( GridCellValues           , grid_cell_values  , INPUT_OUTPUT , OPTIONAL );
-    ADD_SLOT( long                     , mpi_tag           , INPUT , 0 );
     ADD_SLOT( StringVector             , opt_fields        , INPUT , StringVector() , DocString{"List of regular expressions to select optional fields to update"} );
 
-    ADD_SLOT( bool                     , gpu_buffer_pack   , INPUT , false );
-    ADD_SLOT( bool                     , async_buffer_pack , INPUT , false );
-    ADD_SLOT( bool                     , staging_buffer    , INPUT , false );
-    ADD_SLOT( bool                     , serialize_pack_send , INPUT , false );
-    ADD_SLOT( bool                     , wait_all          , INPUT , false );
+    ADD_SLOT( UpdateGhostConfig        , update_ghost_config , INPUT, UpdateGhostConfig{} );
 
-    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers, PRIVATE );
+    ADD_SLOT( UpdateGhostsScratch      , ghost_comm_buffers , PRIVATE );
 
   public:
     inline void execute() override final
     {
+      using CellParticles = typename GridT::CellParticles;
+      using ParticleFullTuple = typename CellParticles::TupleValueType;
+      using GridCellValueType = typename GridCellValues::GridCellValueType;
+      using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+      static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
+      static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
+      using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid->cells_accessor() ) > >;
+
       if( ! ghost_comm_scheme.has_value() ) return;
       if( grid->number_of_particles() == 0 ) return;
 
       using onika::cuda::make_const_span;
+      
+      auto upd_config = *update_ghost_config;
+      if( upd_config.gpu_buffer_pack && upd_config.alloc_on_device == nullptr )
+      {
+        if( global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
+        {
+          upd_config.alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
+        }
+        else
+        {
+          upd_config.gpu_buffer_pack = false;
+          upd_config.alloc_on_device = nullptr;
+        }
+      }
       
       const auto& flist = *opt_fields;
       auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
@@ -105,10 +118,23 @@ namespace exanb
       
       auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
 
+      using FieldAccTupleT = std::remove_cv_t< std::remove_reference_t< decltype( update_fields ) > >;
+      using PackGhostFunctor = UpdateGhostsUtils::GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+      using UnpackGhostFunctor = UpdateGhostsUtils::GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT>;
+      using UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<PackGhostFunctor,UnpackGhostFunctor>;
+      if( ghost_comm_buffers->m_comm_resources == nullptr )
+      {
+        ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
+      }
+      UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+
+      ldbg << pathname() << " : ";
+      print_field_tuple( ldbg , update_fields );
+      ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
+
       grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
-                          *ghost_comm_buffers, pecfunc,peqfunc, update_fields,
-                          *mpi_tag, *gpu_buffer_pack, *async_buffer_pack, *staging_buffer,
-                          *serialize_pack_send, *wait_all, std::integral_constant<bool,CreateParticles>{} );
+                          * ghost_scratch, pecfunc,peqfunc, update_fields,
+                          upd_config, std::integral_constant<bool,CreateParticles>{} );
     }
 
     inline std::string documentation() const override final
