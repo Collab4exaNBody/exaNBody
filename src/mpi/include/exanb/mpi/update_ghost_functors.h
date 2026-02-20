@@ -66,6 +66,25 @@ namespace exanb
 
       return v;
     }
+    
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC
+    static inline uint8_t* store_bytes(uint8_t* p, const T& v)
+    {
+      static_assert(std::is_trivially_copyable_v<T>);
+      memcpy(p, &v, sizeof(T));
+      return p + sizeof(T);
+    }
+
+    template<class T>
+    ONIKA_HOST_DEVICE_FUNC
+    static inline const uint8_t* load_bytes(const uint8_t* p, T& v)
+    {
+      static_assert(std::is_trivially_copyable_v<T>);
+      memcpy(&v, p, sizeof(T));
+      return p + sizeof(T);
+    }
+    
 
     template<class CellsAccessorT, class GridCellValueType, class CellParticlesUpdateData, class FieldAccTuple >
     struct GhostSendPackFunctor
@@ -166,27 +185,30 @@ namespace exanb
         }
       }
 
-      template<class FieldOrSpanT>
-      ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const FieldOrSpanT& _f, void * data_vp, uint64_t cell_i, uint64_t part_i , uint32_t cell_boundary_flags ) const
-      {
-        if constexpr ( onika::is_span_v<FieldOrSpanT> )
-        {
-          using FieldT = typename FieldOrSpanT::value_type ;
-          using ValueType = typename FieldT::value_type ;
-          ValueType * data = ( ValueType * ) data_vp;
-          //const size_t N = _f.size(); auto * f_ptr = _f.data();
-          for(const auto & f : _f) { *(data++) = apply_particle_boundary(m_cells[cell_i][f][part_i],f,m_boundary,cell_boundary_flags); }
-          return data;
-        }
-        else
-        {
-          using ValueType = typename FieldOrSpanT::value_type ;
-          ValueType * data = ( ValueType * ) data_vp;
-          * (data++) = apply_particle_boundary(m_cells[cell_i][_f][part_i],_f,m_boundary,cell_boundary_flags);
-          return data;
-        }
-      }
+      
+	template<class FieldOrSpanT>
+	ONIKA_HOST_DEVICE_FUNC
+	inline void * pack_particle_field( const FieldOrSpanT& _f, void * data_vp, uint64_t cell_i, uint64_t part_i , uint32_t cell_boundary_flags ) const
+	{
+  		uint8_t* data = reinterpret_cast<uint8_t*>( data_vp );
+
+  		if constexpr ( onika::is_span_v<FieldOrSpanT> )
+  		{
+    			for(const auto & f : _f)
+    			{
+      				auto v = apply_particle_boundary(m_cells[cell_i][f][part_i], f, m_boundary, cell_boundary_flags);
+      				data = store_bytes( data, v );
+    			}
+    			return data;
+  		}
+  		else
+  		{
+    			auto v = apply_particle_boundary(m_cells[cell_i][_f][part_i], _f, m_boundary, cell_boundary_flags);
+    			data = store_bytes( data, v );
+    			return data;
+  		}
+	}	
+
 
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
@@ -195,6 +217,8 @@ namespace exanb
         if constexpr ( sizeof...(FieldIndex) > 0 )
         {
           void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_j );
+          //void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_j + particle_offset );
+
           ( ... , ( data_ptr = pack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i, part_i , cell_boundary_flags ) ) );
         }
       }
@@ -222,6 +246,7 @@ namespace exanb
           if constexpr ( FieldCount > 0 ) { assert( particle_index[j] < m_cells[cell_i].size() ); }
           // m_cells[ cell_i ].read_tuple( particle_index[j], data->m_particles[j] );
           pack_particle_fields( data, cell_i, particle_index[j] , j , cell_boundary_flags , FieldIndexSeq{} );
+
           //apply_particle_boundary( data->m_particles[j], m_boundary, cell_boundary_flags );
         }
         if( m_cell_scalars != nullptr )
@@ -345,26 +370,35 @@ namespace exanb
           std::memcpy( m_data_ptr_base , m_staging_buffer_ptr , m_data_buffer_size );
         }
       }
+	template<class FieldT>
+	ONIKA_HOST_DEVICE_FUNC
+	inline const void * unpack_particle_field( const onika::cuda::span<FieldT>& fa, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+	{
+  		const uint8_t* data = reinterpret_cast<const uint8_t*>( data_vp );
+  		using ValueType = typename FieldT::value_type;
 
-      template<class FieldT>
-      ONIKA_HOST_DEVICE_FUNC
-      inline const void * unpack_particle_field( const onika::cuda::span<FieldT>& fa, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
-      {
-        using ValueType = typename FieldT::value_type ;
-        const ValueType * data = ( const ValueType * ) data_vp;
-        for(const auto& f : fa) m_cells[cell_i][f][part_i] = * (data++);
-        return data;
-      }
+  		for(const auto& f : fa)
+  		{
+    			ValueType v;
+    			data = load_bytes( data, v );
+    			m_cells[cell_i][f][part_i] = v;
+  		}
+  		return data;
+	}
+      
+	template<class FieldT>
+	ONIKA_HOST_DEVICE_FUNC
+	inline const void * unpack_particle_field( const FieldT& f, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+	{
+  		const uint8_t* data = reinterpret_cast<const uint8_t*>( data_vp );
+  		using ValueType = typename FieldT::value_type;
 
-      template<class FieldT>
-      ONIKA_HOST_DEVICE_FUNC
-      inline const void * unpack_particle_field( const FieldT& f, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
-      {
-        using ValueType = typename FieldT::value_type ;
-        const ValueType * data = ( const ValueType * ) data_vp;
-        m_cells[cell_i][f][part_i] = * (data++) ;
-        return data;
-      }
+  		ValueType v;
+  		data = load_bytes( data, v );
+  		m_cells[cell_i][f][part_i] = v;
+  		return data;
+	}
+
 
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
@@ -373,6 +407,8 @@ namespace exanb
         if constexpr ( sizeof...(FieldIndex) > 0 )
         {
           const void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_i );
+          //const void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_i + particle_offset );
+
           if constexpr ( CreateParticles ) m_cells[cell_i].set_tuple( part_i , {} ); // zero all fields
           ( ... , ( data_ptr = unpack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i, part_i ) ) );
         }
