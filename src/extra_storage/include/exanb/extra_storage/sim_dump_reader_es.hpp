@@ -54,7 +54,7 @@ namespace exanb
     ADD_SLOT( bool        , enable_extra_data , INPUT , true );
     ADD_SLOT( std::vector<bool> , periodicity     , INPUT ,OPTIONAL , DocString{"if set, overrides domain's periodicity stored in file with this value"}  );
     ADD_SLOT( bool        , expandable      , INPUT ,OPTIONAL , DocString{"if set, override domain expandability stored in file"} );
-    ADD_SLOT( AABB        , bounds          , INPUT ,OPTIONAL , DocString{"if set, override domain's bounds, filtering out particle outside of overriden bounds"} );
+    ADD_SLOT( AABB        , bounds          , INPUT ,OPTIONAL , DocString{"If set, override the domain's bounds, filtering out particles outside of overriden bounds (AABB = [[infx, infy, infz],[supx, supy, supz]]). If set to true and shrink_to_fit is true, try to reduce the domain's grid size to the minimum size enclosing fixed bounds."} );
     ADD_SLOT( bool        , shrink_to_fit   , INPUT ,OPTIONAL , DocString{"if set to true and bounds was wpecified, try to reduce domain's grid size to the minimum size enclosing fixed bounds"} );
     ADD_SLOT( GridExtraDynamicDataStorageT<ESType> , ges  , INPUT_OUTPUT , DocString{"Interaction list"} );
 
