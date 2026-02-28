@@ -171,7 +171,7 @@ namespace exanb
     inline AABB grid_bounds_no_ghost() const 
     {
       const IJK start_loc = m_offset + ghost_layers();
-      const IJK end_loc = ( m_offset + m_dimension ) - ( 2 * ghost_layers() );
+      const IJK end_loc = ( m_offset + m_dimension ) - ghost_layers();
       return AABB{ m_origin+(start_loc*m_cell_size) , m_origin+(end_loc*m_cell_size) }; 
     }
 
