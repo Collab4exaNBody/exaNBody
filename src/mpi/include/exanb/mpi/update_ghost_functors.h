@@ -446,6 +446,19 @@ namespace exanb
       }
     };
 
+
+    // helper function to assemble a ghost update communication manager for forward ghost updates
+    template<class CellsAccessorT, class FieldAccTupleT, bool CreateParticles=false>
+    inline auto make_forward_ghost_update_manager(const CellsAccessorT & , const FieldAccTupleT & , std::integral_constant<bool,CreateParticles> = {} )
+    {
+      using GridCellValueType = typename GridCellValues::GridCellValueType;
+      using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+      using PackGhostFunctor = GhostSendPackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+      using UnpackGhostFunctor = GhostReceiveUnpackFunctor<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,CreateParticles,FieldAccTupleT>;
+      using UpdateGhostsCommManagerType = UpdateGhostsCommManager<PackGhostFunctor,UnpackGhostFunctor>;
+      return UpdateGhostsCommManagerType{};
+    }
+
   } // template utilities used only inside UpdateGhostsNode
 
 }
