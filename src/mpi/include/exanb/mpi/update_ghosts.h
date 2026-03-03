@@ -72,8 +72,8 @@ namespace exanb
   public:
     inline void execute() override final
     {
-      using CellParticles = typename GridT::CellParticles;
-      using ParticleFullTuple = typename CellParticles::TupleValueType;
+      //using CellParticles = typename GridT::CellParticles;
+      //using ParticleFullTuple = typename CellParticles::TupleValueType;
       using GridCellValueType = typename GridCellValues::GridCellValueType;
       using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
       static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");

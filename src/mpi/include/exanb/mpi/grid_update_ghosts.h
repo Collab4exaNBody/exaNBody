@@ -86,9 +86,9 @@ namespace exanb
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
-    using PackGhostFunctor = typename UpdateGhostsScratchT::PackGhostFunctor;
-    using UnpackGhostFunctor = typename UpdateGhostsScratchT::UnpackGhostFunctor;
-    using ParForOpts = onika::parallel::BlockParallelForOptions;
+    //using PackGhostFunctor = typename UpdateGhostsScratchT::PackGhostFunctor;
+    //using UnpackGhostFunctor = typename UpdateGhostsScratchT::UnpackGhostFunctor;
+    //using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
     if( create_cell_particles && gridp==nullptr )
@@ -164,7 +164,7 @@ namespace exanb
     ghost_comm_buffers.resize_received_cells( cells, gridp->cell_allocator(), create_cell_particles );
 
     // ***************** send bufer packing start ******************
-    uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
+    //uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
     int active_send_packs = ghost_comm_buffers.start_pack_functors( parallel_execution_queue, parallel_execution_context, rank, gpu_buffer_pack );
 
     // number of flying messages

@@ -368,7 +368,7 @@ namespace exanb
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
         const int nprocs = num_procs();
         const int partner_idx_start = FWD ? 0 : nprocs;
-        const size_t buf_total_size = FWD ? recvbuf_total_size() : sendbuf_total_size();
+        //const size_t buf_total_size = FWD ? recvbuf_total_size() : sendbuf_total_size();
         int active_recvs = 0;
         for(int p=0;p<nprocs;p++)
         {
@@ -413,7 +413,7 @@ namespace exanb
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
         const int nprocs = num_procs();
         const int partner_idx_start = FWD ? nprocs : 0;
-        const size_t buf_total_size = FWD ? sendbuf_total_size() : recvbuf_total_size();
+        //const size_t buf_total_size = FWD ? sendbuf_total_size() : recvbuf_total_size();
         int started_sends = 0;
         for(int p=0;p<nprocs;p++)
         {
@@ -441,7 +441,7 @@ namespace exanb
       {
         static constexpr bool FWD = PackGhostFunctor::UpdateDirectionToGhost;
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
-        const int nprocs = num_procs();
+        //const int nprocs = num_procs();
         size_t ghost_cells_recv = 0;
 
         if( wait_all )

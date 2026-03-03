@@ -78,7 +78,7 @@ namespace exanb
     inline void execute() override final
     {
       using GridCellValueType = typename GridCellValues::GridCellValueType;
-      using UpdateValueFunctor = UpdateFuncT;
+      //using UpdateValueFunctor = UpdateFuncT;
       using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
       static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
       static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
