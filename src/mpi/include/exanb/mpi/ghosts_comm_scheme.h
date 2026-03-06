@@ -32,7 +32,6 @@ under the License.
 
 namespace exanb
 {
-
   // ghost particle coordinate filter,
   // apply periodic or mirror boundary conditions to one ore more of the particle's coordinate
   struct GhostBoundaryModifier
