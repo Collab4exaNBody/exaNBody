@@ -43,7 +43,7 @@ namespace exanb
     struct GhostCellParticlesUpdateData
     {
       size_t m_cell_i;
-      /*alignas(64)*/ uint8_t m_particles[0];
+      alignas(64) uint8_t m_particles[0];
 
       ONIKA_HOST_DEVICE_FUNC
       inline void * particle_data(size_t sizeof_ParticleTuple, size_t idx)
