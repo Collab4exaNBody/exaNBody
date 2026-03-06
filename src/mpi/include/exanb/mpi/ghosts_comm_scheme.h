@@ -32,6 +32,15 @@ under the License.
 
 namespace exanb
 {
+/*
+  template<class T>
+  ONIKA_HOST_DEVICE_FUNC
+  inline void rawcopy( T& dst , const T& src )
+  {
+    memcpy( & dst , & src , sizeof(src) );
+  }
+*/
+
   // ghost particle coordinate filter,
   // apply periodic or mirror boundary conditions to one ore more of the particle's coordinate
   struct GhostBoundaryModifier
