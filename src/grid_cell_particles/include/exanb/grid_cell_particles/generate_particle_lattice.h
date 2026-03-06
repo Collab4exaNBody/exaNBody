@@ -289,9 +289,9 @@ namespace exanb
               Vec3d lab_pos = ( Vec3d{ i + lattice.m_positions[l].x , j + lattice.m_positions[l].y , k + lattice.m_positions[l].z } * lattice.m_size ) + position_shift;
               Vec3d grid_pos = inv_xform * lab_pos;
 	            const IJK loc = grid.locate_cell(grid_pos);
-              const bool is_inner_cell = loc.i>=gl && loc.i<(local_grid_dim.i-gl)
-                                      && loc.j>=gl && loc.j<(local_grid_dim.j-gl)
-                                      && loc.k>=gl && loc.k<(local_grid_dim.k-gl);
+              //const bool is_inner_cell = loc.i>=gl && loc.i<(local_grid_dim.i-gl)
+              //                        && loc.j>=gl && loc.j<(local_grid_dim.j-gl)
+              //                        && loc.k>=gl && loc.k<(local_grid_dim.k-gl);
               
 	            if( grid.contains(loc) && is_inside( domain.bounds() , grid_pos ) && is_inside( grid.grid_bounds() , grid_pos ) )
         			{          			

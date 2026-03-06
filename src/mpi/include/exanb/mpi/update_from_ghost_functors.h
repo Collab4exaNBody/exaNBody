@@ -156,8 +156,9 @@ namespace exanb
 
       template<class FieldOrSpanT>
       ONIKA_HOST_DEVICE_FUNC
-      inline const void * unpack_particle_field( const FieldOrSpanT& _f, const GhostCellSendScheme& info, const void * data_vp, uint64_t cell_i, uint64_t part_i ) const
+      inline const void * unpack_particle_field( const FieldOrSpanT& _f, const GhostCellSendScheme& info, const void * data_vp, uint64_t cell_i, const uint32_t * const __restrict__ particle_index, unsigned int n_particles ) const
       {
+        unsigned int pack_particle_index = 0;
         if constexpr ( onika::is_span_v<FieldOrSpanT> )
         {
           using FieldT = typename FieldOrSpanT::value_type ;
@@ -165,34 +166,44 @@ namespace exanb
           ValueType * data = ( ValueType * ) data_vp;
           for(const auto & f : _f)
           {
-            m_merge_func( m_cells[cell_i][f][part_i]
-                        , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
-                        , onika::TrueType{} );
+            ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
+            {
+              const auto cell_particle_index = particle_index[j];
+              m_merge_func( m_cells[cell_i][f][cell_particle_index]
+                          , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , data[pack_particle_index+j] )
+                          , onika::TrueType{} );
+            }
+            pack_particle_index += n_particles;
           }
-          return data;
+          return data + pack_particle_index;
         }
         else
         {
-          using exanb::field_id_fom_acc_v;
           using FieldT = FieldOrSpanT;
           using ValueType = typename FieldT::value_type ;
           ValueType * data = ( ValueType * ) data_vp;
-          m_merge_func( m_cells[cell_i][_f][part_i]
-                      , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , *(data++) )
-                      , onika::TrueType{} );
-          return data;
+          ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
+          {
+            const auto cell_particle_index = particle_index[j];
+            m_merge_func( m_cells[cell_i][_f][cell_particle_index]
+                        , apply_field_boundary( info, exanb::details::field_id_fom_acc_t<FieldT>{} , data[pack_particle_index+j] )
+                        , onika::TrueType{} );
+          }
+          pack_particle_index += n_particles;
+          return data + pack_particle_index;
         }
+        return nullptr;
       }
 
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
-      inline void unpack_particle_fields( const GhostCellSendScheme& info, const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, uint64_t part_i, uint64_t part_j, std::index_sequence<FieldIndex...> ) const
+      inline void unpack_cell_particles( const GhostCellSendScheme& info, const CellParticlesUpdateData * const __restrict__ data, uint64_t cell_i, const uint32_t * const __restrict__ particle_index, unsigned int n_particles, std::index_sequence<FieldIndex...> ) const
       {
         if constexpr ( sizeof...(FieldIndex) > 0 )
         {
-          const void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_j );
+          const void * data_ptr = data->particle_data( sizeof_ParticleTuple , 0 );
           using exanb::field_id_fom_acc_v;
-          ( ... , ( data_ptr = unpack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , info , data_ptr , cell_i , part_i ) ) );
+          ( ... , ( data_ptr = unpack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , info , data_ptr , cell_i , particle_index, n_particles ) ) );
         }
       }
 
@@ -209,12 +220,13 @@ namespace exanb
         const size_t cell_i = m_sends[i].m_cell_i;
         const uint32_t * const __restrict__ particle_index = onika::cuda::vector_data( m_sends[i].m_particle_i );
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
+        unpack_cell_particles( m_sends[i], data, cell_i, particle_index, n_particles, FieldIndexSeq{} );
+/*
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
-          // assert( particle_index[j] < m_cells[cell_i].size() );
           unpack_particle_fields( m_sends[i], data, cell_i, particle_index[j], j, FieldIndexSeq{} );
-          //m_merge_func( m_cells, cell_i, particle_index[j] , data->m_particles[j] , onika::TrueType{} );
         }
+*/
         size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof_ParticleTuple;
         if( m_cell_scalars != nullptr )
         {
@@ -327,34 +339,49 @@ namespace exanb
 
       template<class FieldOrSpanT>
       ONIKA_HOST_DEVICE_FUNC
-      inline void * pack_particle_field( const FieldOrSpanT& _f, void* data_vp, uint64_t cell_i, uint64_t part_i ) const
+      inline void * pack_cell_field( const FieldOrSpanT& _f, void* data_vp, uint64_t cell_i, unsigned int n_particles ) const
       {
+        unsigned int pack_particle_index = 0;
         if constexpr ( onika::is_span_v<FieldOrSpanT> )
         {
           using FieldT = typename FieldOrSpanT::value_type ;
           using ValueType = typename FieldT::value_type ;
           ValueType * data = ( ValueType * ) data_vp;
-          for(const auto & f : _f) { * (data++) = m_cells[cell_i][f][part_i]; }
-          return data;
+          for(const auto & f : _f)
+          {
+            ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
+            {
+              //rawcopy( data[pack_particle_index+j] , m_cells[cell_i][f][j] );
+              data[pack_particle_index+j] = m_cells[cell_i][f][j];
+            }
+            pack_particle_index += n_particles;
+          }
+          return data + pack_particle_index;
         }
         else
         {
           using FieldT = FieldOrSpanT;
           using ValueType = typename FieldT::value_type ;
-          ValueType * data = ( ValueType * ) data_vp;
-          * (data++) = m_cells[cell_i][_f][part_i];
-          return data;
+          ValueType * data = ( ValueType * ) data_vp;          
+          ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
+          {
+            //rawcopy( data[pack_particle_index+j] , m_cells[cell_i][_f][j] );
+            data[pack_particle_index+j] = m_cells[cell_i][_f][j];
+          }
+          pack_particle_index += n_particles;
+          return data + pack_particle_index;
         }
+        return nullptr;
       }
 
       template<size_t ... FieldIndex>
       ONIKA_HOST_DEVICE_FUNC
-      inline void pack_particle_fields( CellParticlesUpdateData* data, uint64_t cell_i, uint64_t part_i, uint64_t part_j, std::index_sequence<FieldIndex...> ) const
+      inline void pack_cell_particles( CellParticlesUpdateData* data, uint64_t cell_i, unsigned int n_particles, std::index_sequence<FieldIndex...> ) const
       {
         if constexpr ( sizeof...(FieldIndex) > 0 )
         {
-          void * data_ptr = data->particle_data( sizeof_ParticleTuple , part_j );
-          ( ... , ( data_ptr = pack_particle_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i , part_i ) ) );
+          void * data_ptr = data->particle_data( sizeof_ParticleTuple , 0 );
+          ( ... , ( data_ptr = pack_cell_field( m_fields.get(onika::tuple_index_t<FieldIndex>{}) , data_ptr , cell_i , n_particles ) ) );
         }
       }
 
@@ -375,12 +402,15 @@ namespace exanb
           data->m_cell_i = cell_i; // this is my cell #, recipient will have to translate it to its own cell #
         }
 
-        const size_t n_particles = cell_input.m_n_particles;
+        const unsigned int n_particles = cell_input.m_n_particles;
+        pack_cell_particles( data, cell_i, n_particles, FieldIndexSeq{} );
+/*
         ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
         {
           pack_particle_fields( data, cell_i, j, j, FieldIndexSeq{} );
           //m_cells[cell_i].read_tuple( j , data->m_particles[j] );
         }
+  */
         const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof_ParticleTuple;
         if( m_cell_scalars != nullptr )
         {

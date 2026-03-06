@@ -82,7 +82,6 @@ namespace exanb
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
-    static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
