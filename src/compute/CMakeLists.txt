@@ -19,7 +19,7 @@
 # === micro-stamp pair potential compute operator library library  ===
 # ====================================================================
 
-set(XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE "4" CACHE STRING "delay computations in neighbor traversal loop to enforce synchronized calls to user functor. size of delay buffer. set to 0 to disable")
+set(XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE "0" CACHE STRING "delay computations in neighbor traversal loop to enforce synchronized calls to user functor. size of delay buffer. set to 0 to disable")
 if(${XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE} LESS_EQUAL 1)
   set(XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE 1)
 endif()

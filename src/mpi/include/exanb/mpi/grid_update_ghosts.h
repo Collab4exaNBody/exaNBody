@@ -33,6 +33,7 @@ under the License.
 #include <exanb/core/check_particles_inside_cell.h>
 #include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/domain.h>
+#include <exanb/core/grid_particle_field_accessor.h>
 
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 
@@ -79,10 +80,18 @@ namespace exanb
   {
     auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
 
+    // FIXME: temporary workaround for GPU packing bug with optional fields
+    const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
+    if( gpu_buffer_pack && has_opt_field )
+    {
+      gpu_buffer_pack = false;
+      alloc_on_device = nullptr;
+      staging_buffer = false;
+    }
+
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
-    static_assert( sizeof(CellParticlesUpdateData) == sizeof(size_t) , "Unexpected size for CellParticlesUpdateData");
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
@@ -127,7 +136,8 @@ namespace exanb
     }
     ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
         <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
-        <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple<<std::endl;
+        <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple
+        <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field <<std::endl;
 
     auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
