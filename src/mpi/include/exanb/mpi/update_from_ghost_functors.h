@@ -351,8 +351,8 @@ namespace exanb
           {
             ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
             {
-              //rawcopy( data[pack_particle_index+j] , m_cells[cell_i][f][j] );
-              data[pack_particle_index+j] = m_cells[cell_i][f][j];
+              rawcopy( data[pack_particle_index+j] , m_cells[cell_i][f][j] );
+              //data[pack_particle_index+j] = m_cells[cell_i][f][j];
             }
             pack_particle_index += n_particles;
           }
@@ -365,8 +365,8 @@ namespace exanb
           ValueType * data = ( ValueType * ) data_vp;          
           ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
           {
-            //rawcopy( data[pack_particle_index+j] , m_cells[cell_i][_f][j] );
-            data[pack_particle_index+j] = m_cells[cell_i][_f][j];
+            rawcopy( data[pack_particle_index+j] , m_cells[cell_i][_f][j] );
+            //data[pack_particle_index+j] = m_cells[cell_i][_f][j];
           }
           pack_particle_index += n_particles;
           return data + pack_particle_index;
