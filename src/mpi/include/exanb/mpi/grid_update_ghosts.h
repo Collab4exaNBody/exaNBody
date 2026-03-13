@@ -82,7 +82,8 @@ namespace exanb
 
     // FIXME: temporary workaround for GPU packing bug with optional fields
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
-    if( gpu_buffer_pack && has_opt_field )
+    const bool has_field_span = field_tuple_contains_field_span(update_fields);
+    if( gpu_buffer_pack && has_field_span )
     {
       gpu_buffer_pack = false;
       alloc_on_device = nullptr;
@@ -137,7 +138,7 @@ namespace exanb
     ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
         <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
         <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple
-        <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field <<std::endl;
+        <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field<<", has_field_span="<<has_field_span <<std::endl;
 
     auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };

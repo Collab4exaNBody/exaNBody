@@ -106,25 +106,55 @@ namespace exanb
     
       auto pecfunc = [self=this](auto ... args) { return self->parallel_execution_context(args ...); };
       auto peqfunc = [self=this]() -> onika::parallel::ParallelExecutionQueue& { return self->parallel_execution_queue(); };
-      auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
 
-      using FieldAccTupleT = std::remove_cv_t< std::remove_reference_t< decltype( update_fields ) > >;
-      using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
-      using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,UpdateFuncT,FieldAccTupleT>;
-      using UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<PackGhostFunctor,UnpackGhostFunctor>;
-      if( ghost_comm_buffers->m_comm_resources == nullptr )
+      auto update_from_ghost_on_fields = [&]( const auto & update_fields )
       {
-        ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
+        using FieldAccTupleT = std::remove_cv_t< std::remove_reference_t< decltype( update_fields ) > >;
+        using PackGhostFunctor = UpdateFromGhostsUtils::GhostReceivePackToSendBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,FieldAccTupleT>;
+        using UnpackGhostFunctor = UpdateFromGhostsUtils::GhostSendUnpackFromReceiveBuffer<CellsAccessorT,GridCellValueType,CellParticlesUpdateData,UpdateFuncT,FieldAccTupleT>;
+        using UpdateGhostsCommManager = UpdateGhostsUtils::UpdateGhostsCommManager<PackGhostFunctor,UnpackGhostFunctor>;
+        if( ghost_comm_buffers->m_comm_resources == nullptr )
+        {
+          ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
+        }
+        UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+
+        ldbg << pathname() << " : ";
+        print_field_tuple( ldbg , update_fields );
+        ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
+
+        std::integral_constant<bool,false> dont_create_cell_particles = {};
+        grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
+                          *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
+      };
+
+      // FIXME: this specializations allow for update_ghost bug workaround on GPU when using field spans for variable number of fields
+      // Note: the workaround works by disabling GPU execution inside grid_update_ghosts function when it detects field tuple has field spans
+      if( opt_real.empty() && opt_vec3.empty() && opt_mat3.empty() )
+      {
+        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... );
+        update_from_ghost_on_fields( update_fields );
       }
-      UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
-
-      ldbg << pathname() << " : ";
-      print_field_tuple( ldbg , update_fields );
-      ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
-
-      std::integral_constant<bool,false> dont_create_cell_particles = {};
-      grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
-                        *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
+      else if( opt_real.size()==1 && opt_vec3.empty() && opt_mat3.empty() )
+      {
+        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_real[0] );
+        update_from_ghost_on_fields( update_fields );
+      }
+      else if( opt_real.empty() && opt_vec3.size()==1 && opt_mat3.empty() )
+      {
+        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_vec3[0] );
+        update_from_ghost_on_fields( update_fields );
+      }
+      else if( opt_real.empty() && opt_vec3.empty() && opt_mat3.size()==1 )
+      {
+        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_mat3[0] );
+        update_from_ghost_on_fields( update_fields );
+      }
+      else
+      {
+        auto variable_update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
+        update_from_ghost_on_fields( variable_update_fields );
+      }
     }
 
   };
