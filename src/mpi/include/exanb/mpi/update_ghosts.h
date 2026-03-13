@@ -51,7 +51,10 @@ namespace exanb
   template< class GridT, bool CreateParticles, class... fids>
   class UpdateGhostsNodeTmpl< GridT , FieldSet<fids...> , CreateParticles > : public OperatorNode
   {
-    using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratch;
+    using generic_real_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_real{""} ) ) > >;
+    using generic_vec3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_vec3{""} ) ) > >;
+    using generic_mat3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_mat3{""} ) ) > >;
+    using UpdateGhostsScratch = UpdateGhostsUtils::UpdateGhostsScratchWithOptionalFields<generic_real_accessor_t,generic_vec3_accessor_t,generic_mat3_accessor_t>;
     using StringVector = std::vector<std::string>;
     using FieldSetT = FieldSet<fids...>;
 
@@ -130,12 +133,9 @@ namespace exanb
       const auto& flist = *opt_fields;
       auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
 
-      using generic_real_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( grid->field_accessor( field::generic_real{""} ) ) > >;
-      using generic_vec3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( grid->field_accessor( field::generic_vec3{""} ) ) > >;
-      using generic_mat3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( grid->field_accessor( field::generic_mat3{""} ) ) > >;
-      std::vector< generic_real_accessor_t > opt_real;
-      std::vector< generic_vec3_accessor_t > opt_vec3;
-      std::vector< generic_mat3_accessor_t > opt_mat3;
+      auto & opt_real = ghost_comm_buffers->m_opt_real_fields; opt_real.clear();
+      auto & opt_vec3 = ghost_comm_buffers->m_opt_vec3_fields; opt_vec3.clear();
+      auto & opt_mat3 = ghost_comm_buffers->m_opt_mat3_fields; opt_mat3.clear();      
       for(const auto & opt_name : grid->optional_scalar_fields()) if(opt_field_upd(opt_name)) { opt_real.push_back( grid->field_accessor(field::mk_generic_real(opt_name)) ); ldbg<<"opt. ghost real "<<opt_name<<std::endl; }
       for(const auto & opt_name : grid->optional_vec3_fields()  ) if(opt_field_upd(opt_name)) { opt_vec3.push_back( grid->field_accessor(field::mk_generic_vec3(opt_name)) ); ldbg<<"opt. ghost vec3 "<<opt_name<<std::endl; }
       for(const auto & opt_name : grid->optional_mat3_fields()  ) if(opt_field_upd(opt_name)) { opt_mat3.push_back( grid->field_accessor(field::mk_generic_mat3(opt_name)) ); ldbg<<"opt. ghost mat3 "<<opt_name<<std::endl; }
@@ -164,8 +164,8 @@ namespace exanb
       }
       else
       {
-        auto variable_update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
-        update_ghost_on_fields( variable_update_fields );
+        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
+        update_ghost_on_fields( update_fields );
       }
     }
 

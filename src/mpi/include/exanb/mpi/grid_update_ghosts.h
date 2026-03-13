@@ -83,13 +83,14 @@ namespace exanb
     // FIXME: temporary workaround for GPU packing bug with optional fields
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
     const bool has_field_span = field_tuple_contains_field_span(update_fields);
+/*
     if( gpu_buffer_pack && has_field_span )
     {
       gpu_buffer_pack = false;
       alloc_on_device = nullptr;
       staging_buffer = false;
     }
-
+*/
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
