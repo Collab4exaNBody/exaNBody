@@ -27,6 +27,7 @@ under the License.
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <onika/parallel/parallel_execution_context.h>
 #include <onika/parallel/block_parallel_for.h>
+#include <onika/cuda/unitialized_place_holder.h>
 
 #ifdef ONIKA_OMP_NUM_THREADS_WORKAROUND
 #include <omp.h>
