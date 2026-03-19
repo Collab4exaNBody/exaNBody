@@ -55,6 +55,30 @@ namespace exanb
       lout << "================================="<< std::endl << std::endl;
     }
 
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+Prints a summary of the simulation grid to the log output.
+
+Displays the following grid properties:
+- origin: the 3D coordinates of the grid origin
+- cell size: the size of each cell
+- dims: the full grid dimensions (including ghost layers)
+- dims no ghost: the grid dimensions excluding ghost layers
+- offset: the grid offset in the domain
+- ghost layers: the number of ghost layers
+- bounds: the full grid bounding box (including ghost layers)
+- bounds no ghost: the grid bounding box excluding ghost layers
+
+Example:
+
+my_operator:
+  - print_grid
+
+
+)EOF";
+    }
+    
   };
 
   // === register factories ===  
