@@ -63,44 +63,55 @@ namespace exanb
     {
       static inline constexpr bool is_optional = false;
       static inline constexpr bool is_builtin = true;
+      static inline constexpr bool is_span = false;
       static inline constexpr bool instance_contains_optional_field(const FieldAccT& fa) { return is_optional; }
     };
     template<class FieldIdT, bool IsConst> struct FieldAccessorIsOptional< OptionalCellParticleFieldAccessor<FieldIdT,IsConst> >
     {
       static inline constexpr bool is_optional = true;
       static inline constexpr bool is_builtin = false;
+      static inline constexpr bool is_span = false;
       static inline constexpr bool instance_contains_optional_field(const OptionalCellParticleFieldAccessor<FieldIdT,IsConst>& fa) { return is_optional; }
     };
     template<class FuncT, class FieldIdT> struct FieldAccessorIsOptional< ExternalCellParticleFieldAccessor<FuncT,FieldIdT> >
     {
       static inline constexpr bool is_optional = true;
       static inline constexpr bool is_builtin = false;
+      static inline constexpr bool is_span = false;
       static inline constexpr bool instance_contains_optional_field(const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& fa) { return is_optional; }
     };
     template<::onika::SpanCompatible SomeSpanT> struct FieldAccessorIsOptional< SomeSpanT >
     {
       static inline constexpr bool is_optional = FieldAccessorIsOptional< std::remove_cv_t<typename SomeSpanT::value_type> >::is_optional ;
       static inline constexpr bool is_builtin = FieldAccessorIsOptional< std::remove_cv_t<typename SomeSpanT::value_type> >::is_builtin ;
+      static inline constexpr bool is_span = true;
       static inline constexpr bool instance_contains_optional_field(const SomeSpanT& fa) { return is_optional && ! fa.empty(); }
     };
     
     template<class FieldAccT>
-    static inline constexpr bool  field_contains_optional_field( const FieldAccT& fa ) { return FieldAccessorIsOptional<FieldAccT>::instance_contains_optional_field(fa); }
+    static inline constexpr bool field_contains_optional_field( const FieldAccT& fa ) { return FieldAccessorIsOptional<FieldAccT>::instance_contains_optional_field(fa); }
 
-    template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields
-    {
-      static inline constexpr bool value = false;
-      static inline constexpr bool field_tuple_contains_optional_field( const FieldAccTupleT& ftp ) { return false; }
-    };
+    template<class FieldAccT>
+    static inline constexpr bool field_contains_field_span( const FieldAccT& ) { return FieldAccessorIsOptional<FieldAccT>::is_span; }
+
+    template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields {};
+
     template<class... FieldAccT >
     struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT...> >
     {
       using FieldAccTupleT = onika::FlatTuple<FieldAccT...>;
       static inline constexpr bool value = ( ... || ( FieldAccessorIsOptional< std::remove_cv_t<FieldAccT> >::is_optional ) ) ;
+
       template<size_t... Ints> 
       static inline constexpr bool field_tuple_contains_optional_field( const FieldAccTupleT& ftp, std::index_sequence<Ints...>)
       {
         return ( ... || ( field_contains_optional_field( ftp.get( onika::tuple_index<Ints> ) ) ) );
+      }
+
+      template<size_t... Ints> 
+      static inline constexpr bool field_tuple_contains_field_span( const FieldAccTupleT& ftp, std::index_sequence<Ints...>)
+      {
+        return ( ... || ( field_contains_field_span( ftp.get( onika::tuple_index<Ints> ) ) ) );
       }
     };
 
@@ -258,6 +269,12 @@ namespace exanb
   static inline constexpr bool field_tuple_contains_optional_field( const FieldAccTupleT& ftp )
   {
     return details::FieldAccessorTupleHasExternalFields<FieldAccTupleT>::field_tuple_contains_optional_field( ftp , std::make_index_sequence<FieldAccTupleT::size()>{} );
+  }
+
+  template<class FieldAccTupleT>
+  static inline constexpr bool field_tuple_contains_field_span( const FieldAccTupleT& ftp )
+  {
+    return details::FieldAccessorTupleHasExternalFields<FieldAccTupleT>::field_tuple_contains_field_span( ftp , std::make_index_sequence<FieldAccTupleT::size()>{} );
   }
 
   // utility templates
