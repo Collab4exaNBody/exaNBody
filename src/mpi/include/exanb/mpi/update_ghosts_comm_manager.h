@@ -153,11 +153,16 @@ namespace exanb
     {
       virtual inline ~UpdateGhostsCommManagerBase() {}
     };
-
-    struct UpdateGhostsScratch
+    
+    template<class OptScalField=int, class OptVecField=int, class OptMatField=int>
+    struct UpdateGhostsScratchWithOptionalFields
     {
+      onika::memory::CudaMMVector<OptScalField> m_opt_real_fields;
+      onika::memory::CudaMMVector<OptVecField> m_opt_vec3_fields;
+      onika::memory::CudaMMVector<OptMatField> m_opt_mat3_fields;
       std::shared_ptr<UpdateGhostsCommManagerBase> m_comm_resources = nullptr;
     };
+    using UpdateGhostsScratch = UpdateGhostsScratchWithOptionalFields<>;
 
     template<class PackGhostFunctorT, class UnpackGhostFunctorT>
     struct UpdateGhostsCommManager : public UpdateGhostsCommManagerBase
