@@ -83,7 +83,6 @@ namespace exanb
     inline void execute() override final
     {
       using onika::cuda::make_input_array_span;
-      using onika::cuda::make_const_span;
       constexpr std::integral_constant<size_t,1> embedded_copy_size = {}; // size of embedded array copy held in InputArraySpan to lower array content access latency
 
       using GridCellValueType = typename GridCellValues::GridCellValueType;

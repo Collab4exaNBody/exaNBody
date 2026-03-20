@@ -77,7 +77,6 @@ namespace exanb
     inline void execute() override final
     {
       using onika::cuda::make_input_array_span;
-      using onika::cuda::make_const_span;
       constexpr std::integral_constant<size_t,1> embedded_copy_size = {}; // size of embedded array copy held in InputArraySpan to lower array content access latency
 
       static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
