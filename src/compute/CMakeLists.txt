@@ -24,7 +24,7 @@ if(${XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE} LESS_EQUAL 1)
   set(XNB_CHUNK_NBH_DELAYED_COMPUTE_BUFER_SIZE 1)
 endif()
 
-set(XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE "128" CACHE STRING "Delay buffer uses shared memory. when enabled, gpu block size must be limited to this size.")
+set(XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE "64" CACHE STRING "Delay buffer uses shared memory. when enabled, gpu block size must be limited to this size.")
 option(XNB_USE_CS1_SPECIALIZATION "Use specialized implementation of chunk_neighbors based computations for chunk_size=1" ON)
 if(${XNB_USE_CS1_SPECIALIZATION})
   set(XNB_USE_CS1_SPECIALIZATION_CPP XNB_USE_CS1_SPECIALIZATION=1)
