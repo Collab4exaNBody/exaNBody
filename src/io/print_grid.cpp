@@ -40,8 +40,6 @@ namespace exanb
     inline void execute() override final
     {
 
-      const char* sep="";
-
       lout << std::defaultfloat
            << "======== Simulation Grid ========"<< std::endl
            << "origin          = " << grid->origin() << std::endl
