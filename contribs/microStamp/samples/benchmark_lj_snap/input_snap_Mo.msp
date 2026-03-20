@@ -81,8 +81,8 @@ replicate_domain:
 snap_force_generic:
   parameters:
     nt: 1
-    param: "../../potentials/Mo_Zuo_JPCA2020.snapparam"
-    coef:  "../../potentials/Mo_Zuo_JPCA2020.snapcoeff"
+    param: "Mo_Zuo_JPCA2020.snapparam"
+    coef:  "Mo_Zuo_JPCA2020.snapcoeff"
 
 # How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
 compute_all_forces_energy:    
