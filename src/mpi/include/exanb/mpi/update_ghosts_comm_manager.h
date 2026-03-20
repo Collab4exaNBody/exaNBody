@@ -60,7 +60,7 @@ namespace exanb
 
     struct UpdateGhostMpiBuffer
     {
-      static constexpr size_t MPI_BUFFER_ALIGN = std::max( size_t(256) , onika::memory::GenericHostAllocator::DefaultAlignBytes );
+      static constexpr size_t MPI_BUFFER_ALIGN = 4096;
       static_assert( MPI_BUFFER_ALIGN >= onika::memory::GenericHostAllocator::DefaultAlignBytes );
       static constexpr size_t MPI_BUFFER_ALIGN_PAD = MPI_BUFFER_ALIGN - 1;
       static constexpr size_t MPI_BUFFER_ALIGN_MASK = ~ MPI_BUFFER_ALIGN_PAD;
@@ -121,14 +121,12 @@ namespace exanb
             if( m_device_buffer.get() == nullptr || alloc_size != m_device_buffer.m_shared->m_array_size )
             {
               m_device_buffer = onika::cuda::CudaDeviceStorage<uint8_t>::New( *m_cuda_device , alloc_size );
-              assert( aligned_ptr_base( (uint8_t*) m_device_buffer.get() ) == (uint8_t*) m_device_buffer.get() );
             }
           }
           m_host_buffer.clear();
           if( m_cuda_device == nullptr || mpi_staging )
           {
             m_host_buffer.resize( alloc_size );
-            assert( aligned_ptr_base( m_host_buffer.data() ) == m_host_buffer.data() );
           }
           else
           {

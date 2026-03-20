@@ -83,6 +83,8 @@ namespace exanb
     inline void execute() override final
     {
       using onika::cuda::make_input_array_span;
+      using onika::cuda::make_const_span;
+      constexpr std::integral_constant<size_t,1> embedded_copy_size = {}; // size of embedded array copy held in InputArraySpan to lower array content access latency
 
       using GridCellValueType = typename GridCellValues::GridCellValueType;
       using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
@@ -130,7 +132,10 @@ namespace exanb
                           *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
       };
 
-      auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_input_array_span(opt_real) , make_input_array_span(opt_vec3) , make_input_array_span(opt_mat3) );
+      auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ...
+                                                 , make_input_array_span(opt_real,embedded_copy_size) 
+                                                 , make_input_array_span(opt_vec3,embedded_copy_size) 
+                                                 , make_input_array_span(opt_mat3,embedded_copy_size) );
       update_from_ghost_on_fields( update_fields );
     }
 

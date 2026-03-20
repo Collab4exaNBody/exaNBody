@@ -21,7 +21,7 @@ under the License.
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
 #include <onika/lambda_tools.h>
-#include <onika/cuda/unitialized_place_holder.h>
+#include <onika/cuda/uninitialized_place_holder.h>
 
 namespace exanb
 {
