@@ -94,6 +94,11 @@ namespace exanb
       return m_dimension;
     }
 
+    ONIKA_HOST_DEVICE_FUNC inline IJK dimension_no_ghost() const
+    {
+      return m_dimension - 2 * ghost_layers();
+    }
+    
     // offset tells where in the domain's global grid this grid is located (i.e. the local grid's lower cell location in the domain grid)
     inline void set_offset(IJK offset) { m_offset = offset; }
     inline IJK offset() const { return m_offset; }

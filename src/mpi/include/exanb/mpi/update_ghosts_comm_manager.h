@@ -42,8 +42,8 @@ namespace exanb
 
     struct GhostCellParticlesUpdateData
     {
-      size_t m_cell_i;
-      uint8_t m_particles[0];
+      uint64_t m_cell_i;
+      alignas(onika::memory::MINIMUM_CUDA_ALIGNMENT) uint8_t m_particles[0];
 
       ONIKA_HOST_DEVICE_FUNC
       inline void * particle_data(size_t sizeof_ParticleTuple, size_t idx)
@@ -153,11 +153,16 @@ namespace exanb
     {
       virtual inline ~UpdateGhostsCommManagerBase() {}
     };
-
-    struct UpdateGhostsScratch
+    
+    template<class OptScalField=int, class OptVecField=int, class OptMatField=int>
+    struct UpdateGhostsScratchWithOptionalFields
     {
+      onika::memory::CudaMMVector<OptScalField> m_opt_real_fields;
+      onika::memory::CudaMMVector<OptVecField> m_opt_vec3_fields;
+      onika::memory::CudaMMVector<OptMatField> m_opt_mat3_fields;
       std::shared_ptr<UpdateGhostsCommManagerBase> m_comm_resources = nullptr;
     };
+    using UpdateGhostsScratch = UpdateGhostsScratchWithOptionalFields<>;
 
     template<class PackGhostFunctorT, class UnpackGhostFunctorT>
     struct UpdateGhostsCommManager : public UpdateGhostsCommManagerBase
@@ -368,7 +373,7 @@ namespace exanb
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
         const int nprocs = num_procs();
         const int partner_idx_start = FWD ? 0 : nprocs;
-        const size_t buf_total_size = FWD ? recvbuf_total_size() : sendbuf_total_size();
+        [[maybe_unused]] const size_t buf_total_size = FWD ? recvbuf_total_size() : sendbuf_total_size();
         int active_recvs = 0;
         for(int p=0;p<nprocs;p++)
         {
@@ -413,7 +418,7 @@ namespace exanb
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
         const int nprocs = num_procs();
         const int partner_idx_start = FWD ? nprocs : 0;
-        const size_t buf_total_size = FWD ? sendbuf_total_size() : recvbuf_total_size();
+        [[maybe_unused]] const size_t buf_total_size = FWD ? sendbuf_total_size() : recvbuf_total_size();
         int started_sends = 0;
         for(int p=0;p<nprocs;p++)
         {
@@ -441,7 +446,7 @@ namespace exanb
       {
         static constexpr bool FWD = PackGhostFunctor::UpdateDirectionToGhost;
         static_assert( FWD == UnpackGhostFunctor::UpdateDirectionToGhost );
-        const int nprocs = num_procs();
+        [[maybe_unused]] const int nprocs = num_procs();
         size_t ghost_cells_recv = 0;
 
         if( wait_all )

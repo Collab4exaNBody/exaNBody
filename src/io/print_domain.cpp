@@ -74,6 +74,33 @@ namespace exanb
       lout << "================================="<< std::endl << std::endl;      
     }
 
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+Prints a summary of the simulation domain to the log output.
+
+Displays the following domain properties:
+- bounds: the 3D bounding box of the domain
+- dom size: the domain size (bmax - bmin)
+- grid: the grid dimensions
+- cell size: the size of each grid cell
+- grid size: the total grid size (grid dimensions * cell size)
+- periodic: per-axis periodicity flags (x, y, z)
+- mirror: active mirror boundary conditions (X-, X+, Y-, Y+, Z-, Z+)
+- xform: the transformation matrix applied to the domain (annotated as identity or diagonal when applicable)
+- inv_xform: the inverse transformation matrix
+- scale: the minimum and maximum scale factors of the transformation
+- phys size / cell size: physical domain and cell sizes after applying a diagonal (non-identity) transformation
+
+Example:
+
+my_operator:
+  - print_domain
+
+
+)EOF";
+    }
+    
   };
 
   // === register factories ===  
