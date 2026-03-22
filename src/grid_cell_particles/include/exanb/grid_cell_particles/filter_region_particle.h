@@ -19,11 +19,15 @@ under the License.
 
 #pragma once
 
+#include <onika/scg/operator.h>
+#include <onika/thread.h>
+#include <onika/scg/operator_slot.h>
+#include <onika/scg/operator_factory.h>
 #include <exanb/core/domain.h>
+#include <exanb/core/grid.h>
 #include <exanb/core/check_particles_inside_cell.h>
-#include <onika/math/basic_types_stream.h>
 #include <exanb/core/parallel_grid_algorithm.h>
-#include <onika/log.h>
+#include <exanb/grid_cell_particles/particle_region.h>
 
 #include <vector>
 #include <algorithm>

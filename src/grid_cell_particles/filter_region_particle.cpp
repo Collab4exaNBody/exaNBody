@@ -16,27 +16,14 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
-#include <onika/scg/operator.h>
-#include <onika/math/basic_types_stream.h>
-#include <onika/log.h>
-#include <onika/thread.h>
-#include <onika/scg/operator_slot.h>
-#include <onika/scg/operator_factory.h>
-#include <exanb/core/domain.h>
-#include <exanb/core/make_grid_variant_operator.h>
-#include <exanb/core/grid.h>
-#include <exanb/core/check_particles_inside_cell.h>
-#include <exanb/core/parallel_grid_algorithm.h>
-#include <exanb/grid_cell_particles/particle_region.h>
-
-#include <vector>
 
 #include <exanb/grid_cell_particles/filter_region_particle.h>
+#include <exanb/core/make_grid_variant_operator.h>
 
 namespace exanb
 {
    // === register factories ===  
-  ONIKA_AUTORUN_INIT(move_particles)
+  ONIKA_AUTORUN_INIT(filter_region_particle)
   {
     OperatorNodeFactory::instance()->register_factory(
       "filter_region_particle",
