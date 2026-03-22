@@ -34,7 +34,6 @@ namespace exanb
   inline void filter_region_particle_cells(const Domain& domain, GridT& grid, ParticleRegionCSGShallowCopy& prcsg) {
     const auto & cell_allocator = grid.cell_allocator();
     auto cells = grid.cells();
-    size_t n_cells = grid.number_of_cells();
     IJK dims = grid.dimension();
 
 #   pragma omp parallel
@@ -57,12 +56,12 @@ namespace exanb
         }
 
         if (rm_size == n) {
-          cells[cell_i].clean();
+          cells[cell_i].clear();
         } else if (rm_size > 0) {
           size_t new_size = n;
-          for (size_t p_i=n-1;p_i>=0,p_i--) {
+          for (size_t p_i=n-1;p_i>=0;p_i--) {
             Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
-            if(!region.contains(r, id[p_i])) {
+            if(!prcsg.contains(r, id[p_i])) {
               cells[cell_i][p_i] = cells[cell_i][new_size-1];
               new_size--;
             }
