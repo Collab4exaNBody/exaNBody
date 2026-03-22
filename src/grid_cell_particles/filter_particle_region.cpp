@@ -17,19 +17,17 @@ specific language governing permissions and limitations
 under the License.
 */
 
-#include <exanb/grid_cell_particles/filter_region_particle.h>
+#include <exanb/grid_cell_particles/filter_particle_region.h>
 #include <exanb/core/make_grid_variant_operator.h>
 
 namespace exanb
 {
    // === register factories ===  
-  ONIKA_AUTORUN_INIT(filter_region_particle)
+  ONIKA_AUTORUN_INIT(filter_particle_region)
   {
     OperatorNodeFactory::instance()->register_factory(
-      "filter_region_particle",
-      make_grid_variant_operator< FilterRegionParticle >
+      "filter_particle_region",
+      make_grid_variant_operator< FilterParticleRegion >
       );
   }
-
 }
-

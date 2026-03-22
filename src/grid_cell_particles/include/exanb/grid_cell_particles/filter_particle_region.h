@@ -34,8 +34,15 @@ under the License.
 
 namespace exanb
 {
-  template<class GridT>
-  inline void filter_region_particle_cells(const Domain& domain, GridT& grid, ParticleRegionCSGShallowCopy& prcsg) {
+  struct FilterParticleRegionESNullOp {
+    // Future Devs
+  };
+
+  template<class GridT, typename FilterParticleRegionES>
+  inline void filter_particle_region_cells(const Domain& domain, GridT& grid,
+                                           ParticleRegionCSGShallowCopy& prcsg,
+                                           FilterParticleRegionES& optional_storage)
+  {
     const auto & cell_allocator = grid.cell_allocator();
     auto cells = grid.cells();
     IJK dims = grid.dimension();
@@ -54,18 +61,24 @@ namespace exanb
         for(size_t p_i=0;p_i<n;p_i++)
         {
           Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
-          if(prcsg.contains(r, id[p_i])) {
+          if(prcsg.contains(r, id[p_i]))
+          {
             rm_size++;
           }
         }
 
-        if (rm_size == n) {
+        if (rm_size == n)
+        {
           cells[cell_i].clear();
-        } else if (rm_size > 0) {
+        }
+        else if (rm_size > 0)
+        {
           size_t new_size = n;
-          for (size_t p_i=n-1;p_i>=0;p_i--) {
+          for (size_t p_i=n-1;p_i>=0;p_i--)
+          {
             Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
-            if(!prcsg.contains(r, id[p_i])) {
+            if(!prcsg.contains(r, id[p_i]))
+            {
               cells[cell_i][p_i] = cells[cell_i][new_size-1];
               new_size--;
             }
@@ -80,26 +93,36 @@ namespace exanb
   }
 
   template<class GridT>
-  class FilterRegionParticle : public OperatorNode
+  class FilterParticleRegion : public OperatorNode
   { 
-    ADD_SLOT( Domain , domain , INPUT );
-    ADD_SLOT( GridT , grid , INPUT_OUTPUT );
-    ADD_SLOT(ParticleRegions, particle_regions, INPUT, REQUIRED);
-    ADD_SLOT(ParticleRegionCSG, region, INPUT, REQUIRED);
+    ADD_SLOT( Domain            , domain           , INPUT );
+    ADD_SLOT( GridT             , grid             , INPUT_OUTPUT );
+    ADD_SLOT( ParticleRegions   , particle_regions , INPUT, REQUIRED);
+    ADD_SLOT( ParticleRegionCSG , region           , INPUT, REQUIRED);
 
    public:
-    inline void execute () override final
+    inline std::string documentation() const final
     {
-      if (!particle_regions.has_value()) {
+      return R"EOF(
+              This operator removes particle(s) included in a region. 
+             )EOF";
+    }
+
+    inline void execute () final
+    {
+      if (!particle_regions.has_value())
+      {
         fatal_error() << "Region is defined, but particle_regions has no value" << std::endl;
       }
 
-      if (region->m_nb_operands == 0) {
+      if (region->m_nb_operands == 0)
+      {
         ldbg << "rebuild CSG from expr " << region->m_user_expr << std::endl;
         region->build_from_expression_string(particle_regions->data(), particle_regions->size());
       }
       ParticleRegionCSGShallowCopy prcsg = *region;
-      filter_region_particle_cells(*domain, *grid, prcsg);
+      FilterParticleRegionESNullOp optional;
+      filter_particle_region_cells(*domain, *grid, prcsg, optional);
     }    
   };
 }
