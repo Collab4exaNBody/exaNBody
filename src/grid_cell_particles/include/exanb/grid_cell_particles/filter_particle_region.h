@@ -104,7 +104,16 @@ namespace exanb
     inline std::string documentation() const final
     {
       return R"EOF(
-              This operator removes particle(s) included in a region. 
+              This operator removes particle(s) included in a region.
+
+              Parameter:
+
+                - region [INPUT/REQUIRED]: Specifies the geographic areas or ID ranges where the particles will be removed.
+
+              YAML example:
+
+                filter_particle_region:
+                   - region: REGION1 and REGION2
              )EOF";
     }
 
