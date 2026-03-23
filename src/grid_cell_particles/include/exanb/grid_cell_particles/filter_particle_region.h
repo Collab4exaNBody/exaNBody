@@ -55,10 +55,10 @@ namespace exanb
         const double* __restrict__ ry = cells[cell_i][field::ry];
         const double* __restrict__ rz = cells[cell_i][field::rz];
         const uint64_t* __restrict__ id = cells[cell_i][field::id];
-        size_t n = cells[cell_i].size();
-        size_t rm_size = 0;
+        int n = cells[cell_i].size();
+        int rm_size = 0;
         // test if a particle is filtered in the cell
-        for(size_t p_i=0;p_i<n;p_i++)
+        for(int p_i=0;p_i<n;p_i++)
         {
           Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
           if(prcsg.contains(r, id[p_i]))
@@ -73,8 +73,8 @@ namespace exanb
         }
         else if (rm_size > 0)
         {
-          size_t new_size = n;
-          for (size_t p_i=n-1;p_i>=0;p_i--)
+          int new_size = n;
+          for (int p_i=n-1;p_i>=0;p_i--)
           {
             Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
             if(!prcsg.contains(r, id[p_i]))
