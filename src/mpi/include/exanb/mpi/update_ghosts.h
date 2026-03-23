@@ -133,7 +133,16 @@ namespace exanb
 
       // build-up list of field accessors to use for ghost update
       const auto& flist = *opt_fields;
-      auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      auto opt_field_upd = [&flist] ( const std::string& name ) -> bool {
+        for(const auto& f:flist)
+        {
+          if( std::regex_match(name,std::regex(f)) )
+          {
+            return true;
+          }
+        }
+        return false;
+      };
 
       auto & opt_real = ghost_comm_buffers->m_opt_real_fields; opt_real.clear();
       auto & opt_vec3 = ghost_comm_buffers->m_opt_vec3_fields; opt_vec3.clear();
