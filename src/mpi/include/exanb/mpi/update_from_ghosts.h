@@ -120,7 +120,7 @@ namespace exanb
         {
           ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
         }
-        UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+        UpdateGhostsCommManager * ghost_scratch = static_cast<UpdateGhostsCommManager*>(ghost_comm_buffers->m_comm_resources.get());
 
         ldbg << pathname() << " : ";
         print_field_tuple( ldbg , update_fields );
