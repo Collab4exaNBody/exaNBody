@@ -1,0 +1,103 @@
+logo_banner:
+  - message: "
+███████████                               █████         █████             █████ \n
+░░███░░░░░███                             ░░███         ░░███             ░░███ \n 
+ ░███    ░███  ██████  ████████    ██████  ░███████      ░███              ░███ \n 
+ ░██████████  ███░░███░░███░░███  ███░░███ ░███░░███     ░███              ░███ \n 
+ ░███░░░░░███░███████  ░███ ░███ ░███ ░░░  ░███ ░███     ░███              ░███ \n 
+ ░███    ░███░███░░░   ░███ ░███ ░███  ███ ░███ ░███     ░███      █ ███   ░███ \n 
+ ███████████ ░░██████  ████ █████░░██████  ████ █████    ███████████░░████████  \n 
+░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░    ░░░░░░░░░░░  ░░░░░░░░   \n 
+                                                                                \n 
+                                                                                \n" 
+
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+  profiling:
+    summary: false
+
+# Global simulation parameters
+global:
+  dt: 5e-3 ps
+  rcut_inc: 2.0 ang
+  rcut_max: 4.1 ang
+  simulation_log_frequency: 10
+  simulation_dump_thermo_frequency: 10
+  simulation_dump_frequency: 10
+  simulation_end_iteration: 500
+
+# Default simulation scenario: NVE ensemble  
+simulation: default_simulation
+
+# Some statistics at the end of the simulation
++first_iteration:
+  - grid_stats
+  - chunk_neighbors_stats
+  
+final_dump: nop
+
+dump_data:
+  - timestep_file: "test_%09d.xyz"
+  - write_xyz:
+      fields: [ id, type ]
+
+input_data:
+  - particle_types:
+      particle_type_map: { Ni: 0 }
+  - particle_type_add_properties:
+      Ni: { mass: 58.693 Da , z: 28 }
+  - particle_regions:
+      - BOXA:
+          bounds: [ [ 10 ang , 0 ang , 0 ang ] , [ 80 ang , 55.68 ang , 55.68 ang ] ]
+      - BOXB:
+          bounds: [ [ 0 ang , 0 ang , 0 ang ] , [ 20 ang , 55.68 ang , 55.68 ang ] ]
+  - domain:
+      cell_size: 13.92 ang
+      grid_dims: [ 15 , 4 , 4 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 208.8 ang , 55.68 ang , 55.68 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: FCC
+      types: [ Ni , Ni , Ni , Ni]
+      size: [ 3.48 ang , 3.48 ang , 3.48 ang ]
+      region: BOXA
+  - gaussian_noise_r:
+      sigma: 0.05 ang
+  - shift_v:
+      value: [ 2000 m/s , 0 , 0 ]
+      region: BOXA
+# This is supposed to remove particle included in BOXB but the run is frozen at initialization?
+  - filter_particle_region:
+      region: BOXB
+
+compute_all_forces_energy: nop
+
+# This is an example for later (dynamics removal of particles)    
+#  - trigger_filter
+#  - apply_filter
+  
+# trigger_filter:
+#   rebind: { value: physical_time, result: is_filtering }
+#   body: [ greater_than: { threshold: 5.0e-2 } ]
+  
+# apply_filter:
+#   condition: is_filtering
+#   body:
+#     - filter_particle_region:
+#         region: BOXB
+      
