@@ -51,9 +51,9 @@ input_data:
       - BOXB:
           bounds: [ [ 0 ang , 0 ang , 0 ang ] , [ 40 ang , 55.68 ang , 55.68 ang ] ]
   - domain:
-      cell_size: 13.92 ang
-      grid_dims: [ 15 , 4 , 4 ]
-      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 208.8 ang , 55.68 ang , 55.68 ang ] ]
+      cell_size: 27.84 ang
+      grid_dims: [ 5 , 2 , 2 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 139.2 ang , 55.68 ang , 55.68 ang ] ]
       periodic: [ true , true , true ]
       expandable: false
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
