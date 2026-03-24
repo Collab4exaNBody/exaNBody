@@ -80,26 +80,14 @@ namespace exanb
   {
     auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
 
-    // FIXME: temporary workaround for GPU packing bug with optional fields
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
     const bool has_field_span = field_tuple_contains_field_span(update_fields);
-/*
-    if( gpu_buffer_pack && has_field_span )
-    {
-      gpu_buffer_pack = false;
-      alloc_on_device = nullptr;
-      staging_buffer = false;
-    }
-*/
     using GridCellValueType = typename GridCellValues::GridCellValueType;
     //    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
-    //using PackGhostFunctor = typename UpdateGhostsScratchT::PackGhostFunctor;
-    //using UnpackGhostFunctor = typename UpdateGhostsScratchT::UnpackGhostFunctor;
-    //using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
     if( create_cell_particles && gridp==nullptr )

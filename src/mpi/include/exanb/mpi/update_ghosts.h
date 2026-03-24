@@ -24,6 +24,7 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+#include <onika/cuda/input_array_span.h>
 
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
@@ -75,7 +76,8 @@ namespace exanb
   public:
     inline void execute() override final
     {
-      using onika::cuda::make_const_span;
+      using onika::cuda::make_input_array_span;
+      constexpr std::integral_constant<size_t,1> embedded_copy_size = {}; // size of embedded array copy held in InputArraySpan to lower array content access latency
 
       static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
       static_assert( !CreateParticles || grid_contains_field_set_v<GridT,FieldSetT> , "Creation of ghost particle is not supported for optional fields yet");
@@ -118,7 +120,7 @@ namespace exanb
         {
           ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
         }
-        UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+        UpdateGhostsCommManager * ghost_scratch = static_cast<UpdateGhostsCommManager*>( ghost_comm_buffers->m_comm_resources.get());
 
         ldbg << pathname() << " : ";
         print_field_tuple( ldbg , update_fields );
@@ -131,7 +133,16 @@ namespace exanb
 
       // build-up list of field accessors to use for ghost update
       const auto& flist = *opt_fields;
-      auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
+      auto opt_field_upd = [&flist] ( const std::string& name ) -> bool {
+        for(const auto& f:flist)
+        {
+          if( std::regex_match(name,std::regex(f)) )
+          {
+            return true;
+          }
+        }
+        return false;
+      };
 
       auto & opt_real = ghost_comm_buffers->m_opt_real_fields; opt_real.clear();
       auto & opt_vec3 = ghost_comm_buffers->m_opt_vec3_fields; opt_vec3.clear();
@@ -140,33 +151,11 @@ namespace exanb
       for(const auto & opt_name : grid->optional_vec3_fields()  ) if(opt_field_upd(opt_name)) { opt_vec3.push_back( grid->field_accessor(field::mk_generic_vec3(opt_name)) ); ldbg<<"opt. ghost vec3 "<<opt_name<<std::endl; }
       for(const auto & opt_name : grid->optional_mat3_fields()  ) if(opt_field_upd(opt_name)) { opt_mat3.push_back( grid->field_accessor(field::mk_generic_mat3(opt_name)) ); ldbg<<"opt. ghost mat3 "<<opt_name<<std::endl; }
 
-      // FIXME: this specializations allow for update_ghost bug workaround on GPU when using field spans for variable number of fields
-      // Note: the workaround works by disabling GPU execution inside grid_update_ghosts function when it detects field tuple has field spans
-      if( opt_real.empty() && opt_vec3.empty() && opt_mat3.empty() )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... );
-        update_ghost_on_fields( update_fields );
-      }
-      else if( opt_real.size()==1 && opt_vec3.empty() && opt_mat3.empty() )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_real[0] );
-        update_ghost_on_fields( update_fields );
-      }
-      else if( opt_real.empty() && opt_vec3.size()==1 && opt_mat3.empty() )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_vec3[0] );
-        update_ghost_on_fields( update_fields );
-      }
-      else if( opt_real.empty() && opt_vec3.empty() && opt_mat3.size()==1 )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_mat3[0] );
-        update_ghost_on_fields( update_fields );
-      }
-      else
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
-        update_ghost_on_fields( update_fields );
-      }
+      auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ...
+                                                 , make_input_array_span(opt_real,embedded_copy_size) 
+                                                 , make_input_array_span(opt_vec3,embedded_copy_size) 
+                                                 , make_input_array_span(opt_mat3,embedded_copy_size) );
+      update_ghost_on_fields( update_fields );
     }
 
     inline std::string documentation() const override final
