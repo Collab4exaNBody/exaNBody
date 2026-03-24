@@ -24,6 +24,7 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/log.h>
 #include <onika/math/basic_types_stream.h>
+#include <onika/cuda/input_array_span.h>
 
 #include <exanb/core/grid.h>
 #include <exanb/core/domain.h>
@@ -81,6 +82,9 @@ namespace exanb
     // implementing generate_tasks instead of execute allows to launch asynchronous block_parallel_for, even with OpenMP backend
     inline void execute() override final
     {
+      using onika::cuda::make_input_array_span;
+      constexpr std::integral_constant<size_t,1> embedded_copy_size = {}; // size of embedded array copy held in InputArraySpan to lower array content access latency
+
       using GridCellValueType = typename GridCellValues::GridCellValueType;
       using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
       static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
@@ -92,8 +96,6 @@ namespace exanb
       {
         fatal_error() << "Attempt to use UpdateFromGhosts on uninitialized fields" << std::endl;
       }
-
-      using onika::cuda::make_const_span;
 
       const auto& flist = *opt_fields;
       auto opt_field_upd = [&flist] ( const std::string& name ) -> bool { for(const auto& f:flist) if( std::regex_match(name,std::regex(f)) ) return true; return false; } ;
@@ -118,7 +120,7 @@ namespace exanb
         {
           ghost_comm_buffers->m_comm_resources = std::make_shared<UpdateGhostsCommManager>();
         }
-        UpdateGhostsCommManager * ghost_scratch = ( UpdateGhostsCommManager * ) ghost_comm_buffers->m_comm_resources.get();
+        UpdateGhostsCommManager * ghost_scratch = static_cast<UpdateGhostsCommManager*>(ghost_comm_buffers->m_comm_resources.get());
 
         ldbg << pathname() << " : ";
         print_field_tuple( ldbg , update_fields );
@@ -129,33 +131,11 @@ namespace exanb
                           *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
       };
 
-      // FIXME: this specializations allow for update_ghost bug workaround on GPU when using field spans for variable number of fields
-      // Note: the workaround works by disabling GPU execution inside grid_update_ghosts function when it detects field tuple has field spans
-      if( opt_real.empty() && opt_vec3.empty() && opt_mat3.empty() )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... );
-        update_from_ghost_on_fields( update_fields );
-      }
-      else if( opt_real.size()==1 && opt_vec3.empty() && opt_mat3.empty() )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_real[0] );
-        update_from_ghost_on_fields( update_fields );
-      }
-      else if( opt_real.empty() && opt_vec3.size()==1 && opt_mat3.empty() )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_vec3[0] );
-        update_from_ghost_on_fields( update_fields );
-      }
-      else if( opt_real.empty() && opt_vec3.empty() && opt_mat3.size()==1 )
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , opt_mat3[0] );
-        update_from_ghost_on_fields( update_fields );
-      }
-      else
-      {
-        auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ... , make_const_span(opt_real) , make_const_span(opt_vec3) , make_const_span(opt_mat3) );
-        update_from_ghost_on_fields( update_fields );
-      }
+      auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ...
+                                                 , make_input_array_span(opt_real,embedded_copy_size) 
+                                                 , make_input_array_span(opt_vec3,embedded_copy_size) 
+                                                 , make_input_array_span(opt_mat3,embedded_copy_size) );
+      update_from_ghost_on_fields( update_fields );
     }
 
   };
