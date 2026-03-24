@@ -83,7 +83,7 @@ namespace exanb
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
     const bool has_field_span = field_tuple_contains_field_span(update_fields);
     using GridCellValueType = typename GridCellValues::GridCellValueType;
-    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+    //    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
