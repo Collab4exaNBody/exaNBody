@@ -47,47 +47,68 @@ namespace exanb
     auto cells = grid.cells();
     IJK dims = grid.dimension();
 
-#   pragma omp parallel
+#pragma omp parallel for schedule(dynamic)
+    for(size_t cell_i=0 ; cell_i<cells->size() ; cell_i++)
     {
-      GRID_OMP_FOR_BEGIN(dims,cell_i,_,schedule(dynamic) )
+      auto& cell = cells[cell_i];
+      const double* __restrict__ rx = cell[field::rx];
+      const double* __restrict__ ry = cell[field::ry];
+      const double* __restrict__ rz = cell[field::rz];
+      const uint64_t* __restrict__ id = cell[field::id];
+      int n = cell.size();
+      if (n==0) {
+        continue;
+      }
+      int rm_size = 0;
+      // test if a particle is filtered in the cell
+      for(int p_i=0;p_i<n;p_i++)
       {
-        const double* __restrict__ rx = cells[cell_i][field::rx];
-        const double* __restrict__ ry = cells[cell_i][field::ry];
-        const double* __restrict__ rz = cells[cell_i][field::rz];
-        const uint64_t* __restrict__ id = cells[cell_i][field::id];
-        int n = cells[cell_i].size();
-        int rm_size = 0;
-        // test if a particle is filtered in the cell
-        for(int p_i=0;p_i<n;p_i++)
+        Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
+        if(prcsg.contains(r, id[p_i]))
         {
-          Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
-          if(prcsg.contains(r, id[p_i]))
-          {
-            rm_size++;
-          }
-        }
-
-        if (rm_size == n)
-        {
-          cells[cell_i].clear();
-        }
-        else if (rm_size > 0)
-        {
-          int new_size = n;
-          for (int p_i=n-1;p_i>=0;p_i--)
-          {
-            Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
-            if(!prcsg.contains(r, id[p_i]))
-            {
-              cells[cell_i][p_i] = cells[cell_i][new_size-1];
-              new_size--;
-            }
-          }
-          assert(new_size == n - rm_size);
-          cells[cell_i].resize(new_size, cell_allocator);
+          rm_size++;
         }
       }
-      GRID_OMP_FOR_END
+/*
+      if (rm_size == n)
+      {
+        lout << "Clear " << rm_size << " particles." << std::endl;
+        cell.clear();
+      }
+      else*/ if (rm_size > 0)
+      {
+        lout << "Remove " << rm_size << " particles / " << n << std::endl;
+        int new_size = n;
+        for (int p_i=n-1;p_i>=0;p_i--)
+        {
+          Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
+          if(prcsg.contains(r, id[p_i]))  // We replace the particles to be removed with valid particles.
+          {
+            new_size--;
+            cell[p_i] = cell[new_size];  // new_size idx = "old" last element
+          }
+        }
+        if (new_size != n - rm_size) {
+          std::cout << "Error, filter step failled" << std::endl;
+          std::exit(EXIT_FAILURE);
+        }
+        assert(new_size == n - rm_size);
+        lout << "Resize " << new_size << std::endl;
+        cell.resize(new_size, cell_allocator);
+
+      }
+      // recheck
+      n = cell.size();
+      int error = 0; 
+      for(int p_i=0;p_i<n;p_i++)
+      {
+        Vec3d r{rx[p_i],ry[p_i],rz[p_i]};
+        if(prcsg.contains(r, id[p_i]))
+        {
+          error++;
+        }
+      }
+      lout << "Number of error <on rank 0, cell " << cell_i << ">: " << error << std::endl; 
     }
     grid.rebuild_particle_offsets();
   }
