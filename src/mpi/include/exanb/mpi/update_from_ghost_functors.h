@@ -404,13 +404,6 @@ namespace exanb
 
         const unsigned int n_particles = cell_input.m_n_particles;
         pack_cell_particles( data, cell_i, n_particles, FieldIndexSeq{} );
-/*
-        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
-        {
-          pack_particle_fields( data, cell_i, j, j, FieldIndexSeq{} );
-          //m_cells[cell_i].read_tuple( j , data->m_particles[j] );
-        }
-  */
         const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof_ParticleTuple;
         if( m_cell_scalars != nullptr )
         {

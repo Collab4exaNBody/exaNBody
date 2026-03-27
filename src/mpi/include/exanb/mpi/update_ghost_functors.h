@@ -237,11 +237,6 @@ namespace exanb
         const size_t n_particles = onika::cuda::vector_size( m_sends[i].m_particle_i );
         
         pack_cell_particles( data, cell_i, particle_index, n_particles, cell_boundary_flags, FieldIndexSeq{} );
-/*        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
-        {
-          if constexpr ( FieldCount > 0 ) { assert( particle_index[j] < m_cells[cell_i].size() ); }
-          pack_particle_fields( data, cell_i, particle_index[j] , j , cell_boundary_flags , FieldIndexSeq{} );
-        }*/
         if( m_cell_scalars != nullptr )
         {
           const size_t data_cur = sizeof(CellParticlesUpdateData) + n_particles * sizeof_ParticleTuple;
@@ -435,10 +430,6 @@ namespace exanb
 
         const size_t n_particles = cell_input.m_n_particles;
         unpack_cell_particles(data, cell_i, n_particles, FieldIndexSeq{} );
-/*        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int , j , 0 , n_particles )
-        {
-          unpack_particle_fields( data, cell_i , j , FieldIndexSeq{} );
-        }*/
 
         if( m_cell_scalars != nullptr )
         {
