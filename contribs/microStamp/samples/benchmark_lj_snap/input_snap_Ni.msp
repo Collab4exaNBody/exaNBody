@@ -1,0 +1,102 @@
+logo_banner:
+  - message: "
+ ███████████                               █████          █████████  ██████   █████   █████████   ███████████  \n
+░░███░░░░░███                             ░░███          ███░░░░░███░░██████ ░░███   ███░░░░░███ ░░███░░░░░███ \n
+ ░███    ░███  ██████  ████████    ██████  ░███████     ░███    ░░░  ░███░███ ░███  ░███    ░███  ░███    ░███ \n
+ ░██████████  ███░░███░░███░░███  ███░░███ ░███░░███    ░░█████████  ░███░░███░███  ░███████████  ░██████████  \n
+ ░███░░░░░███░███████  ░███ ░███ ░███ ░░░  ░███ ░███     ░░░░░░░░███ ░███ ░░██████  ░███░░░░░███  ░███░░░░░░   \n
+ ░███    ░███░███░░░   ░███ ░███ ░███  ███ ░███ ░███     ███    ░███ ░███  ░░█████  ░███    ░███  ░███         \n
+ ███████████ ░░██████  ████ █████░░██████  ████ █████   ░░█████████  █████  ░░█████ █████   █████ █████        \n
+░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░     ░░░░░░░░░  ░░░░░    ░░░░░ ░░░░░   ░░░░░ ░░░░░         \n"
+
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+  profiling:
+# Set summary: true to have the profiling summary
+    summary: true
+# Set exectime true to have each operator time execution during the run
+    exectime: false
+
+# Global simulation parameters
+global:
+  dt: 2e-3 ps
+  rcut_inc: 2.0 ang
+  rcut_max: 4.1 ang
+  simulation_log_frequency: 10
+  simulation_dump_thermo_frequency: 10
+  simulation_dump_frequency: 10
+  simulation_end_iteration: 100
+  deterministic_noise: true
+
+# Default simulation scenario: NVE ensemble  
+simulation: default_simulation
+
+# Some statistics at the end of the simulation
++first_iteration:
+  - grid_stats
+  - chunk_neighbors_stats
+# No visualisation or restart dump
+final_dump: nop
+dump_data: nop
+
+# Baseline system contains 16384 atoms
+input_data:
+  - particle_types:
+      particle_type_map: { Ni: 0 }
+  - particle_type_add_properties:
+      Ni: { mass: 58.693 Da , z: 28 }
+  - domain:
+      cell_size: 13.92 ang
+      grid_dims: [ 4 , 4 , 4 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 55.68 ang , 55.68 ang , 55.68 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: FCC
+      types: [ Ni , Ni , Ni , Ni]
+      size: [ 3.48 ang , 3.48 ang , 3.48 ang ]
+  - gaussian_noise_r:
+      sigma: 0.05 ang
+  - replicate_domain
+  
+# Use the following to replicate the domain in x- y- and z- directions.
+replicate_domain:
+  repeat: [ 1 , 1 , 1 ]
+
+# This defines the SNAP force operator  
+snap_force_generic:
+  parameters:
+    nt: 1
+    param: "Ni_Zuo_JPCA2020.snapparam"
+    coef:  "Ni_Zuo_JPCA2020.snapcoeff"
+
+# How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
+compute_all_forces_energy:    
+  - zero_particle_force: { ghost: true }
+  - snap_force_generic
+  - update_force_from_ghost
+  - divide_force_by_type_scalar: mass
+
+# To check values at end of run for reproducibility
+# if file does not exist, it is created at first run. Rerun to check consistency
+simulation_epilog:
+  - check_values:
+      file: check_values_snap_Ni.dat
+      samples: 100
+      pos_threshold: 1.e-5
+      vel_threshold: 1.e-5
+      acc_threshold: 1.e-5
