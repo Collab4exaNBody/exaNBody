@@ -161,7 +161,8 @@ namespace exanb
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** resize cells if needed ******************
-    ghost_comm_buffers.resize_received_cells( cells, gridp->cell_allocator(), create_cell_particles );
+    auto * cell_allocator_ptr = ( gridp != nullptr ) ? gridp->cell_allocator_ptr().get() : nullptr;
+    ghost_comm_buffers.resize_received_cells( cells, cell_allocator_ptr, create_cell_particles );
 
     // ***************** send bufer packing start ******************
     //uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();

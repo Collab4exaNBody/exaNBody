@@ -394,14 +394,17 @@ namespace exanb
         return active_recvs;
       }
 
-      inline void resize_received_cells(auto * const cells, const auto & cell_allocator, auto create_particles )
+      inline void resize_received_cells(auto * cells, auto * cell_allocator_ptr, auto create_particles )
       {
         if constexpr ( create_particles )
         {
-          const int nprocs = num_procs();
-          for(int p=0;p<nprocs;p++)
+          if( cells != nullptr && cell_allocator_ptr != nullptr )
           {
-            unpack_functors[p].resize_received_cells(cells,cell_allocator);
+            const int nprocs = num_procs();
+            for(int p=0;p<nprocs;p++)
+            {
+              unpack_functors[p].resize_received_cells(cells,cell_allocator_ptr);
+            }
           }
         }
       }

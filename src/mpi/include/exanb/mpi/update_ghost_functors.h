@@ -336,15 +336,18 @@ namespace exanb
         return m_data_ptr_base!=nullptr && m_receives!=nullptr && m_cell_offset!=nullptr;
       }
 
-      inline void resize_received_cells(auto * const cells, const auto & cell_allocator)
+      inline void resize_received_cells(auto * cells, auto * cell_allocator_ptr)
       {
-        for(size_t i=0;i<m_cell_count;i++)
+        if( cells != nullptr && cell_allocator_ptr != nullptr )
         {
-          const auto cell_input = ghost_cell_receive_info(m_receives[i]);
-          const size_t cell_i = cell_input.m_cell_i;
-          const size_t n_particles = cell_input.m_n_particles;
-          assert( cells[cell_i].empty() );
-          cells[cell_i].resize( n_particles , cell_allocator );
+          for(size_t i=0;i<m_cell_count;i++)
+          {
+            const auto cell_input = ghost_cell_receive_info(m_receives[i]);
+            const size_t cell_i = cell_input.m_cell_i;
+            const size_t n_particles = cell_input.m_n_particles;
+            assert( cells[cell_i].empty() );
+            cells[cell_i].resize( n_particles , *cell_allocator_ptr );
+          }
         }
       }
 

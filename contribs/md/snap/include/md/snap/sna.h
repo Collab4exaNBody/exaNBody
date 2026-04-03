@@ -338,12 +338,12 @@ namespace SnapInternal
     {
       out << "flags: switch="<<std::boolalpha<<switch_flag<<" switch_inner="<<switch_inner_flag<<" bzero="<<bzero_flag<<" bnorm="<<bnorm_flag<<" chem="<<chem_flag<<" wselfall="<<wselfall_flag<<std::endl;
       out << "const: rmin0="<<rmin0<<" rfac0="<<rfac0<<" wself="<<wself<<std::endl;
-      out << "sizes: jmax="<<jmax<<" idxcg_max="<<idxcg_max<<" idxu_max="<<idxu_max<<" idxz_max="<<idxz_max<<" idxb_max="
-          << idxb_max<<" nelements="<<nelements<<" ndoubles="<<ndoubles<<" ntriples="<<ntriples<<" ncoeff="<<ncoeff<<std::endl;
+      out << "sizes: jmax="<<jmax<<" idxcg_max="<<idxcg_max<<" idxu_max="<<idxu_max<<" idxu_max_alt="<<idxu_max_alt<<" idxz_max="<<idxz_max
+          <<" idxb_max="<< idxb_max<<" nelements="<<nelements<<" ndoubles="<<ndoubles<<" ntriples="<<ntriples<<" ncoeff="<<ncoeff<<std::endl;
 
       std::unordered_set<int> unique_idxcg;
       std::unordered_set<int> unique_jju;
-      out << "IDXZ:" << std::endl;
+      //out << "IDXZ:" << std::endl;
       for(int jjz=0;jjz<idxz_max;jjz++)
       {
         const int j1 = IDXZ_ALT(jjz).j1;
@@ -376,7 +376,7 @@ namespace SnapInternal
         }
         unique_idxcg.insert( idxcg_block_j1_j2_j );
         unique_jju.insert( jju );
-        out << "  jju=" <<jju<<" jjb="<<jjb<<" betascale="<<betaj_scale<<std::endl;
+        //out << "  jju=" <<jju<<" jjb="<<jjb<<" betascale="<<betaj_scale<<std::endl;
       }
       out << "unique idxcg values = "<<unique_idxcg.size()<<std::endl;
       out << "unique jju values = "<<unique_jju.size()<<std::endl;
