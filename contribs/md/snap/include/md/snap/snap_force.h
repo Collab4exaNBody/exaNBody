@@ -293,7 +293,7 @@ namespace md
       auto snap_compute_specialized_snapconf = [&]( const auto & snapconf , auto c_use_coop_compute )
       {
         using SnapConfParamsT = std::remove_cv_t< std::remove_reference_t< decltype( snapconf ) > >;
-        snapconf.to_stream( ldbg );
+        //snapconf.to_stream( ldbg );
       
         ComputePairOptionalLocks<UsePaticleLocks> cp_locks = { particle_locks->data() };
         auto optional = make_compute_pair_optional_args( nbh_it, cp_weight , cp_xform, cp_locks
