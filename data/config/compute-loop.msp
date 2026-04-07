@@ -1,5 +1,6 @@
 first_iteration:
   - init_particles
+  - print_grid
   - compute_all_forces_energy
   - simulation_stats
   - print_simulation_stats
