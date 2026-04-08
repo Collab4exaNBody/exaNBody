@@ -83,6 +83,7 @@ namespace exanb
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
     const bool has_field_span = field_tuple_contains_field_span(update_fields);
     using GridCellValueType = typename GridCellValues::GridCellValueType;
+    using CellParticlesAllocator = typename GridT::CellParticlesAllocator;
     //    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
@@ -95,6 +96,7 @@ namespace exanb
       fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
     }
 
+    static const CellParticlesAllocator default_cell_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     int nprocs = 1;
@@ -130,6 +132,7 @@ namespace exanb
         <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field<<", has_field_span="<<has_field_span <<std::endl;
 
     auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
+    const onika::soatl::PackedFieldArraysAllocator & cell_allocator = (gridp!=nullptr) ? gridp->cell_allocator() : default_cell_allocator;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
@@ -161,7 +164,7 @@ namespace exanb
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** resize cells if needed ******************
-    ghost_comm_buffers.resize_received_cells( cells, gridp->cell_allocator(), create_cell_particles );
+    ghost_comm_buffers.resize_received_cells( cells, cell_allocator, create_cell_particles );
 
     // ***************** send bufer packing start ******************
     //uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
