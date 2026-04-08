@@ -36,6 +36,11 @@ if(EXANB_BUILD_MICROCOSMOS)
   add_subdirectory(microCosmos)
 endif()
 
+option(EXANB_BUILD_CONTRIB_EGL "Build EGL/OpenGL rendering feature" OFF)
+if(EXANB_BUILD_CONTRIB_EGL)
+  add_subdirectory(egl)
+endif()
+
 # export variable indicating that contribs have been built into exaNBody
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(EXANB_BUILD_CONTRIB_MD ON)\n")
 
