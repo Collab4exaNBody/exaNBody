@@ -1,0 +1,138 @@
+logo_banner:
+  - message: "
+ ███████████                               █████          █████████  ██████   █████   █████████   ███████████  \n
+░░███░░░░░███                             ░░███          ███░░░░░███░░██████ ░░███   ███░░░░░███ ░░███░░░░░███ \n
+ ░███    ░███  ██████  ████████    ██████  ░███████     ░███    ░░░  ░███░███ ░███  ░███    ░███  ░███    ░███ \n
+ ░██████████  ███░░███░░███░░███  ███░░███ ░███░░███    ░░█████████  ░███░░███░███  ░███████████  ░██████████  \n
+ ░███░░░░░███░███████  ░███ ░███ ░███ ░░░  ░███ ░███     ░░░░░░░░███ ░███ ░░██████  ░███░░░░░███  ░███░░░░░░   \n
+ ░███    ░███░███░░░   ░███ ░███ ░███  ███ ░███ ░███     ███    ░███ ░███  ░░█████  ░███    ░███  ░███         \n
+ ███████████ ░░██████  ████ █████░░██████  ████ █████   ░░█████████  █████  ░░█████ █████   █████ █████        \n
+░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░     ░░░░░░░░░  ░░░░░    ░░░░░ ░░░░░   ░░░░░ ░░░░░         \n"
+
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+  profiling:
+# Set summary: true to have the profiling summary
+    summary: true
+# Set exectime true to have each operator time execution during the run
+    exectime: false
+
+# Global simulation parameters
+global:
+  dt: 2e-3 ps
+  rcut_inc: 2.0 ang
+  rcut_max: 4.6 ang
+  simulation_log_frequency: 10
+  simulation_dump_thermo_frequency: 10
+  simulation_dump_frequency: 10
+  simulation_end_iteration: 100
+  deterministic_noise: true
+
+# Default simulation scenario: NVE ensemble  
+simulation: default_simulation
+
+# Some statistics at the end of the simulation
++first_iteration:
+  - grid_stats
+  - chunk_neighbors_stats
+# No visualisation or restart dump
+final_dump: nop
+
+visualization_init:
+  - egl_init
+  - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
+  - egl_make_current: { surface: "onika-egl-window" }
+  - egl_create_shader_program:
+      shader_program: "shader"
+      vertex_shader: |
+        #version 330 core
+        layout (location = 0) in vec4 aPos;
+        out float geomAngle;
+        void main() {
+          gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+          geomAngle = 0.0;
+        }
+
+      geometry_shader: |
+        #version 330 core
+        layout (points) in;
+        layout (triangle_strip, max_vertices=3) out;
+        in float geomAngle[];
+        out vec4 aColor;
+        void main() {
+          vec4 aPos = gl_in[0].gl_Position;
+          aColor = vec4( clamp(aPos.x,0.0f,1.0f), clamp(aPos.y,0.0f,1.0f), clamp(aPos.x+aPos.y,0.0f,1.0f), 1.0f );
+          for(int i=0;i<3;i++)
+          {
+            gl_Position = gl_in[0].gl_Position + vec4( cos(geomAngle[0]+i*2*3.14159/3)*0.1 , sin(geomAngle[0]+i*2*3.14159/3)*0.1, 0.0 , 0.0 );
+            EmitVertex();
+          }
+          EndPrimitive();
+        }
+
+      fragment_shader: |
+        #version 330 core
+        in vec4 aColor;
+        out vec4 FragColor;
+        void main() {
+          FragColor = aColor;
+        }
+
+dump_data:
+  - egl_make_current: { surface: "onika-egl-window" }
+  - egl_particles_to_vertex_buffer: { vertex_buffer: "particles" }
+  - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" }
+
+# Baseline system contains 8192 atoms
+input_data:
+  - particle_types:
+      particle_type_map: { Mo: 0 }
+  - particle_type_add_properties:
+      Mo: { mass: 95.96 Da , z: 42 }
+  - domain:
+      cell_size: 12.6 ang
+      grid_dims: [ 4 , 4 , 4 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 50.4 ang , 50.4 ang , 50.4 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: BCC
+      types: [ Mo , Mo]
+      size: [ 3.15 ang , 3.15 ang , 3.15 ang ]
+  - gaussian_noise_r:
+      sigma: 0.1 ang
+  - replicate_domain
+  - visualization_init
+
+# Use the following to replicate the domain in x- y- and z- directions.
+replicate_domain:
+  repeat: [ 1 , 1 , 1 ]
+
+# This defines the SNAP force operator  
+snap_force_generic:
+  parameters:
+    nt: 1
+    param: "Mo_Zuo_JPCA2020.snapparam"
+    coef:  "Mo_Zuo_JPCA2020.snapcoeff"
+
+# How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
+compute_all_forces_energy:    
+  - zero_particle_force: { ghost: true }
+  - snap_force_generic
+  - update_force_from_ghost
+  - divide_force_by_type_scalar: mass
+
