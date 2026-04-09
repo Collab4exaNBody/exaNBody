@@ -22,7 +22,9 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: false
+    debug: true
+  debug:
+    filter: [ ".*egl_.*" ]
   profiling:
 # Set summary: true to have the profiling summary
     summary: true
@@ -40,7 +42,7 @@ global:
   simulation_end_iteration: 100
   deterministic_noise: true
 
-# Default simulation scenario: NVE ensemble  
+# Default simulation scenario: NVE ensemble
 simulation: default_simulation
 
 # Some statistics at the end of the simulation
@@ -90,6 +92,24 @@ visualization_init:
           FragColor = aColor;
         }
 
+      pipeline_config:
+        program_point_size: GL_TRUE
+        depth_test: GL_TRUE
+        alpha_test: GL_FALSE
+        alpha_func: GL_ALWAYS
+        alpha_func_ref: 0
+        blend: GL_FALSE
+        blend_src: GL_ONE
+        blend_dst: GL_ZERO
+        stencil_test: GL_FALSE
+        stencil_mask: 0xFF
+        stencil_func: GL_ALWAYS
+        stencil_func_ref: 0
+        stencil_func_mask: 0xFF
+        stencil_op_sfail: GL_KEEP
+        stencil_op_dpfail: GL_KEEP
+        stencil_op_dppass: GL_KEEP
+
 dump_data:
   - egl_make_current: { surface: "onika-egl-window" }
   - egl_particles_to_vertex_buffer: { vertex_buffer: "particles" }
@@ -122,7 +142,7 @@ input_data:
 replicate_domain:
   repeat: [ 1 , 1 , 1 ]
 
-# This defines the SNAP force operator  
+# This defines the SNAP force operator
 snap_force_generic:
   parameters:
     nt: 1
@@ -130,7 +150,7 @@ snap_force_generic:
     coef:  "Mo_Zuo_JPCA2020.snapcoeff"
 
 # How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
-compute_all_forces_energy:    
+compute_all_forces_energy:
   - zero_particle_force: { ghost: true }
   - snap_force_generic
   - update_force_from_ghost
