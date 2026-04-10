@@ -40,7 +40,7 @@ namespace exanb
 
   public:
     inline void execute() override final
-    {      
+    {
       const size_t n_points = grid->number_of_particles() - grid->number_of_ghost_particles();
 
       int buf_id = egl_render_manager->vertex_buffers_id( *vertex_buffer );
@@ -64,27 +64,24 @@ namespace exanb
 
       const size_t n_cells = grid->number_of_cells();
       const auto cells = grid->cells_accessor();
-      size_t vertex_i = 0;
+      size_t vertex_idx = 0;
       for(size_t c=0;c<n_cells;c++)
       {
         if( ! grid->is_ghost_cell(c) )
         {
           const size_t n_cell_particles = cells[c].size();
-          //const size_t vertex_start = grid->cell_particle_offset(c);
           const auto rx = cells[c][field::rx];
           const auto ry = cells[c][field::ry];
-          const auto rz = cells[c][field::rz];
-          for(size_t p=0;p<n_cell_particles; p++ , vertex_i++)
+          //const auto rz = cells[c][field::rz];
+          for( size_t p=0 ; p<n_cell_particles ; p++ , vertex_idx++ )
           {
-            //if( vertex_i%128==0) std::cout<<"("<<rx[p]<<","<<ry[p]<<","<<rz[p]<<") ";
-            v[ vertex_i*3 + 0 ] = rx[p]/50.0 - 0.5;
-            v[ vertex_i*3 + 1 ] = ry[p]/50.0 - 0.5;
-            v[ vertex_i*3 + 2 ] = 0.0;
+            v[ vertex_idx*3 + 0 ] = rx[p]/50.0 - 0.5;
+            v[ vertex_idx*3 + 1 ] = ry[p]/50.0 - 0.5;
+            v[ vertex_idx*3 + 2 ] = 0.0; //rz[p];
           }
         }
       }
-      //std::cout << std::endl;
-      
+
       glvbos.unmap_buffer(0);
     }
 

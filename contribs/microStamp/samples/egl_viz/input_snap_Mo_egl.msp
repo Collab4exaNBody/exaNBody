@@ -22,7 +22,9 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: false
+    debug: true
+  debug:
+    filter: [ ".*egl_.*" ]
   profiling:
 # Set summary: true to have the profiling summary
     summary: true
@@ -40,7 +42,7 @@ global:
   simulation_end_iteration: 100
   deterministic_noise: true
 
-# Default simulation scenario: NVE ensemble  
+# Default simulation scenario: NVE ensemble
 simulation: default_simulation
 
 # Some statistics at the end of the simulation
@@ -59,27 +61,11 @@ visualization_init:
       vertex_shader: |
         #version 330 core
         layout (location = 0) in vec4 aPos;
-        out float geomAngle;
-        void main() {
-          gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-          geomAngle = 0.0;
-        }
-
-      geometry_shader: |
-        #version 330 core
-        layout (points) in;
-        layout (triangle_strip, max_vertices=3) out;
-        in float geomAngle[];
         out vec4 aColor;
         void main() {
-          vec4 aPos = gl_in[0].gl_Position;
+          gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+          gl_PointSize = 4.0;
           aColor = vec4( clamp(aPos.x,0.0f,1.0f), clamp(aPos.y,0.0f,1.0f), clamp(aPos.x+aPos.y,0.0f,1.0f), 1.0f );
-          for(int i=0;i<3;i++)
-          {
-            gl_Position = gl_in[0].gl_Position + vec4( cos(geomAngle[0]+i*2*3.14159/3)*0.1 , sin(geomAngle[0]+i*2*3.14159/3)*0.1, 0.0 , 0.0 );
-            EmitVertex();
-          }
-          EndPrimitive();
         }
 
       fragment_shader: |
@@ -90,10 +76,28 @@ visualization_init:
           FragColor = aColor;
         }
 
+      pipeline_config:
+        program_point_size: GL_TRUE
+        depth_test: GL_TRUE
+        alpha_test: GL_FALSE
+        alpha_func: GL_ALWAYS
+        alpha_func_ref: 0
+        blend: GL_FALSE
+        blend_src: GL_ONE
+        blend_dst: GL_ZERO
+        stencil_test: GL_FALSE
+        stencil_mask: 0xFF
+        stencil_func: GL_ALWAYS
+        stencil_func_ref: 0
+        stencil_func_mask: 0xFF
+        stencil_op_sfail: GL_KEEP
+        stencil_op_dpfail: GL_KEEP
+        stencil_op_dppass: GL_KEEP
+
 dump_data:
   - egl_make_current: { surface: "onika-egl-window" }
   - egl_particles_to_vertex_buffer: { vertex_buffer: "particles" }
-  - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" }
+  - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , primitive: GL_POINTS }
 
 # Baseline system contains 8192 atoms
 input_data:
@@ -122,7 +126,7 @@ input_data:
 replicate_domain:
   repeat: [ 1 , 1 , 1 ]
 
-# This defines the SNAP force operator  
+# This defines the SNAP force operator
 snap_force_generic:
   parameters:
     nt: 1
@@ -130,7 +134,7 @@ snap_force_generic:
     coef:  "Mo_Zuo_JPCA2020.snapcoeff"
 
 # How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
-compute_all_forces_energy:    
+compute_all_forces_energy:
   - zero_particle_force: { ghost: true }
   - snap_force_generic
   - update_force_from_ghost
