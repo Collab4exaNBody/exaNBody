@@ -63,9 +63,9 @@ visualization_init:
         layout (location = 0) in vec4 aPos;
         out vec4 aColor;
         void main() {
-          gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+          gl_Position = vec4(aPos.x/50.0-0.5, aPos.y/50-0.5, 0.0, 1.0);
           gl_PointSize = 4.0;
-          aColor = vec4( clamp(aPos.x,0.0f,1.0f), clamp(aPos.y,0.0f,1.0f), clamp(aPos.x+aPos.y,0.0f,1.0f), 1.0f );
+          aColor = vec4( clamp(aPos.x/50.0,0.0f,1.0f), clamp(aPos.y/50.0,0.0f,1.0f), clamp((aPos.x+aPos.y)/50.0,0.0f,1.0f), 1.0f );
         }
 
       fragment_shader: |

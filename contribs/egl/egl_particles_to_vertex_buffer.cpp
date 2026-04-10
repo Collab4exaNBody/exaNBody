@@ -72,12 +72,12 @@ namespace exanb
           const size_t n_cell_particles = cells[c].size();
           const auto rx = cells[c][field::rx];
           const auto ry = cells[c][field::ry];
-          //const auto rz = cells[c][field::rz];
+          const auto rz = cells[c][field::rz];
           for( size_t p=0 ; p<n_cell_particles ; p++ , vertex_idx++ )
           {
-            v[ vertex_idx*3 + 0 ] = rx[p]/50.0 - 0.5;
-            v[ vertex_idx*3 + 1 ] = ry[p]/50.0 - 0.5;
-            v[ vertex_idx*3 + 2 ] = 0.0; //rz[p];
+            v[ vertex_idx*3 + 0 ] = rx[p];
+            v[ vertex_idx*3 + 1 ] = ry[p];
+            v[ vertex_idx*3 + 2 ] = rz[p];
           }
         }
       }
