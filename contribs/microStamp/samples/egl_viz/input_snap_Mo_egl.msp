@@ -60,7 +60,8 @@ visualization_init:
       shader_program: "shader"
       vertex_shader: |
         #version 430 core
-        layout (binding=0,std140) uniform frameData
+        #extension GL_NV_uniform_buffer_std430_layout : enable
+        layout (binding=0,std430) uniform frameData
         {
           mat4 view;
           mat4 projection;
