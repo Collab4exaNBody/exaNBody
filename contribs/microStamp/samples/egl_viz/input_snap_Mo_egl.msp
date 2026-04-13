@@ -60,18 +60,14 @@ visualization_init:
       shader_program: "shader"
       vertex_shader: |
         #version 430 core
-        #extension GL_NV_uniform_buffer_std430_layout : enable
-        layout (binding=0,std430) uniform frameData
-        {
-          mat4 view;
-          mat4 projection;
-        };
         layout (location=0) in vec4 aPos;
+        layout (location=1) in vec4 aVel;
+        layout (location=2) in vec4 aForce;
         out vec4 aColor;
         void main() {
           gl_Position = vec4(aPos.x/50.0-0.5, aPos.y/50-0.5, 0.0, 1.0);
           gl_PointSize = 4.0;
-          aColor = vec4( clamp(aPos.x/50.0,0.0f,1.0f), clamp(aPos.y/50.0,0.0f,1.0f), clamp((aPos.x+aPos.y)/50.0,0.0f,1.0f), 1.0f );
+          aColor = vec4( 1.0f, 0.8f, 0.3f, 1.0f );
         }
 
       fragment_shader: |
@@ -104,7 +100,12 @@ visualization_init:
 
 dump_data:
   - egl_make_current: { surface: "onika-egl-window" }
-  - egl_particles_to_vertex_buffer: { vertex_buffer: "particles" }
+  - egl_particles_to_vertex_buffer:
+      vertex_buffer: "particles"
+      vertex_attribs:
+        position: 0
+        velocity: 1
+        force: 2
   - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , primitive: GL_POINTS }
 
 # Baseline system contains 8192 atoms

@@ -15,6 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-set(eglParticleRendering_LINK_LIBRARIES EGLRenderManager)
+set(eglParticleRendering_LINK_LIBRARIES exanbCompute EGLRenderManager)
 xnb_add_plugin(eglParticleRendering ${CMAKE_CURRENT_SOURCE_DIR})
 

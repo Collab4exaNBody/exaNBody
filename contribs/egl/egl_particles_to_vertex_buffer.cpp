@@ -22,67 +22,216 @@ under the License.
 #include <onika/scg/operator_factory.h>
 #include <onika/scg/operator_slot.h>
 #include <onika/log.h>
+#include <onika/math/basic_types_def.h>
+#include <onika/math/quaternion.h>
 
 #include <exanb/core/make_grid_variant_operator.h>
+#include <exanb/compute/field_combiners.h>
+#include <exanb/core/particle_type_properties.h>
+#include <exanb/core/grid_additional_fields.h>
 
 #include <EGLRender/egl_render_manager.h>
 
 namespace exanb
 {
   using namespace EGLRender;
+  
+  using Vec3d = exanb::Vec3d;
+  using Quat = exanb::Quaternion;
+  using Mat3d = exanb::Mat3d;
+  
+
+  template<class T> struct GLTypeId
+  {
+    using comp_type = T;
+    static inline constexpr GLenum type_enum = GL_NONE;
+    static constexpr int ncomp = 0;
+    static inline std::string str() { return "void"; }
+  };
+
+template<class A, class V> struct GLAttributeWriter { static inline void write(A* a, const V& v) { *a = v; } };
+template<> struct GLAttributeWriter<GLdouble,Vec3d> { static inline void write(GLdouble* a, const Vec3d& v) { a[0]=v.x; a[1]=v.y; a[2]=v.z; } };
+template<> struct GLAttributeWriter<GLdouble,Quat> { static inline void write(GLdouble* a, const Quat& v) { a[0]=v.x; a[1]=v.y; a[2]=v.z; a[3]=v.w; } };
+template<> struct GLAttributeWriter<GLdouble,Mat3d> { static inline void write(GLdouble* a, const Mat3d& v)
+  { a[0]=v.m11; a[1]=v.m12; a[2]=v.m13;
+    a[3]=v.m21; a[4]=v.m22; a[5]=v.m23;
+    a[6]=v.m31; a[7]=v.m32; a[8]=v.m33; } };
+template<class T, size_t N> struct GLAttributeWriter<T, onika::oarray_t<T,N> > { static inline void write(T* a, const onika::oarray_t<T,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { static inline void write(T* a, const std::array<T,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+
+#define GLTypeInfoMacro(rtype,gltype,glenum,nc,tname) \
+  template<> struct GLTypeId<rtype> { \
+    using comp_type=gltype; \
+    static inline constexpr GLenum type_enum=glenum; \
+    static inline constexpr int ncomp=nc; \
+    static inline std::string str() { return tname; } };
+
+  GLTypeInfoMacro( uint8_t , GLubyte  , GL_UNSIGNED_BYTE ,1,"uint")
+  GLTypeInfoMacro(  int8_t , GLbyte   , GL_BYTE          ,1,"int")
+  GLTypeInfoMacro(uint16_t , GLushort , GL_UNSIGNED_SHORT,1,"uint")
+  GLTypeInfoMacro( int16_t , GLshort  , GL_SHORT         ,1,"int")
+  GLTypeInfoMacro(uint32_t , GLuint   , GL_UNSIGNED_INT  ,1,"uint")
+  GLTypeInfoMacro( int32_t , GLint    , GL_INT           ,1,"int")
+  GLTypeInfoMacro(uint64_t , GLuint   , GL_UNSIGNED_INT  ,1,"uint")
+  GLTypeInfoMacro( int64_t , GLint    , GL_INT           ,1,"int")
+  GLTypeInfoMacro( float   , GLfloat  , GL_FLOAT         ,1,"float")
+  GLTypeInfoMacro( double  , GLdouble , GL_DOUBLE        ,1,"double")
+  GLTypeInfoMacro( Vec3d   , GLdouble , GL_DOUBLE        ,3,"dvec3")
+  GLTypeInfoMacro( Quat    , GLdouble , GL_DOUBLE        ,4,"dvec4")
+  GLTypeInfoMacro( Mat3d   , GLdouble , GL_DOUBLE        ,9,"dmat3")
+  
+# undef GLTypeInfoMacro
+
+  template<class T, size_t N> struct GLTypeId< std::array<T,N> >
+  {
+    using comp_type = typename GLTypeId<T>::comp_type;
+    static inline constexpr GLenum type_enum = GLTypeId<T>::type_enum;
+    static constexpr int ncomp = N;
+    static inline std::string str() { return GLTypeId<T>::str() +"["+std::to_string(N)+"]"; }
+  };
+  
+  template<class T, size_t N> struct GLTypeId< onika::oarray_t<T,N> >
+  {
+    using comp_type = typename GLTypeId<T>::comp_type;
+    static inline constexpr GLenum type_enum = GLTypeId<T>::type_enum;
+    static constexpr int ncomp = N;
+    static inline std::string str() { return GLTypeId<T>::str() +"["+std::to_string(N)+"]"; }
+  };
+
 
   template<class GridT>
   class EGLParticlesToVertexBuffer : public OperatorNode
   {
+    using StringIntMap = std::map< std::string , int >;
+    
     ADD_SLOT( GridT            , grid               , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
+    ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , OPTIONAL );
+    ADD_SLOT( StringIntMap     , vertex_attribs     , INPUT , StringIntMap() , DocString{"Mapping of fields to vertex attribute indices"} );
     ADD_SLOT( std::string      , vertex_buffer      , INPUT_OUTPUT , "particles" );
     ADD_SLOT( EGLRenderManager , egl_render_manager , INPUT_OUTPUT );
 
   public:
-    inline void execute() override final
+
+    template<class FieldT>
+    inline void process_one_field( GLVertexBuffers & glvbos, const FieldT& f ) 
+    {
+      using field_type = typename FieldT::value_type;
+      using attrib_type = typename GLTypeId<field_type>::comp_type;
+      auto it = vertex_attribs->find( f.name() );
+      if( it != vertex_attribs->end() )
+      {
+        const int ai = it->second;
+        ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;
+        attrib_type * v = (attrib_type *) glvbos.map_buffer_write_only(ai);
+        const size_t n_cells = grid->number_of_cells();
+        const auto cells = grid->cells_accessor();
+        size_t vertex_idx = 0;
+        for(size_t c=0;c<n_cells;c++)
+        {
+          if( ! grid->is_ghost_cell(c) )
+          {
+            const size_t n_cell_particles = cells[c].size();
+            const auto cell_array = cells[c][f];
+            for( size_t p=0 ; p<n_cell_particles ; p++ , vertex_idx++ )
+            {
+              GLAttributeWriter<attrib_type,field_type>::write(v+vertex_idx*GLTypeId<field_type>::ncomp , cell_array[p] );
+            }
+          }
+        }
+
+        glvbos.unmap_buffer(ai);
+      }
+      else
+      {
+        ldbg << "skip field " << f.name() << std::endl;
+      }
+    }
+    template<class FieldT>
+    inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec ) 
+    {
+      for(const auto& f : fvec) process_one_field( glvbos, f );
+    }
+
+
+    template<class FieldT>
+    inline void build_formats(std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const FieldT& f )
+    {
+      using field_type = typename FieldT::value_type; 
+      auto it = vertex_attribs->find( f.name() );
+      if( it != vertex_attribs->end() )
+      {
+        const int ai = it->second;
+        attrib_formats[ai].first = GLTypeId<field_type>::type_enum;
+        attrib_formats[ai].second = GLTypeId<field_type>::ncomp;
+      }
+    }
+    template<class FieldT>
+    inline void build_formats( std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const std::span<FieldT>& fvec )
+    {
+      for(const auto& f : fvec) build_formats( attrib_formats , f );
+    }
+
+    template<class... GridFields>
+    inline void execute_on_fields( const GridFields& ... grid_fields ) 
     {
       const size_t n_points = grid->number_of_particles() - grid->number_of_ghost_particles();
-
       int buf_id = egl_render_manager->vertex_buffers_id( *vertex_buffer );
       if( buf_id == -1 )
       {
         ldbg << "EGL : create vertex buffer " << *vertex_buffer <<std::endl;
-        const GLint attrib_formats[] = { GL_FLOAT,3 };
-        buf_id = egl_render_manager->create_vertex_buffers( *vertex_buffer , n_points , attrib_formats );
-      }
-      auto & glvbos = egl_render_manager->vertex_buffers(buf_id);
-      ldbg << "EGL : update vertex buffer " << *vertex_buffer << " , nv="<< n_points << " , id="<<buf_id<<std::endl;
-
-      if( glvbos.number_of_attribs() != 1 || glvbos.attrib_type(0)!=GL_FLOAT || glvbos.attrib_components(0)!=3 )
-      {
-        onika::fatal_error() << "Works only with 1 vertex attribute : attribute 0 with format GLfloat x3" << std::endl;
-      }
-
-      glvbos.set_number_of_vertices( n_points );
-
-      GLfloat* v = (GLfloat*) glvbos.map_buffer_write_only(0);
-
-      const size_t n_cells = grid->number_of_cells();
-      const auto cells = grid->cells_accessor();
-      size_t vertex_idx = 0;
-      for(size_t c=0;c<n_cells;c++)
-      {
-        if( ! grid->is_ghost_cell(c) )
+        std::map<int , std::pair<GLenum,GLint> > attrib_formats;
+        ( ... , ( build_formats(attrib_formats,grid_fields) ) ) ;
+        if(attrib_formats.empty()) return;
+        const int nb_attribs = 1 + attrib_formats.crbegin()->first;
+        ldbg << "nb_attribs = " << nb_attribs << std::endl;
+        std::vector<GLint> num_attribs( nb_attribs*2 , GL_NONE );
+        for(const auto& p : attrib_formats)
         {
-          const size_t n_cell_particles = cells[c].size();
-          const auto rx = cells[c][field::rx];
-          const auto ry = cells[c][field::ry];
-          const auto rz = cells[c][field::rz];
-          for( size_t p=0 ; p<n_cell_particles ; p++ , vertex_idx++ )
+          ldbg << "insert attrib @"<<p.first<<" enum="<<gl_enum_to_string(p.second.first)<<", ncomp="<< p.second.second<<std::endl;
+          num_attribs[ p.first *2 ] = p.second.first;
+          num_attribs[ p.first *2 +1 ] = p.second.second;
+        }
+        for(size_t i=0;i<num_attribs.size()/2;i++)
+        {
+          if( num_attribs[i*2]==GL_NONE || num_attribs[i*2+1]<1 ||num_attribs[i*2+1]>9 )
           {
-            v[ vertex_idx*3 + 0 ] = rx[p];
-            v[ vertex_idx*3 + 1 ] = ry[p];
-            v[ vertex_idx*3 + 2 ] = rz[p];
+            fatal_error() << "Invalid Attribute mapping at index #"<<i <<" , enum="<< gl_enum_to_string(num_attribs[i*2])<<" , ncomp="<< num_attribs[i*2+1] << std::endl;
           }
         }
+        buf_id = egl_render_manager->create_vertex_buffers( *vertex_buffer , n_points , num_attribs );
       }
+      
+      GLVertexBuffers & glvbos = egl_render_manager->vertex_buffers(buf_id);
+      ldbg << "EGL : update vertex buffer " << *vertex_buffer << " , nv="<< n_points << " , id="<<buf_id<<std::endl;
+      glvbos.set_number_of_vertices( n_points );
 
-      glvbos.unmap_buffer(0);
+      ( ... , ( process_one_field(glvbos,grid_fields) ) ) ;
+    }
+    
+    template<class... fid>
+    inline void execute_on_field_set( FieldSet<fid...> ) 
+    {
+      using has_field_type_t = typename GridT:: template HasField < field::_type >;
+      static constexpr bool has_field_type = has_field_type_t::value;
+
+      PositionVec3Combiner position = {};
+      VelocityVec3Combiner velocity = {};
+      ForceVec3Combiner    force    = {};
+
+      // optional fields
+      ParticleTypeProperties * optional_type_properties = nullptr;
+      if ( has_field_type && particle_type_properties.has_value() ) optional_type_properties = particle_type_properties.get_pointer();
+      GridAdditionalFields add_fields( grid , optional_type_properties );
+      auto [ type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields ] = add_fields.view();
+
+      // remove rx,ry,rz, fx,fy,fz and vx,vy,vz
+      execute_on_fields( position, velocity, force, type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields, onika::soatl::FieldId<fid>{} ... );
+    }
+
+    inline void execute() override final
+    {
+      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
+      execute_on_field_set( GridFieldSet{} );
     }
 
   };
