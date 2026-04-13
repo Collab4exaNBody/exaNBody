@@ -59,8 +59,13 @@ visualization_init:
   - egl_create_shader_program:
       shader_program: "shader"
       vertex_shader: |
-        #version 330 core
-        layout (location = 0) in vec4 aPos;
+        #version 430 core
+        layout (binding=0,std140) uniform frameData
+        {
+          mat4 view;
+          mat4 projection;
+        };
+        layout (location=0) in vec4 aPos;
         out vec4 aColor;
         void main() {
           gl_Position = vec4(aPos.x/50.0-0.5, aPos.y/50-0.5, 0.0, 1.0);
@@ -69,7 +74,7 @@ visualization_init:
         }
 
       fragment_shader: |
-        #version 330 core
+        #version 430 core
         in vec4 aColor;
         out vec4 FragColor;
         void main() {
@@ -77,15 +82,17 @@ visualization_init:
         }
 
       pipeline_config:
-        program_point_size: GL_TRUE
-        depth_test: GL_TRUE
-        alpha_test: GL_FALSE
+        gl_enable:
+          - GL_PROGRAM_POINT_SIZE
+          - GL_DEPTH_TEST
+        gl_disable:
+          - GL_BLEND
+          - GL_ALPHA_TEST
+          - GL_STENCIL_TEST
         alpha_func: GL_ALWAYS
         alpha_func_ref: 0
-        blend: GL_FALSE
         blend_src: GL_ONE
         blend_dst: GL_ZERO
-        stencil_test: GL_FALSE
         stencil_mask: 0xFF
         stencil_func: GL_ALWAYS
         stencil_func_ref: 0
