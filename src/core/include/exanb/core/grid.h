@@ -145,6 +145,13 @@ namespace exanb
       return m_cell_particle_offset.data();
     }
 
+    inline const size_t * skip_ghost_cell_particle_offset_data() const
+    {
+      assert( m_skip_ghost_cell_particle_offset.size() == number_of_cells()+1 ); 
+      return m_skip_ghost_cell_particle_offset.data();
+    }
+
+
     // valid only if rebuild_particle_offsets has been called before (and after the last change of number of particles in at least one cell)
     inline size_t cell_particle_offset(size_t cell_i) const
     {
@@ -331,20 +338,28 @@ namespace exanb
       m_cell_particle_offset.back() = total_particles;
 
       // also rebuild particle ghost flag array
+      m_skip_ghost_cell_particle_offset.resize( n_cells + 1 );
+      size_t skip_ghost_total_particles = 0;
       m_ghost_particle.assign( (total_particles+63)/64 , 0 );
       for(size_t i=0;i<n_cells;i++)
       {
+        m_skip_ghost_cell_particle_offset[i] = skip_ghost_total_particles;
+        const size_t n_particles = m_cells[i].size();
         if( is_ghost_cell(i) )
         {
-          size_t n_particles = m_cells[i].size();
           for(size_t j=0;j<n_particles;j++)
           {
             size_t pidx = m_cell_particle_offset[i] + j;
             m_ghost_particle[ pidx / 64 ] |= 1ull << ( pidx % 64 );
           }
         }
+        else
+        {
+          skip_ghost_total_particles += n_particles;
+        }
       }
       m_ghost_particle_ptr = m_ghost_particle.data();
+      m_skip_ghost_cell_particle_offset.back() = skip_ghost_total_particles;
 
 #     ifndef NDEBUG
       assert( m_cell_particle_offset[0] == 0 );
@@ -671,6 +686,7 @@ namespace exanb
     double m_cell_size = 1.;
     double m_max_neighbor_distance = 0.;
     onika::memory::CudaMMVector<size_t> m_cell_particle_offset;
+    onika::memory::CudaMMVector<size_t> m_skip_ghost_cell_particle_offset;
     onika::memory::CudaMMVector< uint64_t > m_ghost_particle; // size = number of particles / 64 (rounded to upper 64 multiple)
     uint64_t const * __restrict__ m_ghost_particle_ptr = nullptr;
       
