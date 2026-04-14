@@ -24,6 +24,7 @@ under the License.
 #include <onika/log.h>
 #include <onika/math/basic_types_def.h>
 #include <onika/math/quaternion.h>
+#include <onika/parallel/block_parallel_for.h>
 
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/compute/field_combiners.h>
@@ -40,7 +41,6 @@ namespace exanb
   using Quat = exanb::Quaternion;
   using Mat3d = exanb::Mat3d;
   
-
   template<class T> struct GLTypeId
   {
     using comp_type = T;
@@ -49,15 +49,15 @@ namespace exanb
     static inline std::string str() { return "void"; }
   };
 
-template<class A, class V> struct GLAttributeWriter { static inline void write(A* a, const V& v) { *a = v; } };
-template<> struct GLAttributeWriter<GLdouble,Vec3d> { static inline void write(GLdouble* a, const Vec3d& v) { a[0]=v.x; a[1]=v.y; a[2]=v.z; } };
-template<> struct GLAttributeWriter<GLdouble,Quat> { static inline void write(GLdouble* a, const Quat& v) { a[0]=v.x; a[1]=v.y; a[2]=v.z; a[3]=v.w; } };
-template<> struct GLAttributeWriter<GLdouble,Mat3d> { static inline void write(GLdouble* a, const Mat3d& v)
+template<class A, class V> struct GLAttributeWriter { ONIKA_HOST_DEVICE_FUNC static inline void write(A* a, const V& v) { *a = v; } };
+template<> struct GLAttributeWriter<GLfloat,Vec3d>  { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat* a, const Vec3d& v) { a[0]=v.x; a[1]=v.y; a[2]=v.z; } };
+template<> struct GLAttributeWriter<GLfloat,Quat>   { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat* a, const Quat& v) { a[0]=v.x; a[1]=v.y; a[2]=v.z; a[3]=v.w; } };
+template<> struct GLAttributeWriter<GLfloat,Mat3d>  { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat* a, const Mat3d& v)
   { a[0]=v.m11; a[1]=v.m12; a[2]=v.m13;
     a[3]=v.m21; a[4]=v.m22; a[5]=v.m23;
     a[6]=v.m31; a[7]=v.m32; a[8]=v.m33; } };
-template<class T, size_t N> struct GLAttributeWriter<T, onika::oarray_t<T,N> > { static inline void write(T* a, const onika::oarray_t<T,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
-template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { static inline void write(T* a, const std::array<T,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLfloat , onika::oarray_t<double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const onika::oarray_t<double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const    std::array  <double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
 
 #define GLTypeInfoMacro(rtype,gltype,glenum,nc,tname) \
   template<> struct GLTypeId<rtype> { \
@@ -75,10 +75,10 @@ template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { stat
   GLTypeInfoMacro(uint64_t , GLuint   , GL_UNSIGNED_INT  ,1,"uint")
   GLTypeInfoMacro( int64_t , GLint    , GL_INT           ,1,"int")
   GLTypeInfoMacro( float   , GLfloat  , GL_FLOAT         ,1,"float")
-  GLTypeInfoMacro( double  , GLdouble , GL_DOUBLE        ,1,"double")
-  GLTypeInfoMacro( Vec3d   , GLdouble , GL_DOUBLE        ,3,"dvec3")
-  GLTypeInfoMacro( Quat    , GLdouble , GL_DOUBLE        ,4,"dvec4")
-  GLTypeInfoMacro( Mat3d   , GLdouble , GL_DOUBLE        ,9,"dmat3")
+  GLTypeInfoMacro( double  , GLfloat  , GL_FLOAT         ,1,"float")
+  GLTypeInfoMacro( Vec3d   , GLfloat  , GL_FLOAT         ,3,"vec3")
+  GLTypeInfoMacro( Quat    , GLfloat  , GL_FLOAT         ,4,"vec4")
+  GLTypeInfoMacro( Mat3d   , GLfloat  , GL_FLOAT         ,9,"mat3")
   
 # undef GLTypeInfoMacro
 
@@ -98,6 +98,50 @@ template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { stat
     static inline std::string str() { return GLTypeId<T>::str() +"["+std::to_string(N)+"]"; }
   };
 
+  template<class CellsT, class FieldT>
+  struct GLVertexAttribCopyFromParticles
+  {
+    using field_type = typename FieldT::value_type;
+    using GLTypeIdT = GLTypeId<field_type>;
+    using gl_comp_type = typename GLTypeIdT::comp_type;
+    using Writer = GLAttributeWriter<gl_comp_type,field_type>;
+    CellsT m_cells;
+    gl_comp_type * m_attrib_ptr = nullptr;
+    const size_t * m_cell_particle_offset = nullptr;
+    FieldT m_field;
+    
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( ssize_t cell_i ) const
+    {
+      const size_t vertex_start = m_cell_particle_offset[cell_i];
+      const unsigned int n_particles = m_cell_particle_offset[cell_i+1] - vertex_start;
+      if( n_particles > 0 )
+      {
+        auto cell_field_data = m_cells[cell_i][m_field];
+        ONIKA_CU_BLOCK_SIMD_FOR(unsigned int,p,0,n_particles)
+        {
+          Writer::write( m_attrib_ptr + ( (vertex_start+p) * GLTypeIdT::ncomp ) , cell_field_data[p] );
+        }
+      }
+    }
+  };
+
+}
+
+namespace onika
+{
+  namespace parallel
+  {
+    // this template is here to know if compute buffer must be built or computation must be ran on the fly
+    template<class CellsT, class FieldT> struct BlockParallelForFunctorTraits< exanb::GLVertexAttribCopyFromParticles<CellsT,FieldT> >
+    {      
+      static inline constexpr bool CudaCompatible = true;
+    };
+  }
+}
+
+
+namespace exanb
+{
 
   template<class GridT>
   class EGLParticlesToVertexBuffer : public OperatorNode
@@ -121,10 +165,15 @@ template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { stat
       if( it != vertex_attribs->end() )
       {
         const int ai = it->second;
-        ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;
-        attrib_type * v = (attrib_type *) glvbos.map_buffer_write_only(ai);
+        ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;        
         const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
+        using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
+
+        attrib_type * attrib_ptr = (attrib_type *) glvbos.map_buffer_write_only(ai);
+        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { cells, attrib_ptr, grid->skip_ghost_cell_particle_offset_data() , f };
+        parallel_execution_queue() << onika::parallel::block_parallel_for( n_cells, my_func, parallel_execution_context("CopyGLVertAttr") ) << onika::parallel::flush;
+/*
         size_t vertex_idx = 0;
         for(size_t c=0;c<n_cells;c++)
         {
@@ -134,17 +183,17 @@ template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { stat
             const auto cell_array = cells[c][f];
             for( size_t p=0 ; p<n_cell_particles ; p++ , vertex_idx++ )
             {
-              GLAttributeWriter<attrib_type,field_type>::write(v+vertex_idx*GLTypeId<field_type>::ncomp , cell_array[p] );
+              GLAttributeWriter<attrib_type,field_type>::write(attrib_ptr+vertex_idx*GLTypeId<field_type>::ncomp , cell_array[p] );
             }
           }
         }
-
+*/
         glvbos.unmap_buffer(ai);
       }
-      else
+      /* else
       {
         ldbg << "skip field " << f.name() << std::endl;
-      }
+      } */
     }
     template<class FieldT>
     inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec ) 
@@ -174,7 +223,12 @@ template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { stat
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields ) 
     {
-      const size_t n_points = grid->number_of_particles() - grid->number_of_ghost_particles();
+      const auto * no_ghost_offsets = grid->skip_ghost_cell_particle_offset_data();
+      const auto * particle_offsets = grid->cell_particle_offset_data();
+      const auto n_cells = grid->number_of_cells();
+      const size_t n_points = no_ghost_offsets[n_cells];
+      ldbg << "total particles = "<<particle_offsets[n_cells] <<" , skip_ghost = "<<n_points<<std::endl;
+      
       int buf_id = egl_render_manager->vertex_buffers_id( *vertex_buffer );
       if( buf_id == -1 )
       {
@@ -206,6 +260,8 @@ template<class T, size_t N> struct GLAttributeWriter<T, std::array<T,N> > { stat
       glvbos.set_number_of_vertices( n_points );
 
       ( ... , ( process_one_field(glvbos,grid_fields) ) ) ;
+      
+      parallel_execution_queue().wait();
     }
     
     template<class... fid>
