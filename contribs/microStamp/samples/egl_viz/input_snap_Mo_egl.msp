@@ -60,14 +60,14 @@ visualization_init:
       shader_program: "shader"
       vertex_shader: |
         #version 430 core
-        layout (location=0) in vec4 aPos;
-        layout (location=1) in vec4 aVel;
-        layout (location=2) in vec4 aForce;
+        layout (location=0) in vec3 aPos;
+        layout (location=1) in vec3 aVel;
+        layout (location=2) in vec3 aForce;
         out vec4 aColor;
         void main() {
-          gl_Position = vec4(aPos.x/50.0-0.5, aPos.y/50-0.5, 0.0, 1.0);
-          gl_PointSize = 4.0;
-          aColor = vec4( 1.0f, 0.8f, 0.3f, 1.0f );
+          gl_Position = vec4(aPos.x*0.02-0.5f, aPos.y*0.02f-0.5f, 0.0f, 1.0f);
+          gl_PointSize = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 16.0f );
+          aColor = vec4( clamp(abs(aVel.x)*0.1f,0.0f,1.0f) , clamp(abs(aVel.y)*0.1f,0.0f,1.0f) , clamp(abs(aVel.y)*0.1f,0.0f,1.0f) , 1.0f );
         }
 
       fragment_shader: |
@@ -81,6 +81,7 @@ visualization_init:
       pipeline_config:
         gl_enable:
           - GL_PROGRAM_POINT_SIZE
+          - GL_POINT_SMOOTH
           - GL_DEPTH_TEST
         gl_disable:
           - GL_BLEND
