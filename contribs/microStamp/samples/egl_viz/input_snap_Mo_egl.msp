@@ -22,7 +22,7 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: true
+    debug: false
   debug:
     filter: [ ".*egl_.*" ]
   profiling:
@@ -36,10 +36,10 @@ global:
   dt: 2e-3 ps
   rcut_inc: 2.0 ang
   rcut_max: 4.6 ang
-  simulation_log_frequency: 10
-  simulation_dump_thermo_frequency: 10
-  simulation_dump_frequency: 10
-  simulation_end_iteration: 100
+  simulation_log_frequency: 100
+  simulation_dump_thermo_frequency: -1
+  simulation_dump_frequency: 5
+  simulation_end_iteration: 1000
   deterministic_noise: true
 
 # Default simulation scenario: NVE ensemble
@@ -100,14 +100,16 @@ visualization_init:
         stencil_op_dppass: GL_KEEP
 
 dump_data:
-  - egl_make_current: { surface: "onika-egl-window" }
-  - egl_particles_to_vertex_buffer:
-      vertex_buffer: "particles"
-      vertex_attribs:
-        position: 0
-        velocity: 1
-        force: 2
-  - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , primitive: GL_POINTS }
+  rebind: { sim_continue: compute_loop_continue }
+  body:
+    - egl_make_current: { surface: "onika-egl-window" }
+    - egl_particles_to_vertex_buffer:
+        vertex_buffer: "particles"
+        vertex_attribs:
+          position: 0
+          velocity: 1
+          force: 2
+    - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , primitive: GL_POINTS }
 
 # Baseline system contains 8192 atoms
 input_data:
