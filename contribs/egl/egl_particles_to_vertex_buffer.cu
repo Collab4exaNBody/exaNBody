@@ -170,7 +170,7 @@ namespace exanb
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
 
-        attrib_type * attrib_ptr = (attrib_type *) glvbos.map_buffer_write_only(ai);
+        attrib_type * attrib_ptr = (attrib_type *) glvbos.host_map_write_only(ai);
         GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { cells, attrib_ptr, grid->skip_ghost_cell_particle_offset_data() , f };
         parallel_execution_queue() << onika::parallel::block_parallel_for( n_cells, my_func, parallel_execution_context("CopyGLVertAttr") ) << onika::parallel::flush;
 /*
@@ -188,7 +188,7 @@ namespace exanb
           }
         }
 */
-        glvbos.unmap_buffer(ai);
+        glvbos.host_unmap(ai);
       }
       /* else
       {
