@@ -55,6 +55,36 @@ namespace exanb
     ADD_SLOT( std::vector<ParticleRegionCSG> , exprs , INPUT , OPTIONAL );
 
   public:
+
+    inline std::string documentation() const override final
+    {
+      return R"EOF(
+Reassigns particle IDs so that each tracked region receives its own contiguous block of
+IDs (region 0 first, then region 1, etc.), and particles outside all tracked regions
+receive IDs after the last region block. Each block is globally contiguous across MPI
+ranks (via MPI_Exscan). All tracked regions are then registered in particle_regions under
+their respective names with ID-range flags for fast membership tests.
+
+When a particle matches more than one region expression, it is assigned to the first
+matching region (first-match-wins). The algorithm does NOT preserve original ID values or
+ordering of any particle.
+
+Example:
+# First define regions
+  - particle_regions:
+      - BOTTOMBOX:
+          bounds: [ [ -200 ang , -200 ang , -200 ang ] , [ 200 ang , 200 ang , 15 ang ] ]
+      - TOPBOX:
+          bounds: [ [ -200 ang , -200 ang ,  135 ang ] , [ 200 ang , 200 ang , 200 ang ] ]
+# Then define these regions as "tracked" regions.
+  - track_region_particles_multiple:
+      exprs: [ "BOTTOMBOX" , "TOPBOX" ]
+      names: [ "BAS"       , "HAUT"  ]
+
+If you only need to track a single region, track_region_particles is simpler.
+)EOF";
+    }
+    
     inline void execute() override final
     {    
       // Validate inputs
