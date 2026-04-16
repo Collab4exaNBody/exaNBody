@@ -31,9 +31,11 @@ under the License.
 #include <onika/soatl/field_tuple.h>
 
 #include <vector>
-#include <map>
-#include <algorithm>
 #include <sstream>
+#include <set>
+#include <numeric>
+
+#include <mpi.h>
 
 namespace exanb
 {
@@ -47,22 +49,26 @@ namespace exanb
   {
     using ParticleIds = std::vector<uint64_t>;
 
+    ADD_SLOT( MPI_Comm , mpi    , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( GridT       , grid      , INPUT, REQUIRED);
-    ADD_SLOT( ParticleIds , ids       , INPUT, REQUIRED);
+    ADD_SLOT( ParticleIds , ids       , INPUT, ParticleIds{} );
     ADD_SLOT( bool        , ghost     , INPUT, false );
+    ADD_SLOT( std::string , filename  , INPUT, OPTIONAL );
 
   public:
   
     inline void execute () override final
     {
-      ParticleIds ids = *(this->ids);
-      std::sort( ids.begin(), ids.end() );
+      ParticleIds sids = *ids;
+      std::sort( sids.begin(), sids.end() );
 
       auto cells = grid->cells();
       IJK dims = grid->dimension();
       
-      std::map<uint64_t,std::vector<std::string> > dbg_items;
-
+      static constexpr size_t MAX_STR_LEN = 1024;
+      std::string local_debug_lines;
+      local_debug_lines.reserve( sids.size() * MAX_STR_LEN );
+      
 #     pragma omp parallel
       {
         GRID_OMP_FOR_BEGIN( dims, i, loc )
@@ -72,18 +78,19 @@ namespace exanb
           size_t n_part = cells[i].size();
           for(size_t j=0;j<n_part;j++)
           {
-            if( ( ids.empty() || std::binary_search( ids.begin(), ids.end(), part_ids[j] ) ) && ( (*ghost) || !is_ghost_cell ) )
+            if( ( sids.empty() || std::binary_search( sids.begin(), sids.end(), part_ids[j] ) ) && ( (*ghost) || !is_ghost_cell ) )
             {
               std::ostringstream oss;
-              oss<< onika::default_stream_format;
-              oss<<"---- PARTICLE "<<part_ids[j]<<" ";
-              if(is_ghost_cell) { oss<<"GHOST"; }
-              oss<<"----"<<std::endl<<"cell = " << loc <<std::endl;
+              oss << onika::default_stream_format << std::defaultfloat << std::scientific << std::setprecision(6)
+                  << std::setfill('0') << std::setw(12) << part_ids[j] << ' ' << ( is_ghost_cell ? 'G' : 'O' ) <<" @"<<( loc + grid->offset() ) <<" ";
               print_particle( oss , cells[i][j] );
-              oss<<"------------------------------------------";
+              std::string s = oss.str();
 #             pragma omp critical
               {
-                dbg_items[ part_ids[j] ].push_back( oss.str() );
+                size_t cur_pos = local_debug_lines.size();
+                local_debug_lines.resize( local_debug_lines.size() + MAX_STR_LEN , ' ' );
+                std::strncpy(local_debug_lines.data()+cur_pos,s.c_str(),MAX_STR_LEN);
+                local_debug_lines[cur_pos+MAX_STR_LEN-1]='\0';
               }
             }
           }
@@ -91,11 +98,50 @@ namespace exanb
         GRID_OMP_FOR_END
       }
 
-      for( const auto& x : dbg_items ) for( const auto& y : x.second )
+      int nprocs = 1;
+      int rank = 0;
+      MPI_Comm_size(*mpi,&nprocs);
+      MPI_Comm_rank(*mpi,&rank);
+
+      std::vector<int> data_counts( nprocs , 0 );
+      data_counts[rank] = local_debug_lines.size();
+      MPI_Allreduce(MPI_IN_PLACE,data_counts.data(),nprocs,MPI_INT,MPI_SUM,*mpi);
+      std::vector<int> data_displs( nprocs , 0 );
+      std::exclusive_scan( data_counts.begin() , data_counts.end() , data_displs.begin() , 0 );
+      size_t total_size = 0;
+      for(const auto x:data_counts) total_size += x;
+      assert( total_size % MAX_STR_LEN == 0 );
+      std::string all_debug_lines( total_size , ' ' );
+      MPI_Gatherv( local_debug_lines.data() , local_debug_lines.size() , MPI_CHAR , all_debug_lines.data() , data_counts.data() , data_displs.data() , MPI_CHAR , 0 , *mpi );
+
+      if( rank == 0 )
       {
-        lout << y << std::endl;
+        const size_t n_lines = total_size / MAX_STR_LEN;
+        std::set< std::string > all_sorted_lines;
+        for(size_t i=0;i<n_lines;i++)
+        {
+          const char* s = all_debug_lines.data() + i * MAX_STR_LEN;
+          all_sorted_lines.insert( s );
+        }
+        
+        bool to_file = false;
+        std::ofstream fout;
+        if( filename.has_value() )
+        {
+          fout.open(*filename);
+          to_file = true;
+        }
+        if( to_file ) ldbg << "debug particles to file "<< (*filename) << std::endl;
+        for(const auto & l : all_sorted_lines)
+        {
+          if( ! l.empty() && l[0]!=' ' )
+          {
+            if(to_file) fout << l;
+            else lout << l;
+          }
+        }
+        if( to_file ) fout.close();
       }
-      
     }
 
   };

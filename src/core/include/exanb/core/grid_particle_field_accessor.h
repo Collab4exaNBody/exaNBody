@@ -22,6 +22,8 @@ under the License.
 #include <onika/soatl/field_id.h>
 #include <onika/soatl/field_combiner.h>
 #include <onika/flat_tuple.h>
+#include <onika/type_utils.h>
+#include <onika/cuda/stl_adaptors.h>
 
 namespace exanb
 {
@@ -57,28 +59,61 @@ namespace exanb
 
 
     // tells if a tupl of accessors contins non builtin (in grid cell's storage) particles fields
-    template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields;
-    template<>
-    struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<> >
+    template<class FieldAccT> struct FieldAccessorIsOptional
     {
-      static inline constexpr bool value = false;
+      static inline constexpr bool is_optional = false;
+      static inline constexpr bool is_builtin = true;
+      static inline constexpr bool is_span = false;
+      static inline constexpr bool instance_contains_optional_field(const FieldAccT& fa) { return is_optional; }
     };
-    template<class FieldAccT0, class... FieldAccT >
-    struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT0,FieldAccT...> >
+    template<class FieldIdT, bool IsConst> struct FieldAccessorIsOptional< OptionalCellParticleFieldAccessor<FieldIdT,IsConst> >
     {
-      static inline constexpr bool value = FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT...> >::value ;
+      static inline constexpr bool is_optional = true;
+      static inline constexpr bool is_builtin = false;
+      static inline constexpr bool is_span = false;
+      static inline constexpr bool instance_contains_optional_field(const OptionalCellParticleFieldAccessor<FieldIdT,IsConst>& fa) { return is_optional; }
     };
-    template<class FuncT, class FieldIdT, class... FieldAccT >
-    struct FieldAccessorTupleHasExternalFields< onika::FlatTuple< ExternalCellParticleFieldAccessor<FuncT,FieldIdT> , FieldAccT...> >
+    template<class FuncT, class FieldIdT> struct FieldAccessorIsOptional< ExternalCellParticleFieldAccessor<FuncT,FieldIdT> >
     {
-      static inline constexpr bool value = true;
+      static inline constexpr bool is_optional = true;
+      static inline constexpr bool is_builtin = false;
+      static inline constexpr bool is_span = false;
+      static inline constexpr bool instance_contains_optional_field(const ExternalCellParticleFieldAccessor<FuncT,FieldIdT>& fa) { return is_optional; }
     };
-    template<class FieldIdT, bool IsConst, class... FieldAccT >
-    struct FieldAccessorTupleHasExternalFields< onika::FlatTuple< OptionalCellParticleFieldAccessor<FieldIdT,IsConst> , FieldAccT...> >
+    template<::onika::SpanCompatible SomeSpanT> struct FieldAccessorIsOptional< SomeSpanT >
     {
-      static inline constexpr bool value = true;
+      static inline constexpr bool is_optional = FieldAccessorIsOptional< std::remove_cv_t<typename SomeSpanT::value_type> >::is_optional ;
+      static inline constexpr bool is_builtin = FieldAccessorIsOptional< std::remove_cv_t<typename SomeSpanT::value_type> >::is_builtin ;
+      static inline constexpr bool is_span = true;
+      static inline constexpr bool instance_contains_optional_field(const SomeSpanT& fa) { return is_optional && ! fa.empty(); }
     };
+    
+    template<class FieldAccT>
+    static inline constexpr bool field_contains_optional_field( const FieldAccT& fa ) { return FieldAccessorIsOptional<FieldAccT>::instance_contains_optional_field(fa); }
 
+    template<class FieldAccT>
+    static inline constexpr bool field_contains_field_span( const FieldAccT& ) { return FieldAccessorIsOptional<FieldAccT>::is_span; }
+
+    template<class FieldAccTupleT> struct FieldAccessorTupleHasExternalFields {};
+
+    template<class... FieldAccT >
+    struct FieldAccessorTupleHasExternalFields< onika::FlatTuple<FieldAccT...> >
+    {
+      using FieldAccTupleT = onika::FlatTuple<FieldAccT...>;
+      static inline constexpr bool value = ( ... || ( FieldAccessorIsOptional< std::remove_cv_t<FieldAccT> >::is_optional ) ) ;
+
+      template<size_t... Ints> 
+      static inline constexpr bool field_tuple_contains_optional_field( const FieldAccTupleT& ftp, std::index_sequence<Ints...>)
+      {
+        return ( ... || ( field_contains_optional_field( ftp.get( onika::tuple_index<Ints> ) ) ) );
+      }
+
+      template<size_t... Ints> 
+      static inline constexpr bool field_tuple_contains_field_span( const FieldAccTupleT& ftp, std::index_sequence<Ints...>)
+      {
+        return ( ... || ( field_contains_field_span( ftp.get( onika::tuple_index<Ints> ) ) ) );
+      }
+    };
 
     template<class CellsT> struct GridParticleFieldAccessor;
     template<class CellsT> struct GridParticleFieldAccessor1;
@@ -228,6 +263,18 @@ namespace exanb
     template<class... FieldAccT> struct FieldAccessorTupleToFieldSet< onika::FlatTuple< FieldAccT... > > { using type = FieldSet< typename FieldAccT::Id ... >; };
     
     template<class FieldAccT> using field_id_fom_acc_t = onika::soatl::FieldId< typename FieldAccT::Id >;
+  }
+
+  template<class FieldAccTupleT>
+  static inline constexpr bool field_tuple_contains_optional_field( const FieldAccTupleT& ftp )
+  {
+    return details::FieldAccessorTupleHasExternalFields<FieldAccTupleT>::field_tuple_contains_optional_field( ftp , std::make_index_sequence<FieldAccTupleT::size()>{} );
+  }
+
+  template<class FieldAccTupleT>
+  static inline constexpr bool field_tuple_contains_field_span( const FieldAccTupleT& ftp )
+  {
+    return details::FieldAccessorTupleHasExternalFields<FieldAccTupleT>::field_tuple_contains_field_span( ftp , std::make_index_sequence<FieldAccTupleT::size()>{} );
   }
 
   // utility templates

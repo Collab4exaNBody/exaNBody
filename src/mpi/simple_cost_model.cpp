@@ -16,6 +16,7 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 */
+
 #include <exanb/mpi/simple_cost_model.h>
 #include <exanb/core/make_grid_variant_operator.h>
 

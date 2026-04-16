@@ -26,6 +26,7 @@ user_test: nop
 # pretty logo banner
 logo_banner:
   - message: "\n                _   _ ______           _                _____  _____\n               | \\ | || ___ \\         | |              / __  \\|  _  |\n  _____  ____ _|  \\| || |_/ / ___   __| |_   _  __   __`' / /'| |/' |\n / _ \\ \\/ / _` | . ` || ___ \\/ _ \\ / _` | | | | \\ \\ / /  / /  |  /| |\n|  __/>  < (_| | |\\  || |_/ / (_) | (_| | |_| |  \\ V / ./ /___\\ |_/ /\n \\___/_/\\_\\__,_\\_| \\_/\\____/ \\___/ \\__,_|\\__, |   \\_/  \\_____(_)___/\n                                          __/ |\n                                         |___/\n"
+simulation_epilog: nop
 
 # default N-Body simulation structure
 # one can use this default simulation backbone as a start point or miniapp skeleton
@@ -33,13 +34,16 @@ default_simulation:
   - logo_banner
   - mpi_comm_world
   - init_cuda
+  - update_ghost_config
   - global
   - unit_system
+  - update_ghost_config
   - input_data
   - nbh_dist
   - print_domain
   - first_iteration
   - compute_loop
+  - simulation_epilog
   - final_dump
   - memory_stats: { musage_threshold: 16 }
   - finalize_cuda
@@ -50,6 +54,7 @@ test_simulation:
   - logo_banner
   - mpi_comm_world
   - init_cuda
+  - update_ghost_config
   - global
   - unit_system
   - memory_stats: { musage_threshold: 16 }

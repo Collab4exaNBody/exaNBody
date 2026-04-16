@@ -164,6 +164,11 @@ namespace exanb
   {
     static inline constexpr bool use_locks = false;
     using CellParticleLocks = FakeCellParticleLocks;
+    ComputePairOptionalLocks() = default;
+    ComputePairOptionalLocks(const ComputePairOptionalLocks &) = default;
+    inline ComputePairOptionalLocks(const auto *) {}
+    ComputePairOptionalLocks& operator = (const ComputePairOptionalLocks&) = default;
+    ComputePairOptionalLocks& operator = (ComputePairOptionalLocks&&) = default;
     ONIKA_HOST_DEVICE_FUNC inline CellParticleLocks& operator [] (size_t) const
     {
       static CellParticleLocks foo{};
@@ -178,6 +183,16 @@ namespace exanb
   template<class T> using cpbuf_lock_reference_t = typename CPBufLockReference<T>::reference_t ;
   
   using NullGridParticleLocks = ComputePairOptionalLocks<false>;
+
+  // helper functions to initialize internal spin-lock array only if implementation has it
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void init_cp_locks( exanb::ComputePairOptionalLocks<true>& cp_locks , exanb::spin_mutex_array * lock_array )
+  {
+    cp_locks.m_locks = lock_array;
+  }
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void init_cp_locks( exanb::ComputePairOptionalLocks<false>& , exanb::spin_mutex_array * ) {}
+
 
   template<class NbhIteratorT,
 	   class WeightIteratorT = ComputePairNullWeightIterator, 

@@ -40,11 +40,12 @@ namespace exanb
   class WriteGridVTK : public OperatorNode
   {
     ADD_SLOT( MPI_Comm       , mpi              , INPUT , REQUIRED );
-    ADD_SLOT( GridT       , grid             , INPUT , REQUIRED );
+    ADD_SLOT( GridT          , grid             , INPUT , REQUIRED );
     ADD_SLOT( Domain         , domain           , INPUT , REQUIRED );
-    ADD_SLOT( std::string    , filename         , INPUT , "grid" );
     ADD_SLOT( GridCellValues , grid_cell_values , INPUT , REQUIRED );
+    ADD_SLOT( std::string    , filename         , INPUT , "grid" );
     ADD_SLOT( bool           , use_point_data   , INPUT , true );
+    ADD_SLOT( bool           , adjust_spacing   , INPUT , false );
 
   public:
 
@@ -103,30 +104,78 @@ namespace exanb
       
       ldbg << "extent="<<whole_ext<<", point_mode="<<std::boolalpha<<point_mode <<std::endl;
 
-      std::string basename = *filename;
+      std::string filepath = *filename;
+      std::string dirname;
+      std::string basename;
+
+      size_t lastSlash = filepath.rfind('/');
+      if( lastSlash != std::string::npos )
+        {
+          // Extract directory path and filename
+          dirname = filepath.substr(0, lastSlash);
+          basename = filepath.substr(lastSlash + 1);
+        }
+      else
+        {
+          // No directory in path
+          dirname = "";
+          basename = filepath;
+        }
+      
+      // Remove extension from basename if present
       if( basename.rfind('.') != std::string::npos )
       {
-        basename = basename.substr(0,basename.rfind('.'));
+        basename = basename.substr(0, basename.rfind('.'));
       }
+
+      // Build the full path for the output directory
+      std::string outputDir;
+      if( !dirname.empty() )
+        {
+          outputDir = dirname + "/" + basename;
+        }
+      else
+        {
+          outputDir = basename;
+        }
+      
       if( rank == 0 ) 
       {
-        ldbg << "create directory basename"<<std::endl;
-        fs::remove_all(basename);
+        ldbg << "create directory " << outputDir << std::endl;
+        
+        // Remove the output directory if it exists
+        fs::remove_all(outputDir);
+        
+        // Create all directories in the path (parent folders + output directory)
         std::error_code ec;
-        fs::create_directory(basename, ec);
+        fs::create_directories(outputDir, ec);
       }
       MPI_Barrier(*mpi);
-
+      
       if( rank == 0 ) 
       {
-        std::string pvti_filename = *filename + ".pvti" ;
+        std::string pvti_filename = outputDir + ".pvti" ;
         ldbg << "write file "<<pvti_filename<<" ..."<<std::endl;
         std::ofstream pvti( pvti_filename );
         pvti << "<VTKFile type=\"PImageData\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n";
-        pvti << "  <PImageData WholeExtent=\"0 "
-             <<whole_ext.i<<" 0 "
-             <<whole_ext.j<<" 0 "
-             <<whole_ext.k<<"\" GhostLevel=\"0\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n";
+        if (*adjust_spacing) {
+          const double cell_size = domain->cell_size();
+          const Mat3d xform = domain->xform();
+          double subdiv_corr = 1.0;
+          if (subdiv != -1) subdiv_corr = subdiv;
+          const double spacing_x = xform.m11*cell_size/subdiv_corr;
+          const double spacing_y = xform.m22*cell_size/subdiv_corr;
+          const double spacing_z = xform.m33*cell_size/subdiv_corr;
+          pvti << "  <PImageData WholeExtent=\"0 "
+               <<whole_ext.i<<" 0 "
+               <<whole_ext.j<<" 0 "
+               <<whole_ext.k<<"\" GhostLevel=\"0\" Origin=\"0 0 0\" Spacing=\""<< spacing_x <<" "<<spacing_y<<" "<<spacing_z<<"\">\n";
+        } else {
+          pvti << "  <PImageData WholeExtent=\"0 "
+               <<whole_ext.i<<" 0 "
+               <<whole_ext.j<<" 0 "
+               <<whole_ext.k<<"\" GhostLevel=\"0\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n";
+        }
         bool scalars_set = true;
         for(const auto& fp:grid_cell_values->fields())
         {
@@ -173,10 +222,9 @@ namespace exanb
         pvti <<"</VTKFile>\n";
       }
 
-
       // write local processor's piece .vti file
       std::ostringstream vti_filename_oss;
-      vti_filename_oss <<basename<<"/"<<"piece"<<rank<<".vti";
+      vti_filename_oss <<outputDir<<"/"<<"piece"<<rank<<".vti";
       std::string vti_filename = vti_filename_oss.str();
       ldbg << "write file "<<vti_filename<<" ..."<<std::endl;
       std::ofstream vti( vti_filename );
@@ -208,10 +256,24 @@ namespace exanb
         }
 
       vti<<"<VTKFile type=\"ImageData\" version=\"2.2\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n";
-      vti<<"  <ImageData WholeExtent=\""
-         << start_loc_ext.i <<" "<< end_loc_ext.i <<" "
-         << start_loc_ext.j <<" "<< end_loc_ext.j <<" "
-         << start_loc_ext.k <<" "<< end_loc_ext.k <<"\" Origin=\"0 0 0\" Spacing=\"1 1 1\" Direction=\"1 0 0 0 1 0 0 0 1\">\n";
+        if (*adjust_spacing) {
+          const double cell_size = domain->cell_size();
+          const Mat3d xform = domain->xform();
+          double subdiv_corr = 1.0;
+          if (subdiv != -1) subdiv_corr = subdiv;
+          const double spacing_x = xform.m11*cell_size/subdiv_corr;
+          const double spacing_y = xform.m22*cell_size/subdiv_corr;
+          const double spacing_z = xform.m33*cell_size/subdiv_corr;
+          vti<<"  <ImageData WholeExtent=\""
+             << start_loc_ext.i <<" "<< end_loc_ext.i <<" "
+             << start_loc_ext.j <<" "<< end_loc_ext.j <<" "
+             << start_loc_ext.k <<" "<< end_loc_ext.k <<"\" Origin=\"0 0 0\" Spacing=\""<< spacing_x <<" "<<spacing_y<<" "<<spacing_z<<"\">\n";
+        } else {
+          vti<<"  <ImageData WholeExtent=\""
+             << start_loc_ext.i <<" "<< end_loc_ext.i <<" "
+             << start_loc_ext.j <<" "<< end_loc_ext.j <<" "
+             << start_loc_ext.k <<" "<< end_loc_ext.k <<"\" Origin=\"0 0 0\" Spacing=\"1 1 1\" Direction=\"1 0 0 0 1 0 0 0 1\">\n";
+        }
       vti<<"    <Piece Extent=\"";
       if(point_mode)
         {
@@ -306,7 +368,39 @@ namespace exanb
     inline std::string documentation() const override final
     {
       return R"EOF(
-Write a rectilinear grid's scalar fields to a .pvti vtk file (along with its .vti sub files)
+This operator exports grid data to VTK ImageData format for visualization in ParaView or other VTK-based tools.
+It generates a parallel VTK file (.pvti) that references individual piece files (.vti) for each MPI rank.
+
+Input Slots:
+  - filename (string, default="grid"): Output filename without extension
+  - use_point_data (bool, default=true): Output as point data (true) or cell data (false)
+  - adjust_spacing (bool, default=false): Use physical spacing from domain transform
+
+Output:
+  - Creates <filename>.pvti (master file) and <filename>/piece<rank>.vti (per-rank files)
+  - All piece files are stored in a subdirectory named after the base filename
+
+YAML Examples:
+
+# Basic usage with default settings
+dump_data:
+  # This generates a string "filename" with %09d replaced by the current timestep.
+  - timestep_file: "output/timestep_%09d"
+  - write_grid_vtk:
+      use_point_data: true
+      adjust_spacing: true
+
+# Modified usage with adjusted spacing for physical dimensions
+dump_data:
+  # This generates a string "filename" with %09d replaced by the current timestep.
+  - timestep_file: "output/timestep_%09d"
+  - write_grid_vtk:
+      adjust_spacing: true
+
+Notes:
+  - All fields in grid_cell_values will be exported
+  - Ghost layers are automatically excluded from output
+  - Open the .pvti file in ParaView (not individual .vti files) to see the entire system
 )EOF";
     }
   

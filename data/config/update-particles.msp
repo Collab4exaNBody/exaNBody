@@ -1,6 +1,6 @@
 # when to trigger particle migration
 trigger_move_particles:
-  rebind: { threshold: max_displ , result: trigger_move_particles }
+  rebind: { threshold: max_displ , threshold_lab: max_displ_lab, result: trigger_move_particles }
   body:
     - particle_displ_over
 
