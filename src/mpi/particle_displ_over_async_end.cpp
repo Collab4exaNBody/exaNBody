@@ -42,7 +42,7 @@ namespace exanb
     inline std::string documentation() const override final
     {
       return R"EOF(
-compute the distance between each particle in grid input and it's backup position in backup_r input.
+Computes the distance between each particle in grid input and it's backup position in backup_r input.
 sets result output to true if at least one particle has moved further than threshold.
 )EOF";
     }

@@ -37,10 +37,12 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 ONIKA_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/onika
 XNB_INSTALL_DIR=/ccc/home/cont001/xstampdev/xstampdev/releases/exaNBody
 XNB_SRC_DIR=${HOME}/dev/exaNBody
+CUDA_FLAGS_OPTS="--generate-line-info"
 source ${ONIKA_INSTALL_DIR}/bin/setup-env.sh
 cmake -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=${XNB_INSTALL_DIR} \
       -Donika_DIR=${ONIKA_INSTALL_DIR} \
+      -DCMAKE_CUDA_FLAGS=${CUDA_FLAGS_OPTS} \
       ${XNB_SRC_DIR}
 
 
