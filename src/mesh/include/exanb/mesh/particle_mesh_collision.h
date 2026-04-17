@@ -28,16 +28,25 @@ under the License.
 namespace exanb
 {
 
-  template<class GridTriangleLocator, class CollisionFuncT>
+  struct NullMeshCollisionFunctor
+  {
+    // in front of an edge, within given maximum distance range
+    ONIKA_HOST_DEVICE_FUNC
+    inline void operator () (size_t,size_t,size_t,const Vec3d&,const Vec3d&,double,double,double,double) const
+    {
+    }
+  };
+
+  template<class GridTriangleLocator, class CollisionFuncT = NullMeshCollisionFunctor>
   struct ParticleMeshCollisionFunctor
   {
     GridTriangleLocator m_grid_triangles;
     TriangleMeshRO m_triangle_mesh;
-    double m_delta_t;
-    CollisionFuncT m_func;
+    double m_delta_t = 1.0;
+    CollisionFuncT m_func = {};
     
     ONIKA_HOST_DEVICE_FUNC
-    inline void operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz, double vx, double vy, double vz) const
+    inline bool operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz, double vx, double vy, double vz) const
     {
       const Vec3d r0 = {rx,ry,rz};
       const Vec3d v = {vx,vy,vz};
@@ -71,12 +80,17 @@ namespace exanb
         }
       }
       
-      if( nearest_triangle != -1 ) m_func( cell_idx , p_idx, nearest_triangle, r0, v, edge_u * m_delta_t , tri_w0, tri_w1, tri_w2 );
+      if( nearest_triangle != -1 )
+      {
+        m_func( cell_idx , p_idx, nearest_triangle, r0, v, edge_u * m_delta_t , tri_w0, tri_w1, tri_w2 );
+        return true;
+      }
+      else return false;
     }
   };
 
-  template<class FuncT> using GridParticleTriangleCollision = ParticleMeshCollisionFunctor<GridTriangleIntersectionListRO,FuncT>;
-  template<class FuncT> using ParticleTriangleCollision = ParticleMeshCollisionFunctor<TrivialTriangleLocator,FuncT>;
+  template<class FuncT= NullMeshCollisionFunctor> using GridParticleTriangleCollision = ParticleMeshCollisionFunctor<GridTriangleIntersectionListRO,FuncT>;
+  template<class FuncT= NullMeshCollisionFunctor> using ParticleTriangleCollision = ParticleMeshCollisionFunctor<TrivialTriangleLocator,FuncT>;
 
   template<class LocatorT, class FuncT> struct ComputeCellParticlesTraits< ParticleMeshCollisionFunctor<LocatorT,FuncT> >
   {

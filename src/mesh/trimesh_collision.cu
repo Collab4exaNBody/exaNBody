@@ -75,7 +75,7 @@ namespace exanb
       else
       {
         TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
-        ParticleTriangleCollision<TestMeshCollisionFunctor> func = { all_triangles , read_only_view(*mesh) };
+        ParticleTriangleCollision<TestMeshCollisionFunctor> func = { all_triangles , read_only_view(*mesh) , delta_t };
         compute_cell_particles( *grid , false , func, onika::make_flat_tuple(rx,ry,rz,vx,vy,vz) , parallel_execution_context() );
       }
 
