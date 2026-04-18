@@ -108,27 +108,9 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     GLVertexBuffers& m_glvbos;
     int m_vbo_index = 0;
     gl_comp_type * m_attrib_ptr = nullptr;
-    onikaStream_t m_cu_stream = nullptr;
     CellsT m_cells;
     const size_t * m_cell_particle_offset = nullptr;
     FieldT m_field;
-
-    inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
-    {
-      if( m_attrib_ptr == nullptr )
-      {
-        m_attrib_ptr = m_glvbos.host_map_write_only(vbo_index);
-      }
-    }
-
-    inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t, ParallelExecutionStream* pes ) const
-    {
-      if( m_attrib_ptr == nullptr )
-      {
-        m_cu_stream = pes->m_cu_stream;
-        m_attrib_ptr = (attrib_type *) m_glvbos.gpu_map_write_only(m_vbo_index,m_cu_stream);
-      }
-    }
 
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( ssize_t cell_i ) const
     {
@@ -144,20 +126,34 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
       }
     }
 
-    inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
+    inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
     {
       if( m_attrib_ptr == nullptr )
       {
-        m_attrib_ptr = m_glvbos.host_map_write_only(vbo_index);
+        m_attrib_ptr = (gl_comp_type *) m_glvbos.host_map_write_only(m_vbo_index);
+        lout << "host map buffer #"<<m_vbo_index<<" @"<<(void*)m_attrib_ptr<<std::endl;
       }
     }
 
-    inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t, ParallelExecutionStream* pes ) const
+    inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream * pes ) const
     {
       if( m_attrib_ptr == nullptr )
       {
-        m_attrib_ptr = (attrib_type *) m_glvbos.gpu_map_write_only(m_vbo_index,pes->m_cu_stream);
+        m_attrib_ptr = (gl_comp_type *) m_glvbos.gpu_map_write_only(m_vbo_index,pes->m_cu_stream);
+        lout << "gpu map buffer #"<<m_vbo_index<<" @"<<(void*)m_attrib_ptr<<std::endl;
       }
+    }
+
+    inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
+    {
+      lout << "host unmap buffer #"<<m_vbo_index<<std::endl;
+      m_glvbos.host_unmap(m_vbo_index);
+    }
+
+    inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t ) const
+    {
+      lout << "gpu unmap buffer #"<<m_vbo_index<<std::endl;
+      m_glvbos.gpu_unmap(m_vbo_index);
     }
     
   };
@@ -210,9 +206,8 @@ namespace exanb
         const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
-        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { glvbos, ai, cells, attrib_ptr, grid->skip_ghost_cell_particle_offset_data() , f };
+        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { glvbos, ai, nullptr, cells, grid->skip_ghost_cell_particle_offset_data() , f };
         parallel_execution_queue() << onika::parallel::block_parallel_for( n_cells, my_func, parallel_execution_context("CopyGLVertAttr") ) << onika::parallel::flush;
-        glvbos.unmap_buffer(ai);
       }
     }
     template<class FieldT>
