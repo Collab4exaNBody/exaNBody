@@ -105,11 +105,31 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     using GLTypeIdT = GLTypeId<field_type>;
     using gl_comp_type = typename GLTypeIdT::comp_type;
     using Writer = GLAttributeWriter<gl_comp_type,field_type>;
-    CellsT m_cells;
+    GLVertexBuffers& m_glvbos;
+    int m_vbo_index = 0;
     gl_comp_type * m_attrib_ptr = nullptr;
+    onikaStream_t m_cu_stream = nullptr;
+    CellsT m_cells;
     const size_t * m_cell_particle_offset = nullptr;
     FieldT m_field;
-    
+
+    inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
+    {
+      if( m_attrib_ptr == nullptr )
+      {
+        m_attrib_ptr = m_glvbos.host_map_write_only(vbo_index);
+      }
+    }
+
+    inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t, ParallelExecutionStream* pes ) const
+    {
+      if( m_attrib_ptr == nullptr )
+      {
+        m_cu_stream = pes->m_cu_stream;
+        m_attrib_ptr = (attrib_type *) m_glvbos.gpu_map_write_only(m_vbo_index,m_cu_stream);
+      }
+    }
+
     ONIKA_HOST_DEVICE_FUNC inline void operator () ( ssize_t cell_i ) const
     {
       const size_t vertex_start = m_cell_particle_offset[cell_i];
@@ -123,6 +143,23 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
         }
       }
     }
+
+    inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
+    {
+      if( m_attrib_ptr == nullptr )
+      {
+        m_attrib_ptr = m_glvbos.host_map_write_only(vbo_index);
+      }
+    }
+
+    inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t, ParallelExecutionStream* pes ) const
+    {
+      if( m_attrib_ptr == nullptr )
+      {
+        m_attrib_ptr = (attrib_type *) m_glvbos.gpu_map_write_only(m_vbo_index,pes->m_cu_stream);
+      }
+    }
+    
   };
 
 }
@@ -134,7 +171,11 @@ namespace onika
     // this template is here to know if compute buffer must be built or computation must be ran on the fly
     template<class CellsT, class FieldT> struct BlockParallelForFunctorTraits< exanb::GLVertexAttribCopyFromParticles<CellsT,FieldT> >
     {      
+#     ifdef EGLRENDER_GPU_COMPUTE_API
       static inline constexpr bool CudaCompatible = true;
+#     else
+      static inline constexpr bool CudaCompatible = false;
+#     endif
     };
   }
 }
@@ -169,31 +210,10 @@ namespace exanb
         const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
-
-        attrib_type * attrib_ptr = (attrib_type *) glvbos.map_buffer_write_only(ai);
-        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { cells, attrib_ptr, grid->skip_ghost_cell_particle_offset_data() , f };
+        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { glvbos, ai, cells, attrib_ptr, grid->skip_ghost_cell_particle_offset_data() , f };
         parallel_execution_queue() << onika::parallel::block_parallel_for( n_cells, my_func, parallel_execution_context("CopyGLVertAttr") ) << onika::parallel::flush;
-/*
-        size_t vertex_idx = 0;
-        for(size_t c=0;c<n_cells;c++)
-        {
-          if( ! grid->is_ghost_cell(c) )
-          {
-            const size_t n_cell_particles = cells[c].size();
-            const auto cell_array = cells[c][f];
-            for( size_t p=0 ; p<n_cell_particles ; p++ , vertex_idx++ )
-            {
-              GLAttributeWriter<attrib_type,field_type>::write(attrib_ptr+vertex_idx*GLTypeId<field_type>::ncomp , cell_array[p] );
-            }
-          }
-        }
-*/
         glvbos.unmap_buffer(ai);
       }
-      /* else
-      {
-        ldbg << "skip field " << f.name() << std::endl;
-      } */
     }
     template<class FieldT>
     inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec ) 
