@@ -108,6 +108,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     GLVertexBuffers& m_glvbos;
     int m_vbo_index = 0;
     gl_comp_type * m_attrib_ptr = nullptr;
+    onikaStream_t m_mapped_cu_stream = nullptr;
     CellsT m_cells;
     const size_t * m_cell_particle_offset = nullptr;
     FieldT m_field;
@@ -126,34 +127,14 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
       }
     }
 
-    inline void operator () ( onika::parallel::block_parallel_for_cpu_prolog_t ) const
-    {
-      if( m_attrib_ptr == nullptr )
-      {
-        m_attrib_ptr = (gl_comp_type *) m_glvbos.host_map_write_only(m_vbo_index);
-        lout << "host map buffer #"<<m_vbo_index<<" @"<<(void*)m_attrib_ptr<<std::endl;
-      }
-    }
-
-    inline void operator () ( onika::parallel::block_parallel_for_gpu_prolog_t , onika::parallel::ParallelExecutionStream * pes ) const
-    {
-      if( m_attrib_ptr == nullptr )
-      {
-        m_attrib_ptr = (gl_comp_type *) m_glvbos.gpu_map_write_only(m_vbo_index,pes->m_cu_stream);
-        lout << "gpu map buffer #"<<m_vbo_index<<" @"<<(void*)m_attrib_ptr<<std::endl;
-      }
-    }
-
     inline void operator () ( onika::parallel::block_parallel_for_cpu_epilog_t ) const
     {
-      lout << "host unmap buffer #"<<m_vbo_index<<std::endl;
       m_glvbos.host_unmap(m_vbo_index);
     }
 
     inline void operator () ( onika::parallel::block_parallel_for_gpu_epilog_t ) const
     {
-      lout << "gpu unmap buffer #"<<m_vbo_index<<std::endl;
-      m_glvbos.gpu_unmap(m_vbo_index);
+      m_glvbos.gpu_unmap(m_vbo_index , m_mapped_cu_stream);
     }
     
   };
@@ -168,7 +149,7 @@ namespace onika
     template<class CellsT, class FieldT> struct BlockParallelForFunctorTraits< exanb::GLVertexAttribCopyFromParticles<CellsT,FieldT> >
     {      
 #     ifdef EGLRENDER_GPU_COMPUTE_API
-      static inline constexpr bool CudaCompatible = true;
+      static inline constexpr bool CudaCompatible = false; //true; // not working yet
 #     else
       static inline constexpr bool CudaCompatible = false;
 #     endif
@@ -206,8 +187,28 @@ namespace exanb
         const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
-        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { glvbos, ai, nullptr, cells, grid->skip_ghost_cell_particle_offset_data() , f };
-        parallel_execution_queue() << onika::parallel::block_parallel_for( n_cells, my_func, parallel_execution_context("CopyGLVertAttr") ) << onika::parallel::flush;
+        constexpr bool CudaEnable = onika::parallel::BlockParallelForFunctorTraits< GLVertexAttribCopyFromParticles<CellsT,FieldT> >::CudaCompatible;
+        
+        // here we force parallel operation to lane 0 so that we can
+        // get the associated cuda stream before scheduling to map GL buffer
+        // in device address space
+        attrib_type * attrib_ptr = nullptr;
+        onikaStream_t cu_stream = nullptr;
+        if( CudaEnable && global_cuda_ctx()->has_devices() )
+        {          
+          cu_stream = parallel_execution_queue().m_stream_pool(0)->m_cu_stream;
+          attrib_ptr = (attrib_type *) glvbos.gpu_map_write_only( ai , cu_stream );
+          ldbg << "gpu map buffer #"<<ai<<" (id="<<glvbos.m_vbo[ai]<<") @"<<attrib_ptr<<" bound to stream "<<(void*)cu_stream<<std::endl;
+        }
+        else
+        {
+          attrib_ptr = (attrib_type *) glvbos.host_map_write_only( ai );
+          ldbg << "host map buffer #"<<ai<<" (id="<<glvbos.m_vbo[ai]<<") @"<<attrib_ptr<<std::endl;
+        }
+        GLVertexAttribCopyFromParticles<CellsT,FieldT> my_func = { glvbos, ai, attrib_ptr, cu_stream, cells, grid->skip_ghost_cell_particle_offset_data() , f };
+        parallel_execution_queue() << onika::parallel::set_lane(0)
+                                   << onika::parallel::block_parallel_for( n_cells, my_func, parallel_execution_context("CopyGLVertAttr") )
+                                   << onika::parallel::flush;
       }
     }
     template<class FieldT>
