@@ -36,11 +36,11 @@ under the License.
 namespace exanb
 {
   using namespace EGLRender;
-  
+
   using Vec3d = exanb::Vec3d;
   using Quat = exanb::Quaternion;
   using Mat3d = exanb::Mat3d;
-  
+
   template<class T> struct GLTypeId
   {
     using comp_type = T;
@@ -79,7 +79,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
   GLTypeInfoMacro( Vec3d   , GLfloat  , GL_FLOAT         ,3,"vec3")
   GLTypeInfoMacro( Quat    , GLfloat  , GL_FLOAT         ,4,"vec4")
   GLTypeInfoMacro( Mat3d   , GLfloat  , GL_FLOAT         ,9,"mat3")
-  
+
 # undef GLTypeInfoMacro
 
   template<class T, size_t N> struct GLTypeId< std::array<T,N> >
@@ -89,7 +89,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     static constexpr int ncomp = N;
     static inline std::string str() { return GLTypeId<T>::str() +"["+std::to_string(N)+"]"; }
   };
-  
+
   template<class T, size_t N> struct GLTypeId< onika::oarray_t<T,N> >
   {
     using comp_type = typename GLTypeId<T>::comp_type;
@@ -136,7 +136,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     {
       m_glvbos.gpu_unmap(m_vbo_index , m_mapped_cu_stream);
     }
-    
+
   };
 
 }
@@ -147,7 +147,7 @@ namespace onika
   {
     // this template is here to know if compute buffer must be built or computation must be ran on the fly
     template<class CellsT, class FieldT> struct BlockParallelForFunctorTraits< exanb::GLVertexAttribCopyFromParticles<CellsT,FieldT> >
-    {      
+    {
 #     ifdef EGLRENDER_GPU_COMPUTE_API
       static inline constexpr bool CudaCompatible = false; //true; // not working yet
 #     else
@@ -165,7 +165,7 @@ namespace exanb
   class EGLParticlesToVertexBuffer : public OperatorNode
   {
     using StringIntMap = std::map< std::string , int >;
-    
+
     ADD_SLOT( GridT            , grid               , INPUT_OUTPUT , DocString{"Local sub-domain particles grid"} );
     ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , OPTIONAL );
     ADD_SLOT( StringIntMap     , vertex_attribs     , INPUT , StringIntMap() , DocString{"Mapping of fields to vertex attribute indices"} );
@@ -175,7 +175,7 @@ namespace exanb
   public:
 
     template<class FieldT>
-    inline void process_one_field( GLVertexBuffers & glvbos, const FieldT& f ) 
+    inline void process_one_field( GLVertexBuffers & glvbos, const FieldT& f )
     {
       using field_type = typename FieldT::value_type;
       using attrib_type = typename GLTypeId<field_type>::comp_type;
@@ -183,19 +183,19 @@ namespace exanb
       if( it != vertex_attribs->end() )
       {
         const int ai = it->second;
-        ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;        
+        ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;
         const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
         constexpr bool CudaEnable = onika::parallel::BlockParallelForFunctorTraits< GLVertexAttribCopyFromParticles<CellsT,FieldT> >::CudaCompatible;
-        
+
         // here we force parallel operation to lane 0 so that we can
         // get the associated cuda stream before scheduling to map GL buffer
         // in device address space
         attrib_type * attrib_ptr = nullptr;
         onikaStream_t cu_stream = nullptr;
         if( CudaEnable && global_cuda_ctx()->has_devices() )
-        {          
+        {
           cu_stream = parallel_execution_queue().m_stream_pool(0)->m_cu_stream;
           attrib_ptr = (attrib_type *) glvbos.gpu_map_write_only( ai , cu_stream );
           ldbg << "gpu map buffer #"<<ai<<" (id="<<glvbos.m_vbo[ai]<<") @"<<attrib_ptr<<" bound to stream "<<(void*)cu_stream<<std::endl;
@@ -212,7 +212,7 @@ namespace exanb
       }
     }
     template<class FieldT>
-    inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec ) 
+    inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec )
     {
       for(const auto& f : fvec) process_one_field( glvbos, f );
     }
@@ -221,7 +221,7 @@ namespace exanb
     template<class FieldT>
     inline void build_formats(std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const FieldT& f )
     {
-      using field_type = typename FieldT::value_type; 
+      using field_type = typename FieldT::value_type;
       auto it = vertex_attribs->find( f.name() );
       if( it != vertex_attribs->end() )
       {
@@ -237,14 +237,14 @@ namespace exanb
     }
 
     template<class... GridFields>
-    inline void execute_on_fields( const GridFields& ... grid_fields ) 
+    inline void execute_on_fields( const GridFields& ... grid_fields )
     {
       const auto * no_ghost_offsets = grid->skip_ghost_cell_particle_offset_data();
       const auto * particle_offsets = grid->cell_particle_offset_data();
       const auto n_cells = grid->number_of_cells();
       const size_t n_points = no_ghost_offsets[n_cells];
       ldbg << "total particles = "<<particle_offsets[n_cells] <<" , skip_ghost = "<<n_points<<std::endl;
-      
+
       int buf_id = egl_render_manager->vertex_buffers_id( *vertex_buffer );
       if( buf_id == -1 )
       {
@@ -270,18 +270,18 @@ namespace exanb
         }
         buf_id = egl_render_manager->create_vertex_buffers( *vertex_buffer , n_points , num_attribs );
       }
-      
+
       GLVertexBuffers & glvbos = egl_render_manager->vertex_buffers(buf_id);
       ldbg << "EGL : update vertex buffer " << *vertex_buffer << " , nv="<< n_points << " , id="<<buf_id<<std::endl;
       glvbos.set_number_of_vertices( n_points );
 
       ( ... , ( process_one_field(glvbos,grid_fields) ) ) ;
-      
+
       parallel_execution_queue().wait();
     }
-    
+
     template<class... fid>
-    inline void execute_on_field_set( FieldSet<fid...> ) 
+    inline void execute_on_field_set( FieldSet<fid...> )
     {
       using has_field_type_t = typename GridT:: template HasField < field::_type >;
       static constexpr bool has_field_type = has_field_type_t::value;
