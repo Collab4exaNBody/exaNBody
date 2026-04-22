@@ -56,7 +56,7 @@ visualization_init:
   - egl_init
   - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
   - egl_make_current: { surface: "onika-egl-window" }
-  - egl_check_cu_graphics: { surface: "onika-egl-window" }
+#  - egl_check_cu_graphics: { surface: "onika-egl-window" }
   - egl_create_shader_program:
       shader_program: "shader"
       vertex_shader: |
