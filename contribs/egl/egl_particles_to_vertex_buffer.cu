@@ -110,7 +110,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     CellsT m_cells;
     FieldT m_field;
     const size_t * m_cell_particle_offset = nullptr;
-    
+
     // GL buffer access
     gl_comp_type * m_attrib_ptr = nullptr;
 
@@ -123,7 +123,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
 
   template<class CellsT, class FieldT> struct ComputeCellParticlesTraits< exanb::GLVertexAttribCopyFromParticles<CellsT,FieldT> >
   {
-    static inline constexpr bool CudaCompatible = false;
+    static inline constexpr bool CudaCompatible = true;
   };
 
   template<class GridT>
@@ -152,15 +152,19 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
         const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
+        bool runs_on_gpu = ( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() );
 
-        attrib_type * attrib_ptr = (attrib_type*) glvbos.host_map_write_only(ai);
+        attrib_type * attrib_ptr = nullptr;
+        if( runs_on_gpu ) attrib_ptr = (attrib_type*) glvbos.gpu_map_write_only(ai);
+        else attrib_ptr = (attrib_type*) glvbos.host_map_write_only(ai);
 
         GLVertexAttribCopyFromParticles<CellsT,FieldT> cp_func = { cells, f, grid->cell_particle_offset_data(), attrib_ptr };
-        
+
         auto cp_fields = onika::make_flat_tuple(f);
         compute_cell_particles( *grid , false, cp_func, cp_fields, parallel_execution_context("CopyGLVertAttr") );
 
-        glvbos.host_unmap(ai);
+        if( runs_on_gpu ) glvbos.gpu_unmap(ai);
+        else glvbos.host_unmap(ai);
       }
     }
     template<class FieldT>
@@ -191,7 +195,6 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields )
     {
-      const auto n_cells = grid->number_of_cells();
       const size_t n_points = grid->number_of_particles();
       ldbg << "total particles = "<<n_points <<std::endl;
 
