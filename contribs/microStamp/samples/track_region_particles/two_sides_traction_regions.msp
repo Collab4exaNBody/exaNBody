@@ -1,0 +1,39 @@
+includes:
+  - baseline.cfg
+
+input_data:
+  - particle_types:
+      particle_type_map: { Ni: 0 }
+  - particle_type_add_properties:
+      Ni: { mass: 58.693 Da , z: 28 }
+  - domain:
+      cell_size: 5.0 ang
+      grid_dims: [ 10, 10, 30 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 50 ang , 50 ang , 150 ] ]
+      periodic: [ true , true , false ]
+      expandable: true
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - particle_regions:
+      - CYL1:
+          quadric:
+            shape: cylz
+            transform:
+              - scale: [20 ang, 20 ang, 1 ang]
+              - translate: [25 ang, 25 ang, 1 ang]
+      - BOTTOMBOX:
+          bounds: [ [ -200 ang , -200 ang , -200 ang ] , [ 200 ang , 200 ang , 15 ang ] ]
+      - TOPBOX:
+          bounds: [ [ -200 ang , -200 ang ,  135 ang ] , [ 200 ang , 200 ang , 200 ang ] ]
+  - lattice:
+      structure: FCC
+      types: [ Ni , Ni , Ni , Ni]
+      size: [ 3.5124 ang , 3.5124 ang , 3.5124 ang ]
+      region: CYL1
+  - gaussian_noise_r:
+      sigma: 0.05 ang
+  - track_region_particles_multiple:
+      exprs: [ "BOTTOMBOX" , "TOPBOX" ]
+      names: [ "BAS"    , "HAUT"   ]
+  - particle_regions:
+      verbose: true
