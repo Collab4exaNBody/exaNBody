@@ -80,24 +80,15 @@ namespace exanb
   {
     auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
 
-    // FIXME: temporary workaround for GPU packing bug with optional fields
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
-    if( gpu_buffer_pack && has_opt_field )
-    {
-      gpu_buffer_pack = false;
-      alloc_on_device = nullptr;
-      staging_buffer = false;
-    }
-
+    const bool has_field_span = field_tuple_contains_field_span(update_fields);
     using GridCellValueType = typename GridCellValues::GridCellValueType;
-    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
+    using CellParticlesAllocator = typename GridT::CellParticlesAllocator;
+    //    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
     static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
 
     using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
-    //using PackGhostFunctor = typename UpdateGhostsScratchT::PackGhostFunctor;
-    //using UnpackGhostFunctor = typename UpdateGhostsScratchT::UnpackGhostFunctor;
-    //using ParForOpts = onika::parallel::BlockParallelForOptions;
     using onika::parallel::block_parallel_for;
 
     if( create_cell_particles && gridp==nullptr )
@@ -105,6 +96,7 @@ namespace exanb
       fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
     }
 
+    static const CellParticlesAllocator default_cell_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
     const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
 
     int nprocs = 1;
@@ -137,9 +129,10 @@ namespace exanb
     ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
         <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
         <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple
-        <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field <<std::endl;
+        <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field<<", has_field_span="<<has_field_span <<std::endl;
 
     auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
+    const onika::soatl::PackedFieldArraysAllocator & cell_allocator = (gridp!=nullptr) ? gridp->cell_allocator() : default_cell_allocator;
     const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
 
     // per cell scalar values, if any
@@ -171,7 +164,7 @@ namespace exanb
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** resize cells if needed ******************
-    ghost_comm_buffers.resize_received_cells( cells, gridp->cell_allocator(), create_cell_particles );
+    ghost_comm_buffers.resize_received_cells( cells, cell_allocator, create_cell_particles );
 
     // ***************** send bufer packing start ******************
     //uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
