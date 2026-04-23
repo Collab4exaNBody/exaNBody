@@ -36,10 +36,10 @@ global:
   dt: 2e-3 ps
   rcut_inc: 2.0 ang
   rcut_max: 4.6 ang
-  simulation_log_frequency: 100
+  simulation_log_frequency: 1000
   simulation_dump_thermo_frequency: -1
-  simulation_dump_frequency: 5
-  simulation_end_iteration: 1000
+  simulation_dump_frequency: 10
+  simulation_end_iteration: 10000
   deterministic_noise: true
 
 # Default simulation scenario: NVE ensemble
@@ -56,17 +56,23 @@ visualization_init:
   - egl_init
   - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
   - egl_make_current: { surface: "onika-egl-window" }
-#  - egl_check_cu_graphics: { surface: "onika-egl-window" }
+  - egl_create_camera: { camera: "camera" , position: [ -100 , 100 , 0 ] , lookat: [ 0 , 0 , 0 ] }
   - egl_create_shader_program:
       shader_program: "shader"
       vertex_shader: |
         #version 430 core
+        layout(binding=0) uniform camera
+        {
+          mat4 modelview;
+          mat4 projection;
+        };
         layout (location=0) in vec3 aPos;
         layout (location=1) in vec3 aVel;
         layout (location=2) in vec3 aForce;
         out vec4 aColor;
-        void main() {
-          gl_Position = vec4(aPos.x*0.02-0.5f, aPos.y*0.02f-0.5f, 0.0f, 1.0f);
+        void main()
+        {
+          gl_Position = vec4(aPos.x*0.02-0.5, aPos.y*0.02-0.5, aPos.z*0.02-0.5, 1.0f);
           gl_PointSize = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 16.0f );
           aColor = vec4( clamp(abs(aVel.x)*0.1f,0.0f,1.0f) , clamp(abs(aVel.y)*0.1f,0.0f,1.0f) , clamp(abs(aVel.y)*0.1f,0.0f,1.0f) , 1.0f );
         }
@@ -75,7 +81,8 @@ visualization_init:
         #version 430 core
         in vec4 aColor;
         out vec4 FragColor;
-        void main() {
+        void main()
+        {
           FragColor = aColor;
         }
 
@@ -110,7 +117,7 @@ dump_data:
           position: 0
           velocity: 1
           force: 2
-    - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , primitive: GL_POINTS }
+    - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , camera: "camera" , primitive: GL_POINTS }
 
 # Baseline system contains 8192 atoms
 input_data:
