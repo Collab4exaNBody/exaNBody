@@ -225,7 +225,7 @@ namespace exanb
 
         for(int i=0;i<np; ++i)
         {
-          const std::string filename_vtp = onika::format_string("%s%09d.vtp",subdir,i);
+          const std::string filename_vtp = onika::format_string("%s/%09d.vtp",subdir,i);
           file_pvtp << vtk_space_offset_four << "<Piece Source=\""<< filename_vtp <<"\"/>" << std::endl;
         }
 
