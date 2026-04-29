@@ -56,16 +56,13 @@ visualization_init:
   - egl_init
   - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
   - egl_make_current: { surface: "onika-egl-window" }
-  - egl_create_camera: { camera: "camera" , position: [ -100 , 100 , 0 ] , lookat: [ 0 , 0 , 0 ] }
   - egl_create_shader_program:
       shader_program: "shader"
+
       vertex_shader: |
         #version 430 core
-        layout(binding=0) uniform camera
-        {
-          mat4 modelview;
-          mat4 projection;
-        };
+        #extension GL_ARB_shading_language_include : require
+        #include <uniform/camera>
         layout (location=0) in vec3 aPos;
         layout (location=1) in vec3 aVel;
         layout (location=2) in vec3 aForce;
@@ -106,6 +103,12 @@ visualization_init:
         stencil_op_sfail: GL_KEEP
         stencil_op_dpfail: GL_KEEP
         stencil_op_dppass: GL_KEEP
+
+  - egl_create_camera:
+      camera: "camera"
+      shader: "shader"
+      position: [ -100 , 100 , 0 ]
+      look_at: [ 0 , 0 , 0 ]
 
 dump_data:
   rebind: { sim_continue: compute_loop_continue }
