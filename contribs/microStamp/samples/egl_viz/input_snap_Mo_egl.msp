@@ -69,9 +69,16 @@ visualization_init:
         out vec4 aColor;
         void main()
         {
-          gl_Position = vec4(aPos.x*0.02-0.5, aPos.y*0.02-0.5, aPos.z*0.02-0.5, 1.0f);
+          mat4 mvp = projection * modelview;
+          gl_Position = mvp * vec4(aPos.x, aPos.y, aPos.z, 1.0f);
           gl_PointSize = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 16.0f );
-          aColor = vec4( clamp(abs(aVel.x)*0.1f,0.0f,1.0f) , clamp(abs(aVel.y)*0.1f,0.0f,1.0f) , clamp(abs(aVel.y)*0.1f,0.0f,1.0f) , 1.0f );
+          float vnorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 1.0f );
+          vec3 blue = vec3(0,0,1);
+          vec3 white = vec3(1,1,1);
+          vec3 red = vec3(1,0,0);
+          if( vnorm<0.5 ) { vnorm*=2.0f; aColor.xyz = blue*(1-vnorm) + white*vnorm; }
+          else { vnorm-=0.5f; vnorm*=2.0f; aColor.xyz = white*(1-vnorm) + red*vnorm; }
+          aColor.w = 1.0f;
         }
 
       fragment_shader: |
@@ -107,8 +114,8 @@ visualization_init:
   - egl_create_camera:
       camera: "camera"
       shader: "shader"
-      position: [ -100 , 100 , 0 ]
-      look_at: [ 0 , 0 , 0 ]
+      eye: [ 0 , 50 , 100 ]
+      look_at: [ 25 , 25 , 25 ]
 
 dump_data:
   rebind: { sim_continue: compute_loop_continue }
