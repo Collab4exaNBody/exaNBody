@@ -38,7 +38,7 @@ global:
   rcut_max: 4.6 ang
   simulation_log_frequency: 1000
   simulation_dump_thermo_frequency: -1
-  simulation_dump_frequency: 10
+  simulation_dump_frequency: 1
   simulation_end_iteration: 10000
   deterministic_noise: true
 
@@ -63,15 +63,15 @@ visualization_init:
         #version 430 core
         #extension GL_ARB_shading_language_include : require
         #include <uniform/camera>
-        layout (location=0) in vec3 aPos;
+        layout (location=0) in vec4 aPos;
         layout (location=1) in vec3 aVel;
         layout (location=2) in vec3 aForce;
         out vec4 aColor;
         void main()
         {
           mat4 mvp = projection * modelview;
-          gl_Position = mvp * vec4(aPos.x, aPos.y, aPos.z, 1.0f);
-          gl_PointSize = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 16.0f );
+          gl_Position = mvp * aPos; //vec4(aPos.x, aPos.y, aPos.z, 1.0f);
+          gl_PointSize = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 64.0f );
           float vnorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 1.0f );
           vec3 blue = vec3(0,0,1);
           vec3 white = vec3(1,1,1);
@@ -116,10 +116,13 @@ visualization_init:
       shader: "shader"
       eye: [ 0 , 50 , 100 ]
       look_at: [ 25 , 25 , 25 ]
+      near: 1.0
+      farr: 10000.0
 
 dump_data:
   rebind: { sim_continue: compute_loop_continue }
   body:
+    - egl_handle_events: { surface: "onika-egl-window" , camera: "camera" }
     - egl_make_current: { surface: "onika-egl-window" }
     - egl_particles_to_vertex_buffer:
         vertex_buffer: "particles"
