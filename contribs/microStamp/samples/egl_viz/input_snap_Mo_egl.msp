@@ -66,19 +66,41 @@ visualization_init:
           layout (location=0) in vec4 aPos;
           layout (location=1) in vec3 aVel;
           layout (location=2) in vec3 aForce;
-          out vec4 aColor;
+          out float aVelocityNorm;
+          out float aForceNorm;
           void main()
           {
             mat4 mvp = projection * modelview;
             gl_Position = mvp * aPos; //vec4(aPos.x, aPos.y, aPos.z, 1.0f);
-            gl_PointSize = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 64.0f );
-            float vnorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 1.0f );
+            aForceNorm = clamp( sqrt(dot(aForce,aForce))*0.02f , 1.0f , 64.0f );
+            aVelocityNorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 1.0f );
+          }
+
+        GL_GEOMETRY_SHADER: |
+          #version 430 core
+          layout (points) in;
+          layout (triangle_strip, max_vertices=3) out;
+          in float aVelocityNorm[];
+          in float aForceNorm[];
+          out vec4 aColor;
+          void main()
+          {
             vec3 blue = vec3(0,0,1);
             vec3 white = vec3(1,1,1);
             vec3 red = vec3(1,0,0);
+            float vnorm = aVelocityNorm[0];
+            float fnorm = aForceNorm[0];
             if( vnorm<0.5 ) { vnorm*=2.0f; aColor.xyz = blue*(1-vnorm) + white*vnorm; }
             else { vnorm-=0.5f; vnorm*=2.0f; aColor.xyz = white*(1-vnorm) + red*vnorm; }
             aColor.w = 1.0f;
+            vec4 aPos = gl_in[0].gl_Position;
+            gl_Position = aPos;
+            EmitVertex();
+            gl_Position = aPos + vec4(fnorm,0,0,0);
+            EmitVertex();
+            gl_Position = aPos + vec4(0,fnorm,0,0);
+            EmitVertex();
+            EndPrimitive();
           }
 
         GL_FRAGMENT_SHADER: |
