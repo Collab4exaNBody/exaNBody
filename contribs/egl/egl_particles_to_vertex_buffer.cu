@@ -149,7 +149,6 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
       {
         const int ai = it->second;
         ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;
-        const size_t n_cells = grid->number_of_cells();
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
         bool runs_on_gpu = ( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() );
