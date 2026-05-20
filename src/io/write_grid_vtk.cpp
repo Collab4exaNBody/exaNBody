@@ -37,7 +37,7 @@ namespace exanb
 {
 
   template<class GridT>
-  class WriteGridVTK : public OperatorNode
+  class WriteGridVTKGhosts : public OperatorNode
   {
     ADD_SLOT( MPI_Comm       , mpi              , INPUT , REQUIRED );
     ADD_SLOT( GridT          , grid             , INPUT , REQUIRED );
@@ -46,6 +46,7 @@ namespace exanb
     ADD_SLOT( std::string    , filename         , INPUT , "grid" );
     ADD_SLOT( bool           , use_point_data   , INPUT , true );
     ADD_SLOT( bool           , adjust_spacing   , INPUT , false );
+    ADD_SLOT( bool           , write_ghosts     , INPUT , false );
 
   public:
 
@@ -54,11 +55,11 @@ namespace exanb
     inline void execute ()  override final
     {
       namespace fs = std::experimental::filesystem;
-    
-      
+
+
 #     ifndef NDEBUG
       static constexpr size_t scalar_len = 18;
-      static const char* real_format = "% .10e\n";  
+      static const char* real_format = "% .10e\n";
       const std::string test_str = onika::format_string(real_format,123456.0);
       const size_t scalar_len_test = test_str.length();
       assert( scalar_len == scalar_len_test );
@@ -66,12 +67,10 @@ namespace exanb
 #     endif
 
       const IJK dims = grid->dimension();
-      const ssize_t gl = grid->ghost_layers();      
+      const ssize_t gl = grid->ghost_layers();
       const IJK dom_dims = domain->grid_dimension();
-      //const size_t dom_n_cells = dom_dims.i*dom_dims.j*dom_dims.k;
-      //const Vec3d dom_origin = domain->origin();
-      //const double cell_size = domain->cell_size();
       const IJK dims_no_ghost = dims-2*gl;
+      const bool ghosts = *write_ghosts;
 
       int rank=0, np=1;
       MPI_Comm_rank(*mpi, &rank);
@@ -87,22 +86,40 @@ namespace exanb
           std::abort();
         }
       }
-      
+
       if( subdiv < 1 )
       {
         return;
       }
 
-      GridBlock local_block = enlarge_block( grid->block() , -gl );
+      // When writing ghosts, shift block by gl so all coordinates stay non-negative.
+      // dimension() is unchanged by the shift (end-start is the same), so block_elements
+      // and the data loop correctly cover the full ghost-inclusive grid.
+      GridBlock local_block;
+      if (ghosts)
+      {
+        local_block = grid->block();
+        local_block.start.i += gl; local_block.start.j += gl; local_block.start.k += gl;
+        local_block.end.i   += gl; local_block.end.j   += gl; local_block.end.k   += gl;
+      }
+      else
+      {
+        local_block = enlarge_block( grid->block() , -gl );
+      }
+
       std::vector<GridBlock> all_blocks( np );
       MPI_Allgather( (char*) &local_block, sizeof(GridBlock), MPI_CHAR, (char*) all_blocks.data(), sizeof(GridBlock), MPI_CHAR, *mpi);
       assert( all_blocks[rank] == local_block);
-      
+
       bool point_mode = *use_point_data;
 
-      const IJK whole_ext = (point_mode)? dom_dims*subdiv - 1 : dom_dims*subdiv;
-      
-      ldbg << "extent="<<whole_ext<<", point_mode="<<std::boolalpha<<point_mode <<std::endl;
+      // Ghost-extended domain is (dom_dims + 2*gl) cells per axis.
+      const IJK base_dims = ghosts ? (dom_dims + 2*gl) : dom_dims;
+      const IJK whole_ext = point_mode ? base_dims*subdiv - 1 : base_dims*subdiv;
+      const ssize_t ghost_level = 0;
+
+      ldbg << "extent="<<whole_ext<<", point_mode="<<std::boolalpha<<point_mode
+           <<", write_ghosts="<<ghosts<<std::endl;
 
       std::string filepath = *filename;
       std::string dirname;
@@ -121,7 +138,7 @@ namespace exanb
           dirname = "";
           basename = filepath;
         }
-      
+
       // Remove extension from basename if present
       if( basename.rfind('.') != std::string::npos )
       {
@@ -138,21 +155,21 @@ namespace exanb
         {
           outputDir = basename;
         }
-      
-      if( rank == 0 ) 
+
+      if( rank == 0 )
       {
         ldbg << "create directory " << outputDir << std::endl;
-        
+
         // Remove the output directory if it exists
         fs::remove_all(outputDir);
-        
+
         // Create all directories in the path (parent folders + output directory)
         std::error_code ec;
         fs::create_directories(outputDir, ec);
       }
       MPI_Barrier(*mpi);
-      
-      if( rank == 0 ) 
+
+      if( rank == 0 )
       {
         std::string pvti_filename = outputDir + ".pvti" ;
         ldbg << "write file "<<pvti_filename<<" ..."<<std::endl;
@@ -169,12 +186,12 @@ namespace exanb
           pvti << "  <PImageData WholeExtent=\"0 "
                <<whole_ext.i<<" 0 "
                <<whole_ext.j<<" 0 "
-               <<whole_ext.k<<"\" GhostLevel=\"0\" Origin=\"0 0 0\" Spacing=\""<< spacing_x <<" "<<spacing_y<<" "<<spacing_z<<"\">\n";
+               <<whole_ext.k<<"\" GhostLevel=\""<<ghost_level<<"\" Origin=\"0 0 0\" Spacing=\""<< spacing_x <<" "<<spacing_y<<" "<<spacing_z<<"\">\n";
         } else {
           pvti << "  <PImageData WholeExtent=\"0 "
                <<whole_ext.i<<" 0 "
                <<whole_ext.j<<" 0 "
-               <<whole_ext.k<<"\" GhostLevel=\"0\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n";
+               <<whole_ext.k<<"\" GhostLevel=\""<<ghost_level<<"\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n";
         }
         bool scalars_set = true;
         for(const auto& fp:grid_cell_values->fields())
@@ -197,20 +214,20 @@ namespace exanb
         {
           IJK start, end;
           end.i = ((all_blocks[i].end.i*subdiv > whole_ext.i) && point_mode) ? all_blocks[i].end.i*subdiv-1 : all_blocks[i].end.i*subdiv;
-          end.j = ((all_blocks[i].end.j*subdiv > whole_ext.j) && point_mode) ? all_blocks[i].end.j*subdiv-1 : all_blocks[i].end.j*subdiv; 
-          end.k = ((all_blocks[i].end.k*subdiv > whole_ext.k) && point_mode) ? all_blocks[i].end.k*subdiv-1 : all_blocks[i].end.k*subdiv; 
-          
+          end.j = ((all_blocks[i].end.j*subdiv > whole_ext.j) && point_mode) ? all_blocks[i].end.j*subdiv-1 : all_blocks[i].end.j*subdiv;
+          end.k = ((all_blocks[i].end.k*subdiv > whole_ext.k) && point_mode) ? all_blocks[i].end.k*subdiv-1 : all_blocks[i].end.k*subdiv;
+
           if(point_mode)
             {
-              start.i = (all_blocks[i].start.i*subdiv > 0) ? all_blocks[i].start.i*subdiv-1 : 0; 
-              start.j = (all_blocks[i].start.j*subdiv > 0) ? all_blocks[i].start.j*subdiv-1 : 0; 
-              start.k = (all_blocks[i].start.k*subdiv > 0) ? all_blocks[i].start.k*subdiv-1 : 0; 
+              start.i = (all_blocks[i].start.i*subdiv > 0) ? all_blocks[i].start.i*subdiv-1 : 0;
+              start.j = (all_blocks[i].start.j*subdiv > 0) ? all_blocks[i].start.j*subdiv-1 : 0;
+              start.k = (all_blocks[i].start.k*subdiv > 0) ? all_blocks[i].start.k*subdiv-1 : 0;
             }
           else
             {
-              start.i = all_blocks[i].start.i*subdiv; 
-              start.j = all_blocks[i].start.j*subdiv; 
-              start.k = all_blocks[i].start.k*subdiv; 
+              start.i = all_blocks[i].start.i*subdiv;
+              start.j = all_blocks[i].start.j*subdiv;
+              start.k = all_blocks[i].start.k*subdiv;
             }
           pvti << "    <Piece Extent=\""
                << start.i<<" "<<end.i<<" "
@@ -234,14 +251,15 @@ namespace exanb
       uint64_t block_elements = grid_cell_count(local_subgrid_dims);
       const uint64_t block_size = block_elements * sizeof(double);
 
-      IJK dims_copy = dims_no_ghost;
-      IJK sg_dims = dims_no_ghost*subdiv;
-      
+      // dims_copy: cells to iterate over (includes ghost when write_ghosts=true)
+      IJK dims_copy = ghosts ? dims : dims_no_ghost;
+      IJK sg_dims = dims_copy * subdiv;
+
       IJK start_loc_ext, end_loc_ext;
       end_loc_ext.i = ((local_block.end.i*subdiv > whole_ext.i) && point_mode) ? local_block.end.i*subdiv-1 : local_block.end.i*subdiv;
       end_loc_ext.j = ((local_block.end.j*subdiv > whole_ext.j) && point_mode) ? local_block.end.j*subdiv-1 : local_block.end.j*subdiv;
       end_loc_ext.k = ((local_block.end.k*subdiv > whole_ext.k) && point_mode) ? local_block.end.k*subdiv-1 : local_block.end.k*subdiv;
-      
+
       if (point_mode)
         {
           start_loc_ext.i = (local_block.start.i*subdiv > 0) ? local_block.start.i*subdiv-1 : 0;
@@ -314,7 +332,7 @@ namespace exanb
       vti<<"  <AppendedData encoding=\"raw\">\n";
       vti<<"    _";
 
-      assert( dims_no_ghost*subdiv == local_subgrid_dims );
+      assert( dims_copy*subdiv == local_subgrid_dims );
 
       offset = 0;
       std::vector<double> buffer;
@@ -325,29 +343,31 @@ namespace exanb
         size_t n_comps = fp.second.m_components / n_subcells;
         uint64_t vec_block_size = block_size * n_comps;
         size_t vec_block_elements = block_elements * n_comps;
-        
+
         assert( n_comps*n_subcells == fp.second.m_components );
         ldbg << "\twrite field "<<fp.first<<std::endl;
-        
+
         // write block size
         vti.write( reinterpret_cast<const char*>(&vec_block_size), sizeof(uint64_t) );
-        
+
         buffer.assign( vec_block_elements , 0.0 );
         auto field_data = grid_cell_values->field_data( fp.second );
 
         GRID_FOR_BEGIN(dims_copy,_,loc)
         {
-          const IJK cell_loc = loc + gl; 
+          // When writing ghosts, loc ranges over [0,dims); cell_loc maps directly.
+          // When not writing ghosts, loc ranges over [0,dims_no_ghost); offset by gl to skip ghost cells.
+          const IJK cell_loc = ghosts ? loc : (loc + gl);
           const size_t cell_i = grid_ijk_to_index( dims , cell_loc );
           for(int ck=0;ck<subdiv;ck++)
           for(int cj=0;cj<subdiv;cj++)
           for(int ci=0;ci<subdiv;ci++)
           {
-            const IJK sc { ci, cj, ck }; 
-            IJK sg_loc = loc*subdiv+sc; 
+            const IJK sc { ci, cj, ck };
+            IJK sg_loc = loc*subdiv+sc;
             assert( sg_loc.i>=0 && sg_loc.j>=0 && sg_loc.k>=0 );
             assert( sg_loc.i < sg_dims.i && sg_loc.j < sg_dims.j && sg_loc.k < sg_dims.k );
-            size_t gcv_index = cell_i * field_data.m_stride +  grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , sc ) * n_comps;             
+            size_t gcv_index = cell_i * field_data.m_stride +  grid_ijk_to_index( IJK{subdiv,subdiv,subdiv} , sc ) * n_comps;
             size_t buffer_index = grid_ijk_to_index(sg_dims,sg_loc) * n_comps;
             for(unsigned int c=0;c<n_comps;c++)
               {
@@ -356,7 +376,7 @@ namespace exanb
           }
         }
         GRID_FOR_END
-        
+
         vti.write( reinterpret_cast<const char*>(buffer.data()), vec_block_size );
         offset += sizeof(uint64_t) + vec_block_size;
       }
@@ -375,6 +395,7 @@ Input Slots:
   - filename (string, default="grid"): Output filename without extension
   - use_point_data (bool, default=true): Output as point data (true) or cell data (false)
   - adjust_spacing (bool, default=false): Use physical spacing from domain transform
+  - write_ghosts (bool, default=false): Include ghost layers in output for debugging
 
 Output:
   - Creates <filename>.pvti (master file) and <filename>/piece<rank>.vti (per-rank files)
@@ -382,34 +403,35 @@ Output:
 
 YAML Examples:
 
-# Basic usage with default settings
+# Basic usage without ghost layers
 dump_data:
-  # This generates a string "filename" with %09d replaced by the current timestep.
   - timestep_file: "output/timestep_%09d"
-  - write_grid_vtk:
+  - write_grid_vtk_ghosts:
       use_point_data: true
       adjust_spacing: true
 
-# Modified usage with adjusted spacing for physical dimensions
+# Include ghost layers for debugging ghost cell values
 dump_data:
-  # This generates a string "filename" with %09d replaced by the current timestep.
   - timestep_file: "output/timestep_%09d"
-  - write_grid_vtk:
+  - write_grid_vtk_ghosts:
       adjust_spacing: true
+      write_ghosts: true
 
 Notes:
   - All fields in grid_cell_values will be exported
-  - Ghost layers are automatically excluded from output
+  - When write_ghosts=false (default), ghost layers are excluded from output
+  - When write_ghosts=true, ghost layers are included; block coordinates are shifted by gl
+    so all extents remain non-negative; GhostLevel is set accordingly in the pvti header
   - Open the .pvti file in ParaView (not individual .vti files) to see the entire system
 )EOF";
     }
-  
+
   };
 
   // === register factories ===
-  ONIKA_AUTORUN_INIT(write_grid_vtk)
+  ONIKA_AUTORUN_INIT(write_grid_vtk_ghosts)
   {
-   OperatorNodeFactory::instance()->register_factory("write_grid_vtk", make_grid_variant_operator< WriteGridVTK > );
+   OperatorNodeFactory::instance()->register_factory("write_grid_vtk_ghosts", make_grid_variant_operator< WriteGridVTKGhosts > );
   }
 
 }
