@@ -163,6 +163,11 @@ endfunction()
 add_subdirectory(src)
 add_subdirectory(contribs)
 
+option(EXANB_BUILD_PYTHON "Build Python (pyexanbody) package" OFF)
+if(EXANB_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
+
 # optional search path configuration is per end user application
 file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Optional search directories for data files\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(\${XNB_APP_NAME}_DATA_DIRS \"${XNB_DATA_DIRS}\" CACHE STRING \"Set of paths to search data files without relative paths\")\n")
@@ -209,6 +214,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
   "export LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n"
   "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${CMAKE_INSTALL_PREFIX}/plugins\n"
+  "export PYTHONPATH=${CMAKE_INSTALL_PREFIX}/lib:\$PYTHONPATH\n"
   "[ \$ONIKA_DEBUG ] && echo \"exaNBody environment : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 

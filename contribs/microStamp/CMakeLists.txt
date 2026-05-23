@@ -2,6 +2,9 @@
 # Copy example folder for microStamp
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/samples DESTINATION share/microStamp_examples)
 
+# Install potential files so they are found via ONIKA_DATA_PATH at runtime.
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/potentials/ DESTINATION share/potentials)
+
 # Add regression tests for microStamp
 if(ONIKA_REGRESSION_TEST_ENABLE)
   file(GLOB_RECURSE POTENTIAL_FILES "${CMAKE_CURRENT_SOURCE_DIR}/potentials/*")
