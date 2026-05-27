@@ -161,7 +161,8 @@ namespace exanb
 
     std::random_device rd{};
     std::mt19937 generator( deterministic_noise ? onika::multi_hash(void_porosity,void_mean_diameter,void_radius,void_center.x,void_center.y,void_center.z) : rd() );
-    std::normal_distribution<double> distribution_radius(void_mean_diameter, void_mean_diameter/2.);
+    std::normal_distribution<double> normal_distribution_radius( 1.0 , 1.0/2.); // std::normal_distribution crashes if constructed with 0.0 std dev
+    auto distribution_radius = [void_mean_diameter,&normal_distribution_radius]( std::mt19937 &generator ) -> double { return normal_distribution_radius(generator) * void_mean_diameter; };
     std::uniform_real_distribution<double> distribution_center_x( domain.origin().x , domain.extent().x );
     std::uniform_real_distribution<double> distribution_center_y( domain.origin().y , domain.extent().y );
     std::uniform_real_distribution<double> distribution_center_z( domain.origin().z , domain.extent().z );      
