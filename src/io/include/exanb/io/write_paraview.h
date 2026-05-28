@@ -189,11 +189,9 @@ namespace exanb
         std::string filename_pvtp = (filename) + ".pvtp";
 
         const auto last_slash = filename.rfind('/');
-        std::string subdir = filename;
-        if( last_slash != std::string::npos )
-        {
-          subdir = filename.substr(last_slash+1) + "/";
-        }
+        std::string subdir = (last_slash != std::string::npos)
+          ? filename.substr(last_slash+1) + "/"
+          : filename + "/";
         ldbg << "Write pvtp file '" << filename_pvtp <<"' , subdir = '"<<subdir<<"'"<< std::endl;
 
         std::ofstream file_pvtp(filename_pvtp);
