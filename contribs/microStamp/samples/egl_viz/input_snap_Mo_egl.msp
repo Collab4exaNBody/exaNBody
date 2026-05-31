@@ -52,6 +52,9 @@ simulation: default_simulation
 # No visualisation or restart dump
 final_dump: nop
 
++update_particles_full:
+  - egl_particles_noghost_elements: { elements: "noghost_atoms" }
+
 visualization_init:
   - egl_init
   - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
@@ -181,7 +184,7 @@ dump_data:
           position: 0
           velocity: 1
           force: 2
-    - egl_draw: { vertex_buffer: "particles" , shader_program: "atom_quadrics" , primitive: GL_POINTS }
+    - egl_draw: { vertex_buffer: "particles" , shader_program: "atom_quadrics" , elements: "noghost_atoms" , primitive: GL_POINTS }
     - egl_end_frame: { surface: "onika-egl-window" }
 
 # Baseline system contains 8192 atoms
