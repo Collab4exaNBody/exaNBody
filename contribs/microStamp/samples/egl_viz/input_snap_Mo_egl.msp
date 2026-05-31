@@ -68,8 +68,8 @@ visualization_init:
           void main()
           {
             gl_Position = aPos;
-            vForceNorm = clamp( sqrt(dot(aForce,aForce))*0.01f , 0.0f ,100.0f );
-            vVelocityNorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 2*3.14159 );
+            vForceNorm = sqrt(dot(aForce,aForce));
+            vVelocityNorm = sqrt(dot(aVel,aVel));
           }
 
         GL_GEOMETRY_SHADER: |
@@ -90,9 +90,9 @@ visualization_init:
           void main()
           {
             vec4 vPos = gl_in[0].gl_Position;
-            fDiffuseColor = scalar_pv_colormap( 0.0, 10.0 , vVelocityNorm[0] );
+            fDiffuseColor = scalar_pv_colormap( vForceNorm[0], 0.0, 5.e2 );
             mat4 mvp = projection * modelview;
-            mat4 T = quadrics_anisotropic_variance_matrix( vPos , clamp(vForceNorm[0],0.0,1.0) );
+            mat4 T = quadrics_anisotropic_variance_matrix( vPos , 0.3 /*clamp(vForceNorm[0],0.0,1.0)*/ );
             mat4 D = quadrics_sphere_matrix();
             mat4 Ti = inverse( T );
             mat4 Tit = transpose( Ti );
@@ -133,9 +133,9 @@ visualization_init:
             vec3 ambientColor = vec3(0.1,0.1,0.1);
             vec3 diffuseColor = fDiffuseColor.xyz;
             vec3 specularColor = vec3(1,1,1);
-            vec3 lightPosition = vec3(1,1,1); 
+            vec3 lightPosition = vec3(0.3,0.3,1); 
             float d = max( dot( N , normalize(lightPosition) ) , 0 );
-            float s = pow( d , 3 );
+            float s = pow( d , 8 );
             color.xyz = diffuseColor.xyz * d + specularColor * s + ambientColor;
             color.w = fDiffuseColor.w;
             FragColor = color;
