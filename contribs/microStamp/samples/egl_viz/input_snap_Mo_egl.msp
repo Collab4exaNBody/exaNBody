@@ -55,66 +55,90 @@ final_dump: nop
 visualization_init:
   - egl_init
   - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
-  - egl_make_current: { surface: "onika-egl-window" }
   - egl_create_shader_program:
-      shader_program: "shader"
+      shader_program: "atom_quadrics"
       sources:
         GL_VERTEX_SHADER: |
-          #version 430 core
-          #extension GL_ARB_shading_language_include : require
-          #include <uniform/camera>
-          layout (location=0) in vec4 aPos;
-          layout (location=1) in vec3 aVel;
-          layout (location=2) in vec3 aForce;
-          out float aVelocityNorm;
-          out float aForceNorm;
+          #version 460 core
+          layout (location = 0) in vec4 aPos;
+          layout (location = 1) in vec3 aVel;
+          layout (location = 2) in vec3 aForce;
+          out float vVelocityNorm;
+          out float vForceNorm;
           void main()
           {
-            gl_Position = modelview * aPos;
-            aForceNorm = clamp( sqrt(dot(aForce,aForce))*0.01f , 0.0f ,100.0f );
-            aVelocityNorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 2*3.14159 );
+            gl_Position = aPos;
+            vForceNorm = clamp( sqrt(dot(aForce,aForce))*0.01f , 0.0f ,100.0f );
+            vVelocityNorm = clamp(sqrt(dot(aVel,aVel))*0.1f , 0.0f , 2*3.14159 );
           }
 
         GL_GEOMETRY_SHADER: |
-          #version 430 core
+          #version 460 core
           #extension GL_ARB_shading_language_include : require
           #include <uniform/camera>
+          #include <quadrics/convex_hull>
+          #include <quadrics/shape>
+          #include <color/scalar_color_map>
           layout (points) in;
-          layout (triangle_strip, max_vertices=4) out;
-          in float aVelocityNorm[];
-          in float aForceNorm[];
-          out vec4 aColor;
+          layout (triangle_strip, max_vertices=CVH_TRIANGLE_STRIP_MAX_VERTICES) out;
+          in float vVelocityNorm[];
+          in float vForceNorm[];
+          out vec4 fDiffuseColor;
+          out mat4 fQuadricsMatrix;
+          out mat4 fModelViewVarianceInverse;
+          out mat4 fProjectionInverse;
           void main()
           {
-            vec3 blue = vec3(0,0,1);
-            vec3 white = vec3(1,1,1);
-            vec3 red = vec3(1,0,0);
-            float vnorm = aVelocityNorm[0];
-            float fnorm = aForceNorm[0];
-            if( vnorm<0.5 ) { vnorm*=2.0f; aColor.xyz = blue*(1-vnorm) + white*vnorm; }
-            else { vnorm-=0.5f; vnorm*=2.0f; aColor.xyz = white*(1-vnorm) + red*vnorm; }
-            aColor.w = 1.0f;
-            vec4 aPos = gl_in[0].gl_Position;
-            vec4 U = vec4(fnorm*aspect_ratio,fnorm,0,0);
-            vec4 V = vec4(-fnorm*aspect_ratio,fnorm,0,0);
-            gl_Position = projection * ( aPos - (U+V)*0.5 );
-            EmitVertex();
-            gl_Position = projection * ( aPos - (U+V)*0.5 + U );
-            EmitVertex();
-            gl_Position = projection * ( aPos - (U+V)*0.5 + V );
-            EmitVertex();
-            gl_Position = projection * ( aPos - (U+V)*0.5 + U + V );
-            EmitVertex();
-            EndPrimitive();
+            vec4 vPos = gl_in[0].gl_Position;
+            fDiffuseColor = scalar_pv_colormap( 0.0, 10.0 , vVelocityNorm[0] );
+            mat4 mvp = projection * modelview;
+            mat4 T = quadrics_anisotropic_variance_matrix( vPos , clamp(vForceNorm[0],0.0,1.0) );
+            mat4 D = quadrics_sphere_matrix();
+            mat4 Ti = inverse( T );
+            mat4 Tit = transpose( Ti );
+            mat4 modelviewInverse = inverse( modelview );
+            mat4 modelviewInverseTranspose = transpose( modelviewInverse );
+            fModelViewVarianceInverse = Ti * modelviewInverse;
+            fProjectionInverse = inverse( projection );
+            fQuadricsMatrix = modelviewInverseTranspose * Tit * D * Ti * modelviewInverse;
+            ConvexHull2D hull = quadrics_2D_convex_hull( mvp, T );
+            cvh_draw_triangles( hull );
           }
 
         GL_FRAGMENT_SHADER: |
-          #version 430 core
-          in vec4 aColor;
-          out vec4 FragColor;
+          #version 460 core
+          #extension GL_ARB_shading_language_include : require
+          #include <uniform/camera>
+          #include <quadrics/raytracing>
+          in vec4 fDiffuseColor;
+          in mat4 fQuadricsMatrix;
+          in mat4 fModelViewVarianceInverse;
+          in mat4 fProjectionInverse;
+          layout (location = 0) out vec4 FragColor; // first attached output buffer
+          layout (depth_any) out float gl_FragDepth; // free to set depth to arbitrary value
           void main()
           {
-            FragColor = aColor;
+            vec2 vp = viewport[0];
+            vec2 vp_rcp = viewport[1];
+            vec3 fc = gl_FragCoord.xyz;
+            fc.xy /= vp;
+            fc *= 2.0;
+            fc -= 1.0;
+            vec4 p = fProjectionInverse * vec4(fc, 1.);
+            vec3 P = rayQuadricsIntersection( fQuadricsMatrix , fModelViewVarianceInverse , vec3(0,0,0), p.xyz / p.w );
+            vec3 N = quadricsSurfaceNormal( fQuadricsMatrix , P );
+            vec4 projP = projection * vec4( P, 1. );
+            gl_FragDepth = 0.5 * (projP.z / projP.w + 1.0);
+            vec4 color;
+            vec3 ambientColor = vec3(0.1,0.1,0.1);
+            vec3 diffuseColor = fDiffuseColor.xyz;
+            vec3 specularColor = vec3(1,1,1);
+            vec3 lightPosition = vec3(1,1,1); 
+            float d = max( dot( N , normalize(lightPosition) ) , 0 );
+            float s = pow( d , 3 );
+            color.xyz = diffuseColor.xyz * d + specularColor * s + ambientColor;
+            color.w = fDiffuseColor.w;
+            FragColor = color;
           }
 
       pipeline_config:
@@ -140,7 +164,7 @@ visualization_init:
 
   - egl_create_camera:
       camera: "camera"
-      shader: "shader"
+      bond_shaders: [ "atom_quadrics" ]
       eye: [ 0 , 50 , 100 ]
       look_at: [ 25 , 25 , 25 ]
       near: 1.0
@@ -150,14 +174,15 @@ dump_data:
   rebind: { sim_continue: compute_loop_continue }
   body:
     - egl_handle_events: { surface: "onika-egl-window" , camera: "camera" }
-    - egl_make_current: { surface: "onika-egl-window" }
+    - egl_start_frame: { surface: "onika-egl-window" , camera: "camera" }
     - egl_particles_to_vertex_buffer:
         vertex_buffer: "particles"
         vertex_attribs:
           position: 0
           velocity: 1
           force: 2
-    - egl_draw: { surface: "onika-egl-window" , vertex_buffer: "particles" , shader_program: "shader" , camera: "camera" , primitive: GL_POINTS }
+    - egl_draw: { vertex_buffer: "particles" , shader_program: "atom_quadrics" , primitive: GL_POINTS }
+    - egl_end_frame: { surface: "onika-egl-window" }
 
 # Baseline system contains 8192 atoms
 input_data:
