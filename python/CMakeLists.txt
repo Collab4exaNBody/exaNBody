@@ -20,9 +20,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/pyexanbody/_paths.py
 # Install README and example scripts with the solar-system sample .msp.
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/README.md DESTINATION python)
 install(FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/test.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/run_solar_system.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/solar_system_graph.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/../contribs/microCosmos/samples/simple_example/solar_system.msp
+    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyexanbody_dryrun_test_import_pyexanbody.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyexanbody_reproduce_solar_system_case.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyexanbody_run_example.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyexanbody_run_main_config.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/exemples/pyexanbody_run_solar_system.py
     DESTINATION python/exemples
 )

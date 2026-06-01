@@ -34,26 +34,6 @@ main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
 ctx = xnb.init([sys.argv[0], main_config])
 if ctx.error_code >= 0:
     sys.exit(ctx.error_code)
-
-print(f"[pyexanbody] rank={ctx.mpi_rank}/{ctx.mpi_nprocs}  "
-      f"cpus={ctx.cpucount}  gpus={ctx.ngpus}")
-
-# --- inspect the simulation graph -----------------------------------
-print("\n[pyexanbody] === simulation graph ===")
-operators = []
-root = ctx.node("test_simulation")
-if root is not None:
-    root.apply_graph(operators.append)
-    for op in operators:
-        indent = "  " * op.depth()
-        print(f"  {indent}{op.pathname()}")
-        for name, slot in op.in_slots():
-            val = slot.value_as_string() if slot.has_value() else "<unset>"
-            print(f"  {indent}  in  {name}: {slot.value_type()} = {val}")
-        for name, slot in op.out_slots():
-            val = slot.value_as_string() if slot.has_value() else "<unset>"
-            print(f"  {indent}  out {name}: {slot.value_type()} = {val}")
-
 # ---------------------------------------------------------------------------
 # 2. Override operator defaults.
 #    Equivalent to the top-level non-simulation keys in solar_system.msp.
@@ -72,7 +52,7 @@ xnb.set_operator_defaults({
         "rcut_inc":                  "18 m",
         "simulation_log_frequency":  1,
         "simulation_dump_frequency": 5,
-        "simulation_end_iteration":  100,
+        "simulation_end_iteration":  10,
     },
 
     # ---- input_data: domain definition + particle placement ----------------
@@ -172,25 +152,10 @@ xnb.set_operator_defaults({
 #
 #    This is equivalent to:  simulation: default_simulation
 # ---------------------------------------------------------------------------
-# graph = xnb.build_simulation_graph(ctx, ["test_simulation"])
-graph = xnb.build_simulation_graph(ctx, [
-#    "logo_banner",
-    "mpi_comm_world",
-    "init_cuda",
-    "update_ghost_config",
-    "global",
-    "unit_system",
-    "update_ghost_config",
-    "input_data",
-    "nbh_dist",
-    "print_domain",
-    "first_iteration",
-    "compute_loop",
-    "simulation_epilog",
-    "final_dump",
-    "memory_stats: { musage_threshold: 16 }",
-    "finalize_cuda"
-])  
-
+#graph = xnb.build_simulation_graph(ctx, ["simulation"])
+#graph = xnb.build_simulation_graph(ctx, ["default_simulation"])
+#graph = xnb.build_simulation_graph(ctx, ["test_simulation"])
+graph = xnb.build_simulation_graph(ctx)
 xnb.run_node(ctx, graph)
+
 xnb.end(ctx)
