@@ -89,20 +89,18 @@ visualization_init:
           out vec4 fDiffuseColor;
           out mat4 fQuadricsMatrix;
           out mat4 fModelViewVarianceInverse;
-          out mat4 fProjectionInverse;
           void main()
           {
             vec4 vPos = gl_in[0].gl_Position;
             fDiffuseColor = scalar_pv_colormap( vForceNorm[0], 0.0, 5.e2 );
-            mat4 mvp = projection * modelview;
+            mat4 mvp = projection[0] * modelview[0];
             mat4 T = quadrics_anisotropic_variance_matrix( vPos , 0.3 /*clamp(vForceNorm[0],0.0,1.0)*/ );
             mat4 D = quadrics_sphere_matrix();
             mat4 Ti = inverse( T );
             mat4 Tit = transpose( Ti );
-            mat4 modelviewInverse = inverse( modelview );
+            mat4 modelviewInverse = modelview[1];
             mat4 modelviewInverseTranspose = transpose( modelviewInverse );
             fModelViewVarianceInverse = Ti * modelviewInverse;
-            fProjectionInverse = inverse( projection );
             fQuadricsMatrix = modelviewInverseTranspose * Tit * D * Ti * modelviewInverse;
             ConvexHull2D hull = quadrics_2D_convex_hull( mvp, T );
             cvh_draw_triangles( hull );
@@ -116,11 +114,11 @@ visualization_init:
           in vec4 fDiffuseColor;
           in mat4 fQuadricsMatrix;
           in mat4 fModelViewVarianceInverse;
-          in mat4 fProjectionInverse;
           layout (location = 0) out vec4 FragColor; // first attached output buffer
           layout (depth_any) out float gl_FragDepth; // free to set depth to arbitrary value
           void main()
           {
+            mat4 fProjectionInverse = projection[1];
             vec2 vp = viewport[0];
             vec2 vp_rcp = viewport[1];
             vec3 fc = gl_FragCoord.xyz;
@@ -130,7 +128,7 @@ visualization_init:
             vec4 p = fProjectionInverse * vec4(fc, 1.);
             vec3 P = rayQuadricsIntersection( fQuadricsMatrix , fModelViewVarianceInverse , vec3(0,0,0), p.xyz / p.w );
             vec3 N = quadricsSurfaceNormal( fQuadricsMatrix , P );
-            vec4 projP = projection * vec4( P, 1. );
+            vec4 projP = projection[0] * vec4( P, 1. );
             gl_FragDepth = 0.5 * (projP.z / projP.w + 1.0);
             vec4 color;
             vec3 ambientColor = vec3(0.1,0.1,0.1);

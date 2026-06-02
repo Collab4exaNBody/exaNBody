@@ -17,6 +17,7 @@
 #
 
 find_package(EGLRender)
+set(eglParticleRendering_PACKAGE_DEPENDENCIES EGLRender)
 set(eglParticleRendering_LINK_LIBRARIES exanbCompute EGLRender::EGLRender)
 xnb_add_plugin(eglParticleRendering ${CMAKE_CURRENT_SOURCE_DIR})
 

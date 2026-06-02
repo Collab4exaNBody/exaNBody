@@ -58,6 +58,9 @@ template<> struct GLAttributeWriter<GLfloat,Mat3d>  { ONIKA_HOST_DEVICE_FUNC sta
     a[6]=v.m31; a[7]=v.m32; a[8]=v.m33; } };
 template<size_t N> struct GLAttributeWriter<GLfloat , onika::oarray_t<double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const onika::oarray_t<double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
 template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const    std::array  <double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLuint, std::array<long unsigned int,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLuint * a, const std::array<unsigned long,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+
+using EGL_ULongArray4 = std::array<long unsigned int, 4>;
 
 #define GLTypeInfoMacro(rtype,gltype,glenum,nc,tname) \
   template<> struct GLTypeId<rtype> { \
@@ -79,6 +82,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
   GLTypeInfoMacro( Vec3d   , GLfloat  , GL_FLOAT         ,3,"vec3")
   GLTypeInfoMacro( Quat    , GLfloat  , GL_FLOAT         ,4,"vec4")
   GLTypeInfoMacro( Mat3d   , GLfloat  , GL_FLOAT         ,9,"mat3")
+  GLTypeInfoMacro( EGL_ULongArray4 , GLuint , GL_UNSIGNED_INT , 4 ,"uvec4")
 
 # undef GLTypeInfoMacro
 
@@ -144,11 +148,11 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
     {
       using field_type = typename FieldT::value_type;
       using attrib_type = typename GLTypeId<field_type>::comp_type;
-      auto it = vertex_attribs->find( f.name() );
+      auto it = vertex_attribs->find( f.short_name() );
       if( it != vertex_attribs->end() )
       {
         const int ai = it->second;
-        ldbg << "write field "<<f.name()<<" to attrib #"<<ai<<std::endl;
+        //ldbg << "write field "<<f.short_name()<<" to attrib #"<<ai<<std::endl;
         const auto cells = grid->cells_accessor();
         using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
         bool runs_on_gpu = ( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() );
@@ -165,6 +169,7 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
         if( runs_on_gpu ) glvbos.gpu_unmap(ai);
         else glvbos.host_unmap(ai);
       }
+      //else { ldbg << "don't write field "<<f.short_name()<<std::endl; }
     }
     template<class FieldT>
     inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec )
@@ -172,18 +177,22 @@ template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> 
       for(const auto& f : fvec) process_one_field( glvbos, f );
     }
 
-
     template<class FieldT>
     inline void build_formats(std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const FieldT& f )
     {
       using field_type = typename FieldT::value_type;
-      auto it = vertex_attribs->find( f.name() );
+      auto it = vertex_attribs->find( f.short_name() );
       if( it != vertex_attribs->end() )
       {
         const int ai = it->second;
         attrib_formats[ai].first = GLTypeId<field_type>::type_enum;
         attrib_formats[ai].second = GLTypeId<field_type>::ncomp;
+        //ldbg << "particle attribute "<< f.short_name() <<" -> "<<gl_enum_to_string(attrib_formats[ai].first)<<" x "<<attrib_formats[ai].second<<" @ "<<ai <<std::endl;
       }
+      /*else
+      {
+        ldbg << "particle attribute "<<f.short_name() <<" skipped"<<std::endl;
+      }*/
     }
     template<class FieldT>
     inline void build_formats( std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const std::span<FieldT>& fvec )
