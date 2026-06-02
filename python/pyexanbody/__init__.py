@@ -165,7 +165,27 @@ def _ensure_mpi_external() -> None:
 _ensure_mpi_external()
 
 # ---------------------------------------------------------------------------
-# 4. Re-export the full public API so callers can use pyexanbody as a drop-in.
+# 4. Load exaNBody-specific slot extractors.
+#
+# _exanb_data is a pybind11 extension that calls register_slot_extractor()
+# (a symbol in pyonika.so) at import time.  Python loads extensions with
+# RTLD_LOCAL by default, which hides their symbols from other extensions.
+# We therefore re-open pyonika with RTLD_GLOBAL first so that its symbols
+# (including register_slot_extractor) are visible when _exanb_data.so is
+# loaded by dlopen.
+# ---------------------------------------------------------------------------
+
+try:
+    from pyexanbody import _exanb_data  # noqa: F401 (imported for side effects)
+except Exception as _e:
+    import warnings as _w
+    _w.warn(f"pyexanbody: _exanb_data not loaded ({_e}); "
+            "SimulationStatistics and GridCellValues will not be accessible via slot_as_array. "
+            "read_sim_stats() and read_cell_values() will return empty results.")
+    del _w, _e
+
+# ---------------------------------------------------------------------------
+# 5. Re-export the full public API so callers can use pyexanbody as a drop-in.
 # ---------------------------------------------------------------------------
 from pyonika import (  # noqa: F401
     init,
@@ -184,7 +204,7 @@ from pyonika import (  # noqa: F401
 )
 
 # ---------------------------------------------------------------------------
-# 5. exaNBody-level convenience helpers.
+# 6. exaNBody-level convenience helpers.
 # ---------------------------------------------------------------------------
 
 def find_example(name: str) -> str:
@@ -282,3 +302,83 @@ def run_file(msp_path: str, argv0: str = "pyexanbody", **extra_args) -> int:
     pyonika.run(ctx)
     pyonika.end(ctx)
     return 0
+
+
+def read_cell_values(graph, field_name: str):
+    """Return a zero-copy numpy array for a named grid cell field, ghost-stripped.
+
+    Searches the simulation graph for any operator with a ``grid_cell_values``
+    slot that contains the requested field and returns a strided numpy view of
+    the inner (non-ghost) cells.  No data is copied — keep the owning
+    ``ApplicationContext`` alive for as long as the returned array is in use.
+
+    For scalar fields the shape is ``(inx, iny, inz)`` (the domain cell dims).
+    For multi-component fields the shape is ``(inx, iny, inz, n_components)``.
+    Use ``GridCellValuesView.field()`` directly if you need the raw flat array
+    including ghost cells.
+
+    Args:
+        graph:       The ``OperatorNode`` returned by ``build_simulation_graph()``.
+        field_name:  Name of the field to retrieve (e.g. ``"density"``).
+
+    Returns:
+        A numpy array, or ``None`` if no matching field is found.
+    """
+    result = None
+
+    def _collect(node):
+        nonlocal result
+        if result is not None:
+            return
+        val = node.slot_as_array("grid_cell_values")
+        if val is None or not hasattr(val, "has_field"):
+            return
+        if val.has_field(field_name):
+            result = val.field_inner(field_name)
+
+    graph.apply_graph(_collect)
+    return result
+
+
+def read_sim_stats(graph, _debug: bool = False) -> dict:
+    """Return simulation statistics from the most recent execution of the
+    ``simulation_stats`` operator as a Python dict.
+
+    Requires Tier 1 of the data-access plan (``_exanb_data`` extension built
+    and ``SimulationStatistics`` extractor registered).
+
+    Args:
+        graph:  The ``OperatorNode`` returned by ``build_simulation_graph()``.
+        _debug: Print diagnostic information when True.
+
+    Returns:
+        dict with keys: ``kinetic_energy``, ``particle_count``,
+        ``min_vel``, ``max_vel``, ``min_acc``, ``max_acc``.
+        Empty dict if no ``simulation_stats`` node was found or if
+        ``_exanb_data`` is not installed.
+    """
+    result = {}
+    candidates = []
+
+    def _collect(node):
+        if node.name() != "simulation_stats":
+            return
+        candidates.append(node.pathname())
+        if result:
+            return
+        val = node.slot_as_array("simulation_stats")
+        if _debug:
+            print(f"  [read_sim_stats] node={node.pathname()!r}  "
+                  f"slot_as_array → type={type(val).__name__}  value={val!r}")
+        if isinstance(val, dict):
+            result.update(val)
+
+    graph.apply_graph(_collect)
+
+    if _debug and not result:
+        print(f"  [read_sim_stats] found {len(candidates)} simulation_stats node(s): {candidates}")
+        print("  [read_sim_stats] slot_as_array returned None or non-dict for all of them.")
+        print("  [read_sim_stats] Verify _exanb_data loaded: "
+              f"{'_exanb_data' in dir()!r} — check for warnings at import time.")
+
+    return result
