@@ -26,7 +26,8 @@ target_compile_definitions(_exanb_data PRIVATE
   ONIKA_SCG_EXPORT_NAMESPACE=exanb
   ONIKA_LOG_EXPORT_NAMESPACE=exanb
 )
-target_link_libraries(_exanb_data PRIVATE exanbCore exanbGridCellParticles)
+target_link_libraries(_exanb_data PRIVATE exanbCore exanbGridCellParticles exanbIO)
+#   ${CMAKE_INSTALL_PREFIX}/lib/libexanbIO.so
 #   ${CMAKE_INSTALL_PREFIX}/lib/libexanbCore.so
 #   ${CMAKE_INSTALL_PREFIX}/lib/libexanbGridCellParticles.so
 # )
