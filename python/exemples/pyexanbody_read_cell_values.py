@@ -69,7 +69,8 @@ xnb.set_operator_defaults({
             {"SPHERE": {"quadric": {
                 "shape": "sphere",
                 "transform": [
-                    {"scale":     ["50 m", "50 m", "50 m"]},
+                    {"scale":     ["50 m", "80 m", "50 m"]},
+                    {"xrot": "pi/4."},
                     {"translate": ["150 m", "150 m", "150 m"]},
                 ],
             }}},
@@ -91,7 +92,7 @@ xnb.set_operator_defaults({
         # Assign density=1.0 to cells whose centre falls inside the SPHERE.
         # Cells outside the region keep the default initialisation value of 0.0.
         {"set_cell_values": {
-            "grid_subdiv": 1,
+            "grid_subdiv": 2,
             "field_name": "density",
             "value":      [1.0],
             "region":     "SPHERE",
@@ -109,63 +110,63 @@ xnb.set_operator_defaults({
 graph = xnb.build_simulation_graph(ctx, ["default_simulation"])
 xnb.run_node(ctx, graph)
 
-# # ---------------------------------------------------------------------------
-# # 4. GridCellValuesView — field() vs field_inner()
-# #
-# #    node.slot_as_array("grid_cell_values") returns a GridCellValuesView.
-# #    It exposes two access methods for each field:
-# #
-# #    field(name)
-# #      Flat 1-D view over ALL cells including ghost layers.
-# #      Shape: (n_cells,) where n_cells = nx * ny * nz (ghost dims).
-# #      Strides: (tot_comps * 8,)  — one stride, one step per cell.
-# #      Use this when you need the raw buffer or want to apply your own mask.
-# #
-# #    field_inner(name)
-# #      3-D strided view of inner (domain) cells only — ghosts excluded.
-# #      Shape: (inx, iny, inz) where inx = nx - 2*gl, etc.
-# #      Strides: (ny*nz*tot*8, nz*tot*8, tot*8) — spans over ghost cells
-# #      without copying them.  Ready for spatial operations immediately.
-# #
-# #    Both are zero-copy views backed by the same C++ buffer.
-# # ---------------------------------------------------------------------------
-# def show_gcv(node):
-#     gcv = node.slot_as_array("grid_cell_values")
-#     if gcv is None or not hasattr(gcv, "field_names"):
-#         return
+# ---------------------------------------------------------------------------
+# 4. GridCellValuesView — field() vs field_inner()
+#
+#    node.slot_as_array("grid_cell_values") returns a GridCellValuesView.
+#    It exposes two access methods for each field:
+#
+#    field(name)
+#      Flat 1-D view over ALL cells including ghost layers.
+#      Shape: (n_cells,) where n_cells = nx * ny * nz (ghost dims).
+#      Strides: (tot_comps * 8,)  — one stride, one step per cell.
+#      Use this when you need the raw buffer or want to apply your own mask.
+#
+#    field_inner(name)
+#      3-D strided view of inner (domain) cells only — ghosts excluded.
+#      Shape: (inx, iny, inz) where inx = nx - 2*gl, etc.
+#      Strides: (ny*nz*tot*8, nz*tot*8, tot*8) — spans over ghost cells
+#      without copying them.  Ready for spatial operations immediately.
+#
+#    Both are zero-copy views backed by the same C++ buffer.
+# ---------------------------------------------------------------------------
+def show_gcv(node):
+    gcv = node.slot_as_array("grid_cell_values")
+    if gcv is None or not hasattr(gcv, "field_names"):
+        return
 
-#     nx, ny, nz = gcv.shape
-#     gl = gcv.ghost_layers
-#     inx, iny, inz = nx - 2*gl, ny - 2*gl, nz - 2*gl
+    nx, ny, nz = gcv.shape
+    gl = gcv.ghost_layers
+    inx, iny, inz = nx - 2*gl, ny - 2*gl, nz - 2*gl
 
-#     print(f"\n=== GridCellValuesView — node: {node.pathname()!r} ===\n")
-#     print(f"  field_names  : {list(gcv.field_names)}")
-#     print(f"  ghost_layers : {gl}")
-#     print(f"  stored dims  : ({nx}, {ny}, {nz})   — includes ghost border")
-#     print(f"  domain dims  : ({inx}, {iny}, {inz}) — ghost-stripped")
+    print(f"\n=== GridCellValuesView — node: {node.pathname()!r} ===\n")
+    print(f"  field_names  : {list(gcv.field_names)}")
+    print(f"  ghost_layers : {gl}")
+    print(f"  stored dims  : ({nx}, {ny}, {nz})   — includes ghost border")
+    print(f"  domain dims  : ({inx}, {iny}, {inz}) — ghost-stripped")
 
-#     raw   = gcv.field("density")        # 1-D, all cells including ghosts
-#     inner = gcv.field_inner("density")  # 3-D, domain cells only
+    raw   = gcv.field("density")        # 1-D, all cells including ghosts
+    inner = gcv.field_inner("density")  # 3-D, domain cells only
 
-#     print(f"\n  field()       shape={raw.shape}         strides={raw.strides}")
-#     print(f"                n_cells={raw.size}  (domain + ghost border)")
-#     print(f"                sum={raw.sum():.1f}   (ghost cells are 0, so same as inner)")
+    print(f"\n  field()       shape={raw.shape}         strides={raw.strides}")
+    print(f"                n_cells={raw.size}  (domain + ghost border)")
+    print(f"                sum={raw.sum():.1f}   (ghost cells are 0, so same as inner)")
 
-#     print(f"\n  field_inner() shape={inner.shape}   strides={inner.strides}")
-#     print(f"                n_cells={inner.size}  (domain only)")
-#     print(f"                sum={inner.sum():.1f}")
+    print(f"\n  field_inner() shape={inner.shape}   strides={inner.strides}")
+    print(f"                n_cells={inner.size}  (domain only)")
+    print(f"                sum={inner.sum():.1f}")
 
-#     # Both are zero-copy views of the same C++ buffer.
-#     # inner's base pointer is offset into raw's memory range by the ghost border.
-#     raw_start  = raw.ctypes.data
-#     inner_start = inner.ctypes.data
-#     raw_end    = raw_start + raw.nbytes
-#     in_range   = raw_start <= inner_start < raw_end
-#     print(f"\n  raw   starts at: 0x{raw_start:x}")
-#     print(f"  inner starts at: 0x{inner_start:x}  (offset by ghost border)")
-#     print(f"  inner pointer is inside raw's memory range: {in_range}")
+    # Both are zero-copy views of the same C++ buffer.
+    # inner's base pointer is offset into raw's memory range by the ghost border.
+    raw_start  = raw.ctypes.data
+    inner_start = inner.ctypes.data
+    raw_end    = raw_start + raw.nbytes
+    in_range   = raw_start <= inner_start < raw_end
+    print(f"\n  raw   starts at: 0x{raw_start:x}")
+    print(f"  inner starts at: 0x{inner_start:x}  (offset by ghost border)")
+    print(f"  inner pointer is inside raw's memory range: {in_range}")
 
-# graph.apply_graph(show_gcv)
+graph.apply_graph(show_gcv)
 
 # ---------------------------------------------------------------------------
 # 5. High-level helper and spatial visualisation.
@@ -182,33 +183,50 @@ if density is None:
     sys.exit(1)
 
 print(f"\n=== read_cell_values('density') ===\n")
-print(f"  shape        : {density.shape}   (inx, iny, inz)")
+print(f"  shape        : {density.shape}")
+print(f"  ndim         : {density.ndim}  {'(inx,iny,inz)' if density.ndim==3 else '(inx,iny,inz,S,S,S)'}")
 print(f"  dtype        : {density.dtype}")
-print(f"  cells = 1.0  : {int((density == 1.0).sum())}   (inside SPHERE)")
-print(f"  cells = 0.0  : {int((density == 0.0).sum())}   (outside SPHERE)")
+print(f"  subcells=1.0 : {int((density == 1.0).sum())}   (inside SPHERE)")
+print(f"  subcells=0.0 : {int((density == 0.0).sum())}   (outside SPHERE)")
 
 # Animated sweep through all XY slices along z.
 # Each frame overwrites the previous one using ANSI cursor-up escape codes.
 import time
 
-inx, iny, inz = density.shape
-frame_lines = inx + 2  # header line + inx data rows + footer line
-
 CELL_IN  = "▓▓"   # dark shade — inside SPHERE
 CELL_OUT = "░░"   # light shade — outside; glyph edges create visible cell boundaries
 
+# Detect subdiv from the array shape:
+#   subdiv==1 → shape (inx, iny, inz)
+#   subdiv> 1 → shape (inx, iny, inz, S, S, S)
+if density.ndim == 3:
+    inx, iny, inz_cells = density.shape
+    S = 1
+else:
+    inx, iny, inz_cells, S, _, _ = density.shape
+
+n_frames  = inz_cells * S   # total animation frames along z
+
 def render_slice(z):
-    header = f"  === XY slice  z = {z:3d} / {inz-1}  ==="
-    rows   = ["  " + "".join(CELL_IN if density[i, j, z] > 0.5 else CELL_OUT
-                             for j in range(iny))
-              for i in range(inx)]
+    cz = z // S             # cell index along z
+    ck = z  % S             # sub-cell index along z (0 when subdiv==1)
+    z_label = f"z={cz}" if S == 1 else f"z={cz} sk={ck}"
+    header = f"  === XY slice  {z_label}  ({z}/{n_frames-1})  ==="
+    rows = [
+        "  " + "".join(
+            CELL_IN if (density[i, j, cz] if S == 1 else density[i, j, cz, ci, cj, ck]) > 0.5
+            else CELL_OUT
+            for j in range(iny) for cj in range(S)
+        )
+        for i in range(inx) for ci in range(S)
+    ]
     footer = f"  {CELL_IN} inside SPHERE   {CELL_OUT} outside"
     return [header] + rows + [footer]
 
 prev_lines = 0
 
 try:
-    for z in list(range(inz)) + list(range(inz - 2, -1, -1)):  # forward then back
+    for z in list(range(n_frames)) + list(range(n_frames - 2, -1, -1)):  # forward then back
         frame = render_slice(z)
         if prev_lines:
             # Jump up exactly as many lines as the previous frame had,

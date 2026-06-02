@@ -134,79 +134,93 @@ PYBIND11_MODULE(_exanb_data, m)
     .def("has_field", [](const GCVView& v, const std::string& name) {
       return v.ptr->has_field(name);
     })
-    // field(name) — flat 1-D (or 2-D) view of ALL cells including ghost layers.
+    // field(name) — view of ALL cells including ghost layers.
+    // subdiv==1, ncomps==1 → shape (n_cells,)
+    // subdiv==1, ncomps> 1 → shape (n_cells, ncomps)
+    // subdiv> 1, ncomps==1 → shape (n_cells, S, S, S)
+    // subdiv> 1, ncomps> 1 → shape (n_cells, S, S, S, ncomps)
     .def("field", [](const GCVView& v, const std::string& name) -> py::object {
       if (!v.ptr->has_field(name)) return py::none();
-      const auto& f    = v.ptr->field(name);
-      size_t n_cells   = v.ptr->number_of_cells();
-      size_t tot       = v.ptr->components();
+      const auto& f  = v.ptr->field(name);
+      size_t n_cells = v.ptr->number_of_cells();
+      size_t tot     = v.ptr->components();
+      size_t S       = f.m_subdiv;
+      size_t ncomps  = f.m_components / (S * S * S);
       const double* base = v.ptr->data().data() + f.m_offset;
 
-      py::ssize_t cell_stride = static_cast<py::ssize_t>(tot * sizeof(double));
-      py::ssize_t comp_stride = static_cast<py::ssize_t>(sizeof(double));
+      py::ssize_t s_cell = static_cast<py::ssize_t>(tot       * sizeof(double));
+      py::ssize_t s_ci   = static_cast<py::ssize_t>(S*S*ncomps * sizeof(double));
+      py::ssize_t s_cj   = static_cast<py::ssize_t>(S  *ncomps * sizeof(double));
+      py::ssize_t s_ck   = static_cast<py::ssize_t>(     ncomps * sizeof(double));
+      py::ssize_t s_comp = static_cast<py::ssize_t>(sizeof(double));
 
-      if (f.m_components == 1) {
-        return py::array_t<double>(py::buffer_info(
-          const_cast<double*>(base), sizeof(double),
-          py::format_descriptor<double>::format(),
-          1,
-          { static_cast<py::ssize_t>(n_cells) },
-          { cell_stride }
-        ));
-      } else {
-        return py::array_t<double>(py::buffer_info(
-          const_cast<double*>(base), sizeof(double),
-          py::format_descriptor<double>::format(),
-          2,
-          { static_cast<py::ssize_t>(n_cells), static_cast<py::ssize_t>(f.m_components) },
-          { cell_stride, comp_stride }
-        ));
-      }
+      if (S == 1 && ncomps == 1)
+        return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+          py::format_descriptor<double>::format(), 1,
+          { static_cast<py::ssize_t>(n_cells) }, { s_cell }));
+      if (S == 1)
+        return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+          py::format_descriptor<double>::format(), 2,
+          { static_cast<py::ssize_t>(n_cells), static_cast<py::ssize_t>(ncomps) },
+          { s_cell, s_comp }));
+      if (ncomps == 1)
+        return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+          py::format_descriptor<double>::format(), 4,
+          { static_cast<py::ssize_t>(n_cells), static_cast<py::ssize_t>(S),
+            static_cast<py::ssize_t>(S), static_cast<py::ssize_t>(S) },
+          { s_cell, s_ci, s_cj, s_ck }));
+      return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+        py::format_descriptor<double>::format(), 5,
+        { static_cast<py::ssize_t>(n_cells), static_cast<py::ssize_t>(S),
+          static_cast<py::ssize_t>(S), static_cast<py::ssize_t>(S),
+          static_cast<py::ssize_t>(ncomps) },
+        { s_cell, s_ci, s_cj, s_ck, s_comp }));
     })
-    // field_inner(name) — 3-D (or 4-D) strided view with ghost layers stripped.
-    // Returns shape (inx, iny, inz) for scalar fields,
-    //               (inx, iny, inz, n_components) for multi-component fields,
-    // where inx/iny/inz = grid_dims - 2*ghost_layers on each axis.
-    // Zero-copy: the strides span over the ghost border without touching it.
+    // field_inner(name) — ghost-stripped view of inner domain cells.
+    // subdiv==1, ncomps==1 → shape (inx, iny, inz)
+    // subdiv==1, ncomps> 1 → shape (inx, iny, inz, ncomps)
+    // subdiv> 1, ncomps==1 → shape (inx, iny, inz, S, S, S)
+    // subdiv> 1, ncomps> 1 → shape (inx, iny, inz, S, S, S, ncomps)
+    // Zero-copy: cell and sub-cell strides span the ghost border without touching it.
     .def("field_inner", [](const GCVView& v, const std::string& name) -> py::object {
       if (!v.ptr->has_field(name)) return py::none();
-      const auto& f  = v.ptr->field(name);
-      const auto& d  = v.ptr->grid_dims();
-      size_t gl      = v.ptr->ghost_layers();
-      size_t tot     = v.ptr->components();
-      size_t nx = static_cast<size_t>(d.i);
-      size_t ny = static_cast<size_t>(d.j);
-      size_t nz = static_cast<size_t>(d.k);
-      size_t inx = nx - 2*gl, iny = ny - 2*gl, inz = nz - 2*gl;
+      const auto& f = v.ptr->field(name);
+      const auto& d = v.ptr->grid_dims();
+      size_t gl     = v.ptr->ghost_layers();
+      size_t tot    = v.ptr->components();
+      size_t nx = static_cast<size_t>(d.i), ny = static_cast<size_t>(d.j), nz = static_cast<size_t>(d.k);
+      size_t inx = nx-2*gl, iny = ny-2*gl, inz = nz-2*gl;
+      size_t S      = f.m_subdiv;
+      size_t ncomps = f.m_components / (S * S * S);
 
-      // Pointer to inner cell (gl, gl, gl).
       size_t inner_offset = (gl*ny*nz + gl*nz + gl) * tot + f.m_offset;
       const double* base  = v.ptr->data().data() + inner_offset;
 
-      // Byte strides for a cell-major (i,j,k) layout.
-      py::ssize_t si = static_cast<py::ssize_t>(ny * nz * tot * sizeof(double));
-      py::ssize_t sj = static_cast<py::ssize_t>(nz * tot * sizeof(double));
-      py::ssize_t sk = static_cast<py::ssize_t>(tot * sizeof(double));
-      py::ssize_t sc = static_cast<py::ssize_t>(sizeof(double));
+      py::ssize_t si   = static_cast<py::ssize_t>(ny*nz*tot   * sizeof(double));
+      py::ssize_t sj   = static_cast<py::ssize_t>(nz *tot     * sizeof(double));
+      py::ssize_t sk   = static_cast<py::ssize_t>(    tot     * sizeof(double));
+      py::ssize_t s_ci = static_cast<py::ssize_t>(S*S*ncomps  * sizeof(double));
+      py::ssize_t s_cj = static_cast<py::ssize_t>(S  *ncomps  * sizeof(double));
+      py::ssize_t s_ck = static_cast<py::ssize_t>(    ncomps  * sizeof(double));
+      py::ssize_t s_c  = static_cast<py::ssize_t>(sizeof(double));
 
-      if (f.m_components == 1) {
-        return py::array_t<double>(py::buffer_info(
-          const_cast<double*>(base), sizeof(double),
-          py::format_descriptor<double>::format(),
-          3,
-          { static_cast<py::ssize_t>(inx), static_cast<py::ssize_t>(iny), static_cast<py::ssize_t>(inz) },
-          { si, sj, sk }
-        ));
-      } else {
-        return py::array_t<double>(py::buffer_info(
-          const_cast<double*>(base), sizeof(double),
-          py::format_descriptor<double>::format(),
-          4,
-          { static_cast<py::ssize_t>(inx), static_cast<py::ssize_t>(iny),
-            static_cast<py::ssize_t>(inz), static_cast<py::ssize_t>(f.m_components) },
-          { si, sj, sk, sc }
-        ));
-      }
+      auto I = [](size_t x) { return static_cast<py::ssize_t>(x); };
+
+      if (S == 1 && ncomps == 1)
+        return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+          py::format_descriptor<double>::format(), 3,
+          {I(inx),I(iny),I(inz)}, {si,sj,sk}));
+      if (S == 1)
+        return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+          py::format_descriptor<double>::format(), 4,
+          {I(inx),I(iny),I(inz),I(ncomps)}, {si,sj,sk,s_c}));
+      if (ncomps == 1)
+        return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+          py::format_descriptor<double>::format(), 6,
+          {I(inx),I(iny),I(inz),I(S),I(S),I(S)}, {si,sj,sk,s_ci,s_cj,s_ck}));
+      return py::array_t<double>(py::buffer_info(const_cast<double*>(base), sizeof(double),
+        py::format_descriptor<double>::format(), 7,
+        {I(inx),I(iny),I(inz),I(S),I(S),I(S),I(ncomps)}, {si,sj,sk,s_ci,s_cj,s_ck,s_c}));
     });
 
   RegisterFn reg = get_register_fn();
