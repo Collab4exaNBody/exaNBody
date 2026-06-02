@@ -74,7 +74,7 @@ namespace md
       CellParticlesT* cells              // arrays of all cells, in case we need to chase for additional particle informations
       ) const
     {
-      assert( buffer.count == n );
+      assert( size_t(buffer.count) == n );
 
       // local energy and force contributions to the particle
       double tl_fx = 0.0;
