@@ -153,9 +153,9 @@ xnb.set_operator_defaults({
 #    This is equivalent to:  simulation: default_simulation
 # ---------------------------------------------------------------------------
 #graph = xnb.build_simulation_graph(ctx, ["simulation"])
-#graph = xnb.build_simulation_graph(ctx, ["default_simulation"])
+graph = xnb.build_simulation_graph(ctx, ["default_simulation"])
 #graph = xnb.build_simulation_graph(ctx, ["test_simulation"])
-graph = xnb.build_simulation_graph(ctx)
+#graph = xnb.build_simulation_graph(ctx)
 xnb.run_node(ctx, graph)
 
 xnb.end(ctx)

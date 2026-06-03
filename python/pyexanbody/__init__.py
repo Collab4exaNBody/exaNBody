@@ -157,7 +157,12 @@ def _ensure_mpi_external() -> None:
         initialized = ctypes.c_int(0)
         lib.MPI_Initialized(ctypes.byref(initialized))
         if not initialized.value:
-            lib.MPI_Init(None, None)
+            # Use MPI_Init_thread requesting MPI_THREAD_MULTIPLE (value=3 in the
+            # MPI standard).  This matches what onika's initialize_mpi() would
+            # request when it owns MPI init, so MPI_Query_thread() returns the
+            # same level and onika does not emit the thread-support warning.
+            provided = ctypes.c_int(0)
+            lib.MPI_Init_thread(None, None, ctypes.c_int(3), ctypes.byref(provided))
     except AttributeError:
         pass
 
@@ -271,7 +276,7 @@ def run_example(name: str, argv0: str = "pyexanbody", **extra_args) -> int:
     Args:
         name:       Example filename or relative path (e.g. ``"solar_system.msp"``).
         argv0:      Program name shown in onika usage messages.
-        **extra_args: onika config overrides (use ``__`` as the ``.`` separator).
+        **extra_args: forwarded to ``run_file()`` — see its docstring.
 
     Returns:
         0 on normal completion, or the early-exit code from onika.
@@ -287,15 +292,22 @@ def run_file(msp_path: str, argv0: str = "pyexanbody", **extra_args) -> int:
     Args:
         msp_path:   Path to the .msp configuration file.
         argv0:      Program name shown in onika usage messages.
-        **extra_args: onika config overrides (use ``__`` as the ``.`` separator,
-                    e.g. ``configuration__omp_num_threads=4``).
+        **extra_args: onika configuration overrides passed as ``--key value``
+                    pairs.  Keys land under ``configuration:`` only; use ``_``
+                    to keep flat (e.g. ``omp_num_threads=4``) or ``-`` in the
+                    key name to produce nested YAML.  Simulation parameters
+                    (global, input_data, …) cannot be set this way — use
+                    ``set_operator_defaults()`` after ``init()`` instead.
 
     Returns:
         0 on normal completion, or the early-exit code from onika.
     """
     argv = [argv0, os.path.abspath(msp_path)]
     for k, v in extra_args.items():
-        argv.append(f"--{k.replace('__', '.')}={v}")
+        # onika cmdline parser expects space-separated "--key value" pairs.
+        # Keys go under configuration: only; use "_" to keep flat, "-" to nest.
+        argv.append(f"--{k}")
+        argv.append(str(v))
     ctx = pyonika.init(argv)
     if ctx.error_code >= 0:
         return ctx.error_code
