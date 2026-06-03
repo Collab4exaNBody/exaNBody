@@ -16,7 +16,7 @@ import sys
 import pyexanbody
 
 main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
-ctx = pyexanbody.init([sys.argv[0], main_config])
+ctx = pyexanbody.init([sys.argv[0], main_config, "--nogpu"])
 if ctx.error_code >= 0:
     sys.exit(ctx.error_code)
 
