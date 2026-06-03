@@ -31,7 +31,7 @@ import pyexanbody as xnb
 #    This does NOT run any simulation graph.
 # ---------------------------------------------------------------------------
 main_config = os.path.join(os.environ["ONIKA_CONFIG_PATH"], "main-config.msp")
-ctx = xnb.init([sys.argv[0], main_config])
+ctx = xnb.init([sys.argv[0], main_config, "--nogpu"])
 if ctx.error_code >= 0:
     sys.exit(ctx.error_code)
 # ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ xnb.set_operator_defaults({
         "rcut_inc":                  "18 m",
         "simulation_log_frequency":  1,
         "simulation_dump_frequency": 5,
-        "simulation_end_iteration":  10,
+        "simulation_end_iteration":  100,
     },
 
     # ---- input_data: domain definition + particle placement ----------------

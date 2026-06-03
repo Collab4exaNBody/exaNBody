@@ -163,6 +163,23 @@ def _ensure_mpi_external() -> None:
             # same level and onika does not emit the thread-support warning.
             provided = ctypes.c_int(0)
             lib.MPI_Init_thread(None, None, ctypes.c_int(3), ctypes.byref(provided))
+
+            # We called MPI_Init_thread, so we own MPI finalisation.
+            # onika's end() skips MPI_Finalize when external_mpi_init=true
+            # (which is always the case here), so without this atexit handler
+            # MPI_Finalize would never be called — causing mpirun to report an
+            # improper termination when running with multiple processes.
+            import atexit as _atexit
+            _lib_ref = lib
+            def _mpi_finalize():
+                try:
+                    _finalized = ctypes.c_int(0)
+                    _lib_ref.MPI_Finalized(ctypes.byref(_finalized))
+                    if not _finalized.value:
+                        _lib_ref.MPI_Finalize()
+                except Exception:
+                    pass
+            _atexit.register(_mpi_finalize)
     except AttributeError:
         pass
 

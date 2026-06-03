@@ -564,6 +564,15 @@ is used deliberately: onika's `initialize_mpi()` would itself call
 when it takes the "external MPI" branch it calls `MPI_Query_thread()` to check
 the thread level — using plain `MPI_Init` would leave the level at
 `MPI_THREAD_SINGLE` and trigger the warning *"no MPI_THREAD_MULTIPLE support"*.
+
+Because `_ensure_mpi_external()` owns the `MPI_Init_thread` call, it also
+registers a `MPI_Finalize` `atexit` handler.  This is necessary when running
+under `mpirun`/`srun`: onika's `end()` always skips `MPI_Finalize` when it
+sees `external_mpi_init=true`, so without this handler the process would exit
+without finalising MPI and mpirun would report an improper termination.  The
+`atexit` handler runs even on `sys.exit()`, and guards against double-finalise
+with a `MPI_Finalized()` check.
+
 A fallback searches by standard library name (`"mpi"`, `"openmpi"`, `"mpich"`,
 etc.) for portability.  The entire function is a no-op after the first call or
 if MPI is already up.
