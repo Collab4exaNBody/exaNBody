@@ -21,26 +21,24 @@ under the License.
 
 #include <mpi.h>
 
-#include <onika/mpi/data_types.h>
-#include <onika/math/basic_types_stream.h>
-#include <onika/soatl/field_tuple.h>
-#include <onika/parallel/block_parallel_for.h>
 #include <onika/cuda/stl_adaptors.h>
+#include <onika/math/basic_types_stream.h>
+#include <onika/mpi/data_types.h>
+#include <onika/parallel/block_parallel_for.h>
 #include <onika/soatl/field_id_tuple_utils.h>
+#include <onika/soatl/field_tuple.h>
 
-#include <exanb/core/grid.h>
-#include <exanb/core/particle_id_codec.h>
 #include <exanb/core/check_particles_inside_cell.h>
-#include <exanb/core/grid_particle_field_accessor.h>
 #include <exanb/core/domain.h>
+#include <exanb/core/grid.h>
 #include <exanb/core/grid_particle_field_accessor.h>
+#include <exanb/core/particle_id_codec.h>
 
 #include <exanb/grid_cell_particles/grid_cell_values.h>
 
-#include <exanb/mpi/update_ghost_config.h>
 #include <exanb/mpi/ghosts_comm_scheme.h>
+#include <exanb/mpi/update_ghost_config.h>
 #include <exanb/mpi/update_ghosts_comm_manager.h>
-
 
 namespace exanb
 {
@@ -62,23 +60,9 @@ namespace exanb
   serialize_pack_sends requires to wait until all send packets are filled before starting to send the first one
   gpu_packing allows pack/unpack operations to execute on the GPU
   */
-  template<class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT , class FieldAccTupleT, bool CreateParticles=false>
-  static inline void grid_update_ghosts(
-    LDBGT& ldbg,
-    MPI_Comm comm,
-    GhostCommunicationScheme& comm_scheme,
-    GridT* gridp,
-    const Domain& domain,
-    GridCellValues* grid_cell_values,
-    UpdateGhostsScratchT& ghost_comm_buffers,
-    const PECFuncT& parallel_execution_context,
-    const PEQFuncT& parallel_execution_queue,
-    const FieldAccTupleT& update_fields,
-    const UpdateGhostConfig& config,
-    std::integral_constant<bool,CreateParticles> create_cell_particles = {}
-    )
+  template <class LDBGT, class GridT, class UpdateGhostsScratchT, class PECFuncT, class PEQFuncT, class FieldAccTupleT, bool CreateParticles = false> static inline void grid_update_ghosts(LDBGT &ldbg, MPI_Comm comm, GhostCommunicationScheme &comm_scheme, GridT *gridp, const Domain &domain, GridCellValues *grid_cell_values, UpdateGhostsScratchT &ghost_comm_buffers, const PECFuncT &parallel_execution_context, const PEQFuncT &parallel_execution_queue, const FieldAccTupleT &update_fields, const UpdateGhostConfig &config, std::integral_constant<bool, CreateParticles> create_cell_particles = {})
   {
-    auto [alloc_on_device,comm_tag,gpu_buffer_pack,async_buffer_pack,staging_buffer,serialize_pack_send,wait_all] = config;
+    auto [alloc_on_device, comm_tag, gpu_buffer_pack, async_buffer_pack, staging_buffer, serialize_pack_send, wait_all] = config;
 
     const bool has_opt_field = field_tuple_contains_optional_field(update_fields);
     const bool has_field_span = field_tuple_contains_field_span(update_fields);
@@ -86,57 +70,54 @@ namespace exanb
     using CellParticlesAllocator = typename GridT::CellParticlesAllocator;
     //    using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
 
-    static_assert( sizeof(uint8_t) == 1 , "uint8_t is not a byte");
+    static_assert(sizeof(uint8_t) == 1, "uint8_t is not a byte");
 
-    using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( gridp->cells_accessor() ) > >;
+    using CellsAccessorT = std::remove_cv_t<std::remove_reference_t<decltype(gridp->cells_accessor())>>;
     using onika::parallel::block_parallel_for;
 
-    if( create_cell_particles && gridp==nullptr )
+    if (create_cell_particles && gridp == nullptr)
     {
-      fatal_error() << "request for ghost particle creation while null grid passed in"<< std::endl;
+      fatal_error() << "request for ghost particle creation while null grid passed in" << std::endl;
     }
 
-    static const CellParticlesAllocator default_cell_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
-    const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes( update_fields );
+    static const CellParticlesAllocator default_cell_allocator(onika::memory::DefaultAllocator{onika::memory::CUDA_FALLBACK_ALLOC_POLICY});
+    const size_t sizeof_ParticleTuple = onika::soatl::field_id_tuple_size_bytes(update_fields);
 
     int nprocs = 1;
     int rank = 0;
-    MPI_Comm_size(comm,&nprocs);
-    MPI_Comm_rank(comm,&rank);
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
 
-    const size_t ghost_layers = (gridp!=nullptr) ? gridp->ghost_layers() : ( (grid_cell_values!=nullptr) ? grid_cell_values->ghost_layers() : 0 );
-    const IJK grid_dims = (gridp!=nullptr) ? gridp->dimension() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_dims() : IJK{0,0,0} );
-    const IJK grid_domain_offset = (gridp!=nullptr) ? gridp->offset() : ( (grid_cell_values!=nullptr) ? grid_cell_values->grid_offset() : IJK{0,0,0} );
+    const size_t ghost_layers = (gridp != nullptr) ? gridp->ghost_layers() : ((grid_cell_values != nullptr) ? grid_cell_values->ghost_layers() : 0);
+    const IJK grid_dims = (gridp != nullptr) ? gridp->dimension() : ((grid_cell_values != nullptr) ? grid_cell_values->grid_dims() : IJK{0, 0, 0});
+    const IJK grid_domain_offset = (gridp != nullptr) ? gridp->offset() : ((grid_cell_values != nullptr) ? grid_cell_values->grid_offset() : IJK{0, 0, 0});
     double cell_size = domain.cell_size();
-    const Vec3d grid_start_position = domain.origin() + ( grid_domain_offset * cell_size );
-    const size_t n_cells = (gridp!=nullptr) ? gridp->number_of_cells() : ( (grid_cell_values!=nullptr) ? grid_cell_values->number_of_cells() : 0 );
+    const Vec3d grid_start_position = domain.origin() + (grid_domain_offset * cell_size);
+    const size_t n_cells = (gridp != nullptr) ? gridp->number_of_cells() : ((grid_cell_values != nullptr) ? grid_cell_values->number_of_cells() : 0);
 
-    if( gridp!=nullptr )
+    if (gridp != nullptr)
     {
-      assert( n_cells == gridp->number_of_cells() );
-      assert( ghost_layers == gridp->ghost_layers() );
-      assert( grid_dims == gridp->dimension() );
-      assert( grid_domain_offset == gridp->offset() );
-      assert( grid_start_position == gridp->cell_position({0,0,0}) );
+      assert(n_cells == gridp->number_of_cells());
+      assert(ghost_layers == gridp->ghost_layers());
+      assert(grid_dims == gridp->dimension());
+      assert(grid_domain_offset == gridp->offset());
+      assert(grid_start_position == gridp->cell_position({0, 0, 0}));
     }
-    if( grid_cell_values!=nullptr )
+    if (grid_cell_values != nullptr)
     {
-      assert( n_cells == grid_cell_values->number_of_cells() );
-      assert( ghost_layers == grid_cell_values->ghost_layers() );
-      assert( grid_dims == grid_cell_values->grid_dims() );
-      assert( grid_domain_offset == grid_cell_values->grid_offset() );
+      assert(n_cells == grid_cell_values->number_of_cells());
+      assert(ghost_layers == grid_cell_values->ghost_layers());
+      assert(grid_dims == grid_cell_values->grid_dims());
+      assert(grid_domain_offset == grid_cell_values->grid_offset());
     }
-    ldbg<<"grid_update_ghosts : n_cells="<<n_cells<<", ghost_layers="<<ghost_layers<<", grid_dims="<<grid_dims
-        <<", grid_domain_offset="<<grid_domain_offset<<", grid_start_position="<<grid_start_position
-        <<", cell_size="<<cell_size<< ", sizeof_ParticleTuple="<<sizeof_ParticleTuple
-        <<", gpu_buffer_pack="<<gpu_buffer_pack<<", has_opt_field="<<has_opt_field<<", has_field_span="<<has_field_span <<std::endl;
+    ldbg << "grid_update_ghosts : n_cells=" << n_cells << ", ghost_layers=" << ghost_layers << ", grid_dims=" << grid_dims << ", grid_domain_offset=" << grid_domain_offset << ", grid_start_position=" << grid_start_position << ", cell_size=" << cell_size << ", sizeof_ParticleTuple=" << sizeof_ParticleTuple << ", gpu_buffer_pack=" << gpu_buffer_pack << ", has_opt_field=" << has_opt_field << ", has_field_span=" << has_field_span << std::endl;
 
-    auto * const cells = (gridp!=nullptr) ? gridp->cells() : nullptr;
-    const onika::soatl::PackedFieldArraysAllocator & cell_allocator = (gridp!=nullptr) ? gridp->cell_allocator() : default_cell_allocator;
-    const GhostBoundaryModifier ghost_boundary = { domain.origin() , domain.extent() };
+    auto *const cells = (gridp != nullptr) ? gridp->cells() : nullptr;
+    const onika::soatl::PackedFieldArraysAllocator &cell_allocator = (gridp != nullptr) ? gridp->cell_allocator() : default_cell_allocator;
+    const GhostBoundaryModifier ghost_boundary = {domain.origin(), domain.extent()};
 
     // per cell scalar values, if any
-    GridCellValueType* cell_scalars = nullptr;
+    GridCellValueType *cell_scalars = nullptr;
     unsigned int cell_scalar_components = 0;
     if( grid_cell_values != nullptr  )
     {
@@ -147,28 +128,29 @@ namespace exanb
         cell_scalars = grid_cell_values->data().data();
       }
     }
-    if( cell_scalars )
+    if (cell_scalars)
     {
-      ldbg << "update ghost cell values with "<< cell_scalar_components << " components"<<std::endl;
+      ldbg << "update ghost cell values with " << cell_scalar_components << " components" << std::endl;
     }
     else
     {
       cell_scalar_components = 0;
     }
 
-    CellsAccessorT cells_accessor = { nullptr , nullptr };
-    if( gridp != nullptr ) cells_accessor = gridp->cells_accessor();
+    CellsAccessorT cells_accessor = {nullptr, nullptr};
+    if (gridp != nullptr)
+      cells_accessor = gridp->cells_accessor();
 
     // ***************** send/receive buffers resize ******************
-    ghost_comm_buffers.update_from_comm_scheme( rank, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, alloc_on_device, staging_buffer, async_buffer_pack );
+    ghost_comm_buffers.update_from_comm_scheme(rank, comm_scheme, ghost_comm_buffers, cells_accessor, cell_scalars, cell_scalar_components, update_fields, ghost_boundary, alloc_on_device, staging_buffer, async_buffer_pack);
     ghost_comm_buffers.reactivate_requests();
 
     // ***************** resize cells if needed ******************
-    ghost_comm_buffers.resize_received_cells( cells, cell_allocator, create_cell_particles );
+    ghost_comm_buffers.resize_received_cells(cells, cell_allocator, create_cell_particles);
 
     // ***************** send bufer packing start ******************
-    //uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
-    int active_send_packs = ghost_comm_buffers.start_pack_functors( parallel_execution_queue, parallel_execution_context, rank, gpu_buffer_pack );
+    // uint8_t* send_buf_ptr = ghost_comm_buffers.mpi_send_buffer();
+    int active_send_packs = ghost_comm_buffers.start_pack_functors(parallel_execution_queue, parallel_execution_context, rank, gpu_buffer_pack);
 
     // number of flying messages
     int active_sends = 0;
@@ -176,44 +158,47 @@ namespace exanb
     int request_count = 0;
 
     // ***************** async receive start ******************
-    request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm,comm_tag,rank);
+    request_count = active_recvs = ghost_comm_buffers.start_mpi_receives(comm, comm_tag, rank);
 
     // ***************** initiate buffer sends ******************
-    if( serialize_pack_send ) parallel_execution_queue().wait();
-    while( active_sends < active_send_packs )
+    if (serialize_pack_send)
+      parallel_execution_queue().wait();
+    while (active_sends < active_send_packs)
     {
       active_sends += ghost_comm_buffers.start_ready_mpi_sends(parallel_execution_queue, comm, comm_tag, rank, serialize_pack_send);
     }
     request_count += active_sends;
 
-    assert( ghost_comm_buffers.number_of_requests() == request_count );
-    assert( ghost_comm_buffers.number_of_requests() == ( active_sends + active_recvs ) );
-    ldbg << "UpdateGhosts : total active requests = "<<ghost_comm_buffers.number_of_requests()<<std::endl;
+    assert(ghost_comm_buffers.number_of_requests() == request_count);
+    assert(ghost_comm_buffers.number_of_requests() == (active_sends + active_recvs));
+    ldbg << "UpdateGhosts : total active requests = " << ghost_comm_buffers.number_of_requests() << std::endl;
 
     // manage loopback communication : decode packet directly from sendbuffer without actually receiving it
-    size_t ghost_cells_self=0;
-    if( ghost_comm_buffers.send_info(rank).buffer_size > 0 || ghost_comm_buffers.recv_info(rank).buffer_size > 0 )
+    size_t ghost_cells_self = 0;
+    if (ghost_comm_buffers.send_info(rank).buffer_size > 0 || ghost_comm_buffers.recv_info(rank).buffer_size > 0)
     {
-      assert( ghost_comm_buffers.send_info(rank).buffer_size == ghost_comm_buffers.recv_info(rank).buffer_size );
-      ldbg << "UpdateGhosts: loopback buffer size="<<ghost_comm_buffers.send_info(rank).buffer_size<<std::endl;
-      if( ! serialize_pack_send ) { parallel_execution_queue().wait( ghost_comm_buffers.pack_functor_lane[rank] ); }
-      ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context,rank,gpu_buffer_pack );
+      assert(ghost_comm_buffers.send_info(rank).buffer_size == ghost_comm_buffers.recv_info(rank).buffer_size);
+      ldbg << "UpdateGhosts: loopback buffer size=" << ghost_comm_buffers.send_info(rank).buffer_size << std::endl;
+      if (!serialize_pack_send)
+      {
+        parallel_execution_queue().wait(ghost_comm_buffers.pack_functor_lane[rank]);
+      }
+      ghost_cells_self = ghost_comm_buffers.process_received_buffer(parallel_execution_queue, parallel_execution_context, rank, gpu_buffer_pack);
     }
 
-    const size_t ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context,rank,wait_all,gpu_buffer_pack);
+    const size_t ghost_cells_recv = ghost_comm_buffers.wait_mpi_messages(parallel_execution_queue, parallel_execution_context, rank, wait_all, gpu_buffer_pack);
 
-    for(int p=0;p<nprocs;p++)
+    for (int p = 0; p < nprocs; p++)
     {
-      parallel_execution_queue().wait( ghost_comm_buffers.unpack_functor_lane[p] );
+      parallel_execution_queue().wait(ghost_comm_buffers.unpack_functor_lane[p]);
     }
 
-    if( create_cell_particles )
+    if (create_cell_particles)
     {
       gridp->rebuild_particle_offsets();
     }
 
-    ldbg << "--- end update_ghosts : received "<<ghost_cells_recv<<" cells and loopbacked "<<ghost_cells_self<<" cells"<< std::endl;
+    ldbg << "--- end update_ghosts : received " << ghost_cells_recv << " cells and loopbacked " << ghost_cells_self << " cells" << std::endl;
   }
 
-}
-
+} // namespace exanb
