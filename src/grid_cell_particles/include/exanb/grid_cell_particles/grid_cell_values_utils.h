@@ -35,14 +35,14 @@ namespace exanb
   
     using StringList = std::vector<std::string>;
   
-    ONIKA_HOST_DEVICE_FUNC static inline void localize_subcell( const Vec3d& r, double cell_size, double sub_cellsize, ssize_t subdiv, IJK& cell_loc, IJK& subcell_loc )
+    ONIKA_HOST_DEVICE_FUNC inline void localize_subcell( const Vec3d& r, double cell_size, double sub_cellsize, ssize_t subdiv, IJK& cell_loc, IJK& subcell_loc )
     {
       cell_loc = make_ijk( r / cell_size );
       Vec3d ro = r - (cell_loc*cell_size);
       subcell_loc = vclamp( make_ijk(ro / sub_cellsize) , 0 , subdiv-1 );
     }
 
-    inline void subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
+    ONIKA_HOST_DEVICE_FUNC inline void subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
     {
       nbh_cell_loc = cell_loc;
       nbh_subcell_loc = subcell_loc + ninc;
