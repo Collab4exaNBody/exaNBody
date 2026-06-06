@@ -41,13 +41,17 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
   // === register factory ===
-  template<typename GridT> using UpdateForceFromGhosts = UpdateFromGhosts< GridT , FieldSet<field::_fx,field::_fy,field::_fz> , UpdateValueAdd >;
-  template<typename GridT> using UpdateOptFromGhosts = UpdateFromGhosts< GridT , FieldSet<> , UpdateValueAdd >;
+  template<typename GridT> using UpdateForceFromGhosts = UpdateFromGhosts< GridT , FieldSet<field::_fx,field::_fy,field::_fz> , UpdateValueAdd , true >;
+  template<typename GridT> using UpdateOptFromGhosts = UpdateFromGhosts< GridT , FieldSet<> , UpdateValueAdd , true >;
+  template<typename GridT> using UpdateForceFromGhostsNoGCV = UpdateFromGhosts< GridT , FieldSet<field::_fx,field::_fy,field::_fz> , UpdateValueAdd , false >;
+  template<typename GridT> using UpdateOptFromGhostsNoGCV = UpdateFromGhosts< GridT , FieldSet<> , UpdateValueAdd , false >;
 
   ONIKA_AUTORUN_INIT(update_force_from_ghost)
   {
     OperatorNodeFactory::instance()->register_factory( "update_force_from_ghost", make_grid_variant_operator<UpdateForceFromGhosts> );
     OperatorNodeFactory::instance()->register_factory( "update_opt_from_ghost", make_grid_variant_operator<UpdateForceFromGhosts> );
+    OperatorNodeFactory::instance()->register_factory( "update_force_from_ghost_no_gcv", make_grid_variant_operator<UpdateForceFromGhostsNoGCV> );
+    OperatorNodeFactory::instance()->register_factory( "update_opt_from_ghost_no_gcv", make_grid_variant_operator<UpdateForceFromGhostsNoGCV> );
   }
 
 }
