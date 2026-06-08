@@ -22,7 +22,7 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: false
+    debug: true
   debug:
     filter: [ ".*egl_.*" ]
   profiling:
@@ -58,6 +58,51 @@ final_dump: nop
 visualization_init:
   - egl_init
   - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
+  - egl_create_shader_program:
+      shader_program: "trimesh_surface"
+      sources:
+        GL_VERTEX_SHADER: |
+          #version 460 core
+          #extension GL_ARB_shading_language_include : require
+          #include <uniform/camera>
+          layout (location = 0) in vec3 aPos;
+          out vec4 fDiffuseColor;          
+          void main()
+          {
+            mat4 mvp = projection[0] * modelview[0];
+            gl_Position = mvp * vec4(aPos,1);
+            fDiffuseColor = vec4(1,1,1,0.5);
+          }
+
+        GL_FRAGMENT_SHADER: |
+          #version 460 core
+          in vec4 fDiffuseColor;
+          layout (location = 0) out vec4 FragColor;
+          void main()
+          {
+            FragColor = fDiffuseColor;
+          }
+
+      pipeline_config:
+        gl_enable:
+          - GL_DEPTH_TEST
+          - GL_BLEND
+          - GL_CULL_FACE
+        gl_disable:
+          - GL_ALPHA_TEST
+          - GL_STENCIL_TEST
+        alpha_func: GL_ALWAYS
+        alpha_func_ref: 0
+        blend_src: GL_SRC_ALPHA
+        blend_dst: GL_ONE_MINUS_SRC_ALPHA
+        stencil_mask: 0xFF
+        stencil_func: GL_ALWAYS
+        stencil_func_ref: 0
+        stencil_func_mask: 0xFF
+        stencil_op_sfail: GL_KEEP
+        stencil_op_dpfail: GL_KEEP
+        stencil_op_dppass: GL_KEEP
+
   - egl_create_shader_program:
       shader_program: "atom_quadrics"
       sources:
@@ -151,6 +196,7 @@ visualization_init:
           - GL_BLEND
           - GL_ALPHA_TEST
           - GL_STENCIL_TEST
+          - GL_CULL_FACE
         alpha_func: GL_ALWAYS
         alpha_func_ref: 0
         blend_src: GL_ONE
@@ -165,7 +211,7 @@ visualization_init:
 
   - egl_create_camera:
       camera: "camera"
-      bond_shaders: [ "atom_quadrics" ]
+      bond_shaders: [ "trimesh_surface" , "atom_quadrics" ]
       eye: [ 0 , 50 , 100 ]
       look_at: [ 27 , 27 , 27 ]
       near: 1.0
@@ -182,9 +228,92 @@ dump_data:
           position: 0
           velocity: 1
           force: 2
-    - egl_draw: { vertex_buffer: "particles" , shader_program: "atom_quadrics" , elements: "noghost_atoms" , primitive: GL_POINTS }
+    - egl_trimesh_to_buffer:
+        vertex_buffer: "mesh_vertices"
+        element_buffer: "mesh_triangles"
+    - egl_draw: { vertex_buffer: "particles" , elements: "noghost_atoms" , primitive: GL_POINTS , shader_program: "atom_quadrics" }
+    - egl_draw: { vertex_buffer: "mesh_vertices" , elements: "mesh_triangles" , primitive: GL_TRIANGLES , shader_program: "trimesh_surface"  }
     - egl_end_frame: { surface: "onika-egl-window" }
 
+
+trimesh_init:
+  mesh:
+    vertices:
+      - [  2.700000000e+01 ,  2.700000000e+01 ,  3.700000000e+01 ]
+      - [  2.700000000e+01 ,  2.700000000e+01 ,  1.700000000e+01 ]
+      - [  3.287785339e+01 ,  2.700000000e+01 ,  3.509017181e+01 ]
+      - [  3.651056671e+01 ,  2.700000000e+01 ,  3.009016991e+01 ]
+      - [  3.651056671e+01 ,  2.700000000e+01 ,  2.390983009e+01 ]
+      - [  3.287785339e+01 ,  2.700000000e+01 ,  1.890983009e+01 ]
+      - [  2.993892670e+01 ,  3.209037018e+01 ,  3.509017181e+01 ]
+      - [  3.175528336e+01 ,  3.523638916e+01 ,  3.009016991e+01 ]
+      - [  3.175528336e+01 ,  3.523638916e+01 ,  2.390983009e+01 ]
+      - [  2.993892670e+01 ,  3.209037018e+01 ,  1.890983009e+01 ]
+      - [  2.406107330e+01 ,  3.209037018e+01 ,  3.509017181e+01 ]
+      - [  2.224471664e+01 ,  3.523638916e+01 ,  3.009016991e+01 ]
+      - [  2.224471664e+01 ,  3.523638916e+01 ,  2.390983009e+01 ]
+      - [  2.406107330e+01 ,  3.209037018e+01 ,  1.890983009e+01 ]
+      - [  2.112214661e+01 ,  2.700000000e+01 ,  3.509017181e+01 ]
+      - [  1.748943520e+01 ,  2.700000000e+01 ,  3.009016991e+01 ]
+      - [  1.748943520e+01 ,  2.700000000e+01 ,  2.390983009e+01 ]
+      - [  2.112214661e+01 ,  2.700000000e+01 ,  1.890983009e+01 ]
+      - [  2.406107330e+01 ,  2.190962982e+01 ,  3.509017181e+01 ]
+      - [  2.224471664e+01 ,  1.876360893e+01 ,  3.009016991e+01 ]
+      - [  2.224471664e+01 ,  1.876360893e+01 ,  2.390983009e+01 ]
+      - [  2.406107330e+01 ,  2.190962982e+01 ,  1.890983009e+01 ]
+      - [  2.993892670e+01 ,  2.190962982e+01 ,  3.509017181e+01 ]
+      - [  3.175528336e+01 ,  1.876360893e+01 ,  3.009016991e+01 ]
+      - [  3.175528336e+01 ,  1.876360893e+01 ,  2.390983009e+01 ]
+      - [  2.993892670e+01 ,  2.190962982e+01 ,  1.890983009e+01 ]
+    triangles:
+      - [   2 ,   6 ,   0 ]
+      - [   6 ,  10 ,   0 ]
+      - [  10 ,  14 ,   0 ]
+      - [  14 ,  18 ,   0 ]
+      - [  18 ,  22 ,   0 ]
+      - [  22 ,   2 ,   0 ]
+      - [   5 ,   1 ,   9 ]
+      - [   9 ,   1 ,  13 ]
+      - [  13 ,   1 ,  17 ]
+      - [  17 ,   1 ,  21 ]
+      - [  21 ,   1 ,  25 ]
+      - [  25 ,   1 ,   5 ]
+      - [   2 ,   3 ,   7 ]
+      - [   2 ,   7 ,   6 ]
+      - [   3 ,   4 ,   8 ]
+      - [   3 ,   8 ,   7 ]
+      - [   4 ,   5 ,   9 ]
+      - [   4 ,   9 ,   8 ]
+      - [   6 ,   7 ,  11 ]
+      - [   6 ,  11 ,  10 ]
+      - [   7 ,   8 ,  12 ]
+      - [   7 ,  12 ,  11 ]
+      - [   8 ,   9 ,  13 ]
+      - [   8 ,  13 ,  12 ]
+      - [  10 ,  11 ,  15 ]
+      - [  10 ,  15 ,  14 ]
+      - [  11 ,  12 ,  16 ]
+      - [  11 ,  16 ,  15 ]
+      - [  12 ,  13 ,  17 ]
+      - [  12 ,  17 ,  16 ]
+      - [  14 ,  15 ,  19 ]
+      - [  14 ,  19 ,  18 ]
+      - [  15 ,  16 ,  20 ]
+      - [  15 ,  20 ,  19 ]
+      - [  16 ,  17 ,  21 ]
+      - [  16 ,  21 ,  20 ]
+      - [  18 ,  19 ,  23 ]
+      - [  18 ,  23 ,  22 ]
+      - [  19 ,  20 ,  24 ]
+      - [  19 ,  24 ,  23 ]
+      - [  20 ,  21 ,  25 ]
+      - [  20 ,  25 ,  24 ]
+      - [  22 ,  23 ,   3 ]
+      - [  22 ,   3 ,   2 ]
+      - [  23 ,  24 ,   4 ]
+      - [  23 ,   4 ,   3 ]
+      - [  24 ,  25 ,   5 ]
+      - [  24 ,   5 ,   4 ]
 
 # Baseline system contains 16384 atoms
 input_data:
@@ -207,6 +336,7 @@ input_data:
   - gaussian_noise_r:
       sigma: 0.05 ang
   - replicate_domain
+  - trimesh_init
   - visualization_init
   
 # Use the following to replicate the domain in x- y- and z- directions.
