@@ -20,6 +20,8 @@ chunk_neighbors:
     stream_prealloc_factor: 1.05 # standard value to avoid most of dynamic allocations
     chunk_size: 1
 
+chunk_neighbors_impl: chunk_neighbors
+
 trigger_load_balance:
   - trigger_lb_tmp:
       condition: enable_load_balance
@@ -39,7 +41,7 @@ load_balance_if_triggered:
 
 update_particle_neighbors:
   - amr_grid_pairs
-  - chunk_neighbors
+  - chunk_neighbors_impl
   - resize_particle_locks
 
 parallel_update_particles:
