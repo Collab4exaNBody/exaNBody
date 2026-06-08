@@ -1,0 +1,227 @@
+logo_banner:
+  - message: "
+███████████                               █████         █████             █████ \n
+░░███░░░░░███                             ░░███         ░░███             ░░███ \n 
+ ░███    ░███  ██████  ████████    ██████  ░███████      ░███              ░███ \n 
+ ░██████████  ███░░███░░███░░███  ███░░███ ░███░░███     ░███              ░███ \n 
+ ░███░░░░░███░███████  ░███ ░███ ░███ ░░░  ░███ ░███     ░███              ░███ \n 
+ ░███    ░███░███░░░   ░███ ░███ ░███  ███ ░███ ░███     ░███      █ ███   ░███ \n 
+ ███████████ ░░██████  ████ █████░░██████  ████ █████    ███████████░░████████  \n 
+░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░    ░░░░░░░░░░░  ░░░░░░░░   \n 
+                                                                                \n"
+configuration:
+  physics:
+    units:
+      length: angstrom
+      mass: Dalton
+      time: picosecond
+      charge: elementary_charge
+      temperature: kelvin
+      amount: particle
+      luminosity: candela
+      angle: radian
+      energy: joule
+  logging:
+    debug: false
+  debug:
+    filter: [ ".*egl_.*" ]
+  profiling:
+# Set summary: true to have the profiling summary
+    summary: true
+# Set exectime true to have each operator time execution during the run
+    exectime: false
+
+# Global simulation parameters
+global:
+  dt: 2e-3 ps
+  rcut_inc: 2.0 ang
+  rcut_max: 4.1 ang
+  simulation_log_frequency: 100
+  simulation_dump_thermo_frequency: -1
+  simulation_dump_frequency: 1
+  simulation_end_iteration: 100000
+  deterministic_noise: true
+
+# Default simulation scenario: NVE ensemble  
+simulation: default_simulation
+
+# Some statistics at the end of the simulation
++first_iteration:
+  - grid_stats
+  - chunk_neighbors_stats
+# No visualisation or restart dump
+final_dump: nop
+
++update_particles_full:
+  - egl_particles_noghost_elements: { elements: "noghost_atoms" }
+
+visualization_init:
+  - egl_init
+  - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
+  - egl_create_shader_program:
+      shader_program: "atom_quadrics"
+      sources:
+        GL_VERTEX_SHADER: |
+          #version 460 core
+          layout (location = 0) in vec4 aPos;
+          layout (location = 1) in vec3 aVel;
+          layout (location = 2) in vec3 aForce;
+          out float vVelocityNorm;
+          out float vForceNorm;
+          void main()
+          {
+            gl_Position = aPos;
+            vForceNorm = sqrt(dot(aForce,aForce));
+            vVelocityNorm = sqrt(dot(aVel,aVel));
+          }
+
+        GL_GEOMETRY_SHADER: |
+          #version 460 core
+          #extension GL_ARB_shading_language_include : require
+          #include <uniform/camera>
+          #include <quadrics/convex_hull>
+          #include <quadrics/shape>
+          #include <color/scalar_color_map>
+          layout (points) in;
+          layout (triangle_strip, max_vertices=CVH_TRIANGLE_STRIP_MAX_VERTICES) out;
+          in float vVelocityNorm[];
+          in float vForceNorm[];
+          out vec4 fDiffuseColor;
+          out mat4 fQuadricsMatrix;
+          out mat4 fModelViewVarianceInverse;
+          void main()
+          {
+            vec4 vPos = gl_in[0].gl_Position;
+            fDiffuseColor = scalar_pv_colormap( vForceNorm[0], 0.0, 5.e2 );
+            mat4 mvp = projection[0] * modelview[0];
+            mat4 T = quadrics_anisotropic_variance_matrix( vPos , 0.3 /*clamp(vForceNorm[0],0.0,1.0)*/ );
+            mat4 D = quadrics_sphere_matrix();
+            mat4 Ti = inverse( T );
+            mat4 Tit = transpose( Ti );
+            mat4 modelviewInverse = modelview[1];
+            mat4 modelviewInverseTranspose = transpose( modelviewInverse );
+            fModelViewVarianceInverse = Ti * modelviewInverse;
+            fQuadricsMatrix = modelviewInverseTranspose * Tit * D * Ti * modelviewInverse;
+            ConvexHull2D hull = quadrics_2D_convex_hull( mvp, T );
+            cvh_draw_triangles( hull );
+          }
+
+        GL_FRAGMENT_SHADER: |
+          #version 460 core
+          #extension GL_ARB_shading_language_include : require
+          #include <uniform/camera>
+          #include <quadrics/raytracing>
+          in vec4 fDiffuseColor;
+          in mat4 fQuadricsMatrix;
+          in mat4 fModelViewVarianceInverse;
+          layout (location = 0) out vec4 FragColor; // first attached output buffer
+          layout (depth_any) out float gl_FragDepth; // free to set depth to arbitrary value
+          void main()
+          {
+            mat4 fProjectionInverse = projection[1];
+            vec2 vp = viewport[0];
+            vec2 vp_rcp = viewport[1];
+            vec3 fc = gl_FragCoord.xyz;
+            fc.xy /= vp;
+            fc *= 2.0;
+            fc -= 1.0;
+            vec4 p = fProjectionInverse * vec4(fc, 1.);
+            vec3 P = rayQuadricsIntersection( fQuadricsMatrix , fModelViewVarianceInverse , vec3(0,0,0), p.xyz / p.w );
+            vec3 N = quadricsSurfaceNormal( fQuadricsMatrix , P );
+            vec4 projP = projection[0] * vec4( P, 1. );
+            gl_FragDepth = 0.5 * (projP.z / projP.w + 1.0);
+            vec4 color;
+            vec3 ambientColor = vec3(0.1,0.1,0.1);
+            vec3 diffuseColor = fDiffuseColor.xyz;
+            vec3 specularColor = vec3(1,1,1);
+            vec3 lightPosition = vec3(0.3,0.3,1); 
+            float d = max( dot( N , normalize(lightPosition) ) , 0 );
+            float s = pow( d , 8 );
+            color.xyz = diffuseColor.xyz * d + specularColor * s + ambientColor;
+            color.w = fDiffuseColor.w;
+            FragColor = color;
+          }
+
+      pipeline_config:
+        gl_enable:
+          - GL_PROGRAM_POINT_SIZE
+          - GL_POINT_SMOOTH
+          - GL_DEPTH_TEST
+        gl_disable:
+          - GL_BLEND
+          - GL_ALPHA_TEST
+          - GL_STENCIL_TEST
+        alpha_func: GL_ALWAYS
+        alpha_func_ref: 0
+        blend_src: GL_ONE
+        blend_dst: GL_ZERO
+        stencil_mask: 0xFF
+        stencil_func: GL_ALWAYS
+        stencil_func_ref: 0
+        stencil_func_mask: 0xFF
+        stencil_op_sfail: GL_KEEP
+        stencil_op_dpfail: GL_KEEP
+        stencil_op_dppass: GL_KEEP
+
+  - egl_create_camera:
+      camera: "camera"
+      bond_shaders: [ "atom_quadrics" ]
+      eye: [ 0 , 50 , 100 ]
+      look_at: [ 27 , 27 , 27 ]
+      near: 1.0
+      far: 1000.0
+
+dump_data:
+  rebind: { sim_continue: compute_loop_continue }
+  body:
+    - egl_handle_events: { surface: "onika-egl-window" , camera: "camera" }
+    - egl_start_frame: { surface: "onika-egl-window" , camera: "camera" }
+    - egl_particles_to_vertex_buffer:
+        vertex_buffer: "particles"
+        vertex_attribs:
+          position: 0
+          velocity: 1
+          force: 2
+    - egl_draw: { vertex_buffer: "particles" , shader_program: "atom_quadrics" , elements: "noghost_atoms" , primitive: GL_POINTS }
+    - egl_end_frame: { surface: "onika-egl-window" }
+
+
+# Baseline system contains 16384 atoms
+input_data:
+  - particle_types:
+      particle_type_map: { Ni: 0 }
+  - particle_type_add_properties:
+      Ni: { mass: 58.693 Da , z: 28 }
+  - domain:
+      cell_size: 13.92 ang
+      grid_dims: [ 4 , 4 , 4 ]
+      bounds: [ [ 0.0 um , 0.0 um , 0.0 um ] , [ 55.68 ang , 55.68 ang , 55.68 ang ] ]
+      periodic: [ true , true , true ]
+      expandable: false
+      xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
+  - init_rcb_grid
+  - lattice:
+      structure: FCC
+      types: [ Ni , Ni , Ni , Ni]
+      size: [ 3.48 ang , 3.48 ang , 3.48 ang ]
+  - gaussian_noise_r:
+      sigma: 0.05 ang
+  - replicate_domain
+  - visualization_init
+  
+# Use the following to replicate the domain in x- y- and z- directions.
+replicate_domain:
+  repeat: [ 1 , 1 , 1 ]
+
+# This defines the SNAP force operator  
+lennard_jones_force:
+  config: { epsilon: 0.3729 eV , sigma: 2.2808 ang }
+  rcut: 4.1 ang
+
+# How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
+compute_all_forces_energy:    
+  - zero_particle_force: { ghost: true }
+  - lennard_jones_force
+  - update_force_from_ghost
+  - divide_force_by_type_scalar: mass
+                                                                               
