@@ -79,7 +79,7 @@ namespace exanb
   };
   
    // === register factories ===  
-  ONIKA_AUTORUN_INIT(initialize_rcb_grid)
+  ONIKA_AUTORUN_INIT(init_rcb_grid)
   {
     OperatorNodeFactory::instance()->register_factory("init_rcb_grid", make_grid_variant_operator< InitRCBGrid > );
   }

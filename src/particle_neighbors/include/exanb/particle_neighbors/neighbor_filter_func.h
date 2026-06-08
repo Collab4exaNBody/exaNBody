@@ -43,11 +43,11 @@ namespace exanb
         assert( cell_a!=cell_b || p_a!=p_b );
         if( d2 > 0.0 && d2 <= rcut2 )
         {
-          if( m_half_symmetric && ( cell_a<cell_b || ( cell_a==cell_b && p_a<p_b ) ) ) return false;
-          if( m_skip_ghost && m_grid.is_ghost_cell(cell_b) ) return false;
+          if( m_half_symmetric ) { if( cell_a<cell_b || ( cell_a==cell_b && p_a<p_b ) ) return false; }
+          if( m_skip_ghost     ) { if( m_grid.is_ghost_cell(cell_b)                   ) return false; }
           return true;
         }
-        else return false;
+        return false;
       }
     };
 
