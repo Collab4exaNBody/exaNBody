@@ -23,12 +23,12 @@ jobs:
 
     - name: Get EGLRender
       run: |
-        git clone --depth 1 https://github.com/carrardt/EGLRender.git
+        git clone --depth 1 https://github.com/carrardt/EGLRender.git egl
     - name: Configure EGLRender
       run: |
         cmake -B ${{github.workspace}}/egl/build \
               -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/egl/install \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/egl/install
       working-directory: ${{github.workspace}}/egl
     - name: Build EGLRender
       run: |
