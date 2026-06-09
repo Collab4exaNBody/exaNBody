@@ -10,6 +10,7 @@ logo_banner:
 ░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░     ░░░░░░░░░  ░░░░░    ░░░░░ ░░░░░   ░░░░░ ░░░░░         \n"
 
 configuration:
+  nogpu: true
   physics:
     units:
       length: angstrom
@@ -36,11 +37,22 @@ global:
   dt: 2e-3 ps
   rcut_inc: 2.0 ang
   rcut_max: 4.6 ang
-  simulation_log_frequency: 1000
+  simulation_log_frequency: 1
   simulation_dump_thermo_frequency: -1
   simulation_dump_frequency: 1
-  simulation_end_iteration: 10000
+  simulation_end_iteration: 10
   deterministic_noise: true
+    
+# # Global simulation parameters
+# global:
+#   dt: 2e-3 ps
+#   rcut_inc: 2.0 ang
+#   rcut_max: 4.6 ang
+#   simulation_log_frequency: 1000
+#   simulation_dump_thermo_frequency: -1
+#   simulation_dump_frequency: 1
+#   simulation_end_iteration: 10000
+#   deterministic_noise: true
 
 # Default simulation scenario: NVE ensemble
 simulation: default_simulation
