@@ -22,7 +22,7 @@ jobs:
       run: sudo apt install mpich
 
     - name: Install EGL
-      run: sudo apt-get install -y libegl1-mesa-dev libgles2-mesa-dev
+      run: sudo apt-get install -y libegl1-mesa-dev libgles2-mesa-dev xvfb
 
     - name: Get EGLRender
       run: |
@@ -70,10 +70,14 @@ jobs:
       run: |
         cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
 
-    - name: Run exaNBody Tests
+    - name: Run exaNBody Tests (EGL)
       working-directory: ${{github.workspace}}/build
-      run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+      run: xvfb-run -a ctest -R "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
 
+    - name: Run exaNBody Tests (Others)
+      working-directory: ${{github.workspace}}/build
+      run: ctest -E "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+      
     # - name: Get latest exaStamp release
     #   id: exastamp_release
     #   run: |
