@@ -52,14 +52,27 @@ jobs:
       run: |
         cmake --build ${{github.workspace}}/onika/build --target install --config ${{env.BUILD_TYPE}} -j 8
       
-    # - name: Configure exaNBody
-    #   run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install -DEXANB_BUILD_CONTRIB_MD=ON -DEXANB_BUILD_MICROSTAMP=ON -DEXANB_BUILD_CONTRIB_PI=ON -DEXANB_BUILD_MICROCOSMOS=ON -DSNAP_CPU_USE_LOCKS=ON -DSNAP_FP32_MATH=OFF
-    # - name: Build exaNBody
-    #   run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
+    - name: Configure exaNBody
+      run: |
+        cmake -B ${{github.workspace}}/build \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -Donika_DIR=${{github.workspace}}/onika/install \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install \
+              -DEGLRender_DIR=${{github.workspace}}/egl/install/lib/cmake \
+              -DEXANB_BUILD_CONTRIB_EGL=ON \
+              -DEXANB_BUILD_CONTRIB_MD=ON \
+              -DEXANB_BUILD_MICROSTAMP=ON \
+              -DEXANB_BUILD_CONTRIB_PI=ON \
+              -DEXANB_BUILD_MICROCOSMOS=ON \
+              -DSNAP_CPU_USE_LOCKS=ON \
+              -DSNAP_FP32_MATH=OFF
+    - name: Build exaNBody
+      run: |
+        cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
 
-    # - name: Run exaNBody Tests
-    #   working-directory: ${{github.workspace}}/build
-    #   run: ctest -E "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+    - name: Run exaNBody Tests
+      working-directory: ${{github.workspace}}/build
+      run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
 
     # - name: Get latest exaStamp release
     #   id: exastamp_release
