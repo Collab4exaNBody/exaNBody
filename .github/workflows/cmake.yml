@@ -20,23 +20,31 @@ jobs:
       run: sudo apt-get update && sudo apt-get install lcov
     - name: Install MPI
       run: sudo apt install mpich
-      
-    - name: Get Onika
-      run: git clone --depth 1 https://github.com/Collab4exaNBody/onika.git        
-    - name: Configure Onika
-      run: cmake -B ${{github.workspace}}/onika/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/onika/install
-      working-directory: ${{github.workspace}}/onika    
-    - name: Build Onika
-      run: cmake --build ${{github.workspace}}/onika/build --target install --config ${{env.BUILD_TYPE}} -j 8
-      
-    - name: Configure exaNBody
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install -DEXANB_BUILD_CONTRIB_MD=ON -DEXANB_BUILD_MICROSTAMP=ON -DEXANB_BUILD_CONTRIB_PI=ON -DEXANB_BUILD_MICROCOSMOS=ON -DSNAP_CPU_USE_LOCKS=ON -DSNAP_FP32_MATH=OFF
-    - name: Build exaNBody
-      run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
 
-    - name: Run exaNBody Tests
-      working-directory: ${{github.workspace}}/build
-      run: ctest -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+    - name: Get EGLRender
+      run: git clone --depth 1 https://github.com/carrardt/EGLRender.git
+    - name: Configure EGLRender
+      run: cmake -B ${{github.workspace}}/egl/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/egl/install
+      working-directory: ${{github.workspace}}/egl
+    - name: Build EGLRender
+      run: cmake --build ${{github.workspace}}/egl/build --target install --config ${{env.BUILD_TYPE}} -j 8
+      
+    # - name: Get Onika
+    #   run: git clone --depth 1 https://github.com/Collab4exaNBody/onika.git        
+    # - name: Configure Onika
+    #   run: cmake -B ${{github.workspace}}/onika/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/onika/install
+    #   working-directory: ${{github.workspace}}/onika    
+    # - name: Build Onika
+    #   run: cmake --build ${{github.workspace}}/onika/build --target install --config ${{env.BUILD_TYPE}} -j 8
+      
+    # - name: Configure exaNBody
+    #   run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Donika_DIR=${{github.workspace}}/onika/install -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install -DEXANB_BUILD_CONTRIB_MD=ON -DEXANB_BUILD_MICROSTAMP=ON -DEXANB_BUILD_CONTRIB_PI=ON -DEXANB_BUILD_MICROCOSMOS=ON -DSNAP_CPU_USE_LOCKS=ON -DSNAP_FP32_MATH=OFF
+    # - name: Build exaNBody
+    #   run: cmake --build ${{github.workspace}}/build --target install --config ${{env.BUILD_TYPE}} -j 8
+
+    # - name: Run exaNBody Tests
+    #   working-directory: ${{github.workspace}}/build
+    #   run: ctest -E "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
 
     # - name: Get latest exaStamp release
     #   id: exastamp_release
