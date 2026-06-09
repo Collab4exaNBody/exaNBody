@@ -21,6 +21,9 @@ jobs:
     - name: Install MPI
       run: sudo apt install mpich
 
+    - name: Install EGL
+      run: sudo apt-get install -y libegl1-mesa-dev libgles2-mesa-dev
+
     - name: Get EGLRender
       run: |
         git clone --depth 1 https://github.com/carrardt/EGLRender.git egl
