@@ -1,5 +1,10 @@
 name: Check CMake Installation
-on: [push]
+on:
+  push:
+    branches:
+      - main
+    pull_request:
+      - main
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
