@@ -10,6 +10,7 @@ logo_banner:
 ░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░     ░░░░░░░░░  ░░░░░    ░░░░░ ░░░░░   ░░░░░ ░░░░░         \n"
 
 configuration:
+  nogpu: true
   physics:
     units:
       length: angstrom
