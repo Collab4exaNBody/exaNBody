@@ -70,7 +70,7 @@ visualization_init:
           out vec4 fDiffuseColor;          
           void main()
           {
-            mat4 mvp = projection[0] * modelview[0];
+            mat4 mvp = camera.projection[0] * camera.modelview[0];
             gl_Position = mvp * vec4(aPos,1);
             fDiffuseColor = vec4(1,1,1,0.5);
           }
@@ -139,12 +139,12 @@ visualization_init:
           {
             vec4 vPos = gl_in[0].gl_Position;
             fDiffuseColor = scalar_pv_colormap( vForceNorm[0], 0.0, 5.e2 );
-            mat4 mvp = projection[0] * modelview[0];
+            mat4 mvp = camera.projection[0] * camera.modelview[0];
             mat4 T = quadrics_anisotropic_variance_matrix( vPos , 0.3 /*clamp(vForceNorm[0],0.0,1.0)*/ );
             mat4 D = quadrics_sphere_matrix();
             mat4 Ti = inverse( T );
             mat4 Tit = transpose( Ti );
-            mat4 modelviewInverse = modelview[1];
+            mat4 modelviewInverse = camera.modelview[1];
             mat4 modelviewInverseTranspose = transpose( modelviewInverse );
             fModelViewVarianceInverse = Ti * modelviewInverse;
             fQuadricsMatrix = modelviewInverseTranspose * Tit * D * Ti * modelviewInverse;
@@ -163,9 +163,9 @@ visualization_init:
           layout (depth_greater) out float gl_FragDepth;
           void main()
           {
-            mat4 fProjectionInverse = projection[1];
-            vec2 vp = viewport[0];
-            vec2 vp_rcp = viewport[1];
+            mat4 fProjectionInverse = camera.projection[1];
+            vec2 vp = camera.viewport[0];
+            vec2 vp_rcp = camera.viewport[1];
             vec3 fc = gl_FragCoord.xyz;
             fc.xy /= vp;
             fc *= 2.0;
@@ -173,7 +173,7 @@ visualization_init:
             vec4 p = fProjectionInverse * vec4(fc, 1.);
             vec3 P = rayQuadricsIntersection( fQuadricsMatrix , fModelViewVarianceInverse , vec3(0,0,0), p.xyz / p.w );
             vec3 N = quadricsSurfaceNormal( fQuadricsMatrix , P );
-            vec4 projP = projection[0] * vec4( P, 1. );
+            vec4 projP = camera.projection[0] * vec4( P, 1. );
             gl_FragDepth = 0.5 * (projP.z / projP.w + 1.0);
             vec4 color;
             vec3 ambientColor = vec3(0.1,0.1,0.1);
