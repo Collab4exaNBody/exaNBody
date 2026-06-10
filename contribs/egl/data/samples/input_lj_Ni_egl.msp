@@ -22,7 +22,7 @@ configuration:
       angle: radian
       energy: joule
   logging:
-    debug: true
+    debug: false
   debug:
     filter: [ ".*egl_.*" ]
   profiling:
@@ -57,7 +57,8 @@ final_dump: nop
 
 visualization_init:
   - egl_init
-  - egl_create_surface: { surface: "onika-egl-window" , width: 800 , height: 600 }
+  - egl_create_surface: { surface: "onika-egl-window" , surface_type: window , width: 1600 , height: 1024 }
+#  - egl_create_surface: { surface: "onika-egl-window" , surface_type: pbuffer , width: 1600 , height: 1024 }
   - egl_create_shader_program:
       shader_program: "trimesh_surface"
       sources:
@@ -128,7 +129,7 @@ visualization_init:
           #include <quadrics/shape>
           #include <color/scalar_color_map>
           layout (points) in;
-          layout (triangle_strip, max_vertices=CVH_TRIANGLE_STRIP_MAX_VERTICES) out;
+          layout (triangle_strip, max_vertices=BOX_TRIANGLE_STRIP_MAX_VERTICES) out;
           in float vVelocityNorm[];
           in float vForceNorm[];
           out vec4 fDiffuseColor;
@@ -147,8 +148,7 @@ visualization_init:
             mat4 modelviewInverseTranspose = transpose( modelviewInverse );
             fModelViewVarianceInverse = Ti * modelviewInverse;
             fQuadricsMatrix = modelviewInverseTranspose * Tit * D * Ti * modelviewInverse;
-            ConvexHull2D hull = quadrics_2D_convex_hull( mvp, T );
-            cvh_draw_triangles( hull );
+            quadrics_draw_box_triangles( mvp , T );
           }
 
         GL_FRAGMENT_SHADER: |
@@ -160,7 +160,7 @@ visualization_init:
           in mat4 fQuadricsMatrix;
           in mat4 fModelViewVarianceInverse;
           layout (location = 0) out vec4 FragColor; // first attached output buffer
-          layout (depth_any) out float gl_FragDepth; // free to set depth to arbitrary value
+          layout (depth_greater) out float gl_FragDepth;
           void main()
           {
             mat4 fProjectionInverse = projection[1];
@@ -211,6 +211,7 @@ visualization_init:
 
   - egl_create_camera:
       camera: "camera"
+      surface: "onika-egl-window"
       bond_shaders: [ "trimesh_surface" , "atom_quadrics" ]
       eye: [ 0 , 50 , 100 ]
       look_at: [ 27 , 27 , 27 ]
@@ -234,6 +235,8 @@ dump_data:
     - egl_draw: { vertex_buffer: "particles" , elements: "noghost_atoms" , primitive: GL_POINTS , shader_program: "atom_quadrics" }
     - egl_draw: { vertex_buffer: "mesh_vertices" , elements: "mesh_triangles" , primitive: GL_TRIANGLES , shader_program: "trimesh_surface"  }
     - egl_end_frame: { surface: "onika-egl-window" }
+#    - timestep_file: "egl-frame-%09d"
+#    - egl_write_frame: { surface: "onika-egl-window" }
 
 
 trimesh_init:
