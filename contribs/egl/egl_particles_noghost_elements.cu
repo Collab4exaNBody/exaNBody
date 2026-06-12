@@ -72,10 +72,11 @@ namespace exanb
         {
           elptr[element_count++] = cell_particle_offset[cell_i] + p;
         }
-      }
+      }      
+      egl_render_manager->element_buffer(elbuf_id).unmap_buffer();
       
       assert( element_count == egl_render_manager->element_buffer(elbuf_id).size() );
-      egl_render_manager->element_buffer(elbuf_id).unmap_buffer();
+      ldbg << "egl_particles_noghost_elements: element_count="<<element_count<<", size="<<egl_render_manager->element_buffer(elbuf_id).size()<<std::endl;
     }
 
   };
