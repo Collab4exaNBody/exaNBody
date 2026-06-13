@@ -36,6 +36,14 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline double operator () (const Vec3d& v) const { return sqrt(v.x*v.x+v.y*v.y+v.z*v.z); }
   };
 
+  struct Mat3NormFunctor
+  {
+    ONIKA_HOST_DEVICE_FUNC inline double operator () (const Mat3d& mat) const
+    {
+      return std::sqrt( mat.m11*mat.m11+mat.m12*mat.m12+mat.m13*mat.m13 + mat.m21*mat.m21+mat.m22*mat.m22+mat.m23*mat.m23 + mat.m31*mat.m31+mat.m32*mat.m32+mat.m33*mat.m33 );
+    }
+  };
+
   struct Vec3FromXYZFunctor
   {
     ONIKA_HOST_DEVICE_FUNC inline Vec3d operator () (double vx, double vy, double vz) const { return {vx,vy,vz}; }

@@ -57,7 +57,7 @@ template<> struct GLAttributeWriter<GLfloat,Mat3d>  { ONIKA_HOST_DEVICE_FUNC sta
     a[3]=v.m21; a[4]=v.m22; a[5]=v.m23;
     a[6]=v.m31; a[7]=v.m32; a[8]=v.m33; } };
 template<size_t N> struct GLAttributeWriter<GLfloat , onika::oarray_t<double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const onika::oarray_t<double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
-template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const    std::array  <double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLfloat , std::array  <double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const    std::array  <double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
 template<size_t N> struct GLAttributeWriter<GLuint, std::array<long unsigned int,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLuint * a, const std::array<unsigned long,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
 
 using EGL_ULongArray4 = std::array<long unsigned int, 4>;
@@ -143,63 +143,6 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
 
   public:
 
-    template<class FieldT>
-    inline void process_one_field( GLVertexBuffers & glvbos, const FieldT& f )
-    {
-      using field_type = typename FieldT::value_type;
-      using attrib_type = typename GLTypeId<field_type>::comp_type;
-      auto it = vertex_attribs->find( f.short_name() );
-      if( it != vertex_attribs->end() )
-      {
-        const int ai = it->second;
-        //ldbg << "write field "<<f.short_name()<<" to attrib #"<<ai<<std::endl;
-        const auto cells = grid->cells_accessor();
-        using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
-        bool runs_on_gpu = ( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() );
-
-        attrib_type * attrib_ptr = nullptr;
-        if( runs_on_gpu ) attrib_ptr = (attrib_type*) glvbos.gpu_map_write_only(ai);
-        else attrib_ptr = (attrib_type*) glvbos.host_map_write_only(ai);
-
-        GLVertexAttribCopyFromParticles<CellsT,FieldT> cp_func = { cells, f, grid->cell_particle_offset_data(), attrib_ptr };
-
-        auto cp_fields = onika::make_flat_tuple(f);
-        compute_cell_particles( *grid , false, cp_func, cp_fields, parallel_execution_context("CopyGLVertAttr") );
-
-        if( runs_on_gpu ) glvbos.gpu_unmap(ai);
-        else glvbos.host_unmap(ai);
-      }
-      //else { ldbg << "don't write field "<<f.short_name()<<std::endl; }
-    }
-    template<class FieldT>
-    inline void process_one_field( GLVertexBuffers & glvbos, const std::span<FieldT>& fvec )
-    {
-      for(const auto& f : fvec) process_one_field( glvbos, f );
-    }
-
-    template<class FieldT>
-    inline void build_formats(std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const FieldT& f )
-    {
-      using field_type = typename FieldT::value_type;
-      auto it = vertex_attribs->find( f.short_name() );
-      if( it != vertex_attribs->end() )
-      {
-        const int ai = it->second;
-        attrib_formats[ai].first = GLTypeId<field_type>::type_enum;
-        attrib_formats[ai].second = GLTypeId<field_type>::ncomp;
-        //ldbg << "particle attribute "<< f.short_name() <<" -> "<<gl_enum_to_string(attrib_formats[ai].first)<<" x "<<attrib_formats[ai].second<<" @ "<<ai <<std::endl;
-      }
-      /*else
-      {
-        ldbg << "particle attribute "<<f.short_name() <<" skipped"<<std::endl;
-      }*/
-    }
-    template<class FieldT>
-    inline void build_formats( std::map<GLint , std::pair<GLenum,GLint> > & attrib_formats, const std::span<FieldT>& fvec )
-    {
-      for(const auto& f : fvec) build_formats( attrib_formats , f );
-    }
-
     template<class... GridFields>
     inline void execute_on_fields( const GridFields& ... grid_fields )
     {
@@ -211,7 +154,23 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
       {
         ldbg << "EGL : create vertex buffer " << *vertex_buffer <<std::endl;
         std::map<int , std::pair<GLenum,GLint> > attrib_formats;
-        ( ... , ( build_formats(attrib_formats,grid_fields) ) ) ;
+
+        auto build_formats = [this,&attrib_formats](const auto& f)
+        -> void
+        {
+          using FieldT = std::remove_reference_t< std::remove_cv_t<decltype(f)> >;
+          using field_type = typename FieldT::value_type;
+          auto it = vertex_attribs->find( f.short_name() );
+          if( it != vertex_attribs->end() )
+          {
+            const int ai = it->second;
+            attrib_formats[ai].first = GLTypeId<field_type>::type_enum;
+            attrib_formats[ai].second = GLTypeId<field_type>::ncomp;
+          }
+        };
+
+        ( ... , ( apply_on_particle_field(build_formats,grid_fields) ) ) ;
+
         if(attrib_formats.empty()) return;
         const int nb_attribs = 1 + attrib_formats.crbegin()->first;
         ldbg << "nb_attribs = " << nb_attribs << std::endl;
@@ -236,14 +195,46 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
       ldbg << "EGL : update vertex buffer " << *vertex_buffer << " , nv="<< n_points << " , id="<<buf_id<<std::endl;
       glvbos.set_number_of_vertices( n_points );
 
-      ( ... , ( process_one_field(glvbos,grid_fields) ) ) ;
+
+      auto copy_field_to_vbo = [this,&glvbos](const auto& f)
+      -> void
+      {
+        using FieldT = std::remove_reference_t< std::remove_cv_t<decltype(f)> >;
+        using field_type = typename FieldT::value_type;
+        using attrib_type = typename GLTypeId<field_type>::comp_type;
+        auto it = vertex_attribs->find( f.short_name() );
+        if( it != vertex_attribs->end() )
+        {
+          const int ai = it->second;
+          //ldbg << "write field "<<f.short_name()<<" to attrib #"<<ai<<std::endl;
+          const auto cells = grid->cells_accessor();
+          using CellsT = std::remove_cv_t< std::remove_reference_t< decltype(cells) > >;
+          bool runs_on_gpu = ( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() );
+
+          attrib_type * attrib_ptr = nullptr;
+          if( runs_on_gpu ) attrib_ptr = (attrib_type*) glvbos.gpu_map_write_only(ai);
+          else attrib_ptr = (attrib_type*) glvbos.host_map_write_only(ai);
+
+          GLVertexAttribCopyFromParticles<CellsT,FieldT> cp_func = { cells, f, grid->cell_particle_offset_data(), attrib_ptr };
+
+          auto cp_fields = onika::make_flat_tuple(f);
+          compute_cell_particles( *grid , false, cp_func, cp_fields, parallel_execution_context("CopyGLVertAttr") );
+
+          if( runs_on_gpu ) glvbos.gpu_unmap(ai);
+          else glvbos.host_unmap(ai);
+        }
+        //else { ldbg << "don't write field "<<f.short_name()<<std::endl; }
+      };
+      ( ... , ( apply_on_particle_field(copy_field_to_vbo,grid_fields) ) ) ;
 
       parallel_execution_queue().wait();
     }
 
-    template<class... fid>
-    inline void execute_on_field_set( FieldSet<fid...> )
+    inline void execute() override final
     {
+      // remove rx,ry,rz, fx,fy,fz and vx,vy,vz
+      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
+
       using has_field_type_t = typename GridT:: template HasField < field::_type >;
       static constexpr bool has_field_type = has_field_type_t::value;
 
@@ -255,16 +246,7 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
       ParticleTypeProperties * optional_type_properties = nullptr;
       if ( has_field_type && particle_type_properties.has_value() ) optional_type_properties = particle_type_properties.get_pointer();
       GridAdditionalFields add_fields( grid , optional_type_properties );
-      auto [ type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields ] = add_fields.view();
-
-      // remove rx,ry,rz, fx,fy,fz and vx,vy,vz
-      execute_on_fields( position, velocity, force, type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields, onika::soatl::FieldId<fid>{} ... );
-    }
-
-    inline void execute() override final
-    {
-      using GridFieldSet = RemoveFields< typename GridT::field_set_t , FieldSet< field::_vx, field::_vy, field::_vz, field::_fx, field::_fy, field::_fz> >;
-      execute_on_field_set( GridFieldSet{} );
+      execute_on_fields( position, velocity, force, add_fields.view(), grid->field_accessors_from_field_set( GridFieldSet{} ) );
     }
 
   };

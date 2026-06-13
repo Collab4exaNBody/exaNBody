@@ -22,21 +22,20 @@ under the License.
 #include <exanb/compute/field_combiners.h>
 #include <exanb/core/particle_type_properties.h>
 #include <exanb/core/grid.h>
+#include <onika/flat_tuple.h>
 #include <vector>
 #include <span>
 
 namespace exanb
 {
 
-  struct GridAdditionalFieldsView
-  {
-    std::span< TypePropertyScalarCombiner > m_type_real_fields;
-    std::span< TypePropertyVec3Combiner > m_type_vec3_fields;
-    std::span< TypePropertyMat3Combiner > m_type_mat3_fields;
-    std::span< field::generic_real > m_opt_real_fields;
-    std::span< field::generic_vec3 > m_opt_vec3_fields;
-    std::span< field::generic_mat3 > m_opt_mat3_fields;
-  };
+  using GridAdditionalFieldsView = onika::FlatTuple<
+    std::span< TypePropertyScalarCombiner > ,
+    std::span< TypePropertyVec3Combiner > ,
+    std::span< TypePropertyMat3Combiner > ,
+    std::span< field::generic_real > ,
+    std::span< field::generic_vec3 > ,
+    std::span< field::generic_mat3 > >;
 
   struct GridAdditionalFields
   {
@@ -69,5 +68,41 @@ namespace exanb
       return { m_type_real_fields, m_type_vec3_fields, m_type_mat3_fields, m_opt_real_fields, m_opt_vec3_fields , m_opt_mat3_fields };
     }
   };
+
+  template<class FieldT>
+  struct ApplyOnParticleField
+  {
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const FieldT& f) { func(f); }
+  };
+  template<class FieldT>
+  struct ApplyOnParticleField< std::span<FieldT> >
+  {
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const std::span<FieldT>& fvec)
+    {
+      for(const auto& f : fvec) ApplyOnParticleField<FieldT>::apply(func,f);
+    }
+  };
+  template<class... FieldsOrSpansT>
+  struct ApplyOnParticleField< onika::FlatTuple<FieldsOrSpansT...> >
+  {
+    template<class FuncT, size_t... I>
+    static inline void apply( const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl, std::index_sequence<I...> )
+    {
+      ( ... , ( ApplyOnParticleField<FieldsOrSpansT>::apply(func,ftpl.get(onika::tuple_index<I>)) ) );
+    }
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl)
+    {
+      apply( func, ftpl, std::make_index_sequence<sizeof...(FieldsOrSpansT)>{} );
+    }
+  };
+
+  template<class FuncT, class FieldT>
+  inline void apply_on_particle_field( const FuncT& func, const FieldT& f )
+  {
+    ApplyOnParticleField<FieldT>::apply(func,f);
+  }
 
 }
