@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <exanb/compute/field_combiners.h>
+#include <exanb/compute/math_functors.h>
 #include <exanb/core/particle_type_properties.h>
 #include <exanb/core/grid.h>
 #include <onika/flat_tuple.h>
@@ -69,40 +70,72 @@ namespace exanb
     }
   };
 
-  template<class FieldT>
+
+  template<class TransformFuncT>
+  struct FieldTransformer
+  {
+    TransformFuncT m_transform;
+    std::string_view m_suffix;
+  };
+
+  template<class TransformersTupleT,class FieldT>
   struct ApplyOnParticleField
   {
-    template<class FuncT>
-    static inline void apply(const FuncT& func, const FieldT& f) { func(f); }
-  };
-  template<class FieldT>
-  struct ApplyOnParticleField< std::span<FieldT> >
-  {
-    template<class FuncT>
-    static inline void apply(const FuncT& func, const std::span<FieldT>& fvec)
+
+    template<class FuncT, class TransformFuncT>
+    static inline void apply_transformer(const FuncT& func, const FieldT& f, const FieldTransformer<TransformFuncT>& transform)
     {
-      for(const auto& f : fvec) ApplyOnParticleField<FieldT>::apply(func,f);
+      if constexpr ( onika::lambda_is_callable_with_args_v<TransformFuncT,typename FieldT::value_type> )
+      {
+        TransformCellParticleFieldAccessor<TransformFuncT,FieldT> tfield = { transform.m_transform, f };
+        tfield.transform_name( transform.m_suffix );
+        func( tfield );
+      }
     }
-  };
-  template<class... FieldsOrSpansT>
-  struct ApplyOnParticleField< onika::FlatTuple<FieldsOrSpansT...> >
-  {
+
     template<class FuncT, size_t... I>
-    static inline void apply( const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl, std::index_sequence<I...> )
+    static inline void apply_transformers(const FuncT& func, const FieldT& f, const TransformersTupleT& transformers, std::index_sequence<I...> )
     {
-      ( ... , ( ApplyOnParticleField<FieldsOrSpansT>::apply(func,ftpl.get(onika::tuple_index<I>)) ) );
+      ( ... , ( apply_transformer(func,f,transformers.get(onika::tuple_index<I>)) ) );
     }
+
     template<class FuncT>
-    static inline void apply(const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl)
+    static inline void apply(const FuncT& func, const FieldT& f, const TransformersTupleT& transformers)
     {
-      apply( func, ftpl, std::make_index_sequence<sizeof...(FieldsOrSpansT)>{} );
+      func(f);
+      constexpr size_t NTransformers = transformers.size();
+      apply_transformers(func,f,transformers,std::make_index_sequence<NTransformers>{} );
     }
   };
 
-  template<class FuncT, class FieldT>
-  inline void apply_on_particle_field( const FuncT& func, const FieldT& f )
+  template<class TransformersTupleT,class FieldT>
+  struct ApplyOnParticleField<TransformersTupleT, std::span<FieldT> >
   {
-    ApplyOnParticleField<FieldT>::apply(func,f);
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const std::span<FieldT>& fvec, const TransformersTupleT& transformers)
+    {
+      for(const auto& f : fvec) ApplyOnParticleField<TransformersTupleT,FieldT>::apply(func,f,transformers);
+    }
+  };
+  template<class TransformersTupleT,class... FieldsOrSpansT>
+  struct ApplyOnParticleField<TransformersTupleT, onika::FlatTuple<FieldsOrSpansT...> >
+  {
+    template<class FuncT, size_t... I>
+    static inline void apply( const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl, const TransformersTupleT& transformers, std::index_sequence<I...> )
+    {
+      ( ... , ( ApplyOnParticleField<TransformersTupleT,FieldsOrSpansT>::apply(func,ftpl.get(onika::tuple_index<I>),transformers) ) );
+    }
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl, const TransformersTupleT& transformers)
+    {
+      apply( func, ftpl, transformers, std::make_index_sequence<sizeof...(FieldsOrSpansT)>{} );
+    }
+  };
+
+  template<class FuncT, class FieldT, class TransformersTupleT = onika::FlatTuple<> >
+  inline void apply_on_particle_field( const FuncT& func, const FieldT& f , const TransformersTupleT& transformers = {} )
+  {
+    ApplyOnParticleField<TransformersTupleT,FieldT>::apply(func,f,transformers);
   }
 
 }

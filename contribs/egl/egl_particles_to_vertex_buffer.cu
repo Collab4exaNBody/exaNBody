@@ -143,8 +143,8 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
 
   public:
 
-    template<class... GridFields>
-    inline void execute_on_fields( const GridFields& ... grid_fields )
+    template<class FieldTransformersTupleT, class... GridFields>
+    inline void execute_on_fields( const FieldTransformersTupleT& transformers, const GridFields& ... grid_fields )
     {
       const size_t n_points = grid->number_of_particles();
       ldbg << "total particles = "<<n_points <<std::endl;
@@ -169,7 +169,7 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
           }
         };
 
-        ( ... , ( apply_on_particle_field(build_formats,grid_fields) ) ) ;
+        ( ... , ( apply_on_particle_field(build_formats,grid_fields,transformers) ) ) ;
 
         if(attrib_formats.empty()) return;
         const int nb_attribs = 1 + attrib_formats.crbegin()->first;
@@ -225,7 +225,7 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
         }
         //else { ldbg << "don't write field "<<f.short_name()<<std::endl; }
       };
-      ( ... , ( apply_on_particle_field(copy_field_to_vbo,grid_fields) ) ) ;
+      ( ... , ( apply_on_particle_field(copy_field_to_vbo,grid_fields,transformers) ) ) ;
 
       parallel_execution_queue().wait();
     }
@@ -246,7 +246,12 @@ using EGL_ULongArray4 = std::array<long unsigned int, 4>;
       ParticleTypeProperties * optional_type_properties = nullptr;
       if ( has_field_type && particle_type_properties.has_value() ) optional_type_properties = particle_type_properties.get_pointer();
       GridAdditionalFields add_fields( grid , optional_type_properties );
-      execute_on_fields( position, velocity, force, add_fields.view(), grid->field_accessors_from_field_set( GridFieldSet{} ) );
+
+      // field transformers to generate derivated fields on the fly
+      FieldTransformer<GenericL2NormFunctor> norm_transformer = { {}, "Norm" };
+      auto transformers = onika::make_flat_tuple( norm_transformer );
+
+      execute_on_fields( transformers, position, velocity, force, add_fields.view(), grid->field_accessors_from_field_set( GridFieldSet{} ) );
     }
 
   };

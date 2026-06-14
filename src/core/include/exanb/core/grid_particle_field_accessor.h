@@ -100,16 +100,17 @@ namespace exanb
     struct GenericCellParticleFieldAccessor< TransformCellParticleFieldAccessorImpl<FuncT,FieldIdT> >
     {
       using field_id = FieldIdT;
-      using Id = typename FieldIdT::Id;
+      using Id = TransformCellParticleFieldAccessorImpl<FuncT,FieldIdT>;
       using value_type = typename field_id::value_type;
       using reference_t = value_type &;
-      static inline constexpr size_t MAX_NAME_LENGTH = 24;
+      static inline constexpr size_t MAX_NAME_LENGTH = 32;
       FuncT m_func;
       field_id m_field;
       char m_name[MAX_NAME_LENGTH] = {'\0',};
-      inline void set_name(std::string_view s)
+      inline void transform_name(std::string_view suffix)
       {
-        std::strncpy(m_name,s.data(),MAX_NAME_LENGTH-1);
+        std::string_view base = m_field.short_name();
+        std::snprintf(m_name,MAX_NAME_LENGTH,"%s%s",base.data(),suffix.data());
         m_name[MAX_NAME_LENGTH-1]='\0';
       }
       inline const char* short_name() const { return m_name; }
