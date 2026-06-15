@@ -81,7 +81,6 @@ namespace exanb
   template<class TransformersTupleT,class FieldT>
   struct ApplyOnParticleField
   {
-
     template<class FuncT, class TransformFuncT>
     static inline void apply_transformer(const FuncT& func, const FieldT& f, const FieldTransformer<TransformFuncT>& transform)
     {

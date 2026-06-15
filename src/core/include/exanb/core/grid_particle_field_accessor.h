@@ -101,7 +101,7 @@ namespace exanb
     {
       using field_id = FieldIdT;
       using Id = TransformCellParticleFieldAccessorImpl<FuncT,FieldIdT>;
-      using value_type = typename field_id::value_type;
+      using value_type = decltype( std::declval<FuncT>() ( std::declval< typename field_id::value_type >() ) );
       using reference_t = value_type &;
       static inline constexpr size_t MAX_NAME_LENGTH = 32;
       FuncT m_func;
