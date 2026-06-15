@@ -45,16 +45,8 @@ namespace exanb
   public:
     inline void execute () override final
     {    
-      size_t cs = chunk_neighbors->m_chunk_size;
-      size_t cs_log2 = 0;
-      while( cs > 1 )
-      {
-        ONIKA_FORCE_ASSERT( (cs&1)==0 );
-        cs = cs >> 1;
-        ++ cs_log2;
-      }
-      cs = chunk_neighbors->m_chunk_size;
-      ldbg << "cs="<<cs<<", log2(cs)="<<cs_log2<<std::endl;
+      static constexpr size_t cs = 1;
+      static constexpr size_t cs_log2 = 0;
 
       IJK dims = grid->dimension();
       size_t total_nbh = 0;

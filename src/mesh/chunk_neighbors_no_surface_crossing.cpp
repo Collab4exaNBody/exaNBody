@@ -95,13 +95,6 @@ namespace exanb
 
     inline void execute () override final
     {
-      if( config->chunk_size != 1 )
-      {
-        lerr << "Warning, chunk size was "<< config->chunk_size<<", it is forced to 1"<<std::endl;
-      }
-      unsigned int cs = 1;
-      unsigned int cs_log2 = 0;
-
       const bool gpu_enabled = (global_cuda_ctx() != nullptr) ? global_cuda_ctx()->has_devices() : false;
       static constexpr std::false_type no_z_order = {};
       
@@ -113,14 +106,14 @@ namespace exanb
       {
         GridParticleTriangleCollision<> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) };
         NoSurfCrossingNeighborFilter<GridT,CellsT,GridParticleTriangleCollision<> > nbh_filter = { *grid, cells, func, config->half_symmetric , config->skip_ghosts };
-        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,cs,cs_log2,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
+        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
       }
       else
       {
         TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
         ParticleTriangleCollision<> func = { all_triangles , read_only_view(*mesh) };
         NoSurfCrossingNeighborFilter<GridT,CellsT,ParticleTriangleCollision<> > nbh_filter = { *grid, cells, func, config->half_symmetric , config->skip_ghosts };
-        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,cs,cs_log2,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
+        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
       }
 
     }
