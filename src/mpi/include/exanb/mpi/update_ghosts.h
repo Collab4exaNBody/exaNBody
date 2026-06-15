@@ -186,7 +186,7 @@ dump_data:
     }    
   };
 
-  template< class GridT, class FieldSetT, bool CreateParticles, bool UpdateGridCellValues>
+  template< class GridT, class FieldSetT, bool CreateParticles, bool UpdateGridCellValues=true>
   using UpdateGhostsNode = UpdateGhostsNodeTmpl< GridT , FieldSetT , CreateParticles , UpdateGridCellValues>;
 }
 
