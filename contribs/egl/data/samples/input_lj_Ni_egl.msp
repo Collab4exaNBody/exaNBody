@@ -57,7 +57,7 @@ final_dump: nop
 
 visualization_init:
   - egl_init
-  - egl_create_surface: { surface: "onika-egl-window" , surface_type: window , width: 1600 , height: 1024 }
+  - egl_create_surface: { surface: "onika-egl-window" , surface_type: window , width: 1280 , height: 800 }
 #  - egl_create_surface: { surface: "onika-egl-window" , surface_type: pbuffer , width: 1600 , height: 1024 }
   - egl_create_shader_program:
       shader_program: "trimesh_surface"
@@ -234,6 +234,7 @@ dump_data:
         element_buffer: "mesh_triangles"
     - egl_draw: { vertex_buffer: "particles" , elements: "noghost_atoms" , primitive: GL_POINTS , shader_program: "atom_quadrics" }
     - egl_draw: { vertex_buffer: "mesh_vertices" , elements: "mesh_triangles" , primitive: GL_TRIANGLES , shader_program: "trimesh_surface"  }
+    - egl_mpi_compose_frame: { surface: "onika-egl-window" }
     - egl_end_frame: { surface: "onika-egl-window" }
 #    - timestep_file: "egl-frame-%09d"
 #    - egl_write_frame: { surface: "onika-egl-window" }
