@@ -1,13 +1,13 @@
 logo_banner:
   - message: "
 ███████████                               █████         █████             █████ \n
-░░███░░░░░███                             ░░███         ░░███             ░░███ \n 
- ░███    ░███  ██████  ████████    ██████  ░███████      ░███              ░███ \n 
- ░██████████  ███░░███░░███░░███  ███░░███ ░███░░███     ░███              ░███ \n 
- ░███░░░░░███░███████  ░███ ░███ ░███ ░░░  ░███ ░███     ░███              ░███ \n 
- ░███    ░███░███░░░   ░███ ░███ ░███  ███ ░███ ░███     ░███      █ ███   ░███ \n 
- ███████████ ░░██████  ████ █████░░██████  ████ █████    ███████████░░████████  \n 
-░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░    ░░░░░░░░░░░  ░░░░░░░░   \n 
+░░███░░░░░███                             ░░███         ░░███             ░░███ \n
+ ░███    ░███  ██████  ████████    ██████  ░███████      ░███              ░███ \n
+ ░██████████  ███░░███░░███░░███  ███░░███ ░███░░███     ░███              ░███ \n
+ ░███░░░░░███░███████  ░███ ░███ ░███ ░░░  ░███ ░███     ░███              ░███ \n
+ ░███    ░███░███░░░   ░███ ░███ ░███  ███ ░███ ░███     ░███      █ ███   ░███ \n
+ ███████████ ░░██████  ████ █████░░██████  ████ █████    ███████████░░████████  \n
+░░░░░░░░░░░   ░░░░░░  ░░░░ ░░░░░  ░░░░░░  ░░░░ ░░░░░    ░░░░░░░░░░░  ░░░░░░░░   \n
                                                                                 \n"
 configuration:
   physics:
@@ -42,7 +42,7 @@ global:
   simulation_end_iteration: 100000
   deterministic_noise: true
 
-# Default simulation scenario: NVE ensemble  
+# Default simulation scenario: NVE ensemble
 simulation: default_simulation
 
 # Some statistics at the end of the simulation
@@ -57,7 +57,7 @@ final_dump: nop
 
 visualization_init:
   - egl_init
-  - egl_create_surface: { surface: "onika-egl-window" , surface_type: window , width: 1280 , height: 800 }
+  - egl_create_surface: { surface: "onika-egl-window" , surface_type: window , width: 1600 , height: 1024 }
 #  - egl_create_surface: { surface: "onika-egl-window" , surface_type: pbuffer , width: 1600 , height: 1024 }
   - egl_create_shader_program:
       shader_program: "trimesh_surface"
@@ -67,7 +67,7 @@ visualization_init:
           #extension GL_ARB_shading_language_include : require
           #include <uniform/camera>
           layout (location = 0) in vec3 aPos;
-          out vec4 fDiffuseColor;          
+          out vec4 fDiffuseColor;
           void main()
           {
             mat4 mvp = camera.projection[0] * camera.modelview[0];
@@ -110,15 +110,28 @@ visualization_init:
         GL_VERTEX_SHADER: |
           #version 460 core
           layout (location = 0) in vec4 aPos;
-          layout (location = 1) in vec3 aVel;
-          layout (location = 2) in vec3 aForce;
+          layout (location = 1) in float aVelNorm;
+          layout (location = 2) in float aForceNorm;
+          /*
+          layout (std430, binding = 0) buffer ParticleVec3Field0
+          {
+            restrict uint descriptor[16];
+            restrict dvec3 data[];
+          } particle_velocity;
+          layout (std430, binding = 1) buffer ParticleVec3Field1
+          {
+            restrict uint descriptor[16];
+            restrict dvec3 data[];
+          } particle_force;
+          */
           out float vVelocityNorm;
           out float vForceNorm;
           void main()
           {
             gl_Position = aPos;
-            vForceNorm = sqrt(dot(aForce,aForce));
-            vVelocityNorm = sqrt(dot(aVel,aVel));
+            //dvec3 data = particle_force.data[ particle_force.descriptor[0] ];
+            vForceNorm = aVelNorm; //sqrt(dot(aForce,aForce));
+            vVelocityNorm = aForceNorm; //sqrt(dot(aVel,aVel));
           }
 
         GL_GEOMETRY_SHADER: |
@@ -138,7 +151,7 @@ visualization_init:
           void main()
           {
             vec4 vPos = gl_in[0].gl_Position;
-            fDiffuseColor = scalar_pv_colormap( vForceNorm[0], 0.0, 5.e2 );
+            fDiffuseColor = scalar_pv_colormap( vForceNorm[0]*0.1 + vVelocityNorm[0]*0.001, 0.0, 1.5 );
             mat4 mvp = camera.projection[0] * camera.modelview[0];
             mat4 T = quadrics_anisotropic_variance_matrix( vPos , 0.3 /*clamp(vForceNorm[0],0.0,1.0)*/ );
             mat4 D = quadrics_sphere_matrix();
@@ -179,7 +192,7 @@ visualization_init:
             vec3 ambientColor = vec3(0.1,0.1,0.1);
             vec3 diffuseColor = fDiffuseColor.xyz;
             vec3 specularColor = vec3(1,1,1);
-            vec3 lightPosition = vec3(0.3,0.3,1); 
+            vec3 lightPosition = vec3(0.3,0.3,1);
             float d = max( dot( N , normalize(lightPosition) ) , 0 );
             float s = pow( d , 8 );
             color.xyz = diffuseColor.xyz * d + specularColor * s + ambientColor;
@@ -227,8 +240,8 @@ dump_data:
         vertex_buffer: "particles"
         vertex_attribs:
           position: 0
-          velocity: 1
-          force: 2
+          velocityNorm: 1
+          forceNorm: 2
     - egl_trimesh_to_buffer:
         vertex_buffer: "mesh_vertices"
         element_buffer: "mesh_triangles"
@@ -342,20 +355,20 @@ input_data:
   - replicate_domain
   - trimesh_init
   - visualization_init
-  
+
 # Use the following to replicate the domain in x- y- and z- directions.
 replicate_domain:
   repeat: [ 1 , 1 , 1 ]
 
-# This defines the SNAP force operator  
+# This defines the SNAP force operator
 lennard_jones_force:
   config: { epsilon: 0.3729 eV , sigma: 2.2808 ang }
   rcut: 4.1 ang
 
 # How forces are calculated (a symmetric contribution is sent to neighboring particles by SNAP. This is why we use update_force_from_ghost to receive this contribution for particles located at an MPI sub-domain boundary)
-compute_all_forces_energy:    
+compute_all_forces_energy:
   - zero_particle_force: { ghost: true }
   - lennard_jones_force
   - update_force_from_ghost
   - divide_force_by_type_scalar: mass
-                                                                               
+
