@@ -112,25 +112,20 @@ visualization_init:
           layout (location = 0) in vec4 aPos;
           layout (location = 1) in float aVelNorm;
           layout (location = 2) in float aForceNorm;
-          /*
-          layout (std430, binding = 0) buffer ParticleVec3Field0
+/*          layout (binding = 0) uniform atomic_uint descriptor[16];
+          layout (binding = 0) buffer ParticleVec3Field1
           {
-            restrict uint descriptor[16];
-            restrict dvec3 data[];
-          } particle_velocity;
-          layout (std430, binding = 1) buffer ParticleVec3Field1
-          {
-            restrict uint descriptor[16];
-            restrict dvec3 data[];
-          } particle_force;
-          */
+            uint descriptor[16];
+            uvec3 data[];
+          } particle_force; */
           out float vVelocityNorm;
           out float vForceNorm;
           void main()
           {
             gl_Position = aPos;
-            //dvec3 data = particle_force.data[ particle_force.descriptor[0] ];
-            vForceNorm = aVelNorm; //sqrt(dot(aForce,aForce));
+/*            dvec3 data = particle_force.data[ 13 ];
+            float dn = float( dot(data,data) ) + atomicCounter( descriptor[4] );*/
+            vForceNorm = /* dn + */ aVelNorm; //sqrt(dot(aForce,aForce));
             vVelocityNorm = aForceNorm; //sqrt(dot(aVel,aVel));
           }
 
