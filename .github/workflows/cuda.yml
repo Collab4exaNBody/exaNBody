@@ -39,6 +39,12 @@ jobs:
         apt-get update
         apt-get install -y libyaml-cpp-dev lcov mpich
 
+    - name: Update gcc
+      run: |
+        apt-get install -y gcc-13 g++-13
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
+
     # Ubuntu 22.04's apt CMake (3.22) is older than onika's
     # cmake_minimum_required (3.26). Pull a recent matching cmake/ccmake
     # from Kitware's official apt repo, same as the HIP workflow.
@@ -55,6 +61,7 @@ jobs:
         apt-get install -y python3 python3-dev
         apt-get install -y libegl1-mesa-dev libgles2-mesa-dev xvfb
         cmake --version
+
 
     - name: Locate nvcc
       id: nvcc
