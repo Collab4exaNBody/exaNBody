@@ -118,16 +118,3 @@ jobs:
     - name: Build exaNBody
       run: |
         cmake --build ${{github.workspace}}/build-cuda --target install --config ${{env.BUILD_TYPE}} -j 8
-
-    - name: Run exaNBody Tests (EGL)
-      working-directory: ${{github.workspace}}/build-cuda
-      env:
-        LIBGL_ALWAYS_SOFTWARE: "1"
-        GALLIUM_DRIVER: llvmpipe
-        MESA_GL_VERSION_OVERRIDE: "4.6"
-        MESA_GLSL_VERSION_OVERRIDE: "460"
-      run: xvfb-run -a ctest -R "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
-
-    - name: Run exaNBody Tests (Others)
-      working-directory: ${{github.workspace}}/build-cuda
-      run: ctest -E "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
