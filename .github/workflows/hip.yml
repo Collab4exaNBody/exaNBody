@@ -37,12 +37,6 @@ jobs:
         apt-get update
         apt-get install -y libyaml-cpp-dev lcov mpich
 
-    - name: Update gcc
-      run: |
-        apt-get install -y gcc-13 g++-13
-        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100
-        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100
-
     # The rocm/dev-ubuntu-22.04 image ships no CMake, and apt's Ubuntu 22.04
     # CMake (3.22) is older than onika's cmake_minimum_required (3.26).
     # Pull a recent version from Kitware's official apt repo instead.
