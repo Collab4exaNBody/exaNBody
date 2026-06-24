@@ -56,9 +56,9 @@ jobs:
         
     - name: Configure Onika (HIP enabled, target gfx90a)
       run: |
-        cmake -B ${{github.workspace}}/build-hip \
+        cmake -B ${{github.workspace}}/onika/build-hip \
               -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install-hip \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/onika/install-hip \
               -DONIKA_BUILD_CUDA=ON \
               -DONIKA_ENABLE_HIP=ON \
               -DCMAKE_HIP_ARCHITECTURES=${{env.HIP_ARCH}} \
