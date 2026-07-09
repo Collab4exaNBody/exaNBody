@@ -67,7 +67,7 @@ namespace exanb
     using field_set_t = FieldSet<particle_field_ids...>;
     static inline constexpr field_set_t field_set{};
     
-    using CellParticlesAllocator = onika::soatl::PackedFieldArraysAllocator< onika::memory::DefaultAllocator, onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
+    using CellParticlesAllocator = onika::soatl::PackedFieldArraysAllocatorImpl< onika::memory::DefaultAllocator, onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, field::_rx,field::_ry,field::_rz, particle_field_ids... > ;
     using CellParticles = onika::soatl::FieldArraysWithAllocator< onika::memory::DEFAULT_ALIGNMENT, onika::memory::DEFAULT_CHUNK_SIZE, CellParticlesAllocator, StoredPointerCount , field::_rx,field::_ry,field::_rz, particle_field_ids... >;
     static_assert( std::is_same_v< CellParticles , cell_particles_from_field_set_t<field_set_t> > , "CellParticles type not as expected" );
 
@@ -246,17 +246,17 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline size_t number_of_cells() const { return onika::cuda::vector_size( m_cells ); }
 
     // cell's particles data allocator
-    inline const onika::soatl::CellParticlesAllocator & cell_allocator() const
+    inline const CellParticlesAllocator & cell_allocator() const
     {
       static const CellParticlesAllocator default_allocator( onika::memory::DefaultAllocator{ onika::memory::CUDA_FALLBACK_ALLOC_POLICY } );
       if( m_cell_allocator != nullptr ) return *m_cell_allocator;
       else return default_allocator;
     }
-    inline std::shared_ptr<onika::soatl::CellParticlesAllocator> cell_allocator_ptr()
+    inline std::shared_ptr<CellParticlesAllocator> cell_allocator_ptr()
     {
       return m_cell_allocator;
     }
-    inline void set_cell_allocator( std::shared_ptr<onika::soatl::CellParticlesAllocator> a )
+    inline void set_cell_allocator( std::shared_ptr<CellParticlesAllocator> a )
     {
       m_cell_allocator = a;
     }
@@ -676,7 +676,7 @@ namespace exanb
       
     // storage of particles split into cubic cells.
     onika::memory::CudaMMVector< CellParticles > m_cells;
-    std::shared_ptr<onika::soatl::CellParticlesAllocator> m_cell_allocator;
+    std::shared_ptr<CellParticlesAllocator> m_cell_allocator;
 
     // optional arrays, stored as "flat" arrays, dynamically allocated
     // these are scratch storage, they're content are lost every time rebuild_particle_offsets is called
