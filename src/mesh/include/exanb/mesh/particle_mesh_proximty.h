@@ -27,30 +27,33 @@ under the License.
 
 namespace exanb
 {
-  template<class GridTriangleLocator, class ProximityFuncT, bool EnableEdge=true, bool EnableVertex=true>
+  template<class GridTriangleLocator, class ProximityFuncT, bool EnableEdge=true, bool EnableVertex=true, bool AllowGPUExecution=true>
   struct ParticleMeshProjProximityFunctor
   {
     GridTriangleLocator m_grid_triangles;
     TriangleMeshRO m_triangle_mesh;
     double m_max_dist;
     ProximityFuncT m_func;
-    
-    ONIKA_HOST_DEVICE_FUNC
-    inline void operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz ) const
-    {
-      const Vec3d r = {rx,ry,rz};
-      const auto triangles_list = m_grid_triangles.triangles_nearby( r );
-      const int n_triangles = triangles_list.size(); //m_grid_triangles.cell_triangle_count( trigrid_cell_idx );
 
+    ONIKA_HOST_DEVICE_FUNC
+    inline void compute_proximity( const Vec3d& r
+		                 , ssize_t& nearest_v0, ssize_t& nearest_v1, ssize_t& nearest_v2
+				 , Vec3d& pv
+				 , double& nearest_dist
+				 , double& w0, double& w1, double& w2
+				 , bool& behind) const
+    {
       // either nearest_v0,nearest_v1 and nearest_v2 are valid (!=-1), in which case there is a valid nearest triangle (with inside==true)
       // either only nearest_v0 and nearest_v1 are valid, in which case there is a valid nearest edge (with inside==true)
       // either only nearest_v0 is valid, in which case there is a nearest vertex
-      ssize_t nearest_v0 = -1 , nearest_v1 = -1 , nearest_v2 = -1;
-      Vec3d pv;
-      double nearest_dist = 0.0;
-      double w0=1.0, w1=0.0, w2=0.0;
-      bool behind = false;
-      
+      nearest_v0 = -1; nearest_v1 = -1; nearest_v2 = -1;
+      pv = Vec3d{0.,0.,0.};
+      nearest_dist = 0.0;
+      w0=1.0; w1=0.0; w2=0.0;
+      behind = false;
+
+      const auto triangles_list = m_grid_triangles.triangles_nearby( r );
+      const int n_triangles = triangles_list.size(); //m_grid_triangles.cell_triangle_count( trigrid_cell_idx );     
       for(int i=0;i<n_triangles;i++)
       {
         const auto tri_idx = triangles_list[i];
@@ -115,15 +118,37 @@ namespace exanb
           }
         }
       }
-      
+    }
+
+    inline void operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz , std::integral_constant<bool,false> = std::integral_constant<bool,AllowGPUExecution>{} ) const requires(!AllowGPUExecution)
+    {
+      const Vec3d r = {rx,ry,rz};
+      ssize_t nearest_v0=-1 , nearest_v1=-1 , nearest_v2=-1;
+      Vec3d pv;
+      double nearest_dist=0.0, w0=1.0, w1=0.0, w2=0.0;
+      bool behind = false;
+      compute_proximity( r , nearest_v0, nearest_v1, nearest_v2, pv, nearest_dist, w0, w1, w2, behind);
       if( nearest_v0 != -1 && nearest_dist <= m_max_dist ) m_func( r, pv, nearest_dist , cell_idx , p_idx , nearest_v0, nearest_v1, nearest_v2, w0,w1,w2, behind );
     }
+
+    ONIKA_HOST_DEVICE_FUNC
+    inline void operator () ( size_t cell_idx, unsigned int p_idx, double rx, double ry, double rz , std::integral_constant<bool,true> = std::integral_constant<bool,AllowGPUExecution>{} ) const requires(AllowGPUExecution)
+    {
+      const Vec3d r = {rx,ry,rz};
+      ssize_t nearest_v0=-1 , nearest_v1=-1 , nearest_v2=-1;
+      Vec3d pv;
+      double nearest_dist=0.0, w0=1.0, w1=0.0, w2=0.0;
+      bool behind = false;
+      compute_proximity( r , nearest_v0, nearest_v1, nearest_v2, pv, nearest_dist, w0, w1, w2, behind);
+      if( nearest_v0 != -1 && nearest_dist <= m_max_dist ) m_func( r, pv, nearest_dist , cell_idx , p_idx , nearest_v0, nearest_v1, nearest_v2, w0,w1,w2, behind );
+    }
+
   };
 
-  template<class FuncT, bool EnableEdge, bool EnableVertex> using GridParticleTriangleProjProximity = ParticleMeshProjProximityFunctor<GridTriangleIntersectionListRO,FuncT,EnableEdge,EnableVertex>;
-  template<class FuncT, bool EnableEdge, bool EnableVertex> using ParticleTriangleProjProximity = ParticleMeshProjProximityFunctor<TrivialTriangleLocator,FuncT,EnableEdge,EnableVertex>;
+  template<class FuncT, bool EnableEdge, bool EnableVertex, bool AllowGPUExecution=true> using GridParticleTriangleProjProximity = ParticleMeshProjProximityFunctor<GridTriangleIntersectionListRO,FuncT,EnableEdge,EnableVertex,AllowGPUExecution>;
+  template<class FuncT, bool EnableEdge, bool EnableVertex, bool AllowGPUExecution=true> using ParticleTriangleProjProximity = ParticleMeshProjProximityFunctor<TrivialTriangleLocator,FuncT,EnableEdge,EnableVertex,AllowGPUExecution>;
 
-  template<class LocatorT, class FuncT, bool EnableEdge, bool EnableVertex> struct ComputeCellParticlesTraits< ParticleMeshProjProximityFunctor<LocatorT,FuncT,EnableEdge,EnableVertex> >
+  template<class LocatorT, class FuncT, bool EnableEdge, bool EnableVertex> struct ComputeCellParticlesTraits< ParticleMeshProjProximityFunctor<LocatorT,FuncT,EnableEdge,EnableVertex,true> >
   {
     static inline constexpr bool CudaCompatible = true;
   };
