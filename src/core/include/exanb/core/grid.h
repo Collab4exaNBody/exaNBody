@@ -78,10 +78,10 @@ namespace exanb
     template<class _id> using HasField = typename CellParticles::template HasField < _id > ;
 
     // Grid's origin shall always be equal to domain's lower boundary.
-    inline void set_origin(Vec3d o) { m_origin = o; }
-    inline Vec3d origin() const { return m_origin; }
+    ONIKA_HOST_DEVICE_FUNC inline void set_origin(Vec3d o) { m_origin = o; }
+    ONIKA_HOST_DEVICE_FUNC inline Vec3d origin() const { return m_origin; }
 
-    inline void set_cell_size(double s) { m_cell_size = s; }
+    ONIKA_HOST_DEVICE_FUNC inline void set_cell_size(double s) { m_cell_size = s; }
     ONIKA_HOST_DEVICE_FUNC inline double cell_size() const { return m_cell_size; }
 
     // quantities usefull for testing
@@ -100,14 +100,14 @@ namespace exanb
     }
     
     // offset tells where in the domain's global grid this grid is located (i.e. the local grid's lower cell location in the domain grid)
-    inline void set_offset(IJK offset) { m_offset = offset; }
-    inline IJK offset() const { return m_offset; }
+    ONIKA_HOST_DEVICE_FUNC inline void set_offset(IJK offset) { m_offset = offset; }
+    ONIKA_HOST_DEVICE_FUNC inline IJK offset() const { return m_offset; }
 
-    inline GridBlock block() const { return GridBlock{ m_offset , IJK{m_offset.i+m_dimension.i,m_offset.j+m_dimension.j,m_offset.k+m_dimension.k} }; }
+    ONIKA_HOST_DEVICE_FUNC inline GridBlock block() const { return GridBlock{ m_offset , IJK{m_offset.i+m_dimension.i,m_offset.j+m_dimension.j,m_offset.k+m_dimension.k} }; }
 
-    inline void set_max_neighbor_distance(double rmax) { m_max_neighbor_distance = rmax; }
-    inline double max_neighbor_distance() const { return m_max_neighbor_distance; }    
-    inline size_t ghost_layers() const { return static_cast<size_t>( std::ceil( max_neighbor_distance() / cell_size() ) ); }
+    ONIKA_HOST_DEVICE_FUNC inline void set_max_neighbor_distance(double rmax) { m_max_neighbor_distance = rmax; }
+    ONIKA_HOST_DEVICE_FUNC inline double max_neighbor_distance() const { return m_max_neighbor_distance; }    
+    ONIKA_HOST_DEVICE_FUNC inline size_t ghost_layers() const { return static_cast<size_t>( std::ceil( max_neighbor_distance() / cell_size() ) ); }
 
     // get start position of a cell
     ONIKA_HOST_DEVICE_FUNC inline Vec3d cell_position(const IJK& loc) const 

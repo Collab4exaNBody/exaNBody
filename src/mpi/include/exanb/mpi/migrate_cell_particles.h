@@ -307,7 +307,7 @@ namespace exanb
             MIGRATE_CELL_PARTICLE_ASSERT( grid.contains(grid_loc) );
             MIGRATE_CELL_PARTICLE_ASSERT( inside_grid_shell( dimension(in_block_with_ghosts),0,in_ghost_layers,grid_loc) == false );
             size_t index = grid_ijk_to_index( in_block_ghosts_dims, grid_loc );
-            MIGRATE_CELL_PARTICLE_ASSERT( index>=0 && index<cell_use_count.size() );
+            MIGRATE_CELL_PARTICLE_ASSERT( /* index>=0 && */ index<cell_use_count.size() );
             ++ cell_use_count[index];
           }
           GRID_FOR_END
@@ -896,7 +896,7 @@ namespace exanb
       //size_t n_unpacked_buffers_async = 0;
 
       /************ compact requests to avoid null values *******************/
-      std::vector<size_t> partner_idx( requests.size() , -1 );
+      std::vector<size_t> partner_idx( requests.size() , static_cast<size_t>(-1) );
       for(size_t i=0;i<requests.size();i++) { partner_idx[i] = i; }
 
 
@@ -1258,7 +1258,7 @@ namespace exanb
 				for(size_t c=0;c<cell_scalar_components;c++)
 				{
 					size_t cell_scalars_index = cell_i * cell_scalar_components + c ;
-					MIGRATE_CELL_PARTICLE_ASSERT( cell_scalars_index>=0 && cell_scalars_index < grid_cell_values.data().size() );
+					MIGRATE_CELL_PARTICLE_ASSERT( /* cell_scalars_index>=0 && */ cell_scalars_index < grid_cell_values.data().size() );
 					MIGRATE_CELL_PARTICLE_ASSERT( v*stride+3+c < recv_cell_value_buffer.size() );
 
 					// cell value merge is done through the + operator
