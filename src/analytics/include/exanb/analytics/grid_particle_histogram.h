@@ -66,6 +66,7 @@ namespace exanb
       {
         using namespace ParticleHistogramTools;
         using field_type = typename FidT::value_type;
+	using plot_sample_t = onika::cuda::pair<double,double>;
         static constexpr FieldSet< typename FidT::Id > hist_field_set = {};
         
         if constexpr ( std::is_arithmetic_v<field_type> )
@@ -84,7 +85,7 @@ namespace exanb
               value_min_max.second = tmp[1];
             }
             auto & plot_data = m_plot_set.m_plots[ name ];
-            plot_data.assign( m_resolution , onika::PlotSample{ 0.0 , 0.0 } );
+            plot_data.assign( m_resolution , plot_sample_t{ 0.0 , 0.0 } );
             HistogramAccumulatorFunctor hist_func = { value_min_max.first, value_min_max.second, m_resolution, plot_data.data() };
             compute_cell_particles( grid , false , hist_func , hist_field_set , parallel_execution_context() );
             MPI_Allreduce( MPI_IN_PLACE, plot_data.data() , m_resolution * 2 , MPI_DOUBLE , MPI_SUM , m_comm );
