@@ -53,7 +53,7 @@ namespace exanb
       if( grid->number_of_particles()==0 ) { return; }
         
       static constexpr size_t cs = 1;
-      static constexpr size_t cs_log2 = 0;
+      //      static constexpr size_t cs_log2 = 0;
 
       IJK dims = grid->dimension();
       unsigned long long total_nbh = 0;

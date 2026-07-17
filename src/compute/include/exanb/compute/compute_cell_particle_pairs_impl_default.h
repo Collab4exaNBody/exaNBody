@@ -49,7 +49,7 @@ namespace exanb
     std::index_sequence<FieldIndex...>
     )
   {
-    static constexpr unsigned int CS = 1;
+    //    static constexpr unsigned int CS = 1;
     // static constexpr bool requires_block_synchronous_call = false; //compute_pair_traits::requires_block_synchronous_call_v<FuncT>;
 
     using exanb::chunknbh_stream_info;

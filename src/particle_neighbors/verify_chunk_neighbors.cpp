@@ -45,8 +45,8 @@ namespace exanb
   public:
     inline void execute () override final
     {    
-      static constexpr size_t cs = 1;
-      static constexpr size_t cs_log2 = 0;
+      //      static constexpr size_t cs = 1;
+      //      static constexpr size_t cs_log2 = 0;
 
       IJK dims = grid->dimension();
       size_t total_nbh = 0;
