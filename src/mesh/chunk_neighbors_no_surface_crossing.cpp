@@ -83,7 +83,7 @@ namespace exanb
   {
     ADD_SLOT( GridT               , grid            , INPUT );
     ADD_SLOT( GridTriangleIntersectionList , grid_to_triangles , INPUT , OPTIONAL );
-    ADD_SLOT( TriangleMesh                 , mesh              , INPUT, REQUIRED );
+    ADD_SLOT( TriangleMesh                 , mesh              , INPUT, OPTIONAL );
     ADD_SLOT( AmrGrid             , amr             , INPUT );
     ADD_SLOT( AmrSubCellPairCache , amr_grid_pairs  , INPUT );
     ADD_SLOT( Domain              , domain          , INPUT );
@@ -101,21 +101,32 @@ namespace exanb
       auto cells = grid->cells_accessor();
       using CellsT = std::remove_reference_t< decltype(cells) >;
 
+      bool has_mesh = mesh.has_value();
+      if( has_mesh ) has_mesh = ( mesh->vertex_count() > 0 );
+
       LinearXForm xform = { domain->xform() };
-      if( grid_to_triangles.has_value() )
+      
+      if( has_mesh )
       {
-        GridParticleTriangleCollision<> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) };
-        NoSurfCrossingNeighborFilter<GridT,CellsT,GridParticleTriangleCollision<> > nbh_filter = { *grid, cells, func, config->half_symmetric , config->skip_ghosts };
-        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
+        if( grid_to_triangles.has_value() )
+        {
+          GridParticleTriangleCollision<> func = { read_only_view(*grid_to_triangles) , read_only_view(*mesh) };
+          NoSurfCrossingNeighborFilter<GridT,CellsT,GridParticleTriangleCollision<> > nbh_filter = { *grid, cells, func, config->half_symmetric , config->skip_ghosts };
+          chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
+        }
+        else
+        {
+          TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
+          ParticleTriangleCollision<> func = { all_triangles , read_only_view(*mesh) };
+          NoSurfCrossingNeighborFilter<GridT,CellsT,ParticleTriangleCollision<> > nbh_filter = { *grid, cells, func, config->half_symmetric , config->skip_ghosts };
+          chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
+        }
       }
       else
       {
-        TrivialTriangleLocator all_triangles = { { 0 , mesh->triangle_count() } };
-        ParticleTriangleCollision<> func = { all_triangles , read_only_view(*mesh) };
-        NoSurfCrossingNeighborFilter<GridT,CellsT,ParticleTriangleCollision<> > nbh_filter = { *grid, cells, func, config->half_symmetric , config->skip_ghosts };
-        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );        
+        NeighborFilterHalfSymGhost<GridT> nbh_filter = { *grid , config->half_symmetric , config->skip_ghosts };
+        chunk_neighbors_execute(ldbg,*chunk_neighbors,*grid,*amr,*amr_grid_pairs,*config,*chunk_neighbors_scratch,*nbh_dist_lab, xform, gpu_enabled, no_z_order, nbh_filter );
       }
-
     }
 
   };
