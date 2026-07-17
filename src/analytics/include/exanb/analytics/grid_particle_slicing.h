@@ -126,7 +126,7 @@ namespace exanb
       {
         using namespace SliceParticleFieldTools;
         using field_type = typename FidT::value_type;
-        
+        using plot_sample_t = onika::cuda::pair<double,double>;
         if constexpr ( std::is_arithmetic_v<field_type> )
         {
           static constexpr FieldSet< field::_rx , field::_ry , field::_rz > slice_field_set = {};
@@ -135,7 +135,7 @@ namespace exanb
           {
             std::cout << "Slice field "<<name<<std::endl;
             auto & plot_data = m_plot_set.m_plots[ name ];
-            plot_data.assign( m_resolution , onika::PlotSample{ 0.0 , 0.0 } );
+            plot_data.assign( m_resolution , plot_sample_t{ 0.0 , 0.0 } );
             SliceAccumulatorFunctor<ParticleFieldAccessorT,FidT> func = { m_pacc, proj_field, m_xform,  m_direction, m_origin, m_domain_size, m_thickness, m_start, m_disk_radius_sq
                                                                         , m_resolution, m_rep_i, m_rep_j, m_rep_k, plot_data.data() };
             compute_cell_particles( grid , false , func , slice_field_set , parallel_execution_context() );
