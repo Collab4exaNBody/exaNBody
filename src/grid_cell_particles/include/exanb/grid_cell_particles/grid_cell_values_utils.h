@@ -42,7 +42,7 @@ namespace exanb
       subcell_loc = vclamp( make_ijk(ro / sub_cellsize) , 0 , subdiv-1 );
     }
 
-    inline void subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
+    ONIKA_HOST_DEVICE_FUNC static inline void subcell_neighbor( const IJK& cell_loc, const IJK& subcell_loc, ssize_t subdiv, IJK ninc, IJK& nbh_cell_loc, IJK& nbh_subcell_loc )
     {
       nbh_cell_loc = cell_loc;
       nbh_subcell_loc = subcell_loc + ninc;
