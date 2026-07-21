@@ -17,12 +17,13 @@ input_data:
       xform: [ [ 1 , 0 , 0 ] , [ 0 , 1 , 0 ] , [ 0 , 0 , 1 ] ]
   - init_rcb_grid
   - particle_types:
-      particle_type_map: { A: 0 , B: 1 , C: 2 , D: 3}
+      particle_type_map: { A: 0 , B: 1 , C: 2 , D: 3 , E: 4 }
   - particle_type_add_properties:
       A: { radius: 1.0 ang , charge: 1 e- }
       B: { radius: 1.2 ang , test: 3 ang  }
       C: { radius: 0.7 ang , bibi: 2 eV  }      
-      D: { radius: 1.5 ang , bibi: 2 eV  }
+      D: { radius: 1.5 ang  }
+      E: { radius: 2.0 ang  }
   - particle_regions:
       - BOX:
           bounds: [ [ 25 ang , 25 ang , -100 ang ] , [ 50 ang , 120 ang , 100 ang ] ]
@@ -35,6 +36,12 @@ input_data:
               - scale: [ 20 ang , 50 ang , 20 ang ]
               - zrot: pi/4
               - translate: [ 120 ang , 130 ang , 0 ang ]
+      - CYL2:
+          quadric:
+            shape: cylz
+            transform:
+              - scale: [ 30 ang , 30 ang , 20 ang ]
+              - translate: [ 0 ang , 200 ang , 0 ang ]
   - lattice:
       structure: SC
       types: [ A ]
@@ -53,6 +60,10 @@ input_data:
       type: D
       region: BOX2
       fraction: 0.3
+  - set_particle_type:
+      type: E
+      region: CYL2
+      count: 500
       
 final_dump:
   - write_xyz:

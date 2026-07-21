@@ -55,9 +55,9 @@ namespace exanb
     ADD_SLOT( ParticleRegionCSG , region            , INPUT_OUTPUT , OPTIONAL , DocString{"Restricts candidate particles to this region (boolean expression over named particle_regions). If absent, the whole local domain is considered."} );
 
     ADD_SLOT( double            , fraction          , INPUT , OPTIONAL , DocString{"Fraction (0..1) of eligible particles to convert, drawn at random. Mutually exclusive with 'count'."} );
-    ADD_SLOT( long               , count             , INPUT , OPTIONAL , DocString{"Exact number of eligible particles to convert, drawn at random, globally across all MPI ranks. Mutually exclusive with 'fraction'."} );
-    ADD_SLOT( long               , seed              , INPUT , 0 , DocString{"Seed for the deterministic random selection. Same seed + same particle ids => same selection, regardless of rank/thread count."} );
-    ADD_SLOT( bool               , ghost             , INPUT , false , DocString{"If true, ghost cells are processed too (rarely useful: ghosts get overwritten on the next ghost update)."} );
+    ADD_SLOT( long              , count             , INPUT , OPTIONAL , DocString{"Exact number of eligible particles to convert, drawn at random, globally across all MPI ranks. Mutually exclusive with 'fraction'."} );
+    ADD_SLOT( long              , seed              , INPUT , 0 , DocString{"Seed for the deterministic random selection. Same seed + same particle ids => same selection, regardless of rank/thread count."} );
+    ADD_SLOT( bool              , ghost             , INPUT , false , DocString{"If true, ghost cells are processed too (rarely useful: ghosts get overwritten on the next ghost update)."} );
 
   public:
 
