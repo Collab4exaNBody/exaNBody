@@ -28,6 +28,10 @@ compute_force: nop
 input_data:
   - particle_types:
       particle_type_map: { A: 0 , B: 1 , C: 2 }
+  - particle_type_add_properties:
+      A: { radius: 1.5 ang , charge: 1 e- }
+      B: { radius: 2.0 ang , test: 3 ang  }
+      C: { radius: 2.5 ang , bibi: 2 eV  }      
   - particle_regions:
       - PLANE1:
           quadric:
@@ -77,7 +81,7 @@ input_data:
 final_dump:
   - write_xyz:
       filename: "test_set_particle_type.xyz"
-      fields: [ id , type ]
+      fields: [ id , type , radius , charge , bibi , test ]
 
 # pretty logo banner
 logo_banner:
