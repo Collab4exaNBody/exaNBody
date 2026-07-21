@@ -159,7 +159,7 @@ namespace exanb
           assert( loc.j>=0 && loc.j<dims.j );
           assert( loc.k>=0 && loc.k<dims.k );
           size_t cell_index = grid_ijk_to_index( dims , loc );
-          assert( cell_index>=0 && cell_index<n_cells );
+          assert( /* cell_index>=0 && */ cell_index<n_cells );
           size_t n_particles = cells[cell_index].size();
           if( n_particles >= 1 )
           {
