@@ -55,8 +55,8 @@ namespace exanb
    */
   template<typename ItemType> struct CellExtraDynamicDataStorageT
   {
-    //template <typename T> using VectorT = onika::memory::CudaMMVector<T>; // Warning, as we're using the classifier, we don't need this data to be on the gpu. 
-    template <typename T> using VectorT = std::vector<T>;
+    template <typename T> using VectorT = onika::memory::CudaMMVector<T>; // Warning, as we're using the classifier, we don't need this data to be on the gpu. 
+    //template <typename T> using VectorT = std::vector<T>;
     VectorT<InfoType> m_info; /**< Info vector storing indices of the [start, number of items, particle id] of each cell's extra dynamic data in m_data. */ 
     VectorT<ItemType> m_data; /**< Data vector storing the extra dynamic data for each cell. */
 

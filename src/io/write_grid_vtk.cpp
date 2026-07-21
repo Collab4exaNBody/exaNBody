@@ -31,7 +31,7 @@ under the License.
 
 #include <mpi.h>
 #include <cstdio>
-#include <experimental/filesystem>
+#include <filesystem>
 
 namespace exanb
 {
@@ -53,7 +53,7 @@ namespace exanb
     // -----------------------------------------------
     inline void execute ()  override final
     {
-      namespace fs = std::experimental::filesystem;
+      namespace fs = std::filesystem;
     
       
 #     ifndef NDEBUG
