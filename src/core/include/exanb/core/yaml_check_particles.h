@@ -23,7 +23,7 @@ under the License.
 
 struct ParticleReferenceValue
 {
-  uint64_t m_id = -1;
+  uint64_t m_id = static_cast<uint64_t>( -1 );
   double m_r[3] = { 0., 0., 0. };
   double m_a[3] = { 0., 0., 0. };
   double m_v[3] = { 0., 0., 0. };
