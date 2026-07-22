@@ -60,18 +60,18 @@ input_data:
       sigma_cut: 0.4 ang
   - remove_particles:
       region: BOX
-#  - compact_particle_ids
+  - compact_particle_ids
   - remove_particles:
       region: CYL
-#  - compact_particle_ids
+  - compact_particle_ids
   - remove_particles:
       region: BOX2
       fraction: 0.3
-#  - compact_particle_ids
+  - compact_particle_ids
   - remove_particles:
       region: CYL2
       count: 500
-#  - compact_particle_ids
+  - compact_particle_ids
       
 final_dump:
   - write_xyz:
