@@ -28,6 +28,7 @@ under the License.
 
 #include <exanb/particle_neighbors/chunk_neighbors.h>
 #include <exanb/particle_neighbors/chunk_neighbors_iterator.h>
+#include <exanb/grid_cell_particles/particle_random_selection.h>
 
 #include <mpi.h>
 #include <atomic>
@@ -43,7 +44,8 @@ namespace exanb
     ADD_SLOT( MPI_Comm           , mpi             , INPUT , MPI_COMM_WORLD );
     ADD_SLOT( GridT              , grid            , INPUT_OUTPUT );
     ADD_SLOT( GridChunkNeighbors , chunk_neighbors , INPUT , GridChunkNeighbors{} );
-    ADD_SLOT( double             , distance        , INPUT , REQUIRED , DocString{"Distance threshold. Whenever two particles are closer than this, the one with the higher particle id is removed."} );
+    ADD_SLOT( double             , distance        , INPUT , REQUIRED , DocString{"Distance threshold. Whenever two particles are closer than this, one of the two is removed."} );
+    ADD_SLOT( uint64_t           , seed            , INPUT , 0 , DocString{"Seed for the random tie-break between too-close particles. Same seed always yields the same removal set."} );
 
   public:
 
@@ -52,11 +54,17 @@ namespace exanb
       return R"EOF(
 Deletes particles that are closer to another particle than a given threshold distance.
 
-For every too-close pair, the particle with the higher id is the one removed.
-This tie-break is symmetric and needs no cross-rank coordination: each rank
-only ever deletes particles it owns, based on its own neighbor list (which
-includes ghost-mirrored particles owned by other ranks). Only non-ghost cells
-are affected (ghost particles are rebuilt by the next ghost update anyway).
+For every too-close pair, the one removed is picked with a random key derived
+from the particle id and 'seed' (splitmix64-based, see particle_random_key):
+the particle with the higher key is removed. Randomizing the key (instead of
+using the id directly) avoids pathological removal patterns correlated with
+id ordering (e.g. ids assigned in lattice/generation order). The tie-break is
+still symmetric and needs no cross-rank coordination: each rank only ever
+deletes particles it owns, based on its own neighbor list (which includes
+ghost-mirrored particles owned by other ranks) and the same deterministic key
+for a given id, so both sides of a pair agree without communication. Only
+non-ghost cells are affected (ghost particles are rebuilt by the next ghost
+update anyway).
 Particle ids are NOT renumbered; chain with 'compact_particle_ids' afterwards
 if a dense [0,N) numbering is required.
 
@@ -74,6 +82,11 @@ Usage example:
 # delete particles that are closer than 0.5 to another particle
   - remove_close_particles:
       distance: 0.5
+
+# same, with an explicit seed so the removal set is reproducible run to run
+  - remove_close_particles:
+      distance: 0.5
+      seed: 42
 )EOF";
     }
 
@@ -99,16 +112,17 @@ Usage example:
       const auto & cell_allocator = grid->cell_allocator();
 
       const double threshold2 = (*distance) * (*distance);
+      const uint64_t rng_seed = *seed;
       std::vector< std::vector<uint8_t> > remove_flag( grid->number_of_cells() );
 
       ChunkParticleNeighborsIterator<CellT> chunk_nbh_it_in = { grid->cells(), chunk_neighbors->data(), dims, chunk_neighbors->m_chunk_size };
 
       // --- pass 1 : read-only decision pass ---
       // A particle marks itself if it has a closer-than-threshold neighbor with a
-      // smaller id. Neighbor lists are full (not half_symmetric), so every particle
-      // sees this on its own: no need to know the other side's decision. This makes
-      // it safe to run in parallel over cells while other threads concurrently read
-      // (but never write) neighboring cells' particle data.
+      // smaller random key. Neighbor lists are full (not half_symmetric), so every
+      // particle sees this on its own: no need to know the other side's decision.
+      // This makes it safe to run in parallel over cells while other threads
+      // concurrently read (but never write) neighboring cells' particle data.
 #     pragma omp parallel
       {
         auto chunk_nbh_it = chunk_nbh_it_in;
@@ -127,6 +141,7 @@ Usage example:
             chunk_nbh_it.start_cell( cell_i, np );
             for(size_t p_a=0;p_a<np;p_a++)
             {
+              const double key_a = particle_random_key( id_a[p_a], rng_seed );
               chunk_nbh_it.start_particle( p_a );
               bool remove = false;
               while( ! chunk_nbh_it.end() )
@@ -134,7 +149,7 @@ Usage example:
                 size_t cell_b=0, p_b=0;
                 chunk_nbh_it.get_nbh( cell_b, p_b );
                 const uint64_t id_b = cells[cell_b][field::id][p_b];
-                if( id_b < id_a[p_a] )
+                if( particle_random_key( id_b, rng_seed ) < key_a )
                 {
                   const double dx = cells[cell_b][field::rx][p_b] - rx_a[p_a];
                   const double dy = cells[cell_b][field::ry][p_b] - ry_a[p_a];
