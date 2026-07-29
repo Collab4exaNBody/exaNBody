@@ -52,7 +52,7 @@ namespace exanb
     ADD_SLOT( std::string       , type              , INPUT , REQUIRED , DocString{"Name of the new particle type assigned to selected particles (looked up in particle_type_map)."} );
 
     ADD_SLOT( ParticleRegions   , particle_regions  , INPUT , OPTIONAL );
-    ADD_SLOT( ParticleRegionCSG , region            , INPUT_OUTPUT , OPTIONAL , DocString{"Restricts candidate particles to this region (boolean expression over named particle_regions). If absent, the whole local domain is considered."} );
+    ADD_SLOT( ParticleRegionCSG , region            , INPUT , OPTIONAL , DocString{"Restricts candidate particles to this region (boolean expression over named particle_regions). If absent, the whole local domain is considered."} );
 
     ADD_SLOT( double            , fraction          , INPUT , OPTIONAL , DocString{"Fraction (0..1) of eligible particles to convert, drawn at random. Mutually exclusive with 'count'."} );
     ADD_SLOT( long              , count             , INPUT , OPTIONAL , DocString{"Exact number of eligible particles to convert, drawn at random, globally across all MPI ranks. Mutually exclusive with 'fraction'."} );
