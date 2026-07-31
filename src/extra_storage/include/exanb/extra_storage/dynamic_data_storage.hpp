@@ -194,6 +194,7 @@ namespace exanb
      */
     inline void encode_cell_to_buffer ( void* buffer )
     {
+      assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) );
       // get size in bytes
       const size_t info_size = m_info.size() * sizeof(InfoType);
       const size_t data_size = m_data.size() * sizeof(ItemType);
@@ -260,6 +261,8 @@ namespace exanb
       // first informaions, then items
       std::copy ( buff_info_ptr, buff_info_ptr + info_size, info_ptr );
       std::copy ( buff_data_ptr, buff_data_ptr + data_size, data_ptr );
+
+      assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) );
     }
 
     inline void append_data_stream_range (const uint8_t* buffer, size_t start, size_t end)
@@ -320,6 +323,7 @@ namespace exanb
       // now resize data and copy new data in this memory place
       m_data.resize(old_data_size + new_items_to_append);
       std::copy ( buff_data + first_item , buff_data + last_item , m_data.data() + old_data_size);  
+      assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) );
     }
 
     /**
@@ -416,6 +420,7 @@ namespace exanb
         // some tests
         check_info_consistency();
         check_info_value();
+        assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) );
 /*
         [[maybe_unused]] auto [last_offset, last_size, last_id] = m_info.back();
         assert ( itData == last_offset + last_size );
