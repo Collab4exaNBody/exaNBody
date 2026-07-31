@@ -389,6 +389,7 @@ namespace exanb
       {
         if(m_info.size() == 0) return;
         if(m_data.size() == 0) return;
+        assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) && "before compression" );
         // compress for each particle
         UIntType cur_off = 0;
         size_t itData = 0;
@@ -420,7 +421,7 @@ namespace exanb
         // some tests
         check_info_consistency();
         check_info_value();
-        assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) );
+        assert ( migration_test::check_value_consistency(onika::cuda::span{m_data.data(), m_data.size()}) && "after compression" );
 /*
         [[maybe_unused]] auto [last_offset, last_size, last_id] = m_info.back();
         assert ( itData == last_offset + last_size );

@@ -85,7 +85,7 @@ namespace exanb
     {
       for (size_t i = 0 ; i < data_ptr.size() ; i++)
       {
-        if (well_defined(data_ptr[i]))
+        if (!well_defined(data_ptr[i]))
         {
           return false;
         }
