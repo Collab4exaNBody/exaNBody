@@ -75,7 +75,7 @@ namespace exanb
 
 
     template<typename ItemType>
-    inline bool well_defined(const ItemType& item) { return true }
+    inline bool well_defined(const ItemType& item) { return true; }
 
     // This function checks if the values are well defined
     // "well_defined" couuld be implemented by the developper for a given ItemType.
