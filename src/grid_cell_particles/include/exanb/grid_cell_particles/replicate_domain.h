@@ -130,10 +130,10 @@ namespace exanb
                 assert( ngrid.contains( dst_loc ) );
 
                 size_t src_cell_i = grid_ijk_to_index( grid_dims_with_ghosts , src_loc );
-                assert( src_cell_i>=0 && src_cell_i<src_ncells );
+                assert( /* src_cell_i>=0 && */ src_cell_i<src_ncells );
 
                 size_t dst_cell_i = grid_ijk_to_index( ngrid_dims , dst_loc );
-                assert( dst_cell_i>=0 && dst_cell_i<dst_ncells );
+                assert( /* dst_cell_i>=0 && */ dst_cell_i<dst_ncells );
 
                 assert( dst_cells[dst_cell_i].size() == 0 );
                 size_t n = src_cells[src_cell_i].size();

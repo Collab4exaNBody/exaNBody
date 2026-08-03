@@ -56,9 +56,10 @@ template<> struct GLAttributeWriter<GLfloat,Mat3d>  { ONIKA_HOST_DEVICE_FUNC sta
   { a[0]=v.m11; a[1]=v.m12; a[2]=v.m13;
     a[3]=v.m21; a[4]=v.m22; a[5]=v.m23;
     a[6]=v.m31; a[7]=v.m32; a[8]=v.m33; } };
-template<size_t N> struct GLAttributeWriter<GLfloat , onika::oarray_t<double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const onika::oarray_t<double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
-template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const    std::array  <double,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
-template<size_t N> struct GLAttributeWriter<GLuint, std::array<long unsigned int,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLuint * a, const std::array<unsigned long,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLfloat , onika::oarray_t<       double,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLfloat * a, const onika::oarray_t<double       ,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLuint  , onika::oarray_t<unsigned long,N> > { ONIKA_HOST_DEVICE_FUNC static inline void write(GLuint  * a, const onika::oarray_t<unsigned long,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLfloat ,    std::array  <       double,N> > {                        static inline void write(GLfloat * a, const    std::array  <double       ,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
+template<size_t N> struct GLAttributeWriter<GLuint  ,    std::array  <unsigned long,N> > {                        static inline void write(GLuint  * a, const    std::array  <unsigned long,N> & v) { for(size_t i=0;i<N;i++) a[i]=v[i]; } };
 
 using EGL_ULongArray4 = std::array<long unsigned int, 4>;
 
