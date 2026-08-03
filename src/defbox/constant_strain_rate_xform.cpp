@@ -62,7 +62,7 @@ namespace exanb
       Mat3d xform = domain->xform();
       Mat3d xformlocal = Id33;      
       Mat3d predef = diag_matrix(*diagpredef);
-      Mat3d macroscopic_strain = make_identity_matrix();
+      *macroscopic_strain = make_identity_matrix();
       Mat3d F = Id33;
       Mat3d Fprec = Id33;
 
@@ -139,7 +139,7 @@ namespace exanb
 	xformlocal = make_identity_matrix();
       }      
 
-      macroscopic_strain = F;
+      *macroscopic_strain = F;
 
       domain->set_xform( xformlocal * domain->xform());
 

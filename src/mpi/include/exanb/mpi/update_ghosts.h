@@ -95,7 +95,7 @@ namespace exanb
       // automatically assign GPU device id none has been assigned yet
       if( upd_config.gpu_buffer_pack && upd_config.alloc_on_device == nullptr )
       {
-        if( global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
+        if( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
         {
           upd_config.alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
         }
