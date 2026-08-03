@@ -321,7 +321,6 @@ namespace exanb
             auto& particle_information = pf.m_info[p];
             particle_information = {offset, n_items, id};
             // update data
-            pf.m_data.resize (offset + n_items);
             for(size_t i = 0 ; i < n_items ; i++)
             {
               pf.set_item( offset++, cell.get_particle_item( packed_particles[p] , i ) );
