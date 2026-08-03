@@ -67,7 +67,7 @@ namespace exanb
 
     // optionaly limit noise to a geometric region
     ADD_SLOT( ParticleRegions   , particle_regions , INPUT , OPTIONAL , DocString{"Region identifier or boolean expression with region identifiers to which the uniform noise should be applied."} );
-    ADD_SLOT( ParticleRegionCSG , region           , INPUT_OUTPUT , OPTIONAL );
+    ADD_SLOT( ParticleRegionCSG , region           , INPUT , OPTIONAL );
 
     // optionaly limit lattice generation to places where some mask has some value
     ADD_SLOT( GridCellValues , grid_cell_values    , INPUT , OPTIONAL );
