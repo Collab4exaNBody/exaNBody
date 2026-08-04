@@ -10,6 +10,9 @@ on:
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
+  # GitHub Actions runners have no InfiniBand/RDMA hardware; without this, mpich's
+  # UCX netmod tries the "rc" (ib verbs) transport and MPI_Init aborts.
+  UCX_TLS: tcp,sm,self
 
 jobs:
   build:
