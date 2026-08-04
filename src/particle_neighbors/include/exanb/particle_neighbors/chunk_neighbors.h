@@ -25,7 +25,6 @@ under the License.
 #include <onika/cuda/cuda.h>
 #include <onika/integral_constant.h>
 
-#include <exanb/particle_neighbors/chunk_neighbors_specializations.h>
 #include <onika/math/basic_types_def.h>
 #include <onika/log.h>
 
@@ -50,7 +49,7 @@ namespace exanb
     onika::memory::CudaMMVector<uint32_t> m_cell_stream_size;
     size_t m_stream_pool_hint = 0; // guessed best value for m_fixed_stream_pool capacity
     size_t m_nb_dyn_alloc = 0;
-    unsigned int m_chunk_size = 4;
+    unsigned int m_chunk_size = 1;
     unsigned int m_max_neighbors = 0; // maximum neighbors a particle can have in current data
     onika::memory::GenericHostAllocator m_alloc = {};
     
@@ -125,12 +124,12 @@ namespace exanb
   {
     using is_symmetrical_t = onika::BoolConst<Symmetric>;
     GridChunkNeighborsData m_nbh_streams = nullptr;
-    unsigned int m_chunk_size = 4;
+    unsigned int m_chunk_size = 1;
     inline GridChunkNeighborsLightWeightIt(const GridChunkNeighbors& chnbh) : m_nbh_streams(chnbh.m_cell_stream.data()) , m_chunk_size(chnbh.m_chunk_size) {}
     ONIKA_HOST_DEVICE_FUNC inline static constexpr is_symmetrical_t is_symmetrical() { return {}; }
   };
 
-  static constexpr size_t GRID_CHUNK_NBH_MAX_CHUNK_SIZE = 64;
+  static constexpr size_t GRID_CHUNK_NBH_MAX_CHUNK_SIZE = 1;
   static constexpr size_t GRID_CHUNK_NBH_MAX_AMR_RES = 31;
   static constexpr uint16_t GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE = ( ( (1u<<5) + 1u ) << 5 ) + 1u;
   static_assert( GRID_CHUNK_NBH_MIN_CELL_ENC_VALUE == 1057 , "bad computed value for minimum encoded cell value" );

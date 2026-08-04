@@ -36,7 +36,8 @@ under the License.
 
 namespace exanb
 {
-    template<class LDBG, class GridT, class ChunkSizeT, class ChunkSizeLog2T, class OptionalXFormT, bool EnableZOrder, class NeighborFilterFuncT = DefaultNeighborFilterFunc >
+
+    template<class LDBG, class GridT, class OptionalXFormT, bool EnableZOrder, class NeighborFilterFuncT = DefaultNeighborFilterFunc >
     inline void chunk_neighbors_execute(
        LDBG& ldbg,
 		   GridChunkNeighbors& chunk_neighbors,
@@ -45,22 +46,14 @@ namespace exanb
 		   const AmrSubCellPairCache& amr_grid_pairs, 
  		   const ChunkNeighborsConfig& config,
 		   ChunkNeighborsScratchStorage& chunk_neighbors_scratch,
-		   ChunkSizeT cs, 
-		   ChunkSizeLog2T cs_log2,
 		   const double nbh_dist_lab,
 		   const OptionalXFormT& xform,
 		   const bool gpu_enabled,
 		   std::integral_constant<bool,EnableZOrder> enable_z_order,
 		   NeighborFilterFuncT nbh_filter = {} )
     {
-      //using PointerTuple = onika::soatl::FieldPointerTuple< GridT::CellParticles::Alignment , GridT::CellParticles::ChunkSize , field::_rx, field::_ry, field::_rz >;
-
-      if( static_cast<size_t>(config.chunk_size) > GRID_CHUNK_NBH_MAX_CHUNK_SIZE )
-      {
-        lerr << "chunk_size ("<< (config.chunk_size) <<") beyond the limit of "<<GRID_CHUNK_NBH_MAX_CHUNK_SIZE<<std::endl;
-        std::abort();
-      }
-
+      static constexpr unsigned int cs = 1;
+      static constexpr unsigned int cs_log2 = 0;
 
       chunk_neighbors.m_max_neighbors = 0;
       chunk_neighbors.m_alloc.set_gpu_addressable_allocation( gpu_enabled );
@@ -91,10 +84,10 @@ namespace exanb
       
       chunk_neighbors.clear();
       chunk_neighbors.set_number_of_cells( n_cells );
-      chunk_neighbors.set_chunk_size( cs );
+      chunk_neighbors.set_chunk_size(1);
       chunk_neighbors.realloc_stream_pool( config.stream_prealloc_factor );
 
-      ldbg << "cell max gap = "<<loc_max_gap<<", cslog2="<<cs_log2<<", n_nbh_cell="<<n_nbh_cell<<", pre-alloc="<<chunk_neighbors.m_fixed_stream_pool.m_capacity <<std::endl;
+      ldbg << "cell max gap = "<<loc_max_gap<<", n_nbh_cell="<<n_nbh_cell<<", pre-alloc="<<chunk_neighbors.m_fixed_stream_pool.m_capacity <<std::endl;
       
       unsigned int max_threads = omp_get_max_threads();
       if( max_threads > chunk_neighbors_scratch.thread.size() )
@@ -429,5 +422,23 @@ namespace exanb
       ldbg << "Chunk neighbors next pre-alloc hint = "<<chunk_neighbors.m_stream_pool_hint <<", nb dyn alloc = "<<chunk_neighbors.m_nb_dyn_alloc<<std::endl;
     }
 
+    template<class LDBG, class GridT, class OptionalXFormT, bool EnableZOrder, class NeighborFilterFuncT = DefaultNeighborFilterFunc >
+    inline void chunk_neighbors_execute(
+       LDBG& ldbg,
+                   GridChunkNeighbors& chunk_neighbors,
+                   const GridT& grid,
+                   const AmrGrid & amr,
+                   const AmrSubCellPairCache& amr_grid_pairs,
+                   const ChunkNeighborsConfig& config,
+                   ChunkNeighborsScratchStorage& chunk_neighbors_scratch,
+		   const int /* cs */, const int /* cs_log2 */,
+                   const double nbh_dist_lab,
+                   const OptionalXFormT& xform,
+                   const bool gpu_enabled,
+                   std::integral_constant<bool,EnableZOrder> enable_z_order,
+                   NeighborFilterFuncT nbh_filter = {} )
+    {
+	    chunk_neighbors_execute(ldbg,chunk_neighbors,grid,amr,amr_grid_pairs,config,chunk_neighbors_scratch,nbh_dist_lab,xform,gpu_enabled,enable_z_order,nbh_filter);
+    }
 }
 

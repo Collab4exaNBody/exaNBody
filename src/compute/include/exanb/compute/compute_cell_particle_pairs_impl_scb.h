@@ -29,7 +29,7 @@ namespace exanb
   /************************************************
    *** Chunk neighbors traversal implementation ***
    ************************************************/
-  template< class CellT, unsigned int CS
+  template< class CellT
           , class ComputePairBufferFactoryT, class OptionalArgsT, class FuncT
           , class FieldAccTupleT, class PosFieldsT
           , size_t ... FieldIndex >
@@ -44,12 +44,13 @@ namespace exanb
     const OptionalArgsT& optional, // locks are needed if symmetric computation is enabled
     const FuncT& func,
     const FieldAccTupleT& cp_fields ,
-    onika::UIntConst<CS> nbh_chunk_size ,
     ComputeParticlePairOpts< false, true , true > ,
     PosFieldsT pos_fields ,
     std::index_sequence<FieldIndex...>
     )
   {
+    static constexpr unsigned int CS = 1;
+    
     using exanb::chunknbh_stream_info;
     using onika::cuda::min;
 
