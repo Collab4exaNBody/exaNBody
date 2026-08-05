@@ -46,10 +46,6 @@ under the License.
 #define XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE 64
 #endif
 
-#ifndef XNB_CHUNK_NBH_DELAYED_COMPUTE_CS1
-#define XNB_CHUNK_NBH_DELAYED_COMPUTE_CS1 false
-#endif
-
 namespace exanb
 {
   using DefaultPositionFields = onika::FlatTuple< onika::soatl::FieldId<field::_rx> , onika::soatl::FieldId<field::_ry> , onika::soatl::FieldId<field::_rz> >;

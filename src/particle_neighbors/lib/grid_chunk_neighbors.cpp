@@ -65,9 +65,9 @@ namespace exanb
     m_cell_stream_size.assign( n , 0 );
   }
   
-  void GridChunkNeighbors::set_chunk_size( unsigned int cs )
+  void GridChunkNeighbors::set_chunk_size( unsigned int )
   {
-    m_chunk_size = cs;
+    m_chunk_size = 1;
   }
 }
 
