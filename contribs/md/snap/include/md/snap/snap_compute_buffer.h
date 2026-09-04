@@ -174,6 +174,8 @@ namespace md
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max                         ) > > , RealT > m_U_array    = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxu_max * SnapConfT{}.nelements ) > > , RealT > m_UTot_array = {};
     SnapXSTemporaryComplexArray< std::remove_cv_t< std::remove_reference_t< decltype( SnapConfT{}.idxz_max * SnapConfT{}.ndoubles  ) > > , RealT > m_Z_array    = {};
+    // dynamically allocated only if used (descriptor derivative pass): per-neighbor dU/dr scratch, idxu_max*3
+    SnapXSTemporaryComplexArray<int,RealT> m_DU_array = {};
 
     ONIKA_HOST_DEVICE_FUNC
     inline void reset()
@@ -181,6 +183,7 @@ namespace md
       m_U_array.reset();
       m_UTot_array.reset();
       m_Z_array.reset();
+      m_DU_array.reset();
     }
 
     ONIKA_HOST_DEVICE_FUNC
@@ -189,6 +192,7 @@ namespace md
       m_U_array.init( snaconf.idxu_max );
       m_UTot_array.init( snaconf.idxu_max * snaconf.nelements );
       m_Z_array.init( snaconf.idxz_max * snaconf.ndoubles );
+      m_DU_array.init( snaconf.idxu_max * onika::IntConst<3>{} );
     }
   };
 
