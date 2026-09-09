@@ -223,19 +223,24 @@ namespace exanb
     
       IJK grid_dims = domain.grid_dimension();
 
-      if( domain.periodic_boundary_x() && ( dom_size.x / domain_grid_size.x ) < 1.0 )
+      // grid_dims.{i,j,k} must never drop below 1 -- for a box smaller than cell_size on some axis
+      // (e.g. a small primitive cell with a large fixed cell_size), grid_dims can already be 1
+      // here, and decrementing past that produces a 0 grid dimension; domain_grid_size below would
+      // then be 0 on that axis, and dom_size/domain_grid_size a divide-by-zero (inf/nan) that
+      // silently poisons domain.xform() in release builds, where the assert below is compiled out.
+      if( domain.periodic_boundary_x() && ( dom_size.x / domain_grid_size.x ) < 1.0 && grid_dims.i > 1 )
       {
         ldbg << "X axis : prefer smaller cell / bigger scaling, size : "<<grid_dims.i <<" -> "<<grid_dims.i-1<<std::endl;
         -- grid_dims.i;
         assert( grid_dims.i >= 1 );
       }
-      if( domain.periodic_boundary_y() && ( dom_size.y / domain_grid_size.y ) < 1.0 )
+      if( domain.periodic_boundary_y() && ( dom_size.y / domain_grid_size.y ) < 1.0 && grid_dims.j > 1 )
       {
         ldbg << "Y axis : prefer smaller cell / bigger scaling, size : "<<grid_dims.j <<" -> "<<grid_dims.j-1<<std::endl;
         -- grid_dims.j;
         assert( grid_dims.j >= 1 );
       }
-      if( domain.periodic_boundary_z() && ( dom_size.z / domain_grid_size.z ) < 1.0 )
+      if( domain.periodic_boundary_z() && ( dom_size.z / domain_grid_size.z ) < 1.0 && grid_dims.k > 1 )
       {
         ldbg << "Z axis : prefer smaller cell / bigger scaling, size : "<<grid_dims.k <<" -> "<<grid_dims.k-1<<std::endl;
         -- grid_dims.k;
