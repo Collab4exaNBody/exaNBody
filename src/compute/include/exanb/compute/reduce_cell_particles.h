@@ -78,10 +78,7 @@ namespace exanb
       {
         cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i );
         cell_a_loc = cell_a_loc + m_ghost_layers;
-        if( m_ghost_layers != 0 )
-        {
-          cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
-        }
+        cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
       }
 
       assert( cell_a != size_t(-1) && "cell_a is not correctly uninitialized");
