@@ -147,7 +147,7 @@ namespace md
           dinnerij_jj = static_cast<RijRealT>(0.5)*(dinnerelem[itype]+dinnerelem[jtype]);
         }
         const RijRealT wj_jj = wjelem[jtype];
-        const RijRealT sfac_jj = snap_compute_sfac( static_cast<RijRealT>(snaconf.rmin0), snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
+        const RijRealT sfac_jj = snap_compute_sfac( snaconf.rmin0, snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
         //snap_add_uarraytot( snaconf.twojmax, jelem, snaconf.idxu_max, sfac_jj*wj_jj, Ui_array_r, Ui_array_i, UiTot_array_r /*snabuf.ulisttot_r*/, UiTot_array_i /*snabuf.ulisttot_i*/ );
         snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext );
