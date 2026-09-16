@@ -86,8 +86,22 @@ namespace exanb
       using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
       using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid->cells_accessor() ) > >;
 
-      if( ! ghost_comm_scheme.has_value() ) return;
-      if( grid->number_of_particles() == 0 ) return;
+      if( !ghost_comm_scheme.has_value() ) 
+      {
+        return;
+      }
+
+      bool nothing_to_exchange = true;
+      for( const auto& p : ghost_comm_scheme->m_partner )
+      {
+        if( p.m_particles_to_send > 0 || p.m_particles_to_receive > 0 )
+        {
+          nothing_to_exchange = false;
+          break;
+        }
+      }
+      if( nothing_to_exchange ) return;
+    
 
       // local copy of ghost update config to eventually adapt it to specific constraints
       auto upd_config = *update_ghost_config;
