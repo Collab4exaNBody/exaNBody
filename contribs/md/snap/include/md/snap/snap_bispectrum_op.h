@@ -64,13 +64,19 @@ namespace md
     const bool compute_derivative = false;
     // optional: LAMMPS compute-snad/atom-equivalent aggregate (see compute_descriptor_snap.cu),
     // atomically scatter-accumulated (true dB_i/dR_m for every m appearing as this block's self
-    // row or a neighbor row). One raw pointer per component (ncoeff*3 of them, each sized
+    // row or a neighbor row). One raw pointer per component (ncoeff*3*ntypes of them, each sized
     // total_particles) rather than one interleaved buffer, so each component can be backed by
     // its own dynamically-named grid field and reduced ghost->owner across MPI ranks afterward
     // via the generic update_opt_from_ghost operator (a private flat buffer couldn't be, since
     // that reduction only knows how to plug into named grid fields). deriv_agg_ptrs itself must
     // point to GPU-accessible memory (e.g. onika::memory::CudaMMVector<double*>::data()).
     // Trailing + defaulted, nullptr to skip.
+    //
+    // Multi-type (ntypes>1): widened by an extra ncoeff*3-wide slot per possible CENTRAL atom
+    // type (this operator()'s own `itype`), selected via `typeoffset` below -- mirrors LAMMPS's
+    // own compute_snad_atom.cpp/compute_snap.cpp `typeoffset`/`typeoffset_local` (same central
+    // type used for both the self/`+=` and neighbor/`-=` side of a pair, exactly like this one).
+    // Mono-type (ntypes==1) is the trivial single-slot special case, unchanged from before.
     double * const * const __restrict__ deriv_agg_ptrs = nullptr;
 
     template<class ComputeBufferT, class CellParticlesT>
@@ -176,6 +182,9 @@ namespace md
         const long p = cell_particle_offset[buf.cell] + buf.part;
         const long row0 = deriv_row_offset[p];
         const int ncoeff3 = static_cast<int>(snaconf.ncoeff) * 3;
+        // multi-type widening: this pair's contributions (both sides) land in the CENTRAL atom's
+        // (itype's) own ncoeff3-wide slot -- see deriv_agg_ptrs's own comment above.
+        const int typeoffset = ncoeff3 * itype;
 
         double * const __restrict__ self_row = deriv_buffer + row0 * ncoeff3;
         for( int i=0; i<ncoeff3; i++ ) self_row[i] = 0.0;
@@ -204,12 +213,25 @@ namespace md
           const RijRealT wj_jj = wjelem[jtype];
 
           double * const __restrict__ row = deriv_buffer + (row0 + 1 + jj) * ncoeff3;
-          snap_compute_neighbor_dbidrj( snaconf.twojmax, snaconf.idxu_max, snaconf.idxb_max,
-                                         wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj, x, y, z, z0, r,
-                                         snaconf.rootpqarray, snaconf.idxz_block, snaconf.idxb,
-                                         buf.ext.m_Z_array.r(), buf.ext.m_Z_array.i(),
-                                         snaconf.rmin0, snaconf.rfac0, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.bnorm_flag,
-                                         row, buf.ext );
+          if( snaconf.chem_flag )
+          {
+            const int jelem = jtype;
+            snap_compute_neighbor_dbidrj_multi( snaconf.twojmax, snaconf.idxu_max, snaconf.idxb_max, snaconf.idxz_max, snaconf.nelements, jelem,
+                                                 wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj, x, y, z, z0, r,
+                                                 snaconf.rootpqarray, snaconf.idxz_block, snaconf.idxb,
+                                                 buf.ext.m_Z_array.r(), buf.ext.m_Z_array.i(),
+                                                 snaconf.rmin0, snaconf.rfac0, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.bnorm_flag,
+                                                 row, buf.ext );
+          }
+          else
+          {
+            snap_compute_neighbor_dbidrj( snaconf.twojmax, snaconf.idxu_max, snaconf.idxb_max,
+                                           wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj, x, y, z, z0, r,
+                                           snaconf.rootpqarray, snaconf.idxz_block, snaconf.idxb,
+                                           buf.ext.m_Z_array.r(), buf.ext.m_Z_array.i(),
+                                           snaconf.rmin0, snaconf.rfac0, snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.bnorm_flag,
+                                           row, buf.ext );
+          }
           size_t nbh_cell=0, nbh_part=0;
           buf.nbh.get( jj, nbh_cell, nbh_part );
           deriv_nbh_id[row0 + 1 + jj] = cells[nbh_cell][field::id][nbh_part];
@@ -223,13 +245,13 @@ namespace md
             // real owner (possibly on another MPI rank) by the separate, explicit
             // update_opt_from_ghost pipeline step compute_descriptor_snap.cu documents.
             const size_t nbh_p = cell_particle_offset[nbh_cell] + nbh_part;
-            for( int i=0; i<ncoeff3; i++ ) atomic_add_contribution( deriv_agg_ptrs[i][nbh_p], -row[i] );
+            for( int i=0; i<ncoeff3; i++ ) atomic_add_contribution( deriv_agg_ptrs[typeoffset+i][nbh_p], -row[i] );
           }
         }
 
         if( deriv_agg_ptrs != nullptr )
         {
-          for( int i=0; i<ncoeff3; i++ ) atomic_add_contribution( deriv_agg_ptrs[i][p], -self_row[i] );
+          for( int i=0; i<ncoeff3; i++ ) atomic_add_contribution( deriv_agg_ptrs[typeoffset+i][p], -self_row[i] );
         }
       }
     }

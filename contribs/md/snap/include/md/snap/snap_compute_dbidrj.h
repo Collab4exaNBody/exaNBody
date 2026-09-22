@@ -148,4 +148,113 @@ namespace md
                                zlist_r, zlist_i, ext.m_DU_array.r(), ext.m_DU_array.i(), dbdr );
   }
 
+  // Multi-element (chem_flag==true) counterpart to snap_compute_dbidrj_mono, ported literally from
+  // LAMMPS ML-SNAP's SNA::compute_dbidrj() chem_flag branch (src/ML-SNAP/sna.cpp) -- not
+  // "generalized from memory", the 3-leg idouble/itriple index algebra below (in particular leg 2/3's
+  // swapped elem1<->elem3 triple index) is copy-verified against that source. zlist is the full
+  // nelements^2*idxz_max-sized multi-element Z array (idouble = elem1*nelements+elem2 selects a
+  // idxz_max-sized block, exactly snap_compute_zi's own output layout); dulist is this ONE neighbor's
+  // ordinary (non-widened) per-pair dU/dr, unaffected by chem_flag (LAMMPS's own compute_duidrj is
+  // chem_flag-agnostic too, see snap_compute_duidrj.h). elem3 is this neighbor's own element (fixed
+  // for the whole call, the caller's jelem), matching LAMMPS's own `elem3 = elem_duarray`. Output
+  // dbdr is nelements^3-widened: dbdr[(itriple*idxb_max+jjb)*3+xyz], itriple=(elem1*nelements+elem2)
+  // *nelements+elem3 -- caller zero-inits its own idxb_max*nelements^3*3-sized buffer (see zero loop
+  // below, matches LAMMPS zeroing its own dblist once at the top before this elem-restricted fill).
+  template<class ZiRealT, class UiRealT, class DbRealT>
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void snap_compute_dbidrj_multi( // READ ONLY
+                                               int twojmax, int idxb_max, int idxz_max, int nelements, int elem3
+                                             , int const * __restrict__ idxz_block
+                                             , SnapInternal::SNA_BINDICES const * __restrict__ idxb
+                                             , bool bnorm_flag
+                                             , ZiRealT const * __restrict__ zlist_r
+                                             , ZiRealT const * __restrict__ zlist_i
+                                             , UiRealT const * __restrict__ dulist_r
+                                             , UiRealT const * __restrict__ dulist_i
+                                               // WRITE ONLY
+                                             , DbRealT * __restrict__ dbdr ) // idxb_max*nelements^3*3, [(itriple*idxb_max+jjb)*3+xyz]
+  {
+    const int ntriples = nelements * nelements * nelements;
+    for (int i = 0; i < idxb_max*ntriples*3; i++) dbdr[i] = static_cast<DbRealT>(0);
+
+    for (int jjb = 0; jjb < idxb_max; jjb++)
+    {
+      const int j1 = IDXB(jjb).j1;
+      const int j2 = IDXB(jjb).j2;
+      const int j  = IDXB(jjb).j;
+
+      for (int elem1 = 0; elem1 < nelements; elem1++)
+      for (int elem2 = 0; elem2 < nelements; elem2++)
+      {
+        DbRealT leg[3];
+
+        // Leg 1 (weight 1): dudr(j,...) . z(j1,j2,j), itriple=(elem1,elem2,elem3)
+        {
+          const int idouble = elem1*nelements + elem2;
+          const int itriple = idouble*nelements + elem3;
+          leg[0] = leg[1] = leg[2] = static_cast<DbRealT>(0);
+          snap_dbidrj_leg( j, IDXZ_BLOCK(j1,j2,j), IDXU_BLOCK(j),
+                            zlist_r + static_cast<size_t>(idouble)*idxz_max, zlist_i + static_cast<size_t>(idouble)*idxz_max,
+                            dulist_r, dulist_i, leg );
+          DbRealT * const out = dbdr + (static_cast<size_t>(itriple)*idxb_max+jjb)*3;
+          for (int k=0; k<3; k++) out[k] += static_cast<DbRealT>(2) * leg[k];
+        }
+
+        // Leg 2 (weight bnorm_flag?1:(j+1)/(j1+1)): dudr(j1,...) . z(j,j2,j1), itriple=(elem3,elem2,elem1)
+        {
+          const int idouble = elem1*nelements + elem2;
+          const int itriple = (elem3*nelements + elem2)*nelements + elem1;
+          const DbRealT w1 = bnorm_flag ? static_cast<DbRealT>(1) : static_cast<DbRealT>(j+1) / static_cast<DbRealT>(j1+1);
+          leg[0] = leg[1] = leg[2] = static_cast<DbRealT>(0);
+          snap_dbidrj_leg( j1, IDXZ_BLOCK(j,j2,j1), IDXU_BLOCK(j1),
+                            zlist_r + static_cast<size_t>(idouble)*idxz_max, zlist_i + static_cast<size_t>(idouble)*idxz_max,
+                            dulist_r, dulist_i, leg );
+          DbRealT * const out = dbdr + (static_cast<size_t>(itriple)*idxb_max+jjb)*3;
+          for (int k=0; k<3; k++) out[k] += static_cast<DbRealT>(2) * w1 * leg[k];
+        }
+
+        // Leg 3 (weight bnorm_flag?1:(j+1)/(j2+1)): dudr(j2,...) . z(j,j1,j2), itriple=(elem1,elem3,elem2)
+        {
+          const int idouble = elem2*nelements + elem1;
+          const int itriple = (elem1*nelements + elem3)*nelements + elem2;
+          const DbRealT w2 = bnorm_flag ? static_cast<DbRealT>(1) : static_cast<DbRealT>(j+1) / static_cast<DbRealT>(j2+1);
+          leg[0] = leg[1] = leg[2] = static_cast<DbRealT>(0);
+          snap_dbidrj_leg( j2, IDXZ_BLOCK(j,j1,j2), IDXU_BLOCK(j2),
+                            zlist_r + static_cast<size_t>(idouble)*idxz_max, zlist_i + static_cast<size_t>(idouble)*idxz_max,
+                            dulist_r, dulist_i, leg );
+          DbRealT * const out = dbdr + (static_cast<size_t>(itriple)*idxb_max+jjb)*3;
+          for (int k=0; k<3; k++) out[k] += static_cast<DbRealT>(2) * w2 * leg[k];
+        }
+      }
+    }
+  }
+
+  // Multi-element per-neighbor wrapper, sibling to snap_compute_neighbor_dbidrj. elem3 = this
+  // neighbor's own element (caller's jelem, matching the same value snap_add_nbh_contrib_to_uarraytot
+  // used to place this neighbor's U contribution in the value-only pass).
+  template<class RijRealT, class RootPQRealT, class ZiRealT, class DbRealT, class ExtT>
+  ONIKA_HOST_DEVICE_FUNC
+  static inline void snap_compute_neighbor_dbidrj_multi(
+                       int twojmax, int idxu_max, int idxb_max, int idxz_max, int nelements, int elem3
+                     , RijRealT wj, RijRealT rcut, RijRealT sinnerij, RijRealT dinnerij
+                     , RijRealT x, RijRealT y, RijRealT z, RijRealT z0, RijRealT r
+                     , RootPQRealT const * __restrict__ rootpqarray
+                     , int const * __restrict__ idxz_block
+                     , SnapInternal::SNA_BINDICES const * __restrict__ idxb
+                     , ZiRealT const * __restrict__ zlist_r
+                     , ZiRealT const * __restrict__ zlist_i
+                     , RijRealT rmin0, RijRealT rfac0, bool switch_flag, bool switch_inner_flag, bool bnorm_flag
+                       // WRITE ONLY
+                     , DbRealT * __restrict__ dbdr
+                     , ExtT & ext )
+  {
+    snap_compute_uarray( twojmax, rootpqarray, ext.m_U_array.r(), ext.m_U_array.i(), x, y, z, z0, r );
+    snap_compute_duidrj( twojmax, idxu_max, x, y, z, rcut, wj,
+                          ext.m_U_array.r(), ext.m_U_array.i(), rootpqarray,
+                          sinnerij, dinnerij, rmin0, rfac0, switch_flag, switch_inner_flag, true /* chem_flag */,
+                          ext.m_DU_array.r(), ext.m_DU_array.i() );
+    snap_compute_dbidrj_multi( twojmax, idxb_max, idxz_max, nelements, elem3, idxz_block, idxb, bnorm_flag,
+                                zlist_r, zlist_i, ext.m_DU_array.r(), ext.m_DU_array.i(), dbdr );
+  }
+
 }
