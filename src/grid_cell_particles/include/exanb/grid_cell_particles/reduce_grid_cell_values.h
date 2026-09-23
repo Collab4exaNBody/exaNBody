@@ -40,7 +40,7 @@ namespace exanb
   // GPU execution requires ReduceGridCellValuesTraits<FuncT>::CudaCompatible = true AND the calling
   // translation unit to be a .cu file (a .cpp never produces a real GPU kernel).
   //
-  // ponytail: one thread per cell, cells with a huge subdiv^3*ncomps would under-use the GPU; upgrade to a
+  // one thread per cell, cells with a huge subdiv^3*ncomps would under-use the GPU; upgrade to a
   // block-per-cell kernel with onika::cuda::block_reduce_* if that ever matters.
   template<class FuncT> struct ReduceGridCellValuesTraits
   {

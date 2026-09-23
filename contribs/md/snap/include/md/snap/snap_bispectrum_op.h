@@ -52,8 +52,8 @@ namespace md
     const bool eflag = false;
     const bool quadraticflag = false;
 
-    // descriptor-derivative pass (see compute_descriptor_snap.cu): two dispatches share this
-    // functor -- a cheap counting pass that only sizes the CSR row table, and the real pass
+    // descriptor-derivative pass (see compute_descriptor_snap.cu in exaStamp): two dispatches share
+    // this functor -- a cheap counting pass that only sizes the CSR row table, and the real pass
     // that fills bispectrum (and, if compute_derivative, the per-neighbor Jacobian) into the
     // pre-sized buffers. Trailing + defaulted so existing positional-init call sites (snap_force.h)
     // keep compiling unchanged.
