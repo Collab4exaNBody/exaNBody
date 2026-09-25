@@ -272,7 +272,7 @@ under the License.
           dinnerij_jj = static_cast<RijRealT>(0.5)*(dinnerelem[itype]+dinnerelem[jtype]);
         }
         const RijRealT wj_jj = wjelem[jtype];
-        const RijRealT sfac_jj = snap_compute_sfac( static_cast<RijRealT>(snaconf.rmin0), snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
+        const RijRealT sfac_jj = snap_compute_sfac( snaconf.rmin0, snaconf.switch_flag, snaconf.switch_inner_flag, r, rcutij_jj, sinnerij_jj, dinnerij_jj );
 
         snap_add_nbh_contrib_to_uarraytot( snaconf.twojmax, sfac_jj*wj_jj, x,y,z,z0,r, snaconf.rootpqarray, buf.ext.m_UTot_array.r() + snaconf.idxu_max * jelem, buf.ext.m_UTot_array.i() + snaconf.idxu_max * jelem, buf.ext , CoopAccumFunc{} );
       }
@@ -324,7 +324,7 @@ under the License.
 
         add_nbh_contrib_to_force( snaconf.twojmax, snaconf.idxu_max, jelem , wj_jj, rcutij_jj, sinnerij_jj, dinnerij_jj , x, y, z, z0, r, rsq
                                 , snaconf.rootpqarray, snaconf.y_jju_map, snaconf.idxu_max_alt
-                                , static_cast<RijRealT>(snaconf.rmin0), static_cast<RijRealT>(snaconf.rfac0)
+                                , snaconf.rmin0, snaconf.rfac0
                                 , snaconf.switch_flag, snaconf.switch_inner_flag, snaconf.chem_flag
                                 , fij, buf.ext );
 

@@ -58,16 +58,15 @@ namespace exanb
     return AABB{ {b.bmin.x*s+o.x, b.bmin.y*s+o.y, b.bmin.z*s+o.z} , {b.bmax.x*s+o.x, b.bmax.y*s+o.y, b.bmax.z*s+o.z} };
   }
 
-  inline AABB intersection(const AABB& b1, const AABB& b2)
+  ONIKA_HOST_DEVICE_FUNC inline AABB intersection(const AABB& b1, const AABB& b2)
   {
-    // first compute intersection of b1 and b2;
-    double xmin = std::max( b1.bmin.x, b2.bmin.x );
-    double ymin = std::max( b1.bmin.y, b2.bmin.y );
-    double zmin = std::max( b1.bmin.z, b2.bmin.z );
+    double xmin = onika::cuda::max( b1.bmin.x, b2.bmin.x );
+    double ymin = onika::cuda::max( b1.bmin.y, b2.bmin.y );
+    double zmin = onika::cuda::max( b1.bmin.z, b2.bmin.z );
 
-    double xmax = std::min( b1.bmax.x, b2.bmax.x );
-    double ymax = std::min( b1.bmax.y, b2.bmax.y );
-    double zmax = std::min( b1.bmax.z, b2.bmax.z );
+    double xmax = onika::cuda::min( b1.bmax.x, b2.bmax.x );
+    double ymax = onika::cuda::min( b1.bmax.y, b2.bmax.y );
+    double zmax = onika::cuda::min( b1.bmax.z, b2.bmax.z );
 
     return AABB { {xmin,ymin,zmin} , {xmax,ymax,zmax} };
   }
