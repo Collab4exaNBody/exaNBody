@@ -111,9 +111,9 @@ namespace SnapInternal
     double deltacg(int, int, int);
     void compute_ncoeff();
 
-    double rmin0 = 0.0;
-    double rfac0 = 0.0;
-    double wself = 0.0;
+    RealT rmin0 = 0.0;
+    RealT rfac0 = 0.0;
+    RealT wself = 0.0;
 
     int nelements = 0;        // number of elements
     int ndoubles = 0;         // number of multi-element pairs
@@ -322,9 +322,9 @@ namespace SnapInternal
     int const * const __restrict__ idxb_block = nullptr;
     int const * const __restrict__ y_jju_map = nullptr;
 
-    double const rmin0 = 0.0;
-    double const rfac0 = 0.0;
-    double const wself = 0.0;
+    RealT const rmin0 = 0.0;
+    RealT const rfac0 = 0.0;
+    RealT const wself = 0.0;
 
     bool const switch_flag =false;
     bool const switch_inner_flag = false;
