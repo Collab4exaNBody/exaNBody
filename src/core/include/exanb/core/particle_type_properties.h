@@ -50,7 +50,7 @@ namespace exanb
   inline auto make_type_property_functor(const std::string& name, const T * __restrict__ data)
   {
     TypePropertyFunctor<T> func;
-    std::strncpy( func.m_name , name.c_str() , func.MAX_NAME_LEN );
+    std::strncpy( func.m_name , name.c_str() , func.MAX_NAME_LEN-1 );
     func.m_name[ func.MAX_NAME_LEN - 1 ] = '\0';
     func.m_values = data;
     return func;

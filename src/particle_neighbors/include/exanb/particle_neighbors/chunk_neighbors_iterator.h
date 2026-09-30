@@ -33,7 +33,7 @@ namespace exanb
     inline void start_cell( size_t cell_a , size_t n_particles )
     {
       m_nbh_stream = chunknbh_stream_info( m_nbh[cell_a] /*.data()*/ , n_particles ).stream;
-      m_current_particle = -1;
+      m_current_particle = static_cast<unsigned int>( -1 );
       m_loc_a = grid_index_to_ijk( m_dims , cell_a );
       m_cell_a = cell_a;
     }

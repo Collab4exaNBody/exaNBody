@@ -94,13 +94,13 @@ namespace exanb
         BoxSplit bs;
         
         bs.i_split = find_best_split( i_cost, 1.0, *cpu_gpu_perf_ratio );
-        assert( bs.i_split.position >= 0 && static_cast<ssize_t>(bs.i_split.position) < grid_dims.i );
+        assert( /* bs.i_split.position >= 0 && */ static_cast<ssize_t>(bs.i_split.position) < grid_dims.i );
 
         bs.j_split = find_best_split( j_cost, 1.0, *cpu_gpu_perf_ratio );
-        assert( bs.j_split.position >= 0 && static_cast<ssize_t>(bs.j_split.position) < grid_dims.j );
+        assert( /* bs.j_split.position >= 0 && */ static_cast<ssize_t>(bs.j_split.position) < grid_dims.j );
 
         bs.k_split = find_best_split( k_cost, 1.0, *cpu_gpu_perf_ratio );
-        assert( bs.k_split.position >= 0 && static_cast<ssize_t>(bs.k_split.position) < grid_dims.k );
+        assert( /* bs.k_split.position >= 0 && */ static_cast<ssize_t>(bs.k_split.position) < grid_dims.k );
       
         GridBlock left_block = { block_start , block_end };
         GridBlock right_block = { block_start , block_end };

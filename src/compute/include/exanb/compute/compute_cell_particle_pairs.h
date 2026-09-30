@@ -19,13 +19,8 @@ under the License.
 #pragma once
 
 #include <exanb/compute/compute_cell_particle_pairs_common.h>
-#include <exanb/compute/compute_cell_particle_pairs_chunk.h>
-
-#ifdef XNB_USE_CS1_SPECIALIZATION
-#include <exanb/compute/compute_cell_particle_pairs_chunk_cs1.h>
-#endif
-
-#include <exanb/compute/compute_cell_particle_pairs_chunk_scb.h>
+#include <exanb/compute/compute_cell_particle_pairs_impl_default.h>
+#include <exanb/compute/compute_cell_particle_pairs_impl_scb.h>
 
 #include <exanb/compute/compute_pair_traits.h>
 #include <onika/log.h>
@@ -37,11 +32,11 @@ under the License.
 
 namespace exanb
 {
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class IndexSequence>
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class IndexSequence>
   struct ComputeParticlePairFunctor;
  
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, size_t ... FieldIndex >
-  struct ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT, std::index_sequence<FieldIndex...> >
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, size_t ... FieldIndex >
+  struct ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT, std::index_sequence<FieldIndex...> >
   {
     static_assert( FieldAccTupleT::size() == sizeof...(FieldIndex) );
 
@@ -59,9 +54,8 @@ namespace exanb
 
     const FieldAccTupleT m_cpfields;
     const PosFieldsT m_posfields;
-    const CSizeT m_cs;
     
-    ONIKA_HOST_DEVICE_FUNC inline void operator () ( /*ssize_t i */ const onikaInt3_t& coord ) const
+    ONIKA_HOST_DEVICE_FUNC inline void operator () ( const onikaInt3_t& coord ) const
     {
       static constexpr typename decltype(m_optional.nbh)::is_symmetrical_t symmetrical = {};      
       static constexpr bool gpu_exec = gpu_device_execution() ;
@@ -72,20 +66,11 @@ namespace exanb
 
       const IJK cell_a_loc = { coord.x , coord.y , coord.z };
       const size_t cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
-      /*
-      size_t cell_a = i;
-      IJK cell_a_loc = grid_index_to_ijk( m_grid_dims - 2 * m_ghost_layers , i ); ;
-      cell_a_loc = cell_a_loc + m_ghost_layers;
-      if( m_ghost_layers != 0 )
-      {
-        cell_a = grid_ijk_to_index( m_grid_dims , cell_a_loc );
-      }
-      */
-      
+     
       m_cell_profiler.start_cell_profiling(cell_a);
       compute_cell_particle_pairs_cell( m_cells, m_grid_dims, cell_a_loc, cell_a, m_rcut2
                                       , m_cpbuf_factory, m_optional, m_func
-                                      , m_cpfields, m_cs, cp_opts
+                                      , m_cpfields, cp_opts
                                       , m_posfields , std::index_sequence<FieldIndex...>{} );
       m_cell_profiler.end_cell_profiling(cell_a);
     }
@@ -98,8 +83,8 @@ namespace onika
 {
   namespace parallel
   {
-    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT, class ISeq>
-    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,ISeq> >
+    template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class ISeq>
+    struct BlockParallelForFunctorTraits< exanb::ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,ISeq> >
     {
       static inline constexpr bool CudaCompatible = exanb::compute_pair_traits::cuda_compatible_v<FuncT>;
     };
@@ -109,9 +94,9 @@ namespace onika
 namespace exanb
 {
 
-  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT, class CSizeT>
+  template<class CellsT, class FuncT, class OptionalArgsT, class ComputePairBufferFactoryT, class FieldAccTupleT, class PosFieldsT>
   static inline
-  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,CSizeT,std::make_index_sequence<FieldAccTupleT::size()> > 
+  ComputeParticlePairFunctor<CellsT,FuncT,OptionalArgsT,ComputePairBufferFactoryT,FieldAccTupleT,PosFieldsT,std::make_index_sequence<FieldAccTupleT::size()> > 
   make_compute_particle_pair_functor(
       CellsT cells
     , GridCellComputeProfiler cell_profiler
@@ -123,10 +108,9 @@ namespace exanb
     , const ComputePairBufferFactoryT& cpbuf_factory
     , const FieldAccTupleT& cpfields
     , const PosFieldsT& posfields
-    , CSizeT cs
     )
   {
-    return {cells,cell_profiler,grid_dims,ghost_layers,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs};
+    return {cells,cell_profiler,grid_dims,ghost_layers,func,rcut2,optional,cpbuf_factory,cpfields,posfields};
   }
 
   // ==== OpenMP parallel for style impelmentation ====
@@ -174,15 +158,6 @@ namespace exanb
       {
         if( exec_ctx->m_cuda_ctx->has_devices() )
         {
-          if( optional.nbh.m_chunk_size>1 && compute_pair_traits::buffer_less_compatible_v<FuncT> )
-          {
-            if( XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE < bpfor_opts.max_block_size )
-            {
-              ldbg << "INFO: GPU block size has been limited to "<< XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE
-                   <<" to enforce synchronized thread computation in kernel "<<exec_ctx->tag()<<" "<<exec_ctx->sub_tag() << std::endl;
-              bpfor_opts.max_block_size = XNB_CHUNK_NBH_DELAYED_COMPUTE_MAX_BLOCK_SIZE;
-            }
-          }
           grid.check_cells_are_gpu_addressable();
         }
       }
@@ -192,16 +167,9 @@ namespace exanb
     CellsAccessorT cells = {};
     if constexpr ( has_external_or_optional_fields ) cells = grid.cells_accessor();
     else cells = grid.cells();
-        
-#   define _XNB_CHUNK_NEIGHBORS_CCPP(CS) \
-    { XNB_CHUNK_NEIGHBORS_CS_VAR( CS , cs , optional.nbh.m_chunk_size ); \
-      if ( static_cast<unsigned int>(cs) == optional.nbh.m_chunk_size ) \
-        return block_parallel_for( parallel_range, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields,cs) , exec_ctx , bpfor_opts ); \
-    }
-    XNB_CHUNK_NEIGHBORS_CS_SPECIALIZE( _XNB_CHUNK_NEIGHBORS_CCPP )
-#   undef _XNB_CHUNK_NEIGHBORS_CCPP
-    fatal_error()<< "compute_cell_particle_pairs: neighbors configuration not supported : chunk_size=" << optional.nbh.m_chunk_size <<std::endl;
-    return {};
+
+    assert( optional.nbh.m_chunk_size == 1 );
+    return block_parallel_for( parallel_range, make_compute_particle_pair_functor(cells,cellprof,dims,gl,func,rcut2,optional,cpbuf_factory,cpfields,posfields) , exec_ctx , bpfor_opts );
   }
 
   template<class GridT, class OptionalArgsT, class ComputePairBufferFactoryT, class FuncT, class... FieldAccT >

@@ -41,7 +41,9 @@ namespace exanb
     inline unsigned int cell_particles_data_size ( size_t cell_i )
     {
       if ( cell_i >= m_cell_extra_data.size() ) return 0; // case no grid
-      return m_cell_extra_data[ cell_i ]. storage_size();
+      const size_t sz = m_cell_extra_data[ cell_i ]. storage_size();
+      if ( sz == 0 ) return 0;
+      return 2 * sizeof(UIntType) + sz;
     }
 
     /**

@@ -333,19 +333,19 @@ namespace exanb
           Box1DSplit split[3];
           
           split[0] = find_best_split(i_cost,left_size,right_size );
-          assert( split[0].position >= 0 && static_cast<ssize_t>(split[0].position) < block_dims.i );
+          assert( /* split[0].position >= 0 && */ static_cast<ssize_t>(split[0].position) < block_dims.i );
           split[0].surf = block_dims.j * block_dims.k;
           split[0].valid = ( block_dims.i >= 2 ) && ( split[0].position>0 ) && ( static_cast<ssize_t>(split[0].position) < block_dims.i );
           split[0].axis = 0;
           
           split[1] = find_best_split(j_cost,left_size,right_size );
-          assert( split[1].position >= 0 && static_cast<ssize_t>(split[1].position) < block_dims.j );
+          assert( /* split[1].position >= 0 && */ static_cast<ssize_t>(split[1].position) < block_dims.j );
           split[1].surf = block_dims.i * block_dims.k;
           split[1].valid = ( block_dims.j >= 2 ) && ( split[1].position>0 ) && ( static_cast<ssize_t>(split[1].position) < block_dims.j );
           split[1].axis = 1;
 
           split[2] = find_best_split(k_cost,left_size,right_size );
-          assert( split[2].position >= 0 && static_cast<ssize_t>(split[2].position) < block_dims.k );
+          assert( /* split[2].position >= 0 && */ static_cast<ssize_t>(split[2].position) < block_dims.k );
           split[2].surf = block_dims.i * block_dims.j;
           split[2].valid = ( block_dims.k >= 2 ) && ( split[2].position>0 ) && ( static_cast<ssize_t>(split[2].position) < block_dims.k );
           split[2].axis = 2;

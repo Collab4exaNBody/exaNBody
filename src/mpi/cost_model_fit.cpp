@@ -82,7 +82,7 @@ namespace exanb
         GRID_OMP_FOR_BEGIN(dims,i,loc, schedule(static) reduction(max:cost_model_max,measured_max) reduction(+:n_samples) )
         {
           const size_t cell_i = grid_ijk_to_index( dims , loc + ghost_layers );
-          assert( cell_i >= 0 && cell_i < grid->number_of_cells() );
+          assert( /* cell_i >= 0 && */ cell_i < grid->number_of_cells() );
           const size_t N = cells[cell_i].size();
           double np = N;
           const double x = np / cell_volume;
@@ -105,7 +105,7 @@ namespace exanb
         GRID_OMP_FOR_BEGIN(dims,i,loc, schedule(static) reduction(+:fit_error) )
         {
           const size_t cell_i = grid_ijk_to_index( dims , loc + ghost_layers );
-          assert( cell_i >= 0 && cell_i < grid->number_of_cells() );
+          assert( /* cell_i >= 0 && */ cell_i < grid->number_of_cells() );
           const size_t N = cells[cell_i].size();
           double np = N;
           const double x = np / cell_volume;

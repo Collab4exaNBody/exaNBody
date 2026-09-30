@@ -72,5 +72,25 @@ namespace exanb
 			}
 			return true;
 		}
+
+
+    template<typename ItemType>
+    inline bool well_defined(const ItemType& item) { return true; }
+
+    // This function checks if the values are well defined
+    // "well_defined" couuld be implemented by the developper for a given ItemType.
+    // By default, well_defined return always true.
+    template<typename ItemType>
+    inline bool check_value_consistency(onika::cuda::span<ItemType> data_ptr)
+    {
+      for (size_t i = 0 ; i < data_ptr.size() ; i++)
+      {
+        if (!well_defined(data_ptr[i]))
+        {
+          return false;
+        }
+      }
+      return true;
+    }
 	}
 }

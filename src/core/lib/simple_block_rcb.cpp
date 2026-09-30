@@ -27,7 +27,7 @@ namespace exanb
   GridBlock simple_block_rcb( GridBlock block, size_t n_parts, size_t part )
   {
     if( n_parts <= 1 ) { return block; }
-    assert( part>=0 && part<n_parts );
+    assert( /* part>=0 && */ part<n_parts );
     size_t pivot = n_parts/2;
     bool side = ( part >= pivot );
     IJK dims = dimension(block);

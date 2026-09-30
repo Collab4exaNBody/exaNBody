@@ -123,7 +123,7 @@ namespace exanb
         GRID_OMP_FOR_BEGIN(dims,i,loc, schedule(static) reduction(min:min_val) reduction(max:max_val) reduction(max:max_np) reduction(min:min_np) )
         {
           const size_t cell_i = grid_ijk_to_index( grid_dims , loc + ghost_layers );
-          assert( cell_i >= 0 && cell_i < grid.number_of_cells() );
+          assert( /* cell_i >= 0 && */ cell_i < grid.number_of_cells() );
           assert( i >= 0 && static_cast<size_t>(i) < cell_costs.m_costs.size() );
           const size_t N = cells[cell_i].size();
           double np = N;
