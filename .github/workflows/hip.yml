@@ -54,6 +54,17 @@ jobs:
     - name: Get Onika
       run: git clone --depth 1 https://github.com/Collab4exaNBody/onika.git
         
+    # HIP clang does not use g++'s libstdc++ by default: it picks whatever GCC
+    # install it detects, which may be too old for C++20 headers such as
+    # <compare>. Pin it to the same GCC as the C++ compiler. onika does not
+    # export CMAKE_HIP_FLAGS, so it must be passed to both configure steps.
+    - name: Pin HIP clang to g++'s GCC installation
+      run: |
+        GCC_INSTALL_DIR=$(dirname $(g++ -print-libgcc-file-name))
+        test -d "${GCC_INSTALL_DIR}"
+        echo "GCC_INSTALL_DIR=${GCC_INSTALL_DIR}"
+        echo "HIP_GCC_FLAGS=--gcc-install-dir=${GCC_INSTALL_DIR}" >> $GITHUB_ENV
+
     - name: Configure Onika (HIP enabled, target gfx90a)
       run: |
         cmake -B ${{github.workspace}}/onika/build-hip \
@@ -62,18 +73,25 @@ jobs:
               -DONIKA_BUILD_CUDA=ON \
               -DONIKA_ENABLE_HIP=ON \
               -DCMAKE_HIP_ARCHITECTURES=${{env.HIP_ARCH}} \
+              -DCMAKE_HIP_FLAGS="${HIP_GCC_FLAGS}" \
               -DONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE=ON
       working-directory: ${{github.workspace}}/onika
 
     - name: Build Onika
       run: cmake --build ${{github.workspace}}/onika/build-hip --target install --config ${{env.BUILD_TYPE}} -j 8
 
+    # ONIKA_USE_HIP=ON: onika-config.cmake does not export ONIKA_USE_HIP yet, and
+    # without it OnikaPlugin.cmake leaves .cu files as CUDA sources, which CMake
+    # silently drops since only HIP is enabled. Can be removed once onika
+    # exports it (harmless until then).
     - name: Configure exaNBody
       run: |
         cmake -B ${{github.workspace}}/build-hip \
               -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
               -Donika_DIR=${{github.workspace}}/onika/install-hip \
               -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install-hip \
+              -DCMAKE_HIP_FLAGS="${HIP_GCC_FLAGS}" \
+              -DONIKA_USE_HIP=ON \
               -DEXANB_BUILD_CONTRIB_MD=ON \
               -DEXANB_BUILD_MICROSTAMP=ON \
               -DEXANB_BUILD_CONTRIB_PI=ON \
@@ -84,5 +102,11 @@ jobs:
     - name: Build exaNBody
       run: |
         cmake --build ${{github.workspace}}/build-hip --target install --config ${{env.BUILD_TYPE}} -j 8
-              
-      
+
+    # A green build does not prove the GPU kernels were compiled: .cu files that
+    # are not assigned the HIP language are dropped without any error.
+    - name: Check .cu sources were compiled as HIP
+      run: |
+        for src in update_ghosts update_force_from_ghost particle_displ_over snap_force_generic gravitational_force; do
+          find ${{github.workspace}}/build-hip -name "${src}.cu.o" | grep -q . || { echo "::error::${src}.cu was not compiled"; exit 1; }
+        done

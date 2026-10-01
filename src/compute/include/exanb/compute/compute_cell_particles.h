@@ -210,7 +210,7 @@ namespace exanb
 
     using CellListT = std::span<const size_t>; // default span definition would use ssize_t and prevent constructor match with size_t* pointer
     using PES = onika::parallel::ParallelExecutionSpace<1,1,CellListT>;
-    PES parallel_range = { {0} , {number_cell_indices} , CellListT{cell_indices,number_cell_indices} }; 
+    PES parallel_range = { {0} , {static_cast<ssize_t>(number_cell_indices)} , CellListT{cell_indices,number_cell_indices} };
     PForFuncT pfor_func = { cells , dims , func , cpfields };
     return block_parallel_for( parallel_range, pfor_func, exec_ctx );
   }
@@ -262,7 +262,7 @@ namespace exanb
     else
     {
       using CellListT = std::span<const size_t>; // default span definition would use ssize_t and prevent constructor match with size_t* pointer
-      onika::parallel::ParallelExecutionSpace<1,1,CellListT> parallel_range = { {0} , {ccpo.m_num_cell_indices} , CellListT{ccpo.m_cell_indices,ccpo.m_num_cell_indices} }; 
+      onika::parallel::ParallelExecutionSpace<1,1,CellListT> parallel_range = { {0} , {static_cast<ssize_t>(ccpo.m_num_cell_indices)} ,CellListT{ccpo.m_cell_indices,ccpo.m_num_cell_indices} }; 
       return block_parallel_for( parallel_range, pfor_func, exec_ctx, pfor_opts );
     }
   }
