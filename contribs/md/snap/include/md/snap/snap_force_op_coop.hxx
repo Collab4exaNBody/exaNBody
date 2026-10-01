@@ -203,7 +203,7 @@ under the License.
       SNAP_IF_COOP( const int snap_coop_block_size = ONIKA_CU_BLOCK_SIZE , constexpr int snap_coop_block_size = 1 );
 
       SNAP_IF_COOP(ONIKA_CU_BLOCK_SHARED,/**/) int ninside;
-      SNAP_IF_COOP(ONIKA_CU_BLOCK_SHARED,/**/) uint8_t inside_idx[buf.MaxNeighbors];
+      SNAP_IF_COOP(ONIKA_CU_BLOCK_SHARED,/**/) uint8_t inside_idx[ComputeBufferT::MaxNeighbors];
 
       // initialize neighbor indirection and resize temporary arrays if necessary
       if( ! bool(SNAP_COOP_COMPUTE) || ONIKA_CU_THREAD_IDX==0 )

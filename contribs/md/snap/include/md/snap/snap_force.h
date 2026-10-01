@@ -325,7 +325,7 @@ namespace md
                              // (see this file's own m_rcut computation above) -- passing m_rcut here
                              // double-applies the radelem scaling whenever radelem isn't 0.5 for
                              // every material (same bug class as compute_descriptor_snap.cu's).
-                             snap_ctx->m_config.rcutfac(), eflag, quadraticflag };
+                             static_cast<BSRealT>(snap_ctx->m_config.rcutfac()), eflag, quadraticflag };
 
           auto bs_buf = make_compute_pair_buffer< ComputeBufferBS<SnapConfParamsT> , ResetSnapCPBuf >();
           auto cp_fields = grid->field_accessors_from_field_set( compute_bispectrum_field_set );
@@ -352,7 +352,7 @@ namespace md
                            snap_ctx->m_factor.data(), snap_ctx->m_radelem.data(),
                            nullptr, nullptr,
                            // same rcutfac-vs-m_rcut distinction as the bispectrum_op construction above
-                           snap_ctx->m_config.rcutfac(), eflag, quadraticflag,
+                           static_cast<ForceRealT>(snap_ctx->m_config.rcutfac()), eflag, quadraticflag,
                            ! (*conv_coef_units) // if coefficients were not converted, then output energy/force must be converted
                            };
                            
