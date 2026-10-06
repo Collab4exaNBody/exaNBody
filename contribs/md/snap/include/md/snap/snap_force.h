@@ -98,6 +98,8 @@ namespace md
     ADD_SLOT( std::string           , bispectrumchkfile , INPUT , OPTIONAL , DocString{"file with reference values to check bispectrum correctness"} );
     ADD_SLOT( double                , check_bs_max_error, INPUT , 1.e-12 , DocString{"Maximum L2 error admitted when checking bispectrum values"} );
 
+    ADD_SLOT( onika::memory::CudaMMVector<double> , snap_atom_coefs , INPUT , OPTIONAL , DocString{"per-particle coefficients (beta0..betancoeff), replace per-species ones (e.g. electronic temperature dependent SNAP)"} );
+
     ADD_SLOT( SnapContext           , snap_ctx          , PRIVATE );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_cell_particle_pairs
@@ -296,6 +298,22 @@ namespace md
       }
 
       ldbg << "snap: quadratic="<<quadraticflag<<", eflag="<<eflag<<", ncoeff="<<ncoeff<<", ncoeffall="<<ncoeffall<<std::endl;
+
+      const ForceRealT * coeffatom = nullptr;
+      if( snap_atom_coefs.has_value() )
+      {
+        if constexpr ( ! std::is_same_v<ForceRealT,double> ) fatal_error() << "snap_atom_coefs requires double precision SNAP (snap_force_fp64)" << std::endl;
+        else
+        {
+          if( quadraticflag ) fatal_error() << "snap_atom_coefs is not supported with quadraticflag" << std::endl;
+          if( *conv_coef_units ) fatal_error() << "snap_atom_coefs is not supported with conv_coef_units" << std::endl;
+          if( snap_atom_coefs->size() != total_particles * ( ncoeff + 1 ) )
+          {
+            fatal_error() << "snap_atom_coefs size "<<snap_atom_coefs->size()<<" != number of particles ("<<total_particles<<") x "<<(ncoeff+1)<<std::endl;
+          }
+          coeffatom = snap_atom_coefs->data();
+        }
+      }
  //     const int old_omp_max_threads = omp_get_max_threads();
 
       auto snap_compute_specialized_snapconf = [&]( const auto & snapconf , auto c_use_coop_compute )
@@ -353,7 +371,9 @@ namespace md
                            nullptr, nullptr,
                            // same rcutfac-vs-m_rcut distinction as the bispectrum_op construction above
                            snap_ctx->m_config.rcutfac(), eflag, quadraticflag,
-                           ! (*conv_coef_units) // if coefficients were not converted, then output energy/force must be converted
+                           ! (*conv_coef_units), // if coefficients were not converted, then output energy/force must be converted
+                           static_cast<ForceRealT>( ONIKA_CONST_QUANTITY( 1. * eV ).convert() ),
+                           coeffatom
                            };
                            
         auto force_buf = make_compute_pair_buffer<CPBufT,ResetSnapCPBuf>();

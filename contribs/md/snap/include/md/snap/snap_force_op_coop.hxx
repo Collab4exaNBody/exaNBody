@@ -49,6 +49,11 @@ under the License.
     const bool conv_energy_units = true;
     const RijRealT conv_energy_factor = ONIKA_CONST_QUANTITY( 1. * eV ).convert();
 
+    // optional per-particle coefficients (e.g. electronic temperature dependent SNAP), same layout as one
+    // coeffelem row ( beta0, beta1..betancoeff ) for each particle, indexed by cell_particle_offset[cell]+part.
+    // when null, per-species coeffelem is used.
+    const RealT * const __restrict__ coeffatom = nullptr;
+
     ONIKA_HOST_DEVICE_FUNC
     inline void operator ()
       (
@@ -227,7 +232,11 @@ under the License.
         }
       }
 
-      const auto * __restrict__ betaloc = coeffelem + itype * (snaconf.ncoeff + 1 ) + 1;
+      const auto * __restrict__ coeffi = ( coeffatom != nullptr )
+                                       ? coeffatom + ( snaconf.ncoeff + 1 ) * ( cell_particle_offset[buf.cell] + buf.part )
+                                       : coeffelem + itype * ( quadraticflag ? ( ( snaconf.ncoeff + 1 ) * ( snaconf.ncoeff + 2 ) ) / 2 // ncoeffall = 1+ncoeff+ncoeff*(ncoeff+1)/2
+                                                                             : ( snaconf.ncoeff + 1 ) );
+      const auto * __restrict__ betaloc = coeffi + 1;
       //const int idxu_max = snaconf.idxu_max; // used by macro ULIST_J_A
       
       // Zero initialize Yi array
@@ -370,8 +379,7 @@ under the License.
         {
           RijRealT _en = 0.;
           const long bispectrum_ii_offset = snaconf.ncoeff * ( cell_particle_offset[buf.cell] + buf.part );
-          const auto * const coeffi = coeffelem /*[itype]*/;
-	        RijRealT evdwl = coeffi[itype * (snaconf.ncoeff + 1)];
+	        RijRealT evdwl = coeffi[0];
 
           for (int icoeff = 0; icoeff < snaconf.ncoeff; icoeff++)
           {
