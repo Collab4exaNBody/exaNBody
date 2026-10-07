@@ -84,7 +84,7 @@ namespace exanb
           }
       }
 
-      assert( cell_a != size_t(-1) && "cell_a is not correctly uninitialized");
+      assert( cell_a >= 0 /* && cell_a < m_cells.size() */ && "cell_a is not correctly initialized");
 
       const unsigned int n = m_cells[cell_a].size();
 

@@ -95,8 +95,18 @@ void snap_read_lammps(const std::string& paramFileName, const std::string& coefF
   
   size_t n_materials=0;
   size_t coefs_per_material=0;
-  
+
   std::istringstream(line) >> n_materials >> coefs_per_material;
+
+  // Real LAMMPS SNAP param files (chemflag=1) never carry an explicit "nelements" key -- LAMMPS
+  // derives it instead from the distinct element names given on the pair_coeff line at coeff-read
+  // time (map_element2type), which exaStamp has no equivalent of. Default to the coefficient
+  // file's own material count here (the same 1:1 material<->type model exaStamp already uses
+  // everywhere else) whenever chemflag is set and no "nelements" key was explicitly present.
+  if( config.chemflag() && values.find("nelements") == values.end() )
+  {
+    config.set_nelements( static_cast<int>(n_materials) );
+  }
 
   static const double conv_energy_inv =  1e-4 * onika::physics::elementaryCharge / onika::physics::atomicMass;
 
