@@ -100,7 +100,7 @@ namespace exanb
     /*
     r is point coordinates in grid's space 
     */
-    ONIKA_HOST_DEVICE_FUNC inline bool operator () ( const Vec3d& r , uint64_t id ) const
+    inline bool operator () ( const Vec3d& r , uint64_t id ) const
     {
       using namespace GridCellValuesUtils;
       

@@ -20,23 +20,23 @@ under the License.
 #pragma once
 
 #include <exanb/compute/field_combiners.h>
+#include <exanb/compute/math_functors.h>
 #include <exanb/core/particle_type_properties.h>
 #include <exanb/core/grid.h>
+#include <onika/flat_tuple.h>
 #include <vector>
 #include <span>
 
 namespace exanb
 {
 
-  struct GridAdditionalFieldsView
-  {
-    std::span< TypePropertyScalarCombiner > m_type_real_fields;
-    std::span< TypePropertyVec3Combiner > m_type_vec3_fields;
-    std::span< TypePropertyMat3Combiner > m_type_mat3_fields;
-    std::span< field::generic_real > m_opt_real_fields;
-    std::span< field::generic_vec3 > m_opt_vec3_fields;
-    std::span< field::generic_mat3 > m_opt_mat3_fields;
-  };
+  using GridAdditionalFieldsView = onika::FlatTuple<
+    std::span< TypePropertyScalarCombiner > ,
+    std::span< TypePropertyVec3Combiner > ,
+    std::span< TypePropertyMat3Combiner > ,
+    std::span< field::generic_real > ,
+    std::span< field::generic_vec3 > ,
+    std::span< field::generic_mat3 > >;
 
   struct GridAdditionalFields
   {
@@ -69,5 +69,72 @@ namespace exanb
       return { m_type_real_fields, m_type_vec3_fields, m_type_mat3_fields, m_opt_real_fields, m_opt_vec3_fields , m_opt_mat3_fields };
     }
   };
+
+
+  template<class TransformFuncT>
+  struct FieldTransformer
+  {
+    TransformFuncT m_transform;
+    std::string_view m_suffix;
+  };
+
+  template<class TransformersTupleT,class FieldT>
+  struct ApplyOnParticleField
+  {
+    template<class FuncT, class TransformFuncT>
+    static inline void apply_transformer(const FuncT& func, const FieldT& f, const FieldTransformer<TransformFuncT>& transform)
+    {
+      if constexpr ( onika::lambda_is_callable_with_args_v<TransformFuncT,typename FieldT::value_type> )
+      {
+        TransformCellParticleFieldAccessor<TransformFuncT,FieldT> tfield = { transform.m_transform, f };
+        tfield.transform_name( transform.m_suffix );
+        func( tfield );
+      }
+    }
+
+    template<class FuncT, size_t... I>
+    static inline void apply_transformers(const FuncT& func, const FieldT& f, const TransformersTupleT& transformers, std::index_sequence<I...> )
+    {
+      ( ... , ( apply_transformer(func,f,transformers.get(onika::tuple_index<I>)) ) );
+    }
+
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const FieldT& f, const TransformersTupleT& transformers)
+    {
+      func(f);
+      constexpr size_t NTransformers = transformers.size();
+      apply_transformers(func,f,transformers,std::make_index_sequence<NTransformers>{} );
+    }
+  };
+
+  template<class TransformersTupleT,class FieldT>
+  struct ApplyOnParticleField<TransformersTupleT, std::span<FieldT> >
+  {
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const std::span<FieldT>& fvec, const TransformersTupleT& transformers)
+    {
+      for(const auto& f : fvec) ApplyOnParticleField<TransformersTupleT,FieldT>::apply(func,f,transformers);
+    }
+  };
+  template<class TransformersTupleT,class... FieldsOrSpansT>
+  struct ApplyOnParticleField<TransformersTupleT, onika::FlatTuple<FieldsOrSpansT...> >
+  {
+    template<class FuncT, size_t... I>
+    static inline void apply( const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl, const TransformersTupleT& transformers, std::index_sequence<I...> )
+    {
+      ( ... , ( ApplyOnParticleField<TransformersTupleT,FieldsOrSpansT>::apply(func,ftpl.get(onika::tuple_index<I>),transformers) ) );
+    }
+    template<class FuncT>
+    static inline void apply(const FuncT& func, const onika::FlatTuple<FieldsOrSpansT...>& ftpl, const TransformersTupleT& transformers)
+    {
+      apply( func, ftpl, transformers, std::make_index_sequence<sizeof...(FieldsOrSpansT)>{} );
+    }
+  };
+
+  template<class FuncT, class FieldT, class TransformersTupleT = onika::FlatTuple<> >
+  inline void apply_on_particle_field( const FuncT& func, const FieldT& f , const TransformersTupleT& transformers = {} )
+  {
+    ApplyOnParticleField<TransformersTupleT,FieldT>::apply(func,f,transformers);
+  }
 
 }

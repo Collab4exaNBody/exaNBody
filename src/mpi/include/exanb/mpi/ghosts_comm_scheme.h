@@ -120,7 +120,7 @@ namespace exanb
     ssize_t m_send_buffer_offset = -1;
     uint32_t m_flags = 0; // GhostBoundaryModifier compatible flags to pilot coordinate filtering
     onika::memory::CudaMMVector<uint32_t> m_particle_i; // sender's particle index
-
+/*
     GhostCellSendScheme() = default;
     GhostCellSendScheme(const GhostCellSendScheme&) = default;
 
@@ -130,6 +130,7 @@ namespace exanb
       , m_flags( other.m_flags )
       , m_particle_i( std::move(other.m_particle_i) ) {}
 
+    inline GhostCellSendScheme& operator = ( const GhostCellSendScheme & other ) = default;
     inline GhostCellSendScheme& operator = ( GhostCellSendScheme && other )
     {
       m_cell_i = other.m_cell_i;
@@ -138,6 +139,7 @@ namespace exanb
       m_particle_i = std::move(other.m_particle_i);
       return *this;
     }
+*/
   };
 
   struct GhostCellReceiveSchemeDetail

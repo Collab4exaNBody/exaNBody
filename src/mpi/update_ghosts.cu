@@ -42,17 +42,25 @@ namespace exanb
   using namespace UpdateGhostsUtils;
 
   // === register factory ===
-  template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , AddDefaultFields< typename GridT::Fields > , true >;
-  template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false >;
-  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , AddDefaultFields< RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > > , true >;
-  template<typename GridT> using UpdateGhostsOptOnly = UpdateGhostsNode< GridT , FieldSet<> , false >;
-
+  template<typename GridT> using UpdateGhostsAllFields = UpdateGhostsNode< GridT , AddDefaultFields< typename GridT::Fields > , true , true >;
+  template<typename GridT> using UpdateGhostsR = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false , true >;
+  template<typename GridT> using UpdateGhostsAllFieldsNoFV = UpdateGhostsNode< GridT , AddDefaultFields< RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > > , true , true >;
+  template<typename GridT> using UpdateGhostsOptOnly = UpdateGhostsNode< GridT , FieldSet<> , false , true >;
+  template<typename GridT> using UpdateGhostsAllFieldsNoGCV = UpdateGhostsNode< GridT , AddDefaultFields< typename GridT::Fields > , true , false >;
+  template<typename GridT> using UpdateGhostsRNoGCV = UpdateGhostsNode< GridT , FieldSet<field::_rx, field::_ry, field::_rz> , false , false >;
+  template<typename GridT> using UpdateGhostsAllFieldsNoFVNoGCV = UpdateGhostsNode< GridT , AddDefaultFields< RemoveFields< typename GridT::Fields , FieldSet<field::_fx,field::_fy,field::_fz,field::_vx, field::_vy, field::_vz > > > , true , false >;
+  template<typename GridT> using UpdateGhostsOptOnlyNoGCV = UpdateGhostsNode< GridT , FieldSet<> , false , false >;
+  
   ONIKA_AUTORUN_INIT(update_ghosts)
   {
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_all",       make_grid_variant_operator<UpdateGhostsAllFields> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_fv", make_grid_variant_operator<UpdateGhostsAllFieldsNoFV> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_r",         make_grid_variant_operator<UpdateGhostsR> );
-    OperatorNodeFactory::instance()->register_factory( "ghost_update_opt",       make_grid_variant_operator<UpdateGhostsOptOnly> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_all",              make_grid_variant_operator<UpdateGhostsAllFields> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_fv",        make_grid_variant_operator<UpdateGhostsAllFieldsNoFV> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_r",                make_grid_variant_operator<UpdateGhostsR> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_opt",              make_grid_variant_operator<UpdateGhostsOptOnly> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_gcv",       make_grid_variant_operator<UpdateGhostsAllFieldsNoGCV> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_all_no_fv_no_gcv", make_grid_variant_operator<UpdateGhostsAllFieldsNoFVNoGCV> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_r_no_gcv",         make_grid_variant_operator<UpdateGhostsRNoGCV> );
+    OperatorNodeFactory::instance()->register_factory( "ghost_update_opt_no_gcv",       make_grid_variant_operator<UpdateGhostsOptOnlyNoGCV> );    
   }
 
 }

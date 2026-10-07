@@ -74,7 +74,7 @@ namespace exanb
     for(auto x:indices)
     {
       assert( x != std::numeric_limits<unsigned int>::max() );
-      assert( x>=0 && x<n );
+      assert( /* x>=0 && */ x<n );
       assert( uind.find(x) == uind.end() );
       uind.insert(x);
     }

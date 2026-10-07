@@ -1,0 +1,88 @@
+name: CMake HIP
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+  HIP_ARCH: gfx90a
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Build inside the ROCm dev image so the HIP/clang toolchain is available.
+    # Compiling for gfx90a does not require an AMD GPU on the runner — only
+    # the toolchain and an explicit --offload-arch / CMAKE_HIP_ARCHITECTURES.
+    container:
+      image: rocm/dev-ubuntu-22.04:latest
+
+    steps:
+    - name: Install git in container 
+      run: |
+        apt-get update
+        apt-get install -y git      
+    - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    # Containers run as root, so no "sudo" is needed (and it isn't installed
+    # in the rocm/dev-* image).
+    - name: Install build dependencies (yaml-cpp, lcov, MPI)
+      run: |
+        apt-get update
+        apt-get install -y libyaml-cpp-dev lcov mpich
+
+    # The rocm/dev-ubuntu-22.04 image ships no CMake, and apt's Ubuntu 22.04
+    # CMake (3.22) is older than onika's cmake_minimum_required (3.26).
+    # Pull a recent version from Kitware's official apt repo instead.
+    - name: Install recent CMake (Kitware apt repo)
+      run: |
+        apt-get install -y wget gpg
+        wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc \
+          | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+        echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main" \
+          | tee /etc/apt/sources.list.d/kitware.list
+        apt-get update
+        apt-get install -y cmake
+        cmake --version
+
+    - name: Get Onika
+      run: git clone --depth 1 https://github.com/Collab4exaNBody/onika.git
+        
+    - name: Configure Onika (HIP enabled, target gfx90a)
+      run: |
+        cmake -B ${{github.workspace}}/onika/build-hip \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/onika/install-hip \
+              -DONIKA_BUILD_CUDA=ON \
+              -DONIKA_ENABLE_HIP=ON \
+              -DCMAKE_HIP_ARCHITECTURES=${{env.HIP_ARCH}} \
+              -DONIKA_HAS_GPU_ATOMIC_MIN_MAX_DOUBLE=ON
+      working-directory: ${{github.workspace}}/onika
+
+    - name: Build Onika
+      run: cmake --build ${{github.workspace}}/onika/build-hip --target install --config ${{env.BUILD_TYPE}} -j 8
+
+    - name: Configure exaNBody
+      run: |
+        cmake -B ${{github.workspace}}/build-hip \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -Donika_DIR=${{github.workspace}}/onika/install-hip \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/install-hip \
+              -DEXANB_BUILD_CONTRIB_MD=ON \
+              -DEXANB_BUILD_MICROSTAMP=ON \
+              -DEXANB_BUILD_CONTRIB_PI=ON \
+              -DEXANB_BUILD_MICROCOSMOS=ON \
+              -DSNAP_CPU_USE_LOCKS=ON \
+              -DSNAP_FP32_MATH=OFF
+
+    - name: Build exaNBody
+      run: |
+        cmake --build ${{github.workspace}}/build-hip --target install --config ${{env.BUILD_TYPE}} -j 8
+              
+      

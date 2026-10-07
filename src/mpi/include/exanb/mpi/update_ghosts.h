@@ -46,11 +46,11 @@ under the License.
 
 namespace exanb
 {
-  template< class GridT, class FieldSetT , bool CreateParticles >
+  template< class GridT, class FieldSetT , bool CreateParticles , bool UpdateGridCellValues >
   class UpdateGhostsNodeTmpl;
 
-  template< class GridT, bool CreateParticles, class... fids>
-  class UpdateGhostsNodeTmpl< GridT , FieldSet<fids...> , CreateParticles > : public OperatorNode
+  template< class GridT, bool CreateParticles, bool UpdateGridCellValues, class... fids>
+  class UpdateGhostsNodeTmpl< GridT , FieldSet<fids...> , CreateParticles, UpdateGridCellValues > : public OperatorNode
   {
     using generic_real_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_real{""} ) ) > >;
     using generic_vec3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_vec3{""} ) ) > >;
@@ -86,8 +86,22 @@ namespace exanb
       using CellParticlesUpdateData = typename UpdateGhostsUtils::GhostCellParticlesUpdateData;
       using CellsAccessorT = std::remove_cv_t< std::remove_reference_t< decltype( grid->cells_accessor() ) > >;
 
-      if( ! ghost_comm_scheme.has_value() ) return;
-      if( grid->number_of_particles() == 0 ) return;
+      if( !ghost_comm_scheme.has_value() ) 
+      {
+        return;
+      }
+
+      bool nothing_to_exchange = true;
+      for( const auto& p : ghost_comm_scheme->m_partner )
+      {
+        if( p.m_particles_to_send > 0 || p.m_particles_to_receive > 0 )
+        {
+          nothing_to_exchange = false;
+          break;
+        }
+      }
+      if( nothing_to_exchange ) return;
+    
 
       // local copy of ghost update config to eventually adapt it to specific constraints
       auto upd_config = *update_ghost_config;
@@ -95,7 +109,7 @@ namespace exanb
       // automatically assign GPU device id none has been assigned yet
       if( upd_config.gpu_buffer_pack && upd_config.alloc_on_device == nullptr )
       {
-        if( global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
+        if( global_cuda_ctx()!=nullptr && global_cuda_ctx()->has_devices() && global_cuda_ctx()->global_gpu_enable() )
         {
           upd_config.alloc_on_device = & ( global_cuda_ctx()->m_devices[0] );
         }
@@ -126,7 +140,8 @@ namespace exanb
         print_field_tuple( ldbg , update_fields );
         ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
 
-        grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
+        GridCellValues * grid_cell_values_ptr = UpdateGridCellValues ? grid_cell_values.get_pointer() : nullptr;
+        grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values_ptr,
                             * ghost_scratch, pecfunc,peqfunc, update_fields,
                             upd_config, std::integral_constant<bool,CreateParticles>{} );
       };
@@ -185,7 +200,7 @@ dump_data:
     }    
   };
 
-  template< class GridT, class FieldSetT, bool CreateParticles>
-  using UpdateGhostsNode = UpdateGhostsNodeTmpl< GridT , FieldSetT , CreateParticles >;
+  template< class GridT, class FieldSetT, bool CreateParticles, bool UpdateGridCellValues=true>
+  using UpdateGhostsNode = UpdateGhostsNodeTmpl< GridT , FieldSetT , CreateParticles , UpdateGridCellValues>;
 }
 

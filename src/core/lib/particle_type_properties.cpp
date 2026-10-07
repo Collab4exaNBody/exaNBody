@@ -41,7 +41,7 @@ namespace exanb
     
     onika::math::Vec3d * __restrict__ ParticleTypeProperties::vector_property(const std::string& key)
     {
-      m_vectors[key].resize( MAX_PARTICLE_TYPES , { 0.0 , 0.0 , 0.0 } );
+      m_vectors[key].resize( MAX_PARTICLE_TYPES , onika::math::Vec3d{ 0.0 , 0.0 , 0.0 } );
       return m_vectors[key].data();
     }
     

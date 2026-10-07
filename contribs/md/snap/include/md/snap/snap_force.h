@@ -164,10 +164,18 @@ namespace md
         std::string lammps_coef = onika::data_file_path( parameters->lammps_coef ); 
         ldbg << "Snap: read lammps files "<<lammps_param<<" and "<<lammps_coef<<std::endl << std::flush;
         SnapExt::snap_read_lammps(lammps_param, lammps_coef, snap_ctx->m_config, *conv_coef_units );
-        ldbg <<"rfac0="<<snap_ctx->m_config.rfac0() <<", rmin0="<<snap_ctx->m_config.rmin0() <<", rcutfac="<<snap_ctx->m_config.rcutfac() 
+        ldbg <<"rfac0="<<snap_ctx->m_config.rfac0() <<", rmin0="<<snap_ctx->m_config.rmin0() <<", rcutfac="<<snap_ctx->m_config.rcutfac()
              <<", twojmax="<<snap_ctx->m_config.twojmax()<<", bzeroflag="<<snap_ctx->m_config.bzeroflag()<<", nmat="<<snap_ctx->m_config.materials().size()
              <<", chemflag="<<snap_ctx->m_config.chemflag() <<std::endl;
-        snap_ctx->m_rcut = snap_ctx->m_config.rcutfac(); // because LAMMPS uses angstrom while exastamp uses nm
+        // Real per-pair SNAP cutoff is (radelem[i]+radelem[j])*rcutfac (see BispectrumOpRealT's own
+        // cutij / real LAMMPS PairSNAP::init_one), NOT the bare rcutfac scale factor -- rcutfac alone
+        // only equals the true cutoff when every material's radelem==0.5 (LAMMPS's convention for
+        // potentials with no per-element radii). Worst-case pair cutoff over all i,j is
+        // 2*max_i(radelem[i]) (max_i,j(r_i+r_j) = 2*max_i(r_i)). See snap_init.cu's identical fix for
+        // compute_descriptor_snap's own SnapContext construction.
+        double max_radelem = 0.0;
+        for( const auto& mat : snap_ctx->m_config.materials() ) max_radelem = std::max( max_radelem, mat.radelem() );
+        snap_ctx->m_rcut = snap_ctx->m_config.rcutfac() * 2.0 * max_radelem; // because LAMMPS uses angstrom while exastamp uses nm
       }
 
       *rcut_max = std::max( double(*rcut_max) , double(snap_ctx->m_rcut) );
@@ -311,7 +319,13 @@ namespace md
                              snap_ctx->m_coefs.data(), ncoeff,
                              snap_ctx->m_factor.data(), snap_ctx->m_radelem.data(),
                              nullptr, nullptr,
-                             snap_ctx->m_rcut, eflag, quadraticflag };
+                             // BispectrumOpRealT's own `rcutfac` field is the bare per-pair SCALE
+                             // factor (cut_ij = (radelem[i]+radelem[j])*rcutfac), not the absolute
+                             // widened ghost/neighbor-list cutoff distance snap_ctx->m_rcut now is
+                             // (see this file's own m_rcut computation above) -- passing m_rcut here
+                             // double-applies the radelem scaling whenever radelem isn't 0.5 for
+                             // every material (same bug class as compute_descriptor_snap.cu's).
+                             snap_ctx->m_config.rcutfac(), eflag, quadraticflag };
 
           auto bs_buf = make_compute_pair_buffer< ComputeBufferBS<SnapConfParamsT> , ResetSnapCPBuf >();
           auto cp_fields = grid->field_accessors_from_field_set( compute_bispectrum_field_set );
@@ -337,7 +351,8 @@ namespace md
                            snap_ctx->m_coefs.data(), static_cast<unsigned int>(snap_ctx->m_coefs.size()), static_cast<unsigned int>(ncoeff),
                            snap_ctx->m_factor.data(), snap_ctx->m_radelem.data(),
                            nullptr, nullptr,
-                           snap_ctx->m_rcut, eflag, quadraticflag,
+                           // same rcutfac-vs-m_rcut distinction as the bispectrum_op construction above
+                           snap_ctx->m_config.rcutfac(), eflag, quadraticflag,
                            ! (*conv_coef_units) // if coefficients were not converted, then output energy/force must be converted
                            };
                            

@@ -43,7 +43,6 @@ under the License.
 #include <mpi.h>
 #include <string>
 #include <type_traits>
-#include <experimental/filesystem>
 #include <regex>
 #include <filesystem>
 
@@ -216,7 +215,7 @@ namespace exanb
       double time,
       const FieldsT & ... particle_fields)
     {
-      namespace fs = std::experimental::filesystem;
+      namespace fs = std::filesystem;
       using std::string;
       using std::vector;
       using std::ostringstream;

@@ -47,11 +47,11 @@ under the License.
 namespace exanb
 {
 
-  template< class GridT, class FieldSetT, class UpdateFuncT = UpdateValueAdd >
+  template< class GridT, class FieldSetT, class UpdateFuncT = UpdateValueAdd , bool UpdateGridCellValues = true>
   class UpdateFromGhostsTmpl;
 
-  template< class GridT, class UpdateFuncT, class... fids >
-  class UpdateFromGhostsTmpl< GridT , FieldSet<fids...> , UpdateFuncT > : public OperatorNode
+  template< class GridT, class UpdateFuncT, bool UpdateGridCellValues, class... fids >
+  class UpdateFromGhostsTmpl< GridT , FieldSet<fids...> , UpdateFuncT , UpdateGridCellValues > : public OperatorNode
   {  
     using generic_real_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_real{""} ) ) > >;
     using generic_vec3_accessor_t =  std::remove_cv_t< std::remove_reference_t< decltype( std::declval<GridT>().field_accessor( field::generic_vec3{""} ) ) > >;
@@ -127,8 +127,17 @@ namespace exanb
         ldbg<< ", Particle size ="<<onika::soatl::field_id_tuple_size_bytes( update_fields )<< std::endl;
 
         std::integral_constant<bool,false> dont_create_cell_particles = {};
+
+        if (UpdateGridCellValues) 
+        {
         grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, grid_cell_values.get_pointer(),
                           *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
+        }
+        else
+        {
+        grid_update_ghosts( ldbg, *mpi, *ghost_comm_scheme, grid.get_pointer(), *domain, nullptr,
+                          *ghost_scratch, pecfunc,peqfunc, update_fields,*update_ghost_config, dont_create_cell_particles );
+        }
       };
 
       auto update_fields = onika::make_flat_tuple( grid->field_accessor( onika::soatl::FieldId<fids>{} ) ...
@@ -140,8 +149,8 @@ namespace exanb
 
   };
 
-  template< class GridT , class FieldSetT , class UpdateFuncT = UpdateValueAdd >
-  using UpdateFromGhosts = UpdateFromGhostsTmpl< GridT , FieldSetT , UpdateFuncT >;
+  template< class GridT , class FieldSetT , class UpdateFuncT = UpdateValueAdd , bool UpdateGridCellValues = true>
+  using UpdateFromGhosts = UpdateFromGhostsTmpl< GridT , FieldSetT , UpdateFuncT , UpdateGridCellValues >;
 
 }
 

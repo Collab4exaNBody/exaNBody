@@ -118,7 +118,7 @@ namespace exanb
     
     // ========= I/O slots =======================
     ADD_SLOT( double                    , rcut            , INPUT        , 0.0 , DocString{"Cutoff distance for average operation."} );
-    ADD_SLOT( DoubleVector              , weight_function , INPUT        , DoubleVector{1.0} , DocString{"List of [a0,...,an] coefficients for the polynomial distance weighting function : a0*x^0 + a1*x^1 + ... +an*x^n"} );
+    ADD_SLOT( DoubleVector              , weight_function , INPUT        , DoubleVector{ {1.0} } , DocString{"List of [a0,...,an] coefficients for the polynomial distance weighting function : a0*x^0 + a1*x^1 + ... +an*x^n"} );
     ADD_SLOT( exanb::GridChunkNeighbors , chunk_neighbors , INPUT        , exanb::GridChunkNeighbors{} , DocString{"neighbor list"} );
     ADD_SLOT( Domain                    , domain          , INPUT        , REQUIRED , DocString{"Simulation domain"});
     ADD_SLOT( ParticleTypeProperties    , particle_type_properties , INPUT , ParticleTypeProperties{} );

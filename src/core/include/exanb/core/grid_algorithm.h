@@ -26,24 +26,24 @@ under the License.
 
 // convinience macros
 #define GRID_FOR_BEGIN(dims,index,cell) { \
-  ::exanb::IJK _d=dims; \
+  ::onika::math::IJK _d=dims; \
   [[maybe_unused]] ssize_t index=0; \
   for(ssize_t _k=0;_k<_d.k;++_k) \
   for(ssize_t _j=0;_j<_d.j;++_j) \
   for(ssize_t _i=0;_i<_d.i;++_i,++index) { \
-    [[maybe_unused]] ::exanb::IJK cell={_i,_j,_k};
+    [[maybe_unused]] ::onika::math::IJK cell={_i,_j,_k};
 
 #define GRID_FOR_END } }
 
 // loop over a block inside a  grid 
 #define GRID_BLOCK_FOR_BEGIN(dims,start,end,index,loc) { \
-  ::exanb::IJK _d = dims; \
-  ::exanb::IJK _s = start; \
-  ::exanb::IJK _e = end; \
+  ::onika::math::IJK _d = dims; \
+  ::onika::math::IJK _s = start; \
+  ::onika::math::IJK _e = end; \
   for(ssize_t _k=_s.k;_k<_e.k;_k++) { \
   for(ssize_t _j=_s.j;_j<_e.j;_j++) { \
   for(ssize_t _i=_s.i;_i<_e.i;_i++) { \
-    ::exanb::IJK loc = ::exanb::IJK{_i,_j,_k}; \
+    ::onika::math::IJK loc = ::onika::math::IJK{_i,_j,_k}; \
     [[maybe_unused]] ssize_t index = ::exanb::grid_ijk_to_index(_d,loc);
 
 #define GRID_BLOCK_FOR_END }}} }
