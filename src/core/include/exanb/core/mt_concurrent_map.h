@@ -47,7 +47,7 @@ namespace exanb
       static constexpr uint64_t mask16 = count16 - 1;
       uint64_t h = std::hash<key_type>{}( k );
       h = ( h ^ (h>>16) ^ (h>>32) ^ (h>>48) ) & mask16; // reduces to 0-65535
-      return std::min( ( h * NbMetaBuckets ) / count16 , NbMetaBuckets - 1 );
+      return std::min( static_cast<size_t>( ( h * NbMetaBuckets ) / count16 ) , NbMetaBuckets - 1 );
     }
 
     inline const MapType& meta_bucket_map( const key_type& k ) const
