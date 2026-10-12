@@ -41,6 +41,14 @@ namespace exanb
     ONIKA_HOST_DEVICE_FUNC inline Vec3d operator () (double vx, double vy, double vz) const { return {vx,vy,vz}; }
   };
 
+  // Vec3 from 3 components scaled by a per-type value (e.g. acceleration x per-type mass = force)
+  struct Vec3FromXYZTypeScaledFunctor
+  {
+    const double * __restrict__ m_type_scale = nullptr;
+    template<class TypeT>
+    ONIKA_HOST_DEVICE_FUNC inline Vec3d operator () (double vx, double vy, double vz, TypeT t) const { const double s = m_type_scale[t]; return {vx*s,vy*s,vz*s}; }
+  };
+
   struct GenericL2NormFunctor
   {
     ONIKA_HOST_DEVICE_FUNC inline double operator () (double vx, double vy, double vz) const { return sqrt(vx*vx+vy*vy+vz*vz); }
