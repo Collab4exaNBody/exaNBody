@@ -42,7 +42,6 @@ namespace exanb
     ADD_SLOT( StringMap       , field_alias , INPUT , StringMap( { {"position","pos"} , {"velocity","vel"} } ) , DocString{"Optional field renaming for shorter names."} );
     ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , ParticleTypeProperties{} );
     ADD_SLOT( double          , physical_time  , INPUT , 0.0 );
-    ADD_SLOT( bool            , force_from_acceleration , INPUT , false , DocString{"Force fields hold accelerations (F/m): write force = acceleration x per-type mass (particle_type_properties 'mass')"} );
     
     template<class... fid>
     inline void execute_on_field_set( FieldSet<fid...> ) 
@@ -95,29 +94,10 @@ namespace exanb
       GridAdditionalFields add_fields( grid , optional_type_properties );
       auto [ type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields ] = add_fields.view();
 
-      if( *force_from_acceleration )
-      {
-        if constexpr ( has_field_type )
-        {
-          if( ! particle_type_properties->has_scalar_property("mass") ) { fatal_error() << "write_xyz: force_from_acceleration needs a 'mass' particle type property"<<std::endl; }
-          MassForceVec3Combiner mass_force = { { particle_type_properties->scalar_property("mass") } };
-          write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, particle_type_func, field_formatter, *ghost, *physical_time
-                                                  , position, velocity, mass_force, processor_id
-                                                  , type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields
-                                                  , onika::soatl::FieldId<fid>{} ... );
-        }
-        else
-        {
-          fatal_error() << "write_xyz: force_from_acceleration needs a particle type field"<<std::endl;
-        }
-      }
-      else
-      {
-        write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, particle_type_func, field_formatter, *ghost, *physical_time
-                                                , position, velocity, force, processor_id
-                                                , type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields
-                                                , onika::soatl::FieldId<fid>{} ... );
-      }
+      write_xyz_details::write_xyz_grid_fields( ldbg, *mpi, *grid, *domain, flist, *filename, particle_type_func, field_formatter, *ghost, *physical_time
+                                              , position, velocity, force, processor_id
+                                              , type_real_fields, type_vec3_fields, type_mat3_fields, opt_real_fields, opt_vec3_fields, opt_mat3_fields
+                                              , onika::soatl::FieldId<fid>{} ... );
     }
 
     public:
