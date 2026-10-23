@@ -24,8 +24,9 @@ under the License.
  * Importing this module (done automatically by pyexanbody/__init__.py) adds
  * support for types that pyonika itself cannot know about:
  *
- *   Tier 1 — SimulationStatistics  →  Python dict
- *   Tier 2 — GridCellValues        →  GridCellValuesView (zero-copy numpy fields)
+ *   SimulationStatistics  →  Python dict
+ *   GridCellValues        →  GridCellValuesView (fields returned as numpy copies)
+ *   ParticleFieldBundle   →  dict of numpy arrays (output of extract_particle_fields)
  */
 
 #include <pybind11/pybind11.h>
@@ -33,9 +34,12 @@ under the License.
 #include <pybind11/stl.h>
 
 #include <onika/scg/operator_slot.h>
+#include <onika/python/slot_extractor_api.h>
 #include <exanb/compute/simulation_statistics.h>
 #include <exanb/grid_cell_particles/grid_cell_values.h>
+#include <exanb/core/particle_field_bundle.h>
 
+#include <cstring>
 #include <functional>
 #include <typeindex>
 
@@ -45,18 +49,16 @@ using OSB = onika::scg::OperatorSlotBase;
 // ---------------------------------------------------------------------------
 // Retrieve register_slot_extractor via pyonika's Python capsule attribute.
 // ---------------------------------------------------------------------------
-using SlotExtractorFn = std::function<py::object(OSB&)>;
-using RegisterFn = void(*)(std::type_index, SlotExtractorFn);
+using RegisterFn = onika::python::RegisterSlotExtractorFn;
 
+// versioned registration function published by pyonika (ImportError if incompatible)
 static RegisterFn get_register_fn()
 {
-  py::module_ pyonika = py::module_::import("pyonika");
-  py::capsule cap = pyonika.attr("_register_slot_extractor_fn").cast<py::capsule>();
-  return reinterpret_cast<RegisterFn>(cap.get_pointer());
+  return onika::python::slot_extractor_registry();
 }
 
 // ---------------------------------------------------------------------------
-// Tier 1: SimulationStatistics extractor
+// SimulationStatistics extractor
 // ---------------------------------------------------------------------------
 static void register_simulation_statistics(RegisterFn reg)
 {
@@ -80,11 +82,11 @@ static void register_simulation_statistics(RegisterFn reg)
 }
 
 // ---------------------------------------------------------------------------
-// Tier 2: GridCellValues wrapper and extractor
+// GridCellValues wrapper and extractor
 //
-// GCVView holds a raw pointer to GridCellValues in the operator slot.
-// The caller must keep the ApplicationContext alive for as long as any
-// numpy array produced by GCVView.field() is in use.
+// GCVView holds a raw pointer to GridCellValues in the operator slot: keep the
+// ApplicationContext alive while the view is used.  Arrays returned by field()
+// and field_inner() are copies (pybind11 copies a buffer_info without base).
 // ---------------------------------------------------------------------------
 struct GCVView
 {
@@ -107,13 +109,40 @@ static void register_grid_cell_values(RegisterFn reg)
 }
 
 // ---------------------------------------------------------------------------
+// ParticleFieldBundle extractor: one numpy array per field, shape (count,)+shape,
+// in the field's native dtype.  Arrays own a copy of the data.
+// ---------------------------------------------------------------------------
+static void register_particle_field_bundle(RegisterFn reg)
+{
+  using PFB = exanb::ParticleFieldBundle;
+  reg(
+    std::type_index(typeid(PFB)),
+    [](OSB& slot) -> py::object {
+      auto* typed = static_cast<onika::scg::OperatorSlot<PFB>*>(&slot);
+      if (!typed->has_value()) return py::none();
+      const PFB& b = **typed;
+      py::dict d;
+      for (const auto& [name, col] : b.columns)
+      {
+        std::vector<py::ssize_t> shape { static_cast<py::ssize_t>(b.count) };
+        for (auto s : col.shape) shape.push_back(static_cast<py::ssize_t>(s));
+        py::array a( py::dtype("=" + col.dtype), shape );
+        if (!col.data.empty()) std::memcpy(a.mutable_data(), col.data.data(), col.data.size());
+        d[py::str(name)] = a;
+      }
+      return d;
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Module initialisation
 // ---------------------------------------------------------------------------
 PYBIND11_MODULE(_exanb_data, m)
 {
   m.doc() = "exaNBody-specific slot extractors for pyonika's slot_as_array registry";
 
-  // Tier 2 wrapper class — exposes GridCellValues fields as zero-copy numpy arrays.
+  // Wrapper class exposing GridCellValues fields as numpy arrays (copies).
   py::class_<GCVView>(m, "GridCellValuesView")
     .def_property_readonly("field_names", [](const GCVView& v) {
       py::list names;
@@ -181,7 +210,7 @@ PYBIND11_MODULE(_exanb_data, m)
     // subdiv==1, ncomps> 1 → shape (inx, iny, inz, ncomps)
     // subdiv> 1, ncomps==1 → shape (inx, iny, inz, S, S, S)
     // subdiv> 1, ncomps> 1 → shape (inx, iny, inz, S, S, S, ncomps)
-    // Zero-copy: cell and sub-cell strides span the ghost border without touching it.
+    // Cell and sub-cell strides skip the ghost border.
     .def("field_inner", [](const GCVView& v, const std::string& name) -> py::object {
       if (!v.ptr->has_field(name)) return py::none();
       const auto& f = v.ptr->field(name);
@@ -226,4 +255,5 @@ PYBIND11_MODULE(_exanb_data, m)
   RegisterFn reg = get_register_fn();
   register_simulation_statistics(reg);
   register_grid_cell_values(reg);
+  register_particle_field_bundle(reg);
 }

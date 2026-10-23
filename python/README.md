@@ -49,7 +49,7 @@ exaNBody/
 │   ├── pyexanbody/
 │   │   ├── __init__.py             ← env setup, MPI init, re-export, helpers
 │   │   └── _paths.py.in            ← CMake template → _paths.py (baked install paths)
-│   └── exemples/
+│   └── examples/
 │       ├── pyexanbody_dryrun_test_import_pyexanbody.py   ← import smoke test
 │       ├── pyexanbody_run_main_config.py                 ← Pattern A + full graph/slot inspection
 │       ├── pyexanbody_run_example.py                     ← list / find / run installed examples
@@ -82,31 +82,47 @@ cmake --build  build-exanbody
 cmake --install build-exanbody
 ```
 
-No extra C++ files need to be written — the only compiled output is
-`_exanb_data.<platform>.so`.  The `pyexanbody` package itself is pure Python.
+The package is installed under `<prefix>/python` with a generated
+`pyproject.toml`, so it can be installed into a virtual environment (after
+`pyonika`, built the same way by onika):
+
+```bash
+pip install /path/to/install-onika/python /path/to/install-exanbody/python
+```
+
+Install paths are baked in `_paths.py`: importing `pyexanbody` sets
+`ONIKA_PLUGIN_PATH`, `ONIKA_CONFIG_PATH` and `ONIKA_DATA_PATH` itself (values
+already set by the user, e.g. from `setup-env.sh`, take precedence), so no
+environment script is needed.  Alternatively, `bin/setup-env.sh` adds
+`<prefix>/python` to `PYTHONPATH`.
 
 **Install layout:**
 
 ```
 install-exanbody/
 ├── bin/
-│   └── setup-env.sh              ← sets PYTHONPATH, ONIKA_PLUGIN_PATH, …
-├── lib/
-│   ├── libexanbCore.so           ← needed at dlopen time by plugin .so files
-│   └── pyexanbody/
-│       ├── __init__.py
-│       ├── _paths.py             ← generated: ONIKA_INSTALL_DIR, XNB_INSTALL_DIR
-│       └── _exanb_data.<plat>.so
-├── plugins/                      ← 14 exaNBody plugin .so files
+│   └── setup-env.sh              ← optional: sets PYTHONPATH, ONIKA_PLUGIN_PATH, …
+├── cmake/XNBPythonPackage.cmake  ← xnb_add_python_package(), for applications
+├── lib/                          ← libexanbCore.so, …
+├── plugins/                      ← exaNBody plugin .so files
 ├── data/config/
 │   └── main-config.msp           ← exaNBody default config
 ├── share/
-│   ├── examples/                 ← installed .msp example files
+│   ├── microCosmos_examples/     ← installed .msp example files
+│   ├── microStamp_examples/
 │   ├── potentials/               ← SNAP / LJ potential files (EXANB_BUILD_MICROSTAMP)
 │   └── …
 └── python/
-    └── exemples/                 ← installed example scripts
+    ├── pyproject.toml            ← pip install <prefix>/python
+    ├── pyexanbody/
+    │   ├── __init__.py
+    │   ├── _paths.py             ← generated: ONIKA_INSTALL_DIR, XNB_INSTALL_DIR
+    │   └── _exanb_data.<plat>.so
+    └── examples/                 ← example scripts
 ```
+
+Applications built on exaNBody (e.g. exaStamp) create their own package with
+`xnb_add_python_package()`, made available by `find_package(exaNBody)`.
 
 After install, source the environment script before running any Python script:
 
@@ -129,9 +145,9 @@ xnb.run_example("solar_system.msp")
 xnb.run_file("my_sim.msp")
 ```
 
-> **Examples:** `exemples/pyexanbody_dryrun_test_import_pyexanbody.py` (smoke test),
-> `exemples/pyexanbody_run_main_config.py` (Pattern A + full graph/slot inspection),
-> `exemples/pyexanbody_run_solar_system.py` (run solar_system.msp by name or path).
+> **Examples:** `examples/pyexanbody_dryrun_test_import_pyexanbody.py` (smoke test),
+> `examples/pyexanbody_run_main_config.py` (Pattern A + full graph/slot inspection),
+> `examples/pyexanbody_run_solar_system.py` (run solar_system.msp by name or path).
 
 ```python
 import pyexanbody as xnb, sys, os
@@ -172,7 +188,7 @@ xnb.run_node(ctx, graph)
 xnb.end(ctx)
 ```
 
-> **Example:** `exemples/pyexanbody_reproduce_solar_system_case.py` — full Python
+> **Example:** `examples/pyexanbody_reproduce_solar_system_case.py` — full Python
 > reproduction of `solar_system.msp` without reading the `.msp` file.
 
 ```python
@@ -204,7 +220,7 @@ xnb.run_node(ctx, graph)
 xnb.end(ctx)
 ```
 
-> **Example:** `exemples/pyexanbody_patch_defaults.py`.
+> **Example:** `examples/pyexanbody_patch_defaults.py`.
 
 ---
 
@@ -248,7 +264,8 @@ catalogue of ~213 operators.
 | `set_operator_defaults(dict)` | Merge named operator defaults |
 | `get_operator_defaults()` | Current operator defaults as a dict |
 | `build_simulation_graph(ctx, list)` | Build a simulation graph from a Python list |
-| `slot_as_array(slot)` | Zero-copy numpy view of a slot value |
+| `slot_as_array(slot)` | numpy array / Python object copied from a slot value |
+| `particles(ctx_or_graph)` | Per-particle fields from an `extract_particle_fields` node |
 | `ApplicationContext` | Simulation state: MPI, GPU/CPU counts, graph, profiling |
 | `OperatorNode` | Graph node: slots, traversal, numpy access |
 | `OperatorSlotBase` | One input/output slot: type, value, direction |
@@ -281,7 +298,7 @@ filenames.
 
 ```python
 path = xnb.find_example("solar_system.msp")
-# → '.../install-exanbody/share/examples/simple_example/solar_system.msp'
+# → '.../install-exanbody/share/microCosmos_examples/simple_example/solar_system.msp'
 ```
 
 Raises `FileNotFoundError` if no match is found, including the list of
@@ -312,8 +329,8 @@ xnb.run_file("my_sim.msp")
 > `configuration:` YAML keys (not simulation parameters like `global`).  Use
 > `set_operator_defaults()` after `init()` to override simulation parameters.
 
-> **Examples:** `exemples/pyexanbody_run_example.py` (list / find / run any installed example),
-> `exemples/pyexanbody_run_solar_system.py` (run solar_system.msp by name or path).
+> **Examples:** `examples/pyexanbody_run_example.py` (list / find / run any installed example),
+> `examples/pyexanbody_run_solar_system.py` (run solar_system.msp by name or path).
 
 ---
 
@@ -348,13 +365,13 @@ information about which nodes were visited and what `slot_as_array` returned.
 `first_iteration` and `print_log_if_triggered`.  The returned dict is a copy
 by value — safe to use after `end()`.
 
-> **Example:** `exemples/pyexanbody_read_sim_stats.py`.
+> **Example:** `examples/pyexanbody_read_sim_stats.py`.
 
 ---
 
 #### `xnb.read_cell_values(graph, field_name: str) → numpy.ndarray | None`
 
-Return a zero-copy numpy array for a named grid cell field, with ghost cells
+Return a numpy array (a copy) for a named grid cell field, with ghost cells
 stripped.  Walks the graph looking for the first operator with a
 `grid_cell_values` slot that contains `field_name`, and returns
 `GridCellValuesView.field_inner(field_name)`.
@@ -366,7 +383,7 @@ density = xnb.read_cell_values(graph, "density")
 ```
 
 Returns `None` if no matching node or field is found.  The returned array is a
-zero-copy view — keep the `ApplicationContext` alive while it is in use.
+copy and stays valid after `end()`.
 
 For full control, access the `GridCellValuesView` directly via
 `node.slot_as_array("grid_cell_values")`:
@@ -377,47 +394,40 @@ print(gcv.field_names)              # list of registered field names
 print(gcv.shape, gcv.ghost_layers)  # stored dims (incl. ghosts), ghost count
 
 raw   = gcv.field("density")        # (n_cells,) — all cells + ghost border
-inner = gcv.field_inner("density")  # (inx, iny, inz) — domain only, zero-copy
+inner = gcv.field_inner("density")  # (inx, iny, inz) — domain only
 ```
 
-> **Example:** `exemples/pyexanbody_read_cell_values.py`.
+> **Example:** `examples/pyexanbody_read_cell_values.py`.
 
 ---
 
-#### Per-particle fields — `extract_particle_field` operator
+#### Per-particle fields — `extract_particle_fields` operator and `xnb.particles()`
 
-Per-particle data (positions, velocities, forces, …) is extracted by adding
-one `extract_particle_field` operator per field to the simulation graph.  Each
-operator copies its field from the cell-of-SoA grid into a contiguous
-`std::vector<double>` output slot, readable as a zero-copy numpy array via
-`slot_as_array("data")`.
+Per-particle data is copied by an `extract_particle_fields` operator placed in
+the simulation graph (e.g. in `simulation_epilog` or `final_dump`), then read
+with `xnb.particles()` before `end()`:
 
 ```python
-import numpy as np
-
-xnb.set_operator_defaults({
-    "final_dump": [
-        {"extract_particle_field": {"field_name": f}}
-        for f in ["rx", "ry", "rz", "vx", "vy", "vz"]
-    ],
-    "dump_data": "nop",
-})
-graph = xnb.build_simulation_graph(ctx, ["default_simulation"])
-xnb.run_node(ctx, graph)
-
-particle_data = {}
-def collect(node):
-    if node.name().startswith("extract_particle_field"):
-        fname = node.slot_values().get("field_name", "").strip("'\"")
-        arr   = node.slot_as_array("data")
-        if arr is not None and fname:
-            particle_data[fname] = np.array(arr, copy=True)
-graph.apply_graph(collect)
-
-pos = np.stack([particle_data[f] for f in ["rx","ry","rz"]], axis=1)  # (N, 3)
+ctx = xnb.init(xnb.pyonika.command_line("solar_system.msp", overrides={
+    "simulation_epilog": [{"extract_particle_fields": {"fields": ["rx", "ry", "rz", "vx", "vy", "vz"]}}],
+}))
+xnb.run(ctx)
+p = xnb.particles(ctx)          # {"rx": (N,), ..., "id": (N,)}
+pos = np.stack([p["rx"], p["ry"], p["rz"]], axis=1)
+xnb.end(ctx)
 ```
 
-> **Example:** `exemples/pyexanbody_extract_particle_data.py`.
+All fields share the same particle order and keep their native dtype; `id` is
+always included.  Vector and tensor fields of applications keep their shape:
+`Vec3d` → `(N,3)`, `Mat3d` → `(N,3,3)`, `Quaternion` → `(N,4)` (w,x,y,z).
+An empty `fields` list copies every field.  Unknown field names raise an
+error listing the available ones.
+
+The older `extract_particle_field` operator (one scalar field per operator,
+cast to double, read with `node.slot_as_array("data")`) is kept for
+compatibility.
+
+> **Example:** `examples/pyexanbody_extract_particle_data.py`.
 
 ---
 
@@ -446,7 +456,7 @@ exaNBody-specific keys follow the same pattern:
 | `simulation: default_simulation` | `build_simulation_graph(ctx, ["default_simulation"])` |
 | `run exaNBody my_sim.msp` | `xnb.run_file("my_sim.msp")` |
 
-> **Example:** `exemples/pyexanbody_reproduce_solar_system_case.py` — full Python
+> **Example:** `examples/pyexanbody_reproduce_solar_system_case.py` — full Python
 > reproduction of `solar_system.msp` using `set_operator_defaults()` +
 > `build_simulation_graph()`, without reading the `.msp` file.
 
@@ -477,7 +487,7 @@ for niter in [2, 5, 10]:
     xnb.end(ctx)
 ```
 
-> **Example:** `exemples/pyexanbody_parameter_sweep.py`.
+> **Example:** `examples/pyexanbody_parameter_sweep.py`.
 
 ---
 
@@ -505,7 +515,7 @@ is owned by an `OperatorSlot` inside the simulation graph, which is in turn
 owned by the `ApplicationContext`.  As long as `ctx` is alive (and `end()` has
 not been called), the pointer is valid.
 
-> **Example:** `exemples/pyexanbody_read_cell_values.py` (zero-copy access and
+> **Example:** `examples/pyexanbody_read_cell_values.py` (zero-copy access and
 > safe-copy pattern demonstrated side by side).
 
 ---
@@ -878,4 +888,4 @@ work without `setup-env.sh` as long as the install directories have not moved.
 - `_exanb_data.<platform>.so` → `lib/pyexanbody/`
 - `pyexanbody/__init__.py` + generated `_paths.py` → `lib/pyexanbody/`
 - `README.md` → `python/`
-- All example scripts → `python/exemples/`
+- All example scripts → `python/examples/`
