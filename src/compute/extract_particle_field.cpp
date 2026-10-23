@@ -27,6 +27,7 @@ under the License.
 #include <exanb/core/make_grid_variant_operator.h>
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace exanb
@@ -77,21 +78,30 @@ namespace exanb
 
       using value_type = typename onika::soatl::FieldId<FID>::value_type;
 
-      auto cells      = grid->cells();
-      IJK  dims       = grid->dimension();
-      ssize_t gl      = *include_ghosts ? 0 : ssize_t( grid->ghost_layers() );
-      IJK  inner      = dims - (2 * gl);
-
-      for ( ssize_t k = 0; k < inner.k; ++k )
-      for ( ssize_t j = 0; j < inner.j; ++j )
-      for ( ssize_t i = 0; i < inner.i; ++i )
+      // only scalar fields can be cast to double (e.g. exaStamp's virial is a Mat3d)
+      if constexpr ( std::is_arithmetic_v<value_type> )
       {
-        IJK loc { i + gl, j + gl, k + gl };
-        ssize_t ci = grid_ijk_to_index( dims, loc );
-        size_t   n = cells[ci].size();
-        const value_type* ptr = cells[ci][fobj];
-        for ( size_t p = 0; p < n; ++p )
-          data->push_back( static_cast<double>( ptr[p] ) );
+        auto cells      = grid->cells();
+        IJK  dims       = grid->dimension();
+        ssize_t gl      = *include_ghosts ? 0 : ssize_t( grid->ghost_layers() );
+        IJK  inner      = dims - (2 * gl);
+
+        for ( ssize_t k = 0; k < inner.k; ++k )
+        for ( ssize_t j = 0; j < inner.j; ++j )
+        for ( ssize_t i = 0; i < inner.i; ++i )
+        {
+          IJK loc { i + gl, j + gl, k + gl };
+          ssize_t ci = grid_ijk_to_index( dims, loc );
+          size_t   n = cells[ci].size();
+          const value_type* ptr = cells[ci][fobj];
+          for ( size_t p = 0; p < n; ++p )
+            data->push_back( static_cast<double>( ptr[p] ) );
+        }
+      }
+      else
+      {
+        fatal_error() << "extract_particle_field: field '" << *field_name
+                      << "' is not a scalar field, use extract_particle_fields instead" << std::endl;
       }
     }
 
