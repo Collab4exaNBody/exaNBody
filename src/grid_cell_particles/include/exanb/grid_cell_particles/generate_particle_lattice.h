@@ -19,6 +19,8 @@ under the License.
 
 #pragma once
 
+#include <sstream>
+
 #include <exanb/core/grid.h>
 #include <exanb/core/parallel_grid_algorithm.h>
 #include <exanb/core/domain.h>
@@ -220,7 +222,17 @@ namespace exanb
     //std::vector<unsigned long> particle_type_count( n_particles_cell , 0 );
     size_t n_particles_cell = lattice.m_np;
     std::vector<unsigned int> particle_type_id(n_particles_cell);
-    for(size_t i=0;i<n_particles_cell;i++) { particle_type_id[i] = typeMap.at( lattice.m_types.at(i) ); }
+    for(size_t i=0;i<n_particles_cell;i++)
+    {
+      auto it = typeMap.find( lattice.m_types.at(i) );
+      if( it == typeMap.end() )
+      {
+        std::ostringstream known;
+        for(const auto& t : typeMap) known << " " << t.first;
+        fatal_error() << "lattice: type '" << lattice.m_types.at(i) << "' is not a declared particle type. Known types:" << known.str() << std::endl;
+      }
+      particle_type_id[i] = it->second;
+    }
     if( typeMap.size()>1 && !has_field_type )
     {
       lerr<<"Warning: particle type is ignored"<<std::endl;
