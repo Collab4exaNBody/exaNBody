@@ -83,11 +83,11 @@ jobs:
         GALLIUM_DRIVER: llvmpipe
         MESA_GL_VERSION_OVERRIDE: "4.6"
         MESA_GLSL_VERSION_OVERRIDE: "460"
-      run: xvfb-run -a ctest -R "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+      run: xvfb-run -a ctest -C ${{env.BUILD_TYPE}} -R "egl" --output-on-failure
 
     - name: Run exaNBody Tests (Others)
       working-directory: ${{github.workspace}}/build
-      run: ctest -E "egl" -C --rerun-failed --output-on-failure ${{env.BUILD_TYPE}}
+      run: ctest -C ${{env.BUILD_TYPE}} -E "egl" --output-on-failure
       
     # - name: Get latest exaStamp release
     #   id: exastamp_release
