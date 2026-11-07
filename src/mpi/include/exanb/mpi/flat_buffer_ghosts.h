@@ -37,6 +37,9 @@ namespace exanb
    * m_row_size values of type float or double, m_row_stride values apart.
    * ghost_update_flat_buffer copies owner rows to their ghost images, update_flat_buffer_from_ghost sums ghost rows
    * into their owners, following the ghost communication scheme of the last ghost update (same particles, same order).
+   * Unlike ghost_update_opt / update_opt_from_ghost (grid-owned optional fields of type double, Vec3d or Mat3d),
+   * rows can be any number of float or double values, the buffer stays owned by the caller, and
+   * flat_buffer_ghost_exchange can be called directly from C++, several times inside one operator.
    */
   struct GhostFlatBuffer
   {

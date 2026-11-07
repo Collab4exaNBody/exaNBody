@@ -49,8 +49,8 @@ cell) from owner particles to their ghost images, following the ghost communicat
 Meant for wide per-particle data owned by a potential between two passes (e.g. message-passing networks). The slot
 flat_buffer is usually rebound to the producer's output:
 
-  grace_msg_forward:
-    rebind: { flat_buffer: grace_message }
+  potential_msg_forward:
+    rebind: { flat_buffer: potential_message }
     body: [ ghost_update_flat_buffer ]
 )EOF";
       else return R"EOF(
@@ -58,8 +58,8 @@ Sums the rows of a per-particle flat buffer (GhostFlatBuffer, grid flat order) o
 their owners, following the ghost communication scheme of the last ghost update (ghost rows are left unchanged).
 The reverse of ghost_update_flat_buffer, e.g. for gradients of per-particle messages:
 
-  grace_msg_reverse:
-    rebind: { flat_buffer: grace_message_grad }
+  potential_msg_reverse:
+    rebind: { flat_buffer: potential_message_grad }
     body: [ update_flat_buffer_from_ghost ]
 )EOF";
     }
