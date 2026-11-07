@@ -34,7 +34,8 @@ namespace exanb
 {
 
   using VertexArray = onika::memory::CudaMMVector< onika::math::Vec3d >;
-  using TriangleConnectivity = onika::oarray_t<uint64_t,3>;
+  // already declared in exanb/mesh/triangle.h (included above transitively via triangle.h);
+  // kept as size_t there (not uint64_t) since on Darwin they're distinct types
   using TriangleConnectivityArray = onika::memory::CudaMMVector< TriangleConnectivity >;
   using VertexTriangleCountArray = onika::memory::CudaMMVector<unsigned int>;
 
