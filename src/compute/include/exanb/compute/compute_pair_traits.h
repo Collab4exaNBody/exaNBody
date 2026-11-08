@@ -38,6 +38,7 @@ namespace exanb
     static inline constexpr bool HasParticleContext           = false;
     static inline constexpr bool HasParticleContextStop       = false;
     static inline constexpr bool RequiresNbhOptionalData      = true;
+    static inline constexpr bool ComputeEmptyNeighborhood     = false; // true: the functor is also called for particles without neighbors (n=0)
   };
 
 # define COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT(name,member) \
@@ -56,6 +57,7 @@ namespace exanb
     COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_start_v      , HasParticleContextStart );
     COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( has_particle_context_stop_v       , HasParticleContextStop );
     COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( requires_nbh_optional_data_v      , RequiresNbhOptionalData );
+    COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT( compute_empty_neighborhood_v      , ComputeEmptyNeighborhood );
   }
 
 # undef COMPUTE_PAIR_BUFFER_SFINAE_TEST_MEMBER_OR_DEFAULT
