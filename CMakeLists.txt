@@ -175,6 +175,17 @@ endfunction()
 add_subdirectory(src)
 add_subdirectory(contribs)
 
+# Python packages: helper available to exaNBody and to end-user applications
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/XNBPythonPackage.cmake)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/XNBPythonPackage.cmake DESTINATION cmake)
+file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Python package helper (xnb_add_python_package)\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "include(${XNB_ROOT_DIR}/cmake/XNBPythonPackage.cmake)\n")
+
+option(EXANB_BUILD_PYTHON "Build Python (pyexanbody) package" OFF)
+if(EXANB_BUILD_PYTHON)
+  add_subdirectory(python)
+endif()
+
 # optional search path configuration is per end user application
 file(APPEND ${XNB_CMAKE_PACKAGE} "\n# Optional search directories for data files\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "set(\${XNB_APP_NAME}_DATA_DIRS \"${XNB_DATA_DIRS}\" CACHE STRING \"Set of paths to search data files without relative paths\")\n")
@@ -189,6 +200,7 @@ file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_CONFIG_PATH=\${CMAKE_INSTALL_PREFIX}/data/config\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_PLUGIN_PATH=\${onika_DIR}/plugins:\${exaNBody_DIR}/plugins:\${CMAKE_INSTALL_PREFIX}/plugins\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export ONIKA_DATA_PATH=\${\${XNB_APP_NAME}_DATA_DIRS}\\n\")\n")
+file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"export PYTHONPATH=\${CMAKE_INSTALL_PREFIX}/python:\\\$PYTHONPATH\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  file(APPEND \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh \"[ \\\$ONIKA_DEBUG ] && echo \\\"\${XNB_APP_NAME} environment : LD_LIBRARY_PATH=\\\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\\\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\\\$ONIKA_PLUGIN_PATH , ONIKA_DATA_PATH=\\\$ONIKA_DATA_PATH\\\"\\n\")\n")
 file(APPEND ${XNB_CMAKE_PACKAGE} "  install(PROGRAMS \${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)\n")
 
@@ -221,6 +233,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh
   "export LD_LIBRARY_PATH=${CMAKE_INSTALL_PREFIX}/lib:\$LD_LIBRARY_PATH\n"
   "export ONIKA_CONFIG_PATH=${CMAKE_INSTALL_PREFIX}/data/config\n"
   "export ONIKA_PLUGIN_PATH=${onika_DIR}/plugins:${CMAKE_INSTALL_PREFIX}/plugins\n"
+  "export PYTHONPATH=${CMAKE_INSTALL_PREFIX}/python:\$PYTHONPATH\n"
   "[ \$ONIKA_DEBUG ] && echo \"exaNBody environment : LD_LIBRARY_PATH=\$LD_LIBRARY_PATH , ONIKA_CONFIG_PATH=\$ONIKA_CONFIG_PATH , ONIKA_PLUGIN_PATH=\$ONIKA_PLUGIN_PATH\"\n")
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/bin/setup-env.sh DESTINATION bin)
 
