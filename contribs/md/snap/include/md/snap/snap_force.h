@@ -100,6 +100,8 @@ namespace md
 
     ADD_SLOT( onika::memory::CudaMMVector<double> , snap_atom_coefs , INPUT , OPTIONAL , DocString{"per-particle coefficients (beta0..betancoeff), replace per-species ones (e.g. electronic temperature dependent SNAP)"} );
 
+    ADD_SLOT( bool                  , generic_path      , INPUT , false , DocString{"use the generic implementation even when a specialized one exists (mono-element, twojmax 6 or 8). The generic implementation allocates temporary arrays on the GPU heap, see init_cuda.device_limits.cudaLimitMallocHeapSize"} );
+
     ADD_SLOT( SnapContext           , snap_ctx          , PRIVATE );
 
     // shortcut to the Compute buffer used (and passed to functor) by compute_cell_particle_pairs
@@ -384,7 +386,7 @@ namespace md
       
       bool fallback_to_generic = false;
       const int JMax = snap_ctx->sna->twojmax / 2;
-      if( snap_ctx->sna->nelements == 1 )
+      if( snap_ctx->sna->nelements == 1 && ! *generic_path )
       {
              if( JMax == 3 ) snap_compute_specialized_snapconf( ROParamsMonoElem<3>(snap_ctx->sna) , onika::BoolConst<SnapSharedComputeBuffer>{} );
         else if( JMax == 4 ) snap_compute_specialized_snapconf( ROParamsMonoElem<4>(snap_ctx->sna) , onika::BoolConst<SnapSharedComputeBuffer>{} );

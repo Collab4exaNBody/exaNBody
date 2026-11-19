@@ -20,6 +20,7 @@ under the License.
 #pragma once
 
 #include <onika/cuda/cuda.h>
+#include <cstdio>
 
 namespace md
 {
@@ -49,7 +50,16 @@ namespace md
     ONIKA_HOST_DEVICE_FUNC
     inline void alloc_array()
     {
-      if( m_ptr == nullptr ) m_ptr = new real_t [ m_array_size * 2 ];
+      if( m_ptr == nullptr )
+      {
+        m_ptr = new real_t [ m_array_size * 2 ];
+        // device side new returns nullptr when the CUDA malloc heap is exhausted
+        if( m_ptr == nullptr )
+        {
+          printf("SNAP: GPU heap exhausted allocating %d temporary values, increase init_cuda.device_limits.cudaLimitMallocHeapSize\n", int(m_array_size * 2) );
+          ONIKA_CU_ABORT();
+        }
+      }
     }
     
     ONIKA_HOST_DEVICE_FUNC

@@ -21,6 +21,7 @@ under the License.
 #include <exanb/core/make_grid_variant_operator.h>
 #include <exanb/io/write_xyz.h>
 #include <exanb/core/grid_additional_fields.h>
+#include <cmath>
 
 namespace exanb
 {
@@ -37,7 +38,7 @@ namespace exanb
     ADD_SLOT( bool            , ghost    , INPUT , false );
     ADD_SLOT( std::string     , filename , INPUT , "output"); // default value for backward compatibility
     ADD_SLOT( StringList      , fields   , INPUT , StringList({".*"}) , DocString{"List of regular expressions to select fields to write"} );
-    ADD_SLOT( StringMap       , units    , INPUT , StringMap( { {"position","m"} , {"velocity","m/s"} , {"force","m/s/kg"} } ) , DocString{"Units to be used for specific fields."} );
+    ADD_SLOT( StringMap       , units    , INPUT , StringMap{} , DocString{"Output units per field short name, e.g. { velocity: m/s , ep: eV , force: eV/ang }. Values are converted from internal units. Position is always written in internal length units."} );
     ADD_SLOT( StringMap       , field_alias , INPUT , StringMap( { {"position","pos"} , {"velocity","vel"} } ) , DocString{"Optional field renaming for shorter names."} );
     ADD_SLOT( ParticleTypeProperties , particle_type_properties , INPUT , ParticleTypeProperties{} );
     ADD_SLOT( double          , physical_time  , INPUT , 0.0 );
@@ -58,7 +59,9 @@ namespace exanb
         bool conv_ok = false;
         auto q = onika::physics::quantity_from_string( s , conv_ok );
         if( ! conv_ok ) { fatal_error() << "Failed to parse unit string '"<<s<<"'"<<std::endl; }
-        conv_scale[umap.first] = q.convert();
+        const double one_unit = q.convert(); // value of 1 <unit> in internal units
+        if( ! std::isfinite(one_unit) || one_unit == 0.0 ) { fatal_error() << "Invalid unit '"<<umap.second<<"' for field "<<umap.first<<std::endl; }
+        conv_scale[umap.first] = 1.0 / one_unit; // internal -> requested unit
       }
 
       // property name for position must be 'Position'

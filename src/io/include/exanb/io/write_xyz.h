@@ -147,7 +147,6 @@ namespace exanb
       template<class T, class FieldIdT = no_field_id_t >
       inline int operator () (char* buf, int bufsize, const T& in_v , FieldIdT f = {} ) const
       {
-        static const std::string field_short_name( f.short_name() );
         double conv = 1.0;
         if constexpr ( ! std::is_same_v<FieldIdT,no_field_id_t> )
         {
@@ -330,7 +329,7 @@ namespace exanb
           }
           *buf = ' ';
           auto f_acc = grid.field_const_accessor(pfield);
-          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][f_acc][p] );
+          n = 1 + formatter( buf + 1 , capacity - 1 , cells[c][f_acc][p] , pfield ); // field id selects the unit conversion
           if( capacity < n )
           {
             fatal_error() << "unexpected buffer overflow" << std::endl;

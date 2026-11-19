@@ -215,7 +215,7 @@ namespace exanb
         static constexpr bool callable_with_locks = onika::lambda_is_callable_with_args_v<FuncT,decltype(tab.count),decltype(tab),decltype(cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part]) ... , decltype(cells) , decltype(optional.locks) , decltype(cell_a_locks[tab.part]) >;
         static constexpr bool trivial_locks = std::is_same_v< decltype(optional.locks) , ComputePairOptionalLocks<false> >;
         static constexpr bool call_with_locks = !trivial_locks && callable_with_locks;    
-        if( tab.count > 0 )
+        if( tab.count > 0 || compute_pair_traits::compute_empty_neighborhood_v<FuncT> )
         {
           if constexpr ( call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells , optional.locks , cell_a_locks[tab.part] );
           if constexpr (!call_with_locks ) func( tab.count, tab, cells[cell_a][cp_fields.get(onika::tuple_index_t<FieldIndex>{})][tab.part] ... , cells );
