@@ -34,7 +34,7 @@ namespace exanb
 {
 
   using VertexArray = onika::memory::CudaMMVector< onika::math::Vec3d >;
-  using TriangleConnectivity = onika::oarray_t<uint64_t,3>;
+  // TriangleConnectivity is declared in triangle.h
   using TriangleConnectivityArray = onika::memory::CudaMMVector< TriangleConnectivity >;
   using VertexTriangleCountArray = onika::memory::CudaMMVector<unsigned int>;
 

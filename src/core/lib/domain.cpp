@@ -353,11 +353,21 @@ namespace YAML
     node["grid_dims"] = domain.grid_dimension();
     node["cell_size"]["value"] = domain.cell_size();
     node["cell_size"]["unity"] = "ang";
-    std::vector<bool> p = { domain.periodic_boundary_x(), domain.periodic_boundary_y(), domain.periodic_boundary_z() };
-    node["periodic"] = p;
+    // yaml-cpp can't convert libc++ std::vector<bool>
+    Node pnode(NodeType::Sequence);
+    pnode.push_back( bool(domain.periodic_boundary_x()) );
+    pnode.push_back( bool(domain.periodic_boundary_y()) );
+    pnode.push_back( bool(domain.periodic_boundary_z()) );
+    node["periodic"] = pnode;
     node["expandable"] = domain.expandable();
-    std::vector<bool> m = { domain.mirror_x_min(),domain.mirror_x_max(), domain.mirror_y_min(),domain.mirror_y_max(), domain.mirror_z_min(),domain.mirror_z_max() };
-    node["mirror"] = m;
+    Node mnode(NodeType::Sequence);
+    mnode.push_back( bool(domain.mirror_x_min()) );
+    mnode.push_back( bool(domain.mirror_x_max()) );
+    mnode.push_back( bool(domain.mirror_y_min()) );
+    mnode.push_back( bool(domain.mirror_y_max()) );
+    mnode.push_back( bool(domain.mirror_z_min()) );
+    mnode.push_back( bool(domain.mirror_z_max()) );
+    node["mirror"] = mnode;
     return node;
   }
 

@@ -23,6 +23,12 @@ cmake_minimum_required(VERSION 3.26)
 project(exaNBody LANGUAGES C CXX)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
 
+# install rpath: macOS dyld ignores LD_LIBRARY_PATH
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
 # main dependency and configuation variables
 set(XNB_APP_NAME ${CMAKE_PROJECT_NAME})
 set(ONIKA_RUN_WRAPPER ${CMAKE_CURRENT_BINARY_DIR}/${XNB_APP_NAME})

@@ -571,6 +571,6 @@ void SNARealT<RealT>::compute_ncoeff()
     ncoeff = ncount;
 }
 
-template class SNARealT<double>;
-template class SNARealT<float>;
+template struct SnapInternal::SNARealT<double>;
+template struct SnapInternal::SNARealT<float>;
 
