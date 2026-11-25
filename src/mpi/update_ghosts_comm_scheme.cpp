@@ -459,7 +459,16 @@ namespace exanb
             send_scheme.m_partner_cell_i = partner_cell_i;
             send_scheme.m_flags = cell_boundary_flags;
 
+            // count first, then a single allocation : m_particle_i is GPU managed memory, and growing it
+            // particle by particle costs one cudaMallocManaged + cudaFree per growth step, for every ghost cell
+            size_t n_send = 0;
             for(size_t p_i=0;p_i<n_particles;p_i++)
+            {
+              const Vec3d r{ rx[p_i], ry[p_i], rz[p_i] };
+              if( is_inside( partner_outter_bounds, boundary.apply_r_modifier(r,cell_boundary_flags) ) ) ++ n_send;
+            }
+            send_scheme.m_particle_i.reserve( n_send );
+            for(size_t p_i=0;p_i<n_particles && send_scheme.m_particle_i.size()<n_send;p_i++)
             {
               const Vec3d r{ rx[p_i], ry[p_i], rz[p_i] };
               const Vec3d ghost_r = boundary.apply_r_modifier(r,cell_boundary_flags);
