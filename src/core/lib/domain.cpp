@@ -353,9 +353,7 @@ namespace YAML
     node["grid_dims"] = domain.grid_dimension();
     node["cell_size"]["value"] = domain.cell_size();
     node["cell_size"]["unity"] = "ang";
-    // built element-wise (not via std::vector<bool>) because yaml-cpp's
-    // convert<std::vector<bool>> doesn't instantiate against libc++'s
-    // vector<bool> proxy reference type
+    // yaml-cpp can't convert libc++ std::vector<bool>
     Node pnode(NodeType::Sequence);
     pnode.push_back( bool(domain.periodic_boundary_x()) );
     pnode.push_back( bool(domain.periodic_boundary_y()) );

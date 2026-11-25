@@ -23,10 +23,7 @@ cmake_minimum_required(VERSION 3.26)
 project(exaNBody LANGUAGES C CXX)
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release RelWithDebInfo Debug)
 
-# without an install rpath, sibling shared libs (e.g. exanbCore) can't be
-# found by dlopen'd plugins once installed; on Linux this is masked by
-# LD_LIBRARY_PATH (set in the generated setup-env.sh), but macOS's dyld
-# doesn't consult that variable at all.
+# install rpath: macOS dyld ignores LD_LIBRARY_PATH
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)

@@ -24,7 +24,7 @@ set(XNB_MPIIO_PREOPEN_FILE_PARTS "4" CACHE STRING "Number of pre-opened MPI-IO f
 set(exanbIO_COMPILE_DEFINITIONS "XNB_MPIIO_PREOPEN_FILE_PARTS=${XNB_MPIIO_PREOPEN_FILE_PARTS}")
 set(exanbIO_LINK_LIBRARIES exanbGridCellParticles exanbCompute exanbMPI ${ZLIB_LIBRARIES} basen)
 if(NOT APPLE)
-  # libc++ (macOS) has <filesystem> built in since C++17; no separate link needed
+  # libc++ needs no stdc++fs
   list(APPEND exanbIO_LINK_LIBRARIES stdc++fs)
 endif()
 #set(exanbIO_INCLUDE_DIRS ${BASEN_INCLUDE_DIRS}) 
