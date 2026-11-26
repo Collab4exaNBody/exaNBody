@@ -459,8 +459,7 @@ namespace exanb
             send_scheme.m_partner_cell_i = partner_cell_i;
             send_scheme.m_flags = cell_boundary_flags;
 
-            // count first, then a single allocation : m_particle_i is GPU managed memory, and growing it
-            // particle by particle costs one cudaMallocManaged + cudaFree per growth step, for every ghost cell
+            // count first, then allocate once (m_particle_i is CUDA managed memory: each regrowth is a cudaMallocManaged)
             size_t n_send = 0;
             for(size_t p_i=0;p_i<n_particles;p_i++)
             {
